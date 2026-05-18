@@ -35,10 +35,21 @@ import { formatCountedWord } from '~/shared/lib/pluralize'
 
 type DragType = 'item' | 'tier'
 
+interface TierDragRect
+{
+  width: number
+  height: number
+}
+
 type ActivePointerDrag =
   | { kind: 'idle' }
   | { kind: 'item'; itemId: ItemId }
-  | { kind: 'tier'; tierId: string; tier: Tier | undefined }
+  | {
+      kind: 'tier'
+      tierId: string
+      tier: Tier | undefined
+      rect: TierDragRect | null
+    }
 
 const IDLE_POINTER_DRAG: ActivePointerDrag = { kind: 'idle' }
 
@@ -245,7 +256,11 @@ export const useDragAndDrop = () =>
         state.tiers.map((entry) => String(entry.id))
       )
       const tier = state.tiers.find((entry) => entry.id === activeStringId)
-      setActiveDrag({ kind: 'tier', tierId: activeStringId, tier })
+      const initialRect = event.active.rect.current.initial
+      const rect = initialRect
+        ? { width: initialRect.width, height: initialRect.height }
+        : null
+      setActiveDrag({ kind: 'tier', tierId: activeStringId, tier, rect })
       announce(`Picked up tier ${tier?.name ?? 'tier'}`)
       return
     }
@@ -457,11 +472,13 @@ export const useDragAndDrop = () =>
   const overlayModifiers = useMemo(() => [overlayModifier], [overlayModifier])
   const activeItemId = activeDrag.kind === 'item' ? activeDrag.itemId : null
   const activeTier = activeDrag.kind === 'tier' ? activeDrag.tier : undefined
+  const activeTierRect = activeDrag.kind === 'tier' ? activeDrag.rect : null
 
   return {
     sensors,
     activeItemId,
     activeTier,
+    activeTierRect,
     collisionDetection,
     overlayModifiers,
     onDragStart,

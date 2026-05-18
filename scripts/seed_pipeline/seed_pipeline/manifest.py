@@ -25,6 +25,32 @@ def compiled_templates(compiled: JsonObject) -> Iterable[JsonObject]:
             yield template
 
 
+def iter_compiled_assets(compiled: JsonObject) -> Iterable[JsonObject]:
+    for template in compiled_templates(compiled):
+        cover = template.get("coverImage")
+        if isinstance(cover, dict):
+            yield cover
+        for item in as_list(template.get("items")):
+            if not isinstance(item, dict) or not isinstance(item.get("asset"), dict):
+                continue
+            yield item["asset"]
+
+
+def iter_compiled_asset_entries(compiled: JsonObject) -> Iterable[JsonObject]:
+    for template in compiled_templates(compiled):
+        template_external_id = str(template["externalId"])
+        cover = template.get("coverImage")
+        if isinstance(cover, dict):
+            yield {"assetKey": f"{template_external_id}:cover", "asset": cover}
+        for item in as_list(template.get("items")):
+            if not isinstance(item, dict) or not isinstance(item.get("asset"), dict):
+                continue
+            yield {
+                "assetKey": f"{template_external_id}:{item['externalId']}",
+                "asset": item["asset"],
+            }
+
+
 def chunks(items: list[Any], size: int) -> Iterable[list[Any]]:
     for index in range(0, len(items), size):
         yield items[index : index + size]

@@ -16,7 +16,7 @@ import { toast } from '~/shared/notifications/useToastStore'
 
 import { useLibraryBoardAction } from './useLibraryBoardAction'
 
-export interface DeleteLibraryBoardTarget
+interface DeleteLibraryBoardTarget
 {
   externalId: BoardId
   title: string

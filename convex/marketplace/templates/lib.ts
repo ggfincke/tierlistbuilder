@@ -14,6 +14,7 @@ import {
   loadPreviewOrTileStorageId,
   selectMediaVariantSummary,
 } from '../../lib/mediaVariants'
+import { memoizePromise } from '../../lib/cache'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
   TemplateCardAccessState,
@@ -94,6 +95,7 @@ type TemplateCardMetrics = TemplateStatsCounters & {
   weeklyViewCount: number
   trendingScore: number
   trendingComputedAt: number | null
+  rankingCount: number
 }
 
 type TemplatePatch = Partial<Omit<Doc<'templates'>, '_id' | '_creationTime'>>
@@ -106,23 +108,15 @@ const normalizeTemplatePatchForWrite = (
   return { ...patch, criteria: validateTemplateCriteria(patch.criteria) }
 }
 
-type LegacyForkCountSource = {
-  forkCount?: number
-  useCount?: number
+type TemplateCounterSource = {
+  forkCount: number
   viewCount?: number
 }
 
-export const readLegacyForkCount = (source: LegacyForkCountSource): number =>
-  typeof source.forkCount === 'number' && Number.isFinite(source.forkCount)
-    ? source.forkCount
-    : typeof source.useCount === 'number' && Number.isFinite(source.useCount)
-      ? source.useCount
-      : 0
-
 const readTemplateCounters = (
-  source: LegacyForkCountSource
+  source: TemplateCounterSource
 ): TemplateStatsCounters => ({
-  forkCount: readLegacyForkCount(source),
+  forkCount: source.forkCount,
   viewCount:
     typeof source.viewCount === 'number' && Number.isFinite(source.viewCount)
       ? source.viewCount
@@ -159,24 +153,21 @@ const getTemplateCardMetrics = (
   card: Pick<
     Doc<'templateCards'>,
     | 'forkCount'
-    | 'useCount'
     | 'viewCount'
     | 'weeklyForkCount'
     | 'weeklyViewCount'
     | 'trendingScore'
     | 'trendingComputedAt'
+    | 'rankingCount'
   >
-): TemplateCardMetrics =>
-{
-  const counters = readTemplateCounters(card)
-  return {
-    ...counters,
-    weeklyForkCount: card.weeklyForkCount ?? 0,
-    weeklyViewCount: card.weeklyViewCount ?? 0,
-    trendingScore: card.trendingScore ?? 0,
-    trendingComputedAt: card.trendingComputedAt ?? null,
-  }
-}
+): TemplateCardMetrics => ({
+  ...readTemplateCounters(card),
+  weeklyForkCount: card.weeklyForkCount,
+  weeklyViewCount: card.weeklyViewCount,
+  trendingScore: card.trendingScore,
+  trendingComputedAt: card.trendingComputedAt,
+  rankingCount: card.rankingCount,
+})
 
 const getInitialTemplateCardMetrics = (
   stats: TemplateStatsCounters
@@ -186,6 +177,7 @@ const getInitialTemplateCardMetrics = (
   weeklyViewCount: 0,
   trendingScore: 0,
   trendingComputedAt: null,
+  rankingCount: 0,
 })
 
 export const calculateTemplateTrendingScore = (params: {
@@ -618,14 +610,12 @@ export const findTemplateStatsByTemplateId = async (
       .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
       .unique()
   }
-  const cached = cache.stats.get(templateId)
-  if (cached) return await cached
-  const pending = ctx.db
-    .query('templateStats')
-    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-    .unique()
-  cache.stats.set(templateId, pending)
-  return await pending
+  return await memoizePromise(cache.stats, templateId, () =>
+    ctx.db
+      .query('templateStats')
+      .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+      .unique()
+  )
 }
 
 export const requireTemplateStats = async (
@@ -685,7 +675,7 @@ const incrementTemplateMetricDay = async (
   ctx: MutationCtx,
   template: Pick<Doc<'templates'>, '_id' | 'category'>,
   now: number,
-  metric: 'forkCount' | 'viewCount'
+  metric: keyof TemplateStatsCounters
 ): Promise<void> =>
 {
   const dayStartAt = getTemplateMetricDayStart(now)
@@ -705,7 +695,6 @@ const incrementTemplateMetricDay = async (
         metric === 'forkCount' ? current.forkCount + 1 : current.forkCount,
       viewCount:
         metric === 'viewCount' ? current.viewCount + 1 : current.viewCount,
-      useCount: undefined,
       updatedAt: now,
     })
     return
@@ -722,6 +711,36 @@ const incrementTemplateMetricDay = async (
   })
 }
 
+const incrementTemplateMetric = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>,
+  now: number,
+  metric: keyof TemplateStatsCounters
+): Promise<TemplateStatsCounters> =>
+{
+  const [stats, card] = await Promise.all([
+    requireTemplateStats(ctx, template._id),
+    requireTemplateCardByTemplateId(ctx, template._id),
+  ])
+  const current = readTemplateCounters(stats)
+  const next: TemplateStatsCounters = {
+    ...current,
+    [metric]: current[metric] + 1,
+  }
+  await Promise.all([
+    ctx.db.patch(stats._id, {
+      ...next,
+      updatedAt: now,
+    }),
+    ctx.db.patch(card._id, {
+      forkCount: next.forkCount,
+      viewCount: next.viewCount,
+    }),
+    incrementTemplateMetricDay(ctx, template, now, metric),
+  ])
+  return next
+}
+
 export const incrementTemplateForkStats = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
@@ -730,29 +749,7 @@ export const incrementTemplateForkStats = async (
 {
   const template = await ctx.db.get(templateId)
   if (!template) return failState(`template missing: ${templateId}`)
-  const [stats, card] = await Promise.all([
-    requireTemplateStats(ctx, templateId),
-    requireTemplateCardByTemplateId(ctx, templateId),
-  ])
-  const current = readTemplateCounters(stats)
-  const next = {
-    forkCount: current.forkCount + 1,
-    viewCount: current.viewCount,
-  }
-  await Promise.all([
-    ctx.db.patch(stats._id, {
-      ...next,
-      useCount: undefined,
-      updatedAt: now,
-    }),
-    ctx.db.patch(card._id, {
-      forkCount: next.forkCount,
-      viewCount: next.viewCount,
-      useCount: undefined,
-    }),
-    incrementTemplateMetricDay(ctx, template, now, 'forkCount'),
-  ])
-  return next
+  return await incrementTemplateMetric(ctx, template, now, 'forkCount')
 }
 
 export const incrementTemplateViewStats = async (
@@ -760,31 +757,7 @@ export const incrementTemplateViewStats = async (
   template: Doc<'templates'>,
   now: number
 ): Promise<TemplateStatsCounters> =>
-{
-  const [stats, card] = await Promise.all([
-    requireTemplateStats(ctx, template._id),
-    requireTemplateCardByTemplateId(ctx, template._id),
-  ])
-  const current = readTemplateCounters(stats)
-  const next = {
-    forkCount: current.forkCount,
-    viewCount: current.viewCount + 1,
-  }
-  await Promise.all([
-    ctx.db.patch(stats._id, {
-      ...next,
-      useCount: undefined,
-      updatedAt: now,
-    }),
-    ctx.db.patch(card._id, {
-      forkCount: next.forkCount,
-      viewCount: next.viewCount,
-      useCount: undefined,
-    }),
-    incrementTemplateMetricDay(ctx, template, now, 'viewCount'),
-  ])
-  return next
-}
+  await incrementTemplateMetric(ctx, template, now, 'viewCount')
 
 export const deleteTemplateParentRow = async (
   ctx: MutationCtx,
@@ -879,11 +852,9 @@ const loadAsset = async (
 ): Promise<Doc<'mediaAssets'> | null> =>
 {
   if (!cache) return await ctx.db.get(mediaAssetId)
-  const cached = cache.assets.get(mediaAssetId)
-  if (cached) return await cached
-  const pending = ctx.db.get(mediaAssetId)
-  cache.assets.set(mediaAssetId, pending)
-  return await pending
+  return await memoizePromise(cache.assets, mediaAssetId, () =>
+    ctx.db.get(mediaAssetId)
+  )
 }
 
 const loadAssetUrl = async (
@@ -893,11 +864,9 @@ const loadAssetUrl = async (
 ): Promise<string | null> =>
 {
   if (!cache) return await ctx.storage.getUrl(storageId)
-  const cached = cache.urls.get(storageId)
-  if (cached) return await cached
-  const pending = ctx.storage.getUrl(storageId)
-  cache.urls.set(storageId, pending)
-  return await pending
+  return await memoizePromise(cache.urls, storageId, () =>
+    ctx.storage.getUrl(storageId)
+  )
 }
 
 const buildMediaRef = async (
@@ -1035,15 +1004,9 @@ export const toTemplateAuthor = async (
     return await loadTemplateAuthor(ctx, authorId)
   }
 
-  const existing = cache.authors.get(authorId)
-  if (existing)
-  {
-    return await existing
-  }
-
-  const pending = loadTemplateAuthor(ctx, authorId)
-  cache.authors.set(authorId, pending)
-  return await pending
+  return await memoizePromise(cache.authors, authorId, () =>
+    loadTemplateAuthor(ctx, authorId)
+  )
 }
 
 const toAuthorDisplayName = (
@@ -1179,12 +1142,12 @@ const buildTemplateCardFields = async (
     defaultItemImageFit: template.defaultItemImageFit ?? null,
     featuredRank: template.featuredRank,
     forkCount: metrics.forkCount,
-    useCount: undefined,
     viewCount: metrics.viewCount,
     weeklyForkCount: metrics.weeklyForkCount,
     weeklyViewCount: metrics.weeklyViewCount,
     trendingScore: metrics.trendingScore,
     trendingComputedAt: metrics.trendingComputedAt,
+    rankingCount: metrics.rankingCount,
     creditLine: template.creditLine,
     searchText: buildSearchText({
       title: template.title,
@@ -1226,7 +1189,7 @@ const requireTemplateCardByTemplateId = async (
 export const writeTemplateCard = async (
   ctx: MutationCtx,
   template: TemplateCardSource,
-  stats: LegacyForkCountSource
+  stats: TemplateCounterSource
 ): Promise<void> =>
 {
   const fields = await buildTemplateCardFields(
@@ -1414,11 +1377,11 @@ export const toTemplateCardSummary = async (
     itemCount: card.itemCount,
     forkCount: counters.forkCount,
     viewCount: counters.viewCount,
-    rankingCount: card.rankingCount ?? 0,
-    weeklyForkCount: card.weeklyForkCount ?? 0,
-    weeklyViewCount: card.weeklyViewCount ?? 0,
-    trendingScore: card.trendingScore ?? 0,
-    trendingComputedAt: card.trendingComputedAt ?? null,
+    rankingCount: card.rankingCount,
+    weeklyForkCount: card.weeklyForkCount,
+    weeklyViewCount: card.weeklyViewCount,
+    trendingScore: card.trendingScore,
+    trendingComputedAt: card.trendingComputedAt,
     featuredRank: card.featuredRank,
     creditLine: card.creditLine,
     createdAt: card.createdAt,
@@ -1464,7 +1427,7 @@ export const toTemplateBase = async (
     itemCount: template.itemCount,
     forkCount: counters.forkCount,
     viewCount: counters.viewCount,
-    rankingCount: card?.rankingCount ?? 0,
+    rankingCount: metrics.rankingCount,
     weeklyForkCount: metrics.weeklyForkCount,
     weeklyViewCount: metrics.weeklyViewCount,
     trendingScore: metrics.trendingScore,
@@ -1671,30 +1634,6 @@ export const patchTemplateTagRows = async (
     .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
     .take(TAG_ROW_READ_CAP)
   await Promise.all(rows.map((row) => ctx.db.patch(row._id, fields)))
-}
-
-export const requireOwnedTemplate = async (
-  ctx: DbCtx,
-  slug: string,
-  userId: Id<'users'>
-): Promise<Doc<'templates'>> =>
-{
-  const template = await findTemplateBySlug(ctx, slug)
-  if (!template)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.notFound,
-      message: 'template not found',
-    })
-  }
-  if (template.authorId !== userId)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.forbidden,
-      message: 'not the owner of this template',
-    })
-  }
-  return template
 }
 
 export const templateTitleToBoardTitle = (title: string): string =>

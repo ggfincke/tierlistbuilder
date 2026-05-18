@@ -25,7 +25,7 @@ import { persistBoardSyncState } from '~/features/workspace/boards/model/boardSe
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { toast } from '~/shared/notifications/useToastStore'
-import { pluralizeWord } from '~/shared/lib/pluralize'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 import { logger } from '~/shared/lib/logger'
 
@@ -196,7 +196,7 @@ export const pushAllLocalBoards = async (
   if (failedBoardIds.length > 0)
   {
     deps.notify(
-      `${failedBoardIds.length} ${pluralizeWord(failedBoardIds.length, 'board')} failed to sync. They will be retried next sign-in.`,
+      `${formatCountedWord(failedBoardIds.length, 'board')} failed to sync. They will be retried next sign-in.`,
       'error'
     )
   }
@@ -204,7 +204,7 @@ export const pushAllLocalBoards = async (
   if (permanentFailedBoardIds.length > 0)
   {
     deps.notify(
-      `${permanentFailedBoardIds.length} ${pluralizeWord(permanentFailedBoardIds.length, 'board')} could not sync until its local images are available again.`,
+      `${formatCountedWord(permanentFailedBoardIds.length, 'board')} could not sync until its local images are available again.`,
       'error'
     )
   }
@@ -293,8 +293,8 @@ export const runFirstLoginBoardMerge = async (
 
             deps.notify(
               result.failedCount > 0
-                ? `Loaded ${result.pulledCount} of ${result.attemptedCount} ${pluralizeWord(result.attemptedCount, 'board')}. Missing boards will be retried next sign-in.`
-                : `Loaded ${result.pulledCount} ${pluralizeWord(result.pulledCount, 'board')} from the cloud.`,
+                ? `Loaded ${result.pulledCount} of ${formatCountedWord(result.attemptedCount, 'board')}. Missing boards will be retried next sign-in.`
+                : `Loaded ${formatCountedWord(result.pulledCount, 'board')} from the cloud.`,
               result.failedCount > 0 ? 'info' : 'success'
             )
           }

@@ -39,6 +39,23 @@ class CropParityTests(unittest.TestCase):
             CropBBox(left=0.2, top=0.1, right=0.8, bottom=0.71),
         )
 
+    def test_opaque_matte_scan_matches_exact_content_bounds(self) -> None:
+        data = bytearray()
+        for y in range(20):
+            for x in range(20):
+                if 4 <= x < 17 and 6 <= y < 15:
+                    data.extend((220, 40, 40, 255))
+                else:
+                    data.extend((12, 24, 48, 255))
+
+        scan = scan_auto_crop_pixels(bytes(data), 20, 20)
+
+        self.assertIsNotNone(scan)
+        self.assertEqual(
+            pick_auto_crop_bbox(scan, trim_soft_shadows=True),
+            CropBBox(left=0.2, top=0.3, right=0.85, bottom=0.75),
+        )
+
     def test_ratio_source_decisions_match_seed_rules(self) -> None:
         dominant = resolve_ratio_decision([2 / 3, 2 / 3, 1])
         square = resolve_ratio_decision([2 / 3, 1])

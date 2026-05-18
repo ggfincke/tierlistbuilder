@@ -12,9 +12,3 @@ export const formatCountedWord = (
   singular: string,
   plural?: string
 ): string => `${count} ${pluralizeWord(count, singular, plural)}`
-
-export const pluralizeVerb = (
-  count: number,
-  singular: string,
-  plural: string
-): string => (count === 1 ? singular : plural)

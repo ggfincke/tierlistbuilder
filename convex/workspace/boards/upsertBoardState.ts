@@ -15,6 +15,7 @@ import {
 import {
   findTemplateBySlug,
   incrementTemplateForkStats,
+  loadTemplateItems,
 } from '../../marketplace/templates/lib'
 import { findActiveTemplateCriterion } from '../../marketplace/templates/criteria'
 import {
@@ -28,7 +29,9 @@ import type {
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
-import { failInput } from '../../lib/text'
+import { assertStringLength, failInput } from '../../lib/text'
+import { assertExternalIdShape } from '../../lib/assertions'
+import { memoizePromise } from '../../lib/cache'
 import {
   boardLabelSettingsValidator,
   itemLabelOptionsValidator,
@@ -36,7 +39,7 @@ import {
   paletteIdValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/common'
 import type {
   BoardLabelSettings,
   LabelPlacement,
@@ -65,6 +68,12 @@ import {
   EMPTY_BOARD_LIBRARY_SUMMARY,
 } from './librarySummary'
 import { buildFreshBoardCloudFields } from './cloudFields'
+import {
+  boardSourceRankingFromMaybeRanking,
+  boardSourceTemplateFromMaybeTemplate,
+  getBoardSourceRankingId,
+  getBoardSourceTemplateId,
+} from './sourceFields'
 
 const MAX_LABEL_LEN = 200
 const MAX_ALT_LEN = 500
@@ -161,6 +170,31 @@ interface ResolvedMediaReference
   storageId: Id<'_storage'>
 }
 
+interface NormalizedBoardWriteFields
+{
+  itemAspectRatio: number | null
+  itemAspectRatioMode: 'auto' | 'manual' | null
+  aspectRatioPromptDismissed: boolean
+  defaultItemImageFit: 'cover' | 'contain' | null
+  paletteId: PaletteId | null
+  textStyleId: TextStyleId | null
+  pageBackground: string | null
+  labels: BoardLabelSettings | null
+}
+
+const normalizeBoardWriteFields = (
+  args: UpsertArgs
+): NormalizedBoardWriteFields => ({
+  itemAspectRatio: args.itemAspectRatio ?? null,
+  itemAspectRatioMode: args.itemAspectRatioMode ?? null,
+  aspectRatioPromptDismissed: args.aspectRatioPromptDismissed ?? false,
+  defaultItemImageFit: args.defaultItemImageFit ?? null,
+  paletteId: args.paletteId ?? null,
+  textStyleId: args.textStyleId ?? null,
+  pageBackground: args.pageBackground ?? null,
+  labels: args.labels ?? null,
+})
+
 const validateLabelPlacement = (
   placement: LabelPlacement | undefined,
   field: string
@@ -199,10 +233,12 @@ type UpsertResult =
 
 const validateInputs = (args: UpsertArgs): void =>
 {
-  if (!isBoardId(args.boardExternalId))
-  {
-    failInput('invalid boardExternalId: must start with "board-"')
-  }
+  assertExternalIdShape(
+    'boardExternalId',
+    args.boardExternalId,
+    isBoardId,
+    'board-'
+  )
 
   if (args.tiers.length > MAX_SYNC_TIERS)
   {
@@ -223,22 +259,20 @@ const validateInputs = (args: UpsertArgs): void =>
   // (Convex caps strings at 1MB but a run of ~999KB labels still adds up)
   for (const tier of args.tiers)
   {
-    if (!isTierId(tier.externalId))
-    {
-      failInput('invalid tierExternalId: must start with "tier-"')
-    }
-    if (tier.name.length > MAX_TIER_NAME_LEN)
-    {
-      failInput(
-        `tier name too long: ${tier.name.length} exceeds ${MAX_TIER_NAME_LEN}`
-      )
-    }
-    if ((tier.description?.length ?? 0) > MAX_TIER_DESCRIPTION_LEN)
-    {
-      failInput(
-        `tier description too long: exceeds ${MAX_TIER_DESCRIPTION_LEN}`
-      )
-    }
+    assertExternalIdShape('tierExternalId', tier.externalId, isTierId, 'tier-')
+    assertStringLength(
+      'tier name',
+      tier.name,
+      MAX_TIER_NAME_LEN,
+      ({ length, maxLength }) =>
+        `tier name too long: ${length} exceeds ${maxLength}`
+    )
+    assertStringLength(
+      'tier description',
+      tier.description,
+      MAX_TIER_DESCRIPTION_LEN,
+      ({ maxLength }) => `tier description too long: exceeds ${maxLength}`
+    )
     if (tier.colorSpec.kind === 'custom')
     {
       validateHexColor(tier.colorSpec.hex, 'tier.colorSpec.hex')
@@ -255,31 +289,43 @@ const validateInputs = (args: UpsertArgs): void =>
     {
       failInput('invalid itemExternalId: length must be 1..128')
     }
-    if ((item.label?.length ?? 0) > MAX_LABEL_LEN)
-    {
-      failInput(`item label too long: exceeds ${MAX_LABEL_LEN} chars`)
-    }
-    if ((item.altText?.length ?? 0) > MAX_ALT_LEN)
-    {
-      failInput(`item altText too long: exceeds ${MAX_ALT_LEN} chars`)
-    }
-    if ((item.notes?.length ?? 0) > MAX_NOTES_LEN)
-    {
-      failInput(`item notes too long: exceeds ${MAX_NOTES_LEN} chars`)
-    }
-    if ((item.backgroundColor?.length ?? 0) > MAX_BACKGROUND_COLOR_LEN)
-    {
-      failInput(
-        `item backgroundColor too long: exceeds ${MAX_BACKGROUND_COLOR_LEN} chars`
-      )
-    }
+    assertStringLength(
+      'item label',
+      item.label,
+      MAX_LABEL_LEN,
+      ({ maxLength }) => `item label too long: exceeds ${maxLength} chars`
+    )
+    assertStringLength(
+      'item altText',
+      item.altText,
+      MAX_ALT_LEN,
+      ({ maxLength }) => `item altText too long: exceeds ${maxLength} chars`
+    )
+    assertStringLength(
+      'item notes',
+      item.notes,
+      MAX_NOTES_LEN,
+      ({ maxLength }) => `item notes too long: exceeds ${maxLength} chars`
+    )
+    assertStringLength(
+      'item backgroundColor',
+      item.backgroundColor,
+      MAX_BACKGROUND_COLOR_LEN,
+      ({ maxLength }) =>
+        `item backgroundColor too long: exceeds ${maxLength} chars`
+    )
     if (item.backgroundColor)
     {
       validateHexColor(item.backgroundColor, 'item.backgroundColor')
     }
-    if (item.mediaExternalId && !isMediaAssetExternalId(item.mediaExternalId))
+    if (item.mediaExternalId)
     {
-      failInput('invalid mediaExternalId: must start with "media-"')
+      assertExternalIdShape(
+        'mediaExternalId',
+        item.mediaExternalId,
+        isMediaAssetExternalId,
+        'media-'
+      )
     }
     if (
       item.sourceTemplateItemExternalId !== undefined &&
@@ -408,6 +454,7 @@ const ensureBoard = async (
       resolveSourceRankingBySlug(ctx, args.sourceRankingId),
     ])
     const now = Date.now()
+    const writeFields = normalizeBoardWriteFields(args)
     const boardId = await ctx.db.insert('boards', {
       externalId: args.boardExternalId,
       ownerId: userId,
@@ -416,23 +463,23 @@ const ensureBoard = async (
       updatedAt: now,
       deletedAt: null,
       revision: 0,
-      sourceTemplateId: sourceTemplate?._id ?? null,
-      sourceTemplateCategory: sourceTemplate?.category ?? null,
-      sourceTemplateSizeClass: sourceTemplate?.sizeClass ?? null,
-      sourceRankingId: sourceRanking?._id ?? null,
-      // prefer the server-known title when we can resolve the source; otherwise
-      // fall back to the client-denormalized title so the breadcrumb still
-      // renders even if the row was unpublished after the local fork
-      sourceTemplateTitle:
-        sourceTemplate?.title ?? args.sourceTemplateTitle ?? null,
-      sourceRankingTitle:
-        sourceRanking?.title ?? args.sourceRankingTitle ?? null,
+      ...writeFields,
+      // Prefer resolved server rows; when a row disappeared after a local fork,
+      // keep the client title inside the grouped attribution object.
+      sourceTemplate: boardSourceTemplateFromMaybeTemplate(
+        sourceTemplate,
+        args.sourceTemplateTitle
+      ),
+      sourceRanking: boardSourceRankingFromMaybeRanking(
+        sourceRanking,
+        args.sourceRankingTitle
+      ),
       preferredCriterionExternalId: sourceTemplate
         ? (findActiveTemplateCriterion(
             sourceTemplate,
             args.preferredCriterionExternalId
-          )?.externalId ?? undefined)
-        : undefined,
+          )?.externalId ?? null)
+        : null,
       // false here; orchestrator ticks the counter post-insert & flips this true
       forkCounted: false,
       ...buildFreshBoardCloudFields(now),
@@ -445,6 +492,7 @@ const ensureBoard = async (
       seedDatasetKey: null,
       seedReleaseId: null,
       seedExternalId: null,
+      seedContentHash: null,
       seedKind: null,
       seedReleaseStatus: null,
     })
@@ -470,7 +518,7 @@ const ensureBoard = async (
   return { board, isNewBoard }
 }
 
-// fork-counter trigger for first sync of a sourceTemplateId-bearing board.
+// fork-counter trigger for first sync of a sourceTemplate-bearing board.
 // idempotent via forkCounted — paired w/ inline ticks in useTemplate/remix
 // (those flip forkCounted true at insert so this path leaves them alone)
 const tickForkCounterIfFirstSync = async (
@@ -479,14 +527,16 @@ const tickForkCounterIfFirstSync = async (
 ): Promise<void> =>
 {
   if (board.forkCounted) return
-  if (board.sourceTemplateId === null) return
+  const sourceTemplateId = getBoardSourceTemplateId(board)
+  if (sourceTemplateId === null) return
 
   const now = Date.now()
-  await incrementTemplateForkStats(ctx, board.sourceTemplateId, now)
+  await incrementTemplateForkStats(ctx, sourceTemplateId, now)
 
-  if (board.sourceRankingId !== null)
+  const sourceRankingId = getBoardSourceRankingId(board)
+  if (sourceRankingId !== null)
   {
-    const ranking = await ctx.db.get(board.sourceRankingId)
+    const ranking = await ctx.db.get(sourceRankingId)
     if (ranking)
     {
       const nextRemixCount = ranking.remixCount + 1
@@ -541,13 +591,7 @@ const resolveMediaState = async (
   const cachedGet = (
     mediaAssetId: Id<'mediaAssets'>
   ): Promise<Doc<'mediaAssets'> | null> =>
-  {
-    const cached = assetCache.get(mediaAssetId)
-    if (cached) return cached
-    const pending = ctx.db.get(mediaAssetId)
-    assetCache.set(mediaAssetId, pending)
-    return pending
-  }
+    memoizePromise(assetCache, mediaAssetId, () => ctx.db.get(mediaAssetId))
 
   const mediaExternalIds = new Set<string>()
   const serverFallbackAssetIds = new Set<Id<'mediaAssets'>>()
@@ -653,23 +697,12 @@ const resolveSourceTemplateItemIds = async (
   ]
   if (externalIds.length === 0) return new Map()
 
-  const entries = await Promise.all(
-    externalIds.map(async (externalId) =>
-    {
-      const templateItem = await ctx.db
-        .query('templateItems')
-        .withIndex('byTemplateAndExternalId', (q) =>
-          q.eq('templateId', sourceTemplateId).eq('externalId', externalId)
-        )
-        .unique()
-      return templateItem ? ([externalId, templateItem._id] as const) : null
-    })
-  )
-
+  const requestedExternalIds = new Set(externalIds)
+  const templateItems = await loadTemplateItems(ctx, sourceTemplateId)
   return new Map(
-    entries.filter(
-      (entry): entry is readonly [string, Id<'templateItems'>] => entry !== null
-    )
+    templateItems
+      .filter((item) => requestedExternalIds.has(item.externalId))
+      .map((item) => [item.externalId, item._id])
   )
 }
 
@@ -760,7 +793,7 @@ const applyBoardState = async (
   )
   const templateItemExternalIdToId = await resolveSourceTemplateItemIds(
     ctx,
-    board.sourceTemplateId,
+    getBoardSourceTemplateId(board),
     args.items
   )
 
@@ -805,19 +838,20 @@ const applyBoardState = async (
     itemDiff.patch.length > 0 ||
     itemDiff.insert.length > 0
   const titleChanged = normalizedTitle !== board.title
+  const writeFields = normalizeBoardWriteFields(args)
   const aspectChanged =
-    board.itemAspectRatio !== args.itemAspectRatio ||
-    board.itemAspectRatioMode !== args.itemAspectRatioMode ||
-    (board.aspectRatioPromptDismissed ?? false) !==
-      (args.aspectRatioPromptDismissed ?? false) ||
-    board.defaultItemImageFit !== args.defaultItemImageFit
+    board.itemAspectRatio !== writeFields.itemAspectRatio ||
+    board.itemAspectRatioMode !== writeFields.itemAspectRatioMode ||
+    board.aspectRatioPromptDismissed !==
+      writeFields.aspectRatioPromptDismissed ||
+    board.defaultItemImageFit !== writeFields.defaultItemImageFit
   const styleOverrideChanged =
-    board.paletteId !== args.paletteId ||
-    board.textStyleId !== args.textStyleId ||
-    board.pageBackground !== args.pageBackground ||
+    board.paletteId !== writeFields.paletteId ||
+    board.textStyleId !== writeFields.textStyleId ||
+    board.pageBackground !== writeFields.pageBackground ||
     !boardLabelSettingsEqual(board.labels, args.labels)
   const templateProgressState = resolveTemplateProgressState(
-    board.sourceTemplateId,
+    getBoardSourceTemplateId(board),
     progressCounts
   )
   const progressChanged =
@@ -825,7 +859,7 @@ const applyBoardState = async (
     board.unrankedItemCount !== progressCounts.unrankedItemCount ||
     board.templateProgressState !== templateProgressState
 
-  const currentRevision = board.revision ?? 0
+  const currentRevision = board.revision
   if (
     !tiersChanged &&
     !itemsChanged &&
@@ -843,14 +877,7 @@ const applyBoardState = async (
     title: normalizedTitle,
     updatedAt: Date.now(),
     revision: newRevision,
-    itemAspectRatio: args.itemAspectRatio,
-    itemAspectRatioMode: args.itemAspectRatioMode,
-    aspectRatioPromptDismissed: args.aspectRatioPromptDismissed,
-    defaultItemImageFit: args.defaultItemImageFit,
-    paletteId: args.paletteId,
-    textStyleId: args.textStyleId,
-    pageBackground: args.pageBackground,
-    labels: args.labels,
+    ...writeFields,
     activeItemCount: progressCounts.activeItemCount,
     unrankedItemCount: progressCounts.unrankedItemCount,
     templateProgressState,
@@ -911,7 +938,7 @@ export const upsertBoardState = mutation({
     // cheap revision compare BEFORE loading rows — a conflict response avoids
     // scanning the full server state. client follows up w/ getBoardStateByExternalId
     // to populate the conflict UI
-    const currentRevision = board.revision ?? 0
+    const currentRevision = board.revision
     if (args.baseRevision !== null && args.baseRevision !== currentRevision)
     {
       return {

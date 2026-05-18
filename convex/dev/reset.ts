@@ -66,6 +66,23 @@ const resettableTableValidator = v.union(
 // for index writes triggered by ctx.db.delete
 const RESET_BATCH_SIZE = 256
 
+// scheduler.cancel() is cheap (one row patch), so we can sweep more per batch
+// than data deletes. keep it bounded to avoid blowing the mutation write budget
+const SCHEDULED_CANCEL_BATCH_SIZE = 512
+
+// upper bound on cancellation sweeps — stops us looping forever if in-progress
+// actions keep enqueueing new scheduled fns faster than we can cancel them
+const SCHEDULED_CANCEL_MAX_PASSES = 20
+
+// after cancelling, scheduled actions that were already running keep executing
+// (cancel can't halt in-flight actions per Convex docs). poll until none are
+// inProgress so their direct ctx.runMutation calls can't race the wipes below
+const SCHEDULED_DRAIN_POLL_MS = 250
+const SCHEDULED_DRAIN_MAX_PASSES = 40
+// names sampled into the drain-timeout error so the operator knows what didn't
+// drain. bounded so we don't blow the 1MB query result limit on pathological runs
+const SCHEDULED_DRAIN_ERROR_SAMPLE_SIZE = 10
+
 const DEV_RESET_ENABLED_ENV = 'CONVEX_DEV_RESET_ALLOWED'
 
 const resolveDeploymentMarker = (): string =>
@@ -111,6 +128,7 @@ export const wipeDeployment = internalAction({
     deploymentMarker: v.string(),
     deletedCounts: v.record(v.string(), v.number()),
     deletedStorageBlobs: v.number(),
+    canceledScheduledFunctions: v.number(),
   }),
   handler: async (
     ctx,
@@ -119,9 +137,63 @@ export const wipeDeployment = internalAction({
     deploymentMarker: string
     deletedCounts: Record<string, number>
     deletedStorageBlobs: number
+    canceledScheduledFunctions: number
   }> =>
   {
     const deploymentMarker = requireDevResetAuthorized(args.confirm)
+
+    // cancel any pending scheduled fns first — otherwise background recompute
+    // mutations (e.g. processTemplateRankingAggregateJob touching
+    // publishedRankingItems) wake up mid-wipe & OCC-conflict the deletes
+    let canceledScheduledFunctions = 0
+    for (let pass = 0; pass < SCHEDULED_CANCEL_MAX_PASSES; pass++)
+    {
+      const canceled: number = await ctx.runMutation(
+        internal.dev.reset.cancelPendingScheduledFunctionsBatch,
+        { limit: SCHEDULED_CANCEL_BATCH_SIZE }
+      )
+      canceledScheduledFunctions += canceled
+      if (canceled === 0) break
+    }
+
+    let drained = false
+    for (let pass = 0; pass < SCHEDULED_DRAIN_MAX_PASSES; pass++)
+    {
+      const hasInProgress: boolean = await ctx.runQuery(
+        internal.dev.reset.hasInProgressScheduledFunctions,
+        {}
+      )
+      if (!hasInProgress)
+      {
+        drained = true
+        break
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, SCHEDULED_DRAIN_POLL_MS)
+      )
+    }
+    if (!drained)
+    {
+      const stillRunning: string[] = await ctx.runQuery(
+        internal.dev.reset.sampleInProgressScheduledFunctions,
+        { limit: SCHEDULED_DRAIN_ERROR_SAMPLE_SIZE }
+      )
+      const timeoutSeconds =
+        (SCHEDULED_DRAIN_POLL_MS * SCHEDULED_DRAIN_MAX_PASSES) / 1000
+      const sample =
+        stillRunning.length > 0
+          ? stillRunning.join(', ') +
+            (stillRunning.length === SCHEDULED_DRAIN_ERROR_SAMPLE_SIZE
+              ? ', …'
+              : '')
+          : '<none sampled>'
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message:
+          `dev reset: scheduled actions did not drain within ${timeoutSeconds}s; ` +
+          `still in-flight: ${sample}. retry once they finish.`,
+      })
+    }
 
     let deletedStorageBlobs = 0
     while (true)
@@ -153,7 +225,67 @@ export const wipeDeployment = internalAction({
       deletedCounts[tableName] = total
     }
 
-    return { deploymentMarker, deletedCounts, deletedStorageBlobs }
+    return {
+      deploymentMarker,
+      deletedCounts,
+      deletedStorageBlobs,
+      canceledScheduledFunctions,
+    }
+  },
+})
+
+export const cancelPendingScheduledFunctionsBatch = internalMutation({
+  args: { limit: v.number() },
+  returns: v.number(),
+  handler: async (ctx, args): Promise<number> =>
+  {
+    // filter server-side so completed rows (retained ~7d) can't crowd out
+    // pending ones within the take() limit. _scheduled_functions has no
+    // by_state index exposed via db.system, so .filter() is the only option
+    const rows = await ctx.db.system
+      .query('_scheduled_functions')
+      .filter((q) =>
+        q.or(
+          q.eq(q.field('state.kind'), 'pending'),
+          q.eq(q.field('state.kind'), 'inProgress')
+        )
+      )
+      .take(args.limit)
+    // cancel() throws if the fn completed between our query & the cancel
+    // call — benign race; treat as already-done
+    const results = await Promise.allSettled(
+      rows.map((row) => ctx.scheduler.cancel(row._id))
+    )
+    return results.filter((r) => r.status === 'fulfilled').length
+  },
+})
+
+export const hasInProgressScheduledFunctions = internalQuery({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx): Promise<boolean> =>
+  {
+    const rows = await ctx.db.system
+      .query('_scheduled_functions')
+      .filter((q) => q.eq(q.field('state.kind'), 'inProgress'))
+      .take(1)
+    return rows.length > 0
+  },
+})
+
+// only called on drain-timeout to enrich the error w/ which function paths
+// are still running. kept separate from hasInProgressScheduledFunctions so the
+// hot poll loop stays on .take(1)
+export const sampleInProgressScheduledFunctions = internalQuery({
+  args: { limit: v.number() },
+  returns: v.array(v.string()),
+  handler: async (ctx, args): Promise<string[]> =>
+  {
+    const rows = await ctx.db.system
+      .query('_scheduled_functions')
+      .filter((q) => q.eq(q.field('state.kind'), 'inProgress'))
+      .take(args.limit)
+    return rows.map((row) => row.name)
   },
 })
 

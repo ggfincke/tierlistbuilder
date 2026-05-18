@@ -3,7 +3,6 @@
 
 import { Layers } from 'lucide-react'
 import { useMemo } from 'react'
-import { useParams } from 'react-router-dom'
 
 import {
   isTemplateSlug,
@@ -14,13 +13,16 @@ import {
   type MarketplaceTemplateRankingAggregate,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
-import { useSelectedCriterion } from '~/features/marketplace/model/useSelectedCriterion'
-import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
-import { useRelatedTemplates } from '~/features/marketplace/model/useTemplateDetail'
-import { useTemplateRankingAggregate } from '~/features/marketplace/model/useRankingDetail'
-import { useRecordTemplateView } from '~/features/marketplace/model/useRecordTemplateView'
+import { useSelectedCriterion } from '~/features/marketplace/model/detail/useSelectedCriterion'
+import { useTemplateBySlug } from '~/features/marketplace/model/detail/useTemplateDetail'
+import { useValidatedSlug } from '~/features/marketplace/model/detail/useValidatedSlug'
+import { useRelatedTemplates } from '~/features/marketplace/model/detail/useTemplateDetail'
+import { useTemplateRankingAggregate } from '~/features/marketplace/model/detail/useRankingDetail'
+import { useRecordTemplateView } from '~/features/marketplace/model/analytics/useRecordTemplateView'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
+import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
 import { Card } from '~/features/marketplace/components/cards/Card'
@@ -28,9 +30,9 @@ import { CommunityConsensusSection } from '~/features/marketplace/components/dis
 import {
   HeroRailCards,
   HeroRailCardsLoading,
-} from '~/features/marketplace/components/consensus/HeroRailCards'
-import { useHeroSpread } from '~/features/marketplace/components/consensus/useHeroSpread'
-import { templateFrame } from '~/features/marketplace/components/consensus/utils'
+} from '~/features/marketplace/components/consensus/rail/HeroRailCards'
+import { useHeroSpread } from '~/features/marketplace/components/consensus/lib/useHeroSpread'
+import { templateFrame } from '~/features/marketplace/components/consensus/lib/utils'
 import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
 import { RecommendedPresetCard } from '~/features/marketplace/components/cards/RecommendedPresetCard'
 import {
@@ -41,10 +43,20 @@ import { MarketplaceNotFound } from '~/features/marketplace/components/layout/Ma
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 
 const RELATED_LIMIT = 4
+const MAX_HERO_AGGREGATE_CACHE_ENTRIES = 32
 const HERO_AGGREGATE_CACHE = new Map<
   string,
   MarketplaceTemplateRankingAggregate
 >()
+
+const readCachedHeroAggregate = (
+  cacheKey: string
+): MarketplaceTemplateRankingAggregate | null =>
+{
+  const cached = HERO_AGGREGATE_CACHE.get(cacheKey) ?? null
+  if (cached) touchMapEntry(HERO_AGGREGATE_CACHE, cacheKey)
+  return cached
+}
 
 const NotFound = () => (
   <MarketplaceNotFound
@@ -102,9 +114,11 @@ const RelatedTemplatesRail = ({
   if (result.items.length === 0)
   {
     return (
-      <p className="rounded-md border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-4 py-6 text-center text-sm text-[var(--t-text-muted)]">
-        Nothing else in {categoryLabel} yet — check back as the gallery grows.
-      </p>
+      <EmptyCard
+        radius="md"
+        padding="sm"
+        body={`Nothing else in ${categoryLabel} yet — check back as the gallery grows.`}
+      />
     )
   }
   return (
@@ -139,8 +153,7 @@ const CreditNote = ({ template }: CreditNoteProps) =>
 
 export const TemplateDetailPage = () =>
 {
-  const { slug } = useParams<{ slug: string }>()
-  const validSlug = slug && isTemplateSlug(slug) ? slug : null
+  const validSlug = useValidatedSlug(isTemplateSlug)
   const detail = useTemplateBySlug(validSlug)
   // only record once we have a valid published row; null/undefined skip
   useRecordTemplateView(detail ? detail.slug : null)
@@ -164,13 +177,18 @@ const useCachedHeroAggregate = (
   useFallback: boolean
 ): MarketplaceTemplateRankingAggregate | null =>
 {
-  const cachedAggregate = HERO_AGGREGATE_CACHE.get(cacheKey) ?? null
+  const cachedAggregate = readCachedHeroAggregate(cacheKey)
   if (
     readyAggregate !== null &&
     !isSameHeroAggregate(cachedAggregate, readyAggregate)
   )
   {
-    HERO_AGGREGATE_CACHE.set(cacheKey, readyAggregate)
+    setMapEntryLru(
+      HERO_AGGREGATE_CACHE,
+      cacheKey,
+      readyAggregate,
+      MAX_HERO_AGGREGATE_CACHE_ENTRIES
+    )
   }
 
   return readyAggregate ?? (useFallback ? cachedAggregate : null)

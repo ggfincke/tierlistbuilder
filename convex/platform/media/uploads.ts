@@ -14,7 +14,7 @@ import { enforceRateLimit } from '../../lib/rateLimiter'
 import { internal } from '../../_generated/api'
 import { parseUploadedImageMetadata } from '../../lib/imageValidation'
 import { generateUploadToken } from '../../lib/uploadToken'
-import { mediaVariantKindValidator } from '../../lib/validators'
+import { mediaVariantKindValidator } from '../../lib/validators/platform'
 import { assertValidVariantRequest } from '../../lib/mediaVariants'
 import {
   UPLOAD_ENVELOPE_MAX_HEADER_BYTES,

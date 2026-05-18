@@ -11,7 +11,7 @@ import {
   selectIsDragging,
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { nextToolbarPosition } from '~/shared/layout/toolbarPosition'
+import { nextToolbarPosition } from '~/shared/overlay/toolbarPosition'
 import { announce } from '~/shared/a11y/announce'
 import { hasActiveModalLayer } from '~/shared/overlay/modalLayer'
 import {

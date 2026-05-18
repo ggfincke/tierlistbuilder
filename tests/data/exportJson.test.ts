@@ -108,6 +108,52 @@ describe('parseBoardJson', () =>
     )
   })
 
+  it('normalizes shallow-valid malformed wire data before returning', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        title: 'Malformed Import',
+        tiers: [
+          {
+            id: 'tier-s',
+            name: 'Invalid Color',
+            colorSpec: { kind: 'custom', hex: 'not-a-color' },
+            itemIds: [1, 'item-1'],
+          },
+          {
+            id: 'tier-s',
+            name: 'Duplicate Tier ID',
+            colorSpec: { kind: 'palette', index: 1 },
+            itemIds: ['item-2'],
+          },
+        ],
+        unrankedItemIds: [2, 'item-3'],
+        items: {
+          '1': { id: '1', label: 'Numeric ref' },
+          '2': { id: '2', label: 'Numeric unranked ref' },
+          'item-1': { id: 'item-1', label: 'First' },
+          'item-2': { id: 'item-2', label: 'Second' },
+          'item-3': { id: 'item-3', label: 'Third' },
+        },
+      },
+    }
+
+    const result = await parseBoardJson(JSON.stringify(payload))
+
+    expect(result.tiers[0]).toMatchObject({
+      id: 'tier-s',
+      colorSpec: { kind: 'custom', hex: '#888888' },
+      itemIds: ['item-1'],
+    })
+    expect(result.tiers[1]).toMatchObject({
+      id: 'tier-a',
+      itemIds: ['item-2'],
+    })
+    expect(result.unrankedItemIds).toEqual(['item-3'])
+    expect(result.items['1'].label).toBe('Numeric ref')
+  })
+
   it('throws on invalid JSON', async () =>
   {
     await expect(parseBoardJson('not json')).rejects.toThrow(

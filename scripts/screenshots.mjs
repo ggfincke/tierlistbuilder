@@ -151,63 +151,101 @@ function resolveSectionFilter(argv)
   return requested
 }
 
-// capture one section across all viewports. results are appended to the
-// shared accumulator so the final summary table lists every shot taken
-async function captureSection(browser, sectionName, section, results)
+async function applyPagePreferences(page, position)
 {
-  const sectionDir = join(OUT_ROOT, sectionName)
-  if (!existsSync(sectionDir)) mkdirSync(sectionDir, { recursive: true })
+  await page.addInitScript(
+    ({ key, payload }) =>
+    {
+      if (payload === null)
+      {
+        localStorage.removeItem(key)
+        return
+      }
+      localStorage.setItem(key, payload)
+    },
+    {
+      key: PREFERENCES_KEY,
+      payload: position === null ? null : buildPreferencesPayload(position),
+    }
+  )
+}
 
-  const positions = section.toolbarVariants ? TOOLBAR_POSITIONS : [null]
+async function captureShot(
+  context,
+  sectionName,
+  section,
+  vp,
+  position,
+  results
+)
+{
+  const page = await context.newPage()
+  await applyPagePreferences(page, position)
+
+  const filename =
+    position !== null ? `${vp.name}__toolbar-${position}.png` : `${vp.name}.png`
+  const filepath = join(OUT_ROOT, sectionName, filename)
+
+  try
+  {
+    await page.goto(`${BASE_URL}${section.path}`, {
+      waitUntil: 'networkidle',
+    })
+    await page.waitForTimeout(ANIMATION_WAIT)
+    await page.screenshot({ path: filepath, fullPage: true })
+  }
+  finally
+  {
+    await page.close()
+  }
+
+  const size = statSync(filepath).size
+  results.push({
+    section: sectionName,
+    viewport: vp.name,
+    dims: `${vp.width}x${vp.height}`,
+    dpr: `${vp.dpr}x`,
+    position: position ?? '-',
+    file: join(sectionName, filename),
+    size: formatSize(size),
+  })
+
+  console.log(`  ${sectionName}/${filename} (${formatSize(size)})`)
+}
+
+// capture selected sections for one viewport while reusing the same browser
+// context. toolbar preferences are injected per page before app scripts run.
+async function captureViewport(browser, vp, sectionsToRun, results)
+{
+  const context = await browser.newContext({
+    viewport: { width: vp.width, height: vp.height },
+    deviceScaleFactor: vp.dpr,
+  })
+
+  try
+  {
+    for (const sectionName of sectionsToRun)
+    {
+      const section = SECTIONS[sectionName]
+      const positions = section.toolbarVariants ? TOOLBAR_POSITIONS : [null]
+      for (const position of positions)
+      {
+        await captureShot(context, sectionName, section, vp, position, results)
+      }
+    }
+  }
+  finally
+  {
+    await context.close()
+  }
+}
+
+async function captureSections(browser, sectionsToRun, results)
+{
   for (const vp of VIEWPORTS)
   {
-    for (const position of positions)
-    {
-      const context = await browser.newContext({
-        viewport: { width: vp.width, height: vp.height },
-        deviceScaleFactor: vp.dpr,
-      })
-
-      // toolbar position injected only for workspace-style sections; other
-      // sections (eg templates marketplace) ignore the preference entirely
-      if (position !== null)
-      {
-        await context.addInitScript(
-          ({ key, payload }) =>
-          {
-            localStorage.setItem(key, payload)
-          },
-          { key: PREFERENCES_KEY, payload: buildPreferencesPayload(position) }
-        )
-      }
-
-      const page = await context.newPage()
-      const filename =
-        position !== null
-          ? `${vp.name}__toolbar-${position}.png`
-          : `${vp.name}.png`
-      const filepath = join(sectionDir, filename)
-
-      await page.goto(`${BASE_URL}${section.path}`, {
-        waitUntil: 'networkidle',
-      })
-      await page.waitForTimeout(ANIMATION_WAIT)
-      await page.screenshot({ path: filepath, fullPage: true })
-
-      const size = statSync(filepath).size
-      results.push({
-        section: sectionName,
-        viewport: vp.name,
-        dims: `${vp.width}x${vp.height}`,
-        dpr: `${vp.dpr}x`,
-        position: position ?? '-',
-        file: join(sectionName, filename),
-        size: formatSize(size),
-      })
-
-      console.log(`  ${sectionName}/${filename} (${formatSize(size)})`)
-      await context.close()
-    }
+    console.log(`\n--- ${vp.name} (${vp.width}x${vp.height} @ ${vp.dpr}x) ---`)
+    await captureViewport(browser, vp, sectionsToRun, results)
   }
 }
 
@@ -224,14 +262,18 @@ async function main()
 
   const sectionsToRun = resolveSectionFilter(process.argv)
   if (!existsSync(OUT_ROOT)) mkdirSync(OUT_ROOT, { recursive: true })
-
-  // total shots = sum across sections of (viewports * variants)
-  const totalCaptures = sectionsToRun.reduce((acc, name) =>
+  for (const sectionName of sectionsToRun)
   {
-    const variants = SECTIONS[name].toolbarVariants
-      ? TOOLBAR_POSITIONS.length
-      : 1
-    return acc + VIEWPORTS.length * variants
+    const sectionDir = join(OUT_ROOT, sectionName)
+    if (!existsSync(sectionDir)) mkdirSync(sectionDir, { recursive: true })
+  }
+
+  const totalCaptures = sectionsToRun.reduce((total, sectionName) =>
+  {
+    const positions = SECTIONS[sectionName].toolbarVariants
+      ? TOOLBAR_POSITIONS
+      : [null]
+    return total + VIEWPORTS.length * positions.length
   }, 0)
   console.log(
     `\nCapturing sections [${sectionsToRun.join(', ')}] across ${VIEWPORTS.length} viewports (${totalCaptures} total)...\n`
@@ -240,10 +282,13 @@ async function main()
   const browser = await chromium.launch()
   const results = []
 
-  for (const sectionName of sectionsToRun)
+  try
   {
-    console.log(`\n--- ${sectionName} ---`)
-    await captureSection(browser, sectionName, SECTIONS[sectionName], results)
+    await captureSections(browser, sectionsToRun, results)
+  }
+  finally
+  {
+    await browser.close()
   }
 
   // summary table
@@ -272,8 +317,6 @@ async function main()
   }
   console.log('='.repeat(120))
   console.log(`\n${results.length} screenshots saved to ${OUT_ROOT}\n`)
-
-  await browser.close()
 }
 
 main()

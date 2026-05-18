@@ -16,12 +16,12 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
+import type {
+  MediaDecoding,
+  MediaLoading,
+} from '~/shared/board-ui/mediaImageAttrs'
 
-import {
-  MediaMatteFrame,
-  type MediaDecoding,
-  type MediaLoading,
-} from '../cover/MediaMatteFrame'
+import { MediaMatteFrame } from '../cover/MediaMatteFrame'
 import { computeGridDims } from './mosaicGrid'
 
 export type MosaicDensity = 'small' | 'default' | 'large' | 'hero'
@@ -36,11 +36,11 @@ interface MosaicProps
   decoding?: MediaDecoding
 }
 
-// per-density item caps. small allows 6x2/5x2 fits on wide h-32 rails (3x3
-// gets too narrow vs the cover aspect); default/large open to 3+ rows so big
-// rosters read as a content wall vs a marquee; hero scales for huge templates
+// per-density item caps. small keeps h-32 rails legible at 4x2; default/large
+// open to 3+ rows so big rosters read as a content wall; hero scales for huge
+// templates
 const MAX_SLOTS: Record<MosaicDensity, number> = {
-  small: 12,
+  small: 8,
   default: 18,
   large: 24,
   hero: 80,

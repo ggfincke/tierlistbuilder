@@ -4,18 +4,17 @@
 from __future__ import annotations
 
 import hashlib
-import json
-import os
 import shutil
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 from typing import Iterable, Literal
 
 from PIL import Image
 
 from .crop import CropBBox, detect_content_bbox
 from .manifest import JsonObject
+from .sidecars import read_sidecar_json, write_sidecar_json
 from .settings import (
     INSPECT_CACHE_RELATIVE_PATH,
     INSPECT_CACHE_SCHEMA_VERSION,
@@ -33,6 +32,8 @@ from .settings import (
 
 # mirror Extract<MediaVariantKind, 'tile' | 'preview'> in seed contract
 VariantKind = Literal["tile", "preview"]
+_VARIANT_LOCKS: dict[str, Lock] = {}
+_VARIANT_LOCKS_GUARD = Lock()
 
 
 # source metadata feeds both compiled manifest output & crop decisions
@@ -131,11 +132,31 @@ def build_variant(
     *,
     source_image: "Image.Image | None" = None,
 ) -> JsonObject:
-    variants_dir.mkdir(parents=True, exist_ok=True)
-    cache_key = _cache_key(source_sha256, kind, variant_spec_version)
     output_path = _variant_output_path(
         source_sha256, kind, variants_dir, variant_spec_version
     )
+    with _variant_lock(output_path):
+        return _build_variant_locked(
+            source_path,
+            source_sha256,
+            kind,
+            variant_spec_version,
+            output_path=output_path,
+            source_image=source_image,
+        )
+
+
+def _build_variant_locked(
+    source_path: Path,
+    source_sha256: str,
+    kind: VariantKind,
+    variant_spec_version: str = VARIANT_SPEC_VERSION,
+    *,
+    output_path: Path,
+    source_image: "Image.Image | None" = None,
+) -> JsonObject:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_key = _cache_key(source_sha256, kind, variant_spec_version)
     meta_path = _variant_meta_path(output_path)
     # reuse cache file when exact source + spec + kind + settings already exist.
     # interrupted runs can leave a zero-byte or partial file, so verify before
@@ -194,6 +215,13 @@ def build_variant(
         "height": height,
         "cacheKey": cache_key,
     }
+
+
+def _variant_lock(output_path: Path):
+    key = output_path.as_posix()
+    with _VARIANT_LOCKS_GUARD:
+        lock = _VARIANT_LOCKS.setdefault(key, Lock())
+    return lock
 
 
 def _inspect_variant(path: Path) -> tuple[int, int, str | None]:
@@ -417,7 +445,7 @@ def _load_inspect_cache(
     source_mtime_ns: int,
     source_byte_size: int,
 ) -> SourceAsset | None:
-    payload = _read_sidecar_json(cache_path)
+    payload = read_sidecar_json(cache_path)
     if payload is None:
         return None
     if payload.get("schemaVersion") != INSPECT_CACHE_SCHEMA_VERSION:
@@ -473,7 +501,7 @@ def _save_inspect_cache(
         "height": asset.height,
         "contentBbox": asset.content_bbox.to_json() if asset.content_bbox else None,
     }
-    _write_sidecar_json(cache_path, payload)
+    write_sidecar_json(cache_path, payload)
 
 
 def _variant_meta_path(output_path: Path) -> Path:
@@ -481,7 +509,7 @@ def _variant_meta_path(output_path: Path) -> Path:
 
 
 def _load_variant_meta(meta_path: Path, output_path: Path) -> JsonObject | None:
-    payload = _read_sidecar_json(meta_path)
+    payload = read_sidecar_json(meta_path)
     if payload is None:
         return None
     if payload.get("schemaVersion") != VARIANT_META_SCHEMA_VERSION:
@@ -514,27 +542,4 @@ def _load_variant_meta(meta_path: Path, output_path: Path) -> JsonObject | None:
 
 def _save_variant_meta(meta_path: Path, meta: JsonObject) -> None:
     payload = {"schemaVersion": VARIANT_META_SCHEMA_VERSION, **meta}
-    _write_sidecar_json(meta_path, payload)
-
-
-def _read_sidecar_json(path: Path) -> JsonObject | None:
-    try:
-        with path.open("r", encoding="utf-8") as file:
-            value = json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return None
-    return value if isinstance(value, dict) else None
-
-
-def _write_sidecar_json(path: Path, payload: JsonObject) -> None:
-    # write atomically so a crashed run can never poison the cache w/ partial JSON
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(prefix=f"{path.name}.", dir=str(path.parent))
-    tmp_path = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as file:
-            json.dump(payload, file)
-        os.replace(tmp_path, path)
-    except BaseException:
-        tmp_path.unlink(missing_ok=True)
-        raise
+    write_sidecar_json(meta_path, payload)

@@ -3,7 +3,7 @@
 // histogram, split-bar — each w/ a distinct visual language
 
 import { formatCount } from '~/shared/catalog/formatters'
-import { pluralizeWord } from '~/shared/lib/pluralize'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 import { CompareCard, COMPARE_EYEBROW_CLASS } from './CompareCard'
 import {
@@ -243,7 +243,7 @@ const InsightHistogram = ({
             <div
               key={i}
               className="group relative flex flex-1 flex-col justify-end"
-              title={`Δ${i} · ${count} ${pluralizeWord(count, 'item')}`}
+              title={`Δ${i} · ${formatCountedWord(count, 'item')}`}
             >
               <div
                 className="w-full rounded-[2px]"

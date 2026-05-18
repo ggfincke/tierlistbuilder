@@ -97,7 +97,7 @@ crons.interval(
 crons.interval(
   'schedule template ranking aggregate recomputes',
   { hours: 2 },
-  internal.marketplace.rankings.aggregateInternal
+  internal.marketplace.rankings.aggregate.jobs
     .scheduleTemplateRankingAggregateRecomputes,
   { cursor: null }
 )
@@ -105,7 +105,7 @@ crons.interval(
 crons.interval(
   'retry stale template ranking aggregate jobs',
   { hours: 1 },
-  internal.marketplace.rankings.aggregateInternal
+  internal.marketplace.rankings.aggregate.jobs
     .retryStaleTemplateRankingAggregateJobs,
   { cursor: null }
 )

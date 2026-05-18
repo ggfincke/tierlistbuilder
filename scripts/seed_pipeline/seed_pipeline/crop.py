@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from statistics import median
 from typing import Iterable, Literal
 
-from PIL import Image
+from PIL import Image, ImageMath
 
 from .manifest import JsonObject
 from .settings import MIXED_TEMPLATE_ITEM_ASPECT_RATIO
@@ -254,34 +254,13 @@ def _has_meaningful_alpha(data: bytes, width: int, height: int) -> bool:
 
 
 def _scan_alpha(data: bytes, width: int, height: int) -> CropScan | None:
-    # soft bbox captures faint edges; solid bbox anchors optional trim
-    soft_min_x = solid_min_x = width
-    soft_min_y = solid_min_y = height
-    soft_max_x = soft_max_y = -1
-    solid_max_x = solid_max_y = -1
-    for y in range(height):
-        row = y * width * 4
-        for x in range(width):
-            alpha = data[row + x * 4 + 3]
-            if alpha >= ALPHA_CONTENT_THRESHOLD:
-                soft_min_x = min(soft_min_x, x)
-                soft_max_x = max(soft_max_x, x)
-                soft_min_y = min(soft_min_y, y)
-                soft_max_y = max(soft_max_y, y)
-                if alpha >= ALPHA_SOLID_THRESHOLD:
-                    solid_min_x = min(solid_min_x, x)
-                    solid_max_x = max(solid_max_x, x)
-                    solid_min_y = min(solid_min_y, y)
-                    solid_max_y = max(solid_max_y, y)
-    if soft_max_x < 0:
+    alpha = Image.frombytes("RGBA", (width, height), data).getchannel("A")
+    soft = _threshold_channel_bbox(alpha, ALPHA_CONTENT_THRESHOLD)
+    if soft is None:
         return None
-    solid = (
-        PixelBBox(solid_min_x, solid_min_y, solid_max_x, solid_max_y)
-        if solid_max_x >= 0
-        else None
-    )
+    solid = _threshold_channel_bbox(alpha, ALPHA_SOLID_THRESHOLD)
     return CropScan(
-        soft=PixelBBox(soft_min_x, soft_min_y, soft_max_x, soft_max_y),
+        soft=soft,
         solid=solid,
         width=width,
         height=height,
@@ -303,25 +282,24 @@ def _scan_corner_color(data: bytes, width: int, height: int) -> CropScan | None:
             ),
         ]
     )
-    min_x = width
-    min_y = height
-    max_x = -1
-    max_y = -1
-    for y in range(height):
-        row = y * width * 4
-        for x in range(width):
-            index = row + x * 4
-            distance = sum((data[index + channel] - background[channel]) ** 2 for channel in range(3))
-            # any pixel far enough from the matte counts as visible content
-            if distance > COLOR_CONTENT_DISTANCE_SQ:
-                min_x = min(min_x, x)
-                max_x = max(max_x, x)
-                min_y = min(min_y, y)
-                max_y = max(max_y, y)
-    if max_x < 0:
+    red, green, blue, _alpha = Image.frombytes(
+        "RGBA", (width, height), data
+    ).split()
+    red_distance = _channel_distance(red, background[0])
+    green_distance = _channel_distance(green, background[1])
+    blue_distance = _channel_distance(blue, background[2])
+    mask = ImageMath.unsafe_eval(
+        "convert((red + green + blue) > threshold, 'L')",
+        red=red_distance,
+        green=green_distance,
+        blue=blue_distance,
+        threshold=COLOR_CONTENT_DISTANCE_SQ,
+    )
+    bbox = _pillow_bbox_to_pixel_bbox(mask.getbbox())
+    if bbox is None:
         return None
     return CropScan(
-        soft=PixelBBox(min_x, min_y, max_x, max_y),
+        soft=bbox,
         solid=None,
         width=width,
         height=height,
@@ -358,6 +336,24 @@ def _pick_background_color(samples: list[tuple[float, float, float]]) -> tuple[f
     if len(best) < 3:
         return tuple(median(channel) for channel in zip(*samples))
     return tuple(sum(channel) / len(best) for channel in zip(*best))
+
+
+def _threshold_channel_bbox(image: Image.Image, threshold: int) -> PixelBBox | None:
+    mask = image.point([255 if value >= threshold else 0 for value in range(256)])
+    return _pillow_bbox_to_pixel_bbox(mask.getbbox())
+
+
+def _channel_distance(image: Image.Image, target: float) -> Image.Image:
+    return image.point([(value - target) ** 2 for value in range(256)], mode="F")
+
+
+def _pillow_bbox_to_pixel_bbox(
+    bbox: tuple[int, int, int, int] | None
+) -> PixelBBox | None:
+    if bbox is None:
+        return None
+    left, top, right, bottom = bbox
+    return PixelBBox(left, top, right - 1, bottom - 1)
 
 
 def _should_trim_soft_shadows(soft: PixelBBox, solid: PixelBBox) -> bool:

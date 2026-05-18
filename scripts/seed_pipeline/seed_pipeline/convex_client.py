@@ -55,27 +55,27 @@ SEED_HTTP_ROUTES = {
     ("mutation", "marketplace/seedRuns:rollbackSeedRelease"): "/api/seed/rollback",
     (
         "query",
-        "marketplace/rankings/seed:preflightSeedRankings",
+        "marketplace/rankings/seed/actions:preflightSeedRankings",
     ): "/api/seed/rankings/preflight",
     (
         "query",
-        "marketplace/rankings/seed:verifySeedRankings",
+        "marketplace/rankings/seed/actions:verifySeedRankings",
     ): "/api/seed/rankings/verify",
     (
         "mutation",
-        "marketplace/rankings/seedLifecycle:activateSeedRankings",
+        "marketplace/rankings/seed/lifecycle:activateSeedRankings",
     ): "/api/seed/rankings/activate",
     (
         "mutation",
-        "marketplace/rankings/seedLifecycle:queueActiveSeedRankingAggregates",
+        "marketplace/rankings/seed/lifecycle:queueActiveSeedRankingAggregates",
     ): "/api/seed/rankings/queue-aggregates",
     (
         "mutation",
-        "marketplace/rankings/seedLifecycle:rollbackSeedRankings",
+        "marketplace/rankings/seed/lifecycle:rollbackSeedRankings",
     ): "/api/seed/rankings/rollback",
     (
         "action",
-        "marketplace/rankings/seed:ensureSeedRankingAuthors",
+        "marketplace/rankings/seed/actions:ensureSeedRankingAuthors",
     ): "/api/seed/rankings/ensure-authors",
     (
         "action",
@@ -87,11 +87,11 @@ SEED_HTTP_ROUTES = {
     ): "/api/seed/finalize-media",
     (
         "action",
-        "marketplace/rankings/seed:applySeedRankingChunk",
+        "marketplace/rankings/seed/actions:applySeedRankingChunk",
     ): "/api/seed/rankings/apply",
     (
         "action",
-        "marketplace/rankings/seed:cleanupStaleSeedRankings",
+        "marketplace/rankings/seed/actions:cleanupStaleSeedRankings",
     ): "/api/seed/rankings/cleanup-stale",
     (
         "action",

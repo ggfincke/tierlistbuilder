@@ -4,7 +4,7 @@
 import { useCallback, useId, useState } from 'react'
 
 import { fetchImageAsItemImage } from '~/features/workspace/settings/lib/imageFromUrl'
-import { useAspectRatioPrompt } from '~/features/workspace/settings/model/useAspectRatioPrompt'
+import { useAspectRatioPrompt } from '~/features/workspace/settings/model/aspect-ratio/useAspectRatioPrompt'
 import { formatError } from '~/shared/lib/errors'
 import { ColorInput } from '~/shared/ui/ColorInput'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'

@@ -2,10 +2,9 @@
 // destructive account deletion confirmation flow
 
 import { useId, useState } from 'react'
-import { useMutation } from 'convex/react'
 import { Trash2 } from 'lucide-react'
 
-import { api } from '@convex/_generated/api'
+import { useDeleteAccountMutation } from '~/features/platform/auth/model/useAccountMutations'
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { formatError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
@@ -22,7 +21,7 @@ interface AccountDangerZoneProps
 
 export const AccountDangerZone = ({ onClose }: AccountDangerZoneProps) =>
 {
-  const deleteAccount = useMutation(api.users.deleteAccount)
+  const deleteAccount = useDeleteAccountMutation()
   const { signOut } = useAuthActions()
   const [confirming, setConfirming] = useState(false)
   const [confirmText, setConfirmText] = useState('')
@@ -38,7 +37,7 @@ export const AccountDangerZone = ({ onClose }: AccountDangerZoneProps) =>
     setPending(true)
     try
     {
-      await deleteAccount({})
+      await deleteAccount()
       await signOut()
       toast('Account deleted', 'success')
       onClose()

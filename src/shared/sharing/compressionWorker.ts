@@ -1,5 +1,6 @@
 // src/shared/sharing/compressionWorker.ts
 // worker-side snapshot compression for share codecs
+// loaded by snapshotCompression via new URL(..., import.meta.url)
 
 import type {
   BoardSnapshot,

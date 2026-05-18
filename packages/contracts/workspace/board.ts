@@ -238,8 +238,8 @@ const labelPlacementsEqual = (
 }
 
 export const boardLabelSettingsEqual = (
-  a: BoardLabelSettings | undefined,
-  b: BoardLabelSettings | undefined
+  a: BoardLabelSettings | null | undefined,
+  b: BoardLabelSettings | null | undefined
 ): boolean =>
 {
   if (a === b) return true
@@ -293,16 +293,12 @@ export const isEmptyItemLabelOptions = (
     options.textStyleId === undefined &&
     options.textColor === undefined)
 
-// content-addressable image pointer for bytes stored outside the snapshot.
-// `cloudMediaExternalId` ties hashed bytes to a cloud media row so URLs can
-// re-resolve. source-owned refs = marketplace assets; upload a copy pre-sync.
-export type CloudMediaOwnership = 'source'
-
 export interface TierItemImageRef
 {
   hash: string
   cloudMediaExternalId?: string
-  cloudMediaOwnership?: CloudMediaOwnership
+  // source-owned refs point at marketplace assets; upload a copy pre-sync.
+  cloudMediaOwnership?: 'source'
 }
 
 // single item placed in a tier or the unranked pool. imageRef is the small

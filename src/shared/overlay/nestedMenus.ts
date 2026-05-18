@@ -1,7 +1,9 @@
 // src/shared/overlay/nestedMenus.ts
 // pure nested-menu state plus React hook wrapper
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
+
+import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 
 export interface NestedMenuDefinition<MenuId extends string>
 {
@@ -20,6 +22,13 @@ interface UseNestedMenusOptions<MenuId extends string>
 {
   definitions: readonly NestedMenuDefinition<MenuId>[]
   disabledIds?: readonly MenuId[]
+}
+
+interface UseNestedDropdownOptions<
+  MenuId extends string,
+> extends UseNestedMenusOptions<MenuId>
+{
+  rootId: MenuId
 }
 
 export const buildNestedMenuIndex = <MenuId extends string>(
@@ -219,7 +228,7 @@ export const toggleNestedMenuState = <MenuId extends string>(
   return openNestedMenuPath(prunedOpenIds, index, menuId)
 }
 
-export const useNestedMenus = <MenuId extends string>({
+const useNestedMenus = <MenuId extends string>({
   definitions,
   disabledIds = [],
 }: UseNestedMenusOptions<MenuId>) =>
@@ -276,5 +285,33 @@ export const useNestedMenus = <MenuId extends string>({
     toggleMenu,
     closeMenu,
     closeAllMenus,
+  }
+}
+
+export const useNestedDropdown = <MenuId extends string>({
+  rootId,
+  definitions,
+  disabledIds,
+}: UseNestedDropdownOptions<MenuId>) =>
+{
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  const dialogId = useId()
+  const menuState = useNestedMenus({ definitions, disabledIds })
+  const isRootOpen = menuState.isOpen(rootId)
+
+  useDismissibleLayer({
+    open: isRootOpen,
+    triggerRef: buttonRef,
+    layerRef: menuRef,
+    onDismiss: menuState.closeAllMenus,
+  })
+
+  return {
+    ...menuState,
+    buttonRef,
+    menuRef,
+    dialogId,
+    isRootOpen,
   }
 }

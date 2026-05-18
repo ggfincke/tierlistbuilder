@@ -16,7 +16,7 @@ import {
   setImageEditorDisplayZoom,
   zoomImageEditorTransformAtPoint,
 } from '~/features/workspace/imageEditor/lib/imageEditorTransformOps'
-import { syncImageEditorTransformDraftState } from '~/features/workspace/imageEditor/model/imageEditorTransformDraftState'
+import { syncImageEditorTransformDraftState } from '~/features/workspace/imageEditor/model/transform/imageEditorTransformDraftState'
 
 const transform = (overrides: Partial<ItemTransform> = {}): ItemTransform => ({
   ...ITEM_TRANSFORM_IDENTITY,

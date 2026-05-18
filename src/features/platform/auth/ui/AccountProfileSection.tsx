@@ -2,9 +2,7 @@
 // account profile editor fields, draft merge, & save/reset actions
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { useMutation } from 'convex/react'
 
-import { api } from '@convex/_generated/api'
 import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import {
   MAX_BIO_LENGTH,
@@ -22,6 +20,7 @@ import {
   profileDraftsEqual,
   type ProfileDraft,
 } from '~/features/platform/auth/model/accountProfileDraft'
+import { useUpdateProfileMutation } from '~/features/platform/auth/model/useAccountMutations'
 import { formatError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
@@ -37,7 +36,7 @@ interface AccountProfileSectionProps
 
 export const AccountProfileSection = ({ user }: AccountProfileSectionProps) =>
 {
-  const updateProfile = useMutation(api.users.updateProfile)
+  const updateProfile = useUpdateProfileMutation()
   const [initial, setInitial] = useState<ProfileDraft>(() =>
     buildProfileDraft(user)
   )

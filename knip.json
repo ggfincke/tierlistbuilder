@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "includeEntryExports": true,
-  "ignoreBinaries": ["python3"],
+  "ignoreBinaries": ["uv"],
   "ignoreDependencies": ["tailwindcss"],
   "ignoreIssues": {
     "convex/auth.ts": ["exports"],
@@ -40,11 +40,6 @@
       "typescript": true,
       "vite": true,
       "vitest": true
-    },
-    "packages/contracts": {
-      "entry": ["**/*.ts"],
-      "project": ["**/*.ts"],
-      "includeEntryExports": true
     }
   }
 }

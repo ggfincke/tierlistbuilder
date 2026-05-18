@@ -10,7 +10,10 @@ import type {
 } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
-import { projectLocalRow } from '~/features/library/model/useLocalBoardsLibrary'
+import {
+  projectLocalRow,
+  projectLocalRows,
+} from '~/features/library/model/useLocalBoardsLibrary'
 
 const boardId = 'board-local-library' as BoardId
 const tierId = 'tier-s' as TierId
@@ -102,5 +105,31 @@ describe('useLocalBoardsLibrary projection', () =>
         mediaUrl: null,
       },
     ])
+  })
+
+  it('re-reads storage when stable registry meta points at an edited board', () =>
+  {
+    const meta = {
+      id: boardId,
+      title: 'Local Smash Fork',
+      createdAt: 123,
+    }
+    expect(saveBoardToStorage(boardId, snapshot).ok).toBe(true)
+    expect(projectLocalRows([meta])[0]).toMatchObject({
+      rankedItemCount: 0,
+      unrankedItemCount: 2,
+    })
+
+    const editedSnapshot: BoardSnapshot = {
+      ...snapshot,
+      tiers: [{ ...snapshot.tiers[0], itemIds: [marioId] }],
+      unrankedItemIds: [linkId],
+    }
+    expect(saveBoardToStorage(boardId, editedSnapshot).ok).toBe(true)
+
+    expect(projectLocalRows([meta])[0]).toMatchObject({
+      rankedItemCount: 1,
+      unrankedItemCount: 1,
+    })
   })
 })

@@ -24,6 +24,7 @@ import {
 } from '@tierlistbuilder/contracts/platform/user'
 import { getCurrentUser, requireCurrentUserId } from './lib/auth'
 import { BATCH_LIMITS } from './lib/limits'
+import { literalUnion } from './lib/validators/common'
 import {
   failInput,
   normalizeNullableText,
@@ -35,7 +36,7 @@ import {
   isPublicTemplateRow,
   type PublicCategoryDelta,
 } from './marketplace/templates/lib'
-import { queueTemplateRankingAggregateRecompute } from './marketplace/rankings/aggregate'
+import { queueTemplateRankingAggregateRecompute } from './marketplace/rankings/aggregate/lib'
 import {
   deleteMediaAssetWithVariants,
   hasMediaAssetReferences,
@@ -235,7 +236,8 @@ export const signOutEverywhere = mutation({
     await scheduleAuthSessionCleanup(
       ctx,
       userId,
-      await getInitialAuthSessionState(ctx)
+      await getInitialAuthSessionState(ctx),
+      'signOutOnly'
     )
     return null
   },
@@ -248,40 +250,41 @@ export const deleteAccount = mutation({
   handler: async (ctx): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
-    await scheduleCascadeAuthSessions(
+    await scheduleAuthSessionCleanup(
       ctx,
       userId,
-      await getInitialAuthSessionState(ctx)
+      await getInitialAuthSessionState(ctx),
+      'startCascade'
     )
     return null
   },
 })
 
-const cascadePhaseValidator = v.union(
-  v.literal('authSessions'),
-  v.literal('authAccounts'),
-  v.literal('boards'),
-  v.literal('templates'),
-  v.literal('rankings'),
-  v.literal('bookmarks'),
-  v.literal('tierPresets'),
-  v.literal('shortLinks'),
-  v.literal('mediaAssets'),
-  v.literal('userPreferences')
-)
-type CascadePhase = Infer<typeof cascadePhaseValidator>
+// authSessions is intentionally absent — it's the entry phase reached directly
+// via cleanupAuthSessions (mode='startCascade'), then hops here at 'authAccounts'
+const CASCADE_PHASES = [
+  'authAccounts',
+  'boards',
+  'templates',
+  'rankings',
+  'bookmarks',
+  'tierPresets',
+  'shortLinks',
+  'mediaAssets',
+  'userPreferences',
+] as const
 
-const NEXT_PHASE: Record<CascadePhase, CascadePhase | null> = {
-  authSessions: 'authAccounts',
-  authAccounts: 'boards',
-  boards: 'templates',
-  templates: 'rankings',
-  rankings: 'bookmarks',
-  bookmarks: 'tierPresets',
-  tierPresets: 'shortLinks',
-  shortLinks: 'mediaAssets',
-  mediaAssets: 'userPreferences',
-  userPreferences: null,
+const cascadePhaseValidator = literalUnion(CASCADE_PHASES)
+type CascadePhase = (typeof CASCADE_PHASES)[number]
+
+const AUTH_SESSION_CLEANUP_MODES = ['signOutOnly', 'startCascade'] as const
+const authSessionCleanupModeValidator = literalUnion(AUTH_SESSION_CLEANUP_MODES)
+type AuthSessionCleanupMode = (typeof AUTH_SESSION_CLEANUP_MODES)[number]
+
+const nextCascadePhase = (currentPhase: CascadePhase): CascadePhase | null =>
+{
+  const index = CASCADE_PHASES.indexOf(currentPhase)
+  return CASCADE_PHASES[index + 1] ?? null
 }
 
 interface AuthSessionCleanupState
@@ -319,6 +322,7 @@ type CascadePhaseHandler = (
 export const cleanupAuthSessions = internalMutation({
   args: {
     userId: v.id('users'),
+    mode: authSessionCleanupModeValidator,
     cursor: v.union(v.string(), v.null()),
     targetSessionId: v.optional(v.id('authSessions')),
     tokenCursor: v.optional(v.union(v.string(), v.null())),
@@ -326,21 +330,11 @@ export const cleanupAuthSessions = internalMutation({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
-    const result = await deleteAuthSessionCleanupStep(ctx, args.userId, {
-      cursor: args.cursor,
-      targetSessionId: args.targetSessionId,
-      tokenCursor: args.tokenCursor,
-    })
-    if (!result.isDone)
-    {
-      await scheduleAuthSessionCleanup(ctx, args.userId, result)
-    }
-    return null
+    return await runAuthSessionCleanup(ctx, args.userId, args, args.mode)
   },
 })
 
 const CASCADE_PHASE_HANDLERS: Record<CascadePhase, CascadePhaseHandler> = {
-  authSessions: async (ctx, args) => await handleAuthSessionsPhase(ctx, args),
   authAccounts: async (ctx, args) => await handleAuthAccountsPhase(ctx, args),
   boards: async (ctx, args) => await handleBoardsPhase(ctx, args),
   templates: async (ctx, args) => await handleTemplatesPhase(ctx, args),
@@ -370,19 +364,35 @@ export const cascadeDeleteUserData = internalMutation({
   },
 })
 
-const handleAuthSessionsPhase: CascadePhaseHandler = async (ctx, args) =>
+// shared step for signOutEverywhere & the deleteAccount cascade entry.
+// pagination reschedules cleanupAuthSessions (mode preserved); only on
+// completion does 'startCascade' kick off cascadeDeleteUserData
+const runAuthSessionCleanup = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  state: AuthSessionCleanupState,
+  mode: AuthSessionCleanupMode
+): Promise<null> =>
 {
-  const result = await deleteAuthSessionCleanupStep(ctx, args.userId, {
-    cursor: args.cursor,
-    targetSessionId: args.targetSessionId,
-    tokenCursor: args.tokenCursor,
+  const result = await deleteAuthSessionCleanupStep(ctx, userId, {
+    cursor: state.cursor,
+    targetSessionId: state.targetSessionId,
+    tokenCursor: state.tokenCursor,
   })
   if (!result.isDone)
   {
-    await scheduleCascadeAuthSessions(ctx, args.userId, result)
+    await scheduleAuthSessionCleanup(ctx, userId, result, mode)
     return null
   }
-  return await advanceCascadePhase(ctx, args.userId, 'authSessions')
+  if (mode === 'startCascade')
+  {
+    await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, {
+      userId,
+      phase: CASCADE_PHASES[0],
+      cursor: null,
+    })
+  }
+  return null
 }
 
 const handleAuthAccountsPhase: CascadePhaseHandler = async (ctx, args) =>
@@ -499,7 +509,7 @@ const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
       ctx.db.delete(ranking._id),
       ctx.scheduler.runAfter(
         0,
-        internal.marketplace.rankings.internal.cascadeDeleteRanking,
+        internal.marketplace.rankings.maintenance.cascade.cascadeDeleteRanking,
         { rankingId: ranking._id }
       ),
     ])
@@ -602,7 +612,7 @@ const advanceCascadePhase = async (
   currentPhase: CascadePhase
 ): Promise<null> =>
 {
-  const next = NEXT_PHASE[currentPhase]
+  const next = nextCascadePhase(currentPhase)
   if (next === null)
   {
     return null
@@ -643,16 +653,19 @@ const getInitialAuthSessionState = async (
 const scheduleAuthSessionCleanup = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
-  state: AuthSessionCleanupState
+  state: AuthSessionCleanupState,
+  mode: AuthSessionCleanupMode
 ): Promise<void> =>
 {
   const args: {
     userId: Id<'users'>
+    mode: AuthSessionCleanupMode
     cursor: string | null
     targetSessionId?: Id<'authSessions'>
     tokenCursor?: string | null
   } = {
     userId,
+    mode,
     cursor: state.cursor,
   }
   if (state.targetSessionId !== undefined)
@@ -664,34 +677,6 @@ const scheduleAuthSessionCleanup = async (
     args.tokenCursor = state.tokenCursor
   }
   await ctx.scheduler.runAfter(0, internal.users.cleanupAuthSessions, args)
-}
-
-const scheduleCascadeAuthSessions = async (
-  ctx: MutationCtx,
-  userId: Id<'users'>,
-  state: AuthSessionCleanupState
-): Promise<void> =>
-{
-  const args: {
-    userId: Id<'users'>
-    phase: 'authSessions'
-    cursor: string | null
-    targetSessionId?: Id<'authSessions'>
-    tokenCursor?: string | null
-  } = {
-    userId,
-    phase: 'authSessions',
-    cursor: state.cursor,
-  }
-  if (state.targetSessionId !== undefined)
-  {
-    args.targetSessionId = state.targetSessionId
-  }
-  if (state.tokenCursor !== undefined)
-  {
-    args.tokenCursor = state.tokenCursor
-  }
-  await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, args)
 }
 
 const scheduleCascadeAuthAccounts = async (

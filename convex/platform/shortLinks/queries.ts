@@ -14,7 +14,7 @@ import { getCurrentUserId } from '../../lib/auth'
 import {
   ownedShortLinkListItemValidator,
   shortLinkResolveResultValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/platform'
 import { selectLiveOwnedShortLinks } from './listing'
 
 // resolve a slug to its snapshot blob URL, or signal a miss. callers distinguish

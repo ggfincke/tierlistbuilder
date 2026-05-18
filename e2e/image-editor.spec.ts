@@ -37,6 +37,34 @@ const readStoredImageTransform = async (
   return null
 }
 
+const readStoredImageTransformJson = async (page: Page): Promise<string> =>
+  JSON.stringify(await readStoredImageTransform(page))
+
+const waitForStoredImageTransformJson = async (page: Page): Promise<string> =>
+{
+  await expect
+    .poll(() => readStoredImageTransformJson(page), { timeout: 7_000 })
+    .not.toBe('null')
+  return await readStoredImageTransformJson(page)
+}
+
+const useCaptionBelowLabelDefaults = async (page: Page): Promise<void> =>
+{
+  await page.addInitScript(() =>
+  {
+    window.localStorage.setItem(
+      'tier-list-builder-preferences',
+      JSON.stringify({
+        state: {
+          defaultLabelPlacementMode: 'captionBelow',
+          showLabels: false,
+        },
+        version: 5,
+      })
+    )
+  })
+}
+
 test.beforeEach(async ({ page }) =>
 {
   await resetBrowserStorage(page)
@@ -104,4 +132,127 @@ test('image editor transform autosaves and survives reload', async ({
   await expect(reopenedEditor).toBeVisible()
   await reopenedEditor.getByRole('tab', { name: 'Adjusted' }).click()
   await expect(reopenedEditor).toContainText('Item 1 of 1')
+})
+
+test('ratio prompt auto-crops imported image without opening editor', async ({
+  page,
+}) =>
+{
+  await page.route('**/e2e-prompt-autocrop-wide.svg', async (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120"><rect x="40" y="10" width="160" height="90" fill="#69d6c5"/></svg>',
+    })
+  )
+  await useCaptionBelowLabelDefaults(page)
+
+  await openWorkspaceWithBoard(page)
+  await page.getByRole('button', { name: 'Open settings' }).click()
+  const settings = page.getByRole('dialog', { name: 'Settings' })
+  await expect(settings).toBeVisible()
+
+  await page.getByRole('tab', { name: /layout/i }).click()
+  await settings.getByRole('button', { name: '1:1', exact: true }).click()
+  await page.getByRole('tab', { name: /items/i }).click()
+
+  const imageUrl = new URL(
+    '/e2e-prompt-autocrop-wide.svg',
+    page.url()
+  ).toString()
+  await settings.getByLabel('Image URL').fill(imageUrl)
+  await settings.getByRole('button', { name: 'Add' }).first().click()
+
+  const prompt = page.getByRole('dialog', {
+    name: 'Mixed aspect ratios detected',
+  })
+  await expect(prompt).toBeVisible()
+  const done = prompt.getByRole('button', { name: 'Done' })
+
+  const labelsToggle = prompt.getByRole('switch', {
+    name: 'Show labels by default',
+  })
+  await labelsToggle.click()
+  await expect(done).toBeEnabled({ timeout: 12_000 })
+  const labelsOnTransform = await waitForStoredImageTransformJson(page)
+
+  await labelsToggle.click()
+  await expect(done).toBeEnabled({ timeout: 12_000 })
+  await expect
+    .poll(() => readStoredImageTransformJson(page), { timeout: 7_000 })
+    .not.toBe(labelsOnTransform)
+
+  await done.click()
+  await expect(prompt).toBeHidden()
+
+  await expect
+    .poll(async () => Boolean(await readStoredImageTransform(page)), {
+      timeout: 7_000,
+    })
+    .toBe(true)
+})
+
+test('image editor reruns auto-crop when label visibility changes', async ({
+  page,
+}) =>
+{
+  await page.route('**/e2e-editor-label-rerun-wide.svg', async (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120"><rect x="40" y="10" width="160" height="90" fill="#69d6c5"/></svg>',
+    })
+  )
+  await useCaptionBelowLabelDefaults(page)
+
+  await openWorkspaceWithBoard(page)
+  await page.getByRole('button', { name: 'Open settings' }).click()
+  const settings = page.getByRole('dialog', { name: 'Settings' })
+  await expect(settings).toBeVisible()
+
+  await page.getByRole('tab', { name: /layout/i }).click()
+  await settings.getByRole('button', { name: '1:1', exact: true }).click()
+  await page.getByRole('tab', { name: /items/i }).click()
+
+  const imageUrl = new URL(
+    '/e2e-editor-label-rerun-wide.svg',
+    page.url()
+  ).toString()
+  await settings.getByLabel('Image URL').fill(imageUrl)
+  await settings.getByRole('button', { name: 'Add' }).first().click()
+
+  const prompt = page.getByRole('dialog', {
+    name: 'Mixed aspect ratios detected',
+  })
+  await expect(prompt).toBeVisible()
+  await prompt.getByRole('button', { name: /adjust each item/i }).click()
+
+  const editor = page.getByRole('dialog', {
+    name: 'Adjust items to fit board',
+  })
+  await expect(editor).toBeVisible()
+
+  const labelsToggle = editor.getByRole('switch', {
+    name: 'Show labels by default',
+  })
+  await expect(labelsToggle).not.toBeChecked()
+  await expect(
+    editor.getByRole('button', { name: 'Auto-crop applied to all images' })
+  ).toBeVisible({ timeout: 12_000 })
+  const labelsOffTransform = await waitForStoredImageTransformJson(page)
+
+  await labelsToggle.click()
+  await expect
+    .poll(() => readStoredImageTransformJson(page), { timeout: 7_000 })
+    .not.toBe(labelsOffTransform)
+  await expect(
+    editor.getByRole('button', { name: 'Auto-crop applied to all images' })
+  ).toBeVisible({ timeout: 12_000 })
+  const labelsOnTransform = await waitForStoredImageTransformJson(page)
+
+  await labelsToggle.click()
+  await expect
+    .poll(() => readStoredImageTransformJson(page), { timeout: 7_000 })
+    .not.toBe(labelsOnTransform)
+  await expect(
+    editor.getByRole('button', { name: 'Auto-crop applied to all images' })
+  ).toBeVisible({ timeout: 12_000 })
 })

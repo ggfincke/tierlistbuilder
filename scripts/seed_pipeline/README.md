@@ -1,17 +1,19 @@
 # Python Seed Pipeline
 
-Local usage from the repo root:
+Local usage from the repo root (uv manages the env from `uv.lock`):
 
 ```bash
-PYTHONPATH=scripts/seed_pipeline python -m seed_pipeline validate data/seeds/marketplace-core.json
-PYTHONPATH=scripts/seed_pipeline python -m seed_pipeline build data/seeds/marketplace-core.json
-PYTHONPATH=scripts/seed_pipeline python -m seed_pipeline preflight data/seeds/marketplace-core.json
-PYTHONPATH=scripts/seed_pipeline python -m seed_pipeline run data/seeds/marketplace-core.json --env local
+uv run --project scripts/seed_pipeline python -m seed_pipeline validate data/seeds/marketplace-core.json
+uv run --project scripts/seed_pipeline python -m seed_pipeline build data/seeds/marketplace-core.json
+uv run --project scripts/seed_pipeline python -m seed_pipeline preflight data/seeds/marketplace-core.json
+uv run --project scripts/seed_pipeline python -m seed_pipeline run data/seeds/marketplace-core.json --env local
 ```
 
-The npm wrappers in `package.json` use `scripts/seed-pipeline.mjs`, which sets
-the same `PYTHONPATH` and prefers `.venv/bin/python` when the local venv exists.
-Set `SEED_PIPELINE_PYTHON=/path/to/python` to override the interpreter.
+The npm wrappers in `package.json` go through `scripts/seed-pipeline.mjs`,
+which shells out to `uv run --project scripts/seed_pipeline` so dependencies
+sync automatically. Set `SEED_PIPELINE_PYTHON=/path/to/python` (or `PYTHON`)
+to bypass uv and use a specific interpreter — that interpreter must already
+have `jsonschema` and `Pillow` installed.
 
 ```bash
 npm run seed:marketplace:validate
@@ -27,11 +29,13 @@ npm run seed:all
 `npm run seed:all` runs the marketplace, ranking, and featured-trio seed steps
 in sequence. There is no seed `--reset` flag; for a clean local/dev deployment,
 wipe data first with `npm run db:reset -- --yes`, then run the seed command.
+For disposable local-only state, `npm run db:reset:local-fast -- --yes` moves
+`.convex/local/default` aside, bootstraps local Convex, and restores local auth.
 
-The package can also be installed for development:
+The package can also be installed into an existing env for development:
 
 ```bash
-python -m pip install -e scripts/seed_pipeline
+uv pip install -e scripts/seed_pipeline   # or: python -m pip install -e scripts/seed_pipeline
 python -m seed_pipeline validate data/seeds/marketplace-core.json
 ```
 

@@ -43,7 +43,7 @@ import {
   templateCategoryValidator,
   templateGalleryRailValidator,
   templateListSortValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/marketplace'
 import {
   createTemplateProjectionCache,
   findTemplateBySlug,
@@ -60,6 +60,7 @@ import {
   toTemplateCardSummary,
   toTemplateItem,
 } from './lib'
+import { getBoardSourceTemplateId } from '../../workspace/boards/sourceFields'
 
 const listCategoryArg = v.optional(v.union(templateCategoryValidator, v.null()))
 
@@ -786,7 +787,7 @@ export const getMyTemplateDrafts = query({
     const templateIds = [
       ...new Set(
         rows
-          .map((board) => board.sourceTemplateId)
+          .map((board) => getBoardSourceTemplateId(board))
           .filter((id): id is NonNullable<typeof id> => id !== null)
       ),
     ]
@@ -801,11 +802,12 @@ export const getMyTemplateDrafts = query({
     const drafts = await Promise.all(
       rows.map(async (board) =>
       {
-        if (board.sourceTemplateId === null)
+        const sourceTemplateId = getBoardSourceTemplateId(board)
+        if (sourceTemplateId === null)
         {
           return null
         }
-        const template = templatesById.get(board.sourceTemplateId)
+        const template = templatesById.get(sourceTemplateId)
         return template
           ? await toTemplateDraft(ctx, board, template, cache)
           : null

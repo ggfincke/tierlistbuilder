@@ -1,5 +1,5 @@
 // e2e/marketplace-library.spec.ts
-// signed-in marketplace publish/use-template & My Lists activation guardrails
+// signed-in marketplace publish/use-template & My Boards activation guardrails
 
 import { expect, test } from 'playwright/test'
 
@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) =>
   await resetBrowserStorage(page)
 })
 
-test('signed-in publish, use-template, and My Lists open flow', async ({
+test('signed-in publish, use-template, and My Boards open flow', async ({
   page,
 }) =>
 {
@@ -72,9 +72,9 @@ test('signed-in publish, use-template, and My Lists open flow', async ({
   ).toHaveText(/^My Tier List/)
 
   await page.goto('/boards')
-  await expect(page.getByRole('heading', { name: 'My lists' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'My boards' })).toBeVisible()
   await page
-    .getByRole('searchbox', { name: 'Search your lists' })
+    .getByRole('searchbox', { name: 'Search your boards' })
     .fill(templateTitle)
 
   const templateBoardCard = page

@@ -1,0 +1,57 @@
+// src/shared/board-ui/labelBandVariant.ts
+// resolves caption-band geometry for label-aware auto-crop.
+
+import type {
+  BoardLabelSettings,
+  GlobalLabelDefaults,
+  TierItem,
+} from '@tierlistbuilder/contracts/workspace/board'
+import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
+
+import { resolveLabelDisplay } from './labelDisplay'
+
+// font family can change caption line-height; keep it in the variant key
+export interface LabelBandVariant
+{
+  placement: 'captionAbove' | 'captionBelow'
+  fontSizePx: number
+  textStyleId: TextStyleId | undefined
+}
+
+export const labelBandVariantKey = (variant: LabelBandVariant): string =>
+  `${variant.placement}:${variant.fontSizePx}:${variant.textStyleId ?? ''}`
+
+interface VariantInput
+{
+  item: Pick<TierItem, 'label' | 'labelOptions'>
+  boardLabels: BoardLabelSettings | undefined
+  globalLabelDefaults: GlobalLabelDefaults
+}
+
+// null means no live caption band: empty text, hidden label, or overlay mode
+export const getItemLabelBandVariant = ({
+  item,
+  boardLabels,
+  globalLabelDefaults,
+}: VariantInput): LabelBandVariant | null =>
+{
+  const display = resolveLabelDisplay({
+    itemLabel: item.label,
+    itemOptions: item.labelOptions,
+    boardSettings: boardLabels,
+    globalLabelDefaults,
+  })
+  if (!display) return null
+  if (
+    display.placement.mode !== 'captionAbove' &&
+    display.placement.mode !== 'captionBelow'
+  )
+  {
+    return null
+  }
+  return {
+    placement: display.placement.mode,
+    fontSizePx: display.fontSizePx,
+    textStyleId: display.textStyleId,
+  }
+}

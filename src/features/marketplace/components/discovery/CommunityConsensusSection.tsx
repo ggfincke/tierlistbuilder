@@ -3,76 +3,64 @@
 // renders above the section when the template has multiple criteria
 
 import { ArrowLeftRight, Loader2, Plus } from 'lucide-react'
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import type {
   MarketplaceTemplateRankingAggregate,
   MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
-  TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { isTemplateRankingAggregateReady as isAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import {
-  RANKING_FEATURED_BADGE_LABELS,
-  DEFAULT_RANKING_LIST_LIMIT,
-  type RankingFeaturedBadge,
-} from '@tierlistbuilder/contracts/marketplace/ranking'
+import { RANKING_FEATURED_BADGE_LABELS } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
-import { useCompareRanking } from '~/features/marketplace/model/useCompareRanking'
-import { selectBusiestOtherCriterion } from '~/features/marketplace/model/criterionSelection'
-import { useRemixConsensus } from '~/features/marketplace/model/useRemixConsensus'
-import { useRemixRanking } from '~/features/marketplace/model/useRemixRanking'
-import { useUseTemplate } from '~/features/marketplace/model/useUseTemplate'
+import { useCompareRanking } from '~/features/marketplace/model/detail/useCompareRanking'
+import { selectBusiestOtherCriterion } from '~/features/marketplace/model/detail/criterionSelection'
+import { useRemixConsensus } from '~/features/marketplace/model/remix/useRemixConsensus'
+import { useRemixRanking } from '~/features/marketplace/model/remix/useRemixRanking'
+import { useUseTemplate } from '~/features/marketplace/model/remix/useUseTemplate'
 import {
   ACCESS_META,
   isTemplateAccessBlocked,
 } from '~/features/marketplace/model/accessMeta'
 import {
   useMyRankingForTemplate,
-  usePaginatedRankingsForTemplate,
   useTemplateRankingAggregateItems,
   type TemplateRankingAggregateItemsPageStatus,
-} from '~/features/marketplace/model/useRankingDetail'
-import { formatRelativeTime } from '~/shared/catalog/formatters'
+} from '~/features/marketplace/model/detail/useRankingDetail'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
-import { BucketLegend } from '../consensus/BucketLegend'
-import { ConsensusBars } from '../consensus/ConsensusBars'
-import { ConsensusFeaturedSpotlight } from '../consensus/ConsensusFeaturedSpotlight'
-import { ConsensusHeatmap } from '../consensus/ConsensusHeatmap'
-import { ConsensusRanked } from '../consensus/ConsensusRanked'
-import {
-  ConsensusRankingsRail,
-  type ConsensusRailTab,
-} from '../consensus/ConsensusRankingsRail'
-import { ConsensusScatter } from '../consensus/ConsensusScatter'
-import { ConsensusTierRows } from '../consensus/ConsensusTierRows'
-import { ConsensusToolbar } from '../consensus/ConsensusToolbar'
-import { CriterionChips } from '../consensus/CriterionChips'
-import { CriterionEmptyLane } from '../consensus/CriterionEmptyLane'
-import { LaneStatsCard } from '../consensus/LaneStatsCard'
-import { LoadingBlock } from '../consensus/LoadingBlock'
+import { BucketLegend } from '../consensus/criterion/BucketLegend'
+import { ConsensusBars } from '../consensus/views/ConsensusBars'
+import { ConsensusFeaturedSpotlight } from '../consensus/rail/ConsensusFeaturedSpotlight'
+import { ConsensusHeatmap } from '../consensus/views/ConsensusHeatmap'
+import { ConsensusRanked } from '../consensus/views/ConsensusRanked'
+import { ConsensusRankingsRail } from '../consensus/rail/ConsensusRankingsRail'
+import { ConsensusScatter } from '../consensus/views/ConsensusScatter'
+import { ConsensusTierRows } from '../consensus/views/ConsensusTierRows'
+import { ConsensusToolbar } from '../consensus/criterion/ConsensusToolbar'
+import { CriterionChips } from '../consensus/criterion/CriterionChips'
+import { CriterionEmptyLane } from '../consensus/criterion/CriterionEmptyLane'
+import { LaneStatsCard } from '../consensus/rail/LaneStatsCard'
+import { LoadingBlock } from '../consensus/views/LoadingBlock'
 import {
   buildRowsForActiveRanking,
   filterAndSortActiveRankingRows,
-} from '../consensus/activeRankingRows'
-import { ItemPopover } from '../consensus/ItemPopover'
-import { usePopover } from '../consensus/usePopover'
-import { templateFrame, type ConsensusVizMode } from '../consensus/utils'
-
-const RAIL_PAGE_SIZE = DEFAULT_RANKING_LIST_LIMIT
-const RAIL_SORT_BY_TAB: Record<
-  ConsensusRailTab,
-  'featured' | 'top' | 'recent'
-> = {
-  all: 'recent',
-  featured: 'featured',
-  top: 'top',
-  recent: 'recent',
-}
+} from '../consensus/lib/activeRankingRows'
+import { ItemPopover } from '../consensus/item/ItemPopover'
+import { usePopover } from '../consensus/item/usePopover'
+import { templateFrame, type ConsensusVizMode } from '../consensus/lib/utils'
+import { ConsensusShell } from './ConsensusShell'
+import { useConsensusBodyState } from './useConsensusBodyState'
+import { useConsensusRailData } from './useConsensusRailData'
+import {
+  useConsensusViewFrame,
+  type ActiveRankingMeta,
+} from './useConsensusViewFrame'
 
 const ACTION_PILL_CLASS =
   'focus-custom flex h-full flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-dashed border-[var(--t-border)] bg-transparent px-3 py-2 text-[12px] font-medium text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
@@ -89,13 +77,6 @@ interface CommunityConsensusSectionProps
   visibleCriteria: readonly MarketplaceTemplateCriterion[] | null
   onCriterionChange: (externalId: string) => void
 }
-
-const StateCard = ({ title, body }: { title: string; body: string }) => (
-  <div className="rounded-lg border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-5 py-8 text-center">
-    <p className="text-sm font-semibold text-[var(--t-text)]">{title}</p>
-    <p className="mt-1 text-xs text-[var(--t-text-muted)]">{body}</p>
-  </div>
-)
 
 interface ConsensusActionButtonsProps
 {
@@ -225,30 +206,6 @@ const LoadMoreButton = ({
     </div>
   )
 }
-
-interface ActiveRankingMeta
-{
-  title: string
-  authorName: string
-  updatedAt: number
-  featuredBadge: RankingFeaturedBadge | null
-}
-
-// snapshot of what the body is currently rendering. cached so a pin swap
-// can keep the previous viz + header mounted while new detail loads
-interface ViewFrame
-{
-  aggregate: MarketplaceTemplateRankingAggregate
-  rows: readonly MarketplaceTemplateRankingAggregateItem[]
-  buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
-  yourPlacements: Record<string, number> | null
-  showControversy: boolean
-  // header eyebrow + title so SectionHeader doesn't flicker through
-  // "Community consensus" between pin1 -> pin2 swaps
-  activeRankingMeta: ActiveRankingMeta | null
-}
-
-const VIEW_FRAME_CACHE = new Map<string, ViewFrame>()
 
 interface SectionHeaderProps
 {
@@ -434,42 +391,30 @@ export const CommunityConsensusSection = ({
   onCriterionChange,
 }: CommunityConsensusSectionProps) =>
 {
-  const [sort, setSort] =
-    useState<TemplateRankingAggregateItemSort>('templateOrder')
-  const [vizMode, setVizMode] = useState<ConsensusVizMode>('tiers')
-  const [searchQuery, setSearchQuery] = useState('')
-  // pin is stored alongside the criterion it was set in so a lane switch
-  // implicitly resets the pin during render — avoids a setState-in-effect
-  const [activePin, setActivePin] = useState<{
-    slug: string
-    criterion: string
-  } | null>(null)
-  const [railTab, setRailTab] = useState<ConsensusRailTab>('recent')
-
   const multiCriterion = visibleCriteria !== null
   const criterionExternalId = selectedCriterion.externalId
-  const activeSlug =
-    activePin && activePin.criterion === criterionExternalId
-      ? activePin.slug
-      : null
-  const setActiveSlug = useCallback(
-    (slug: string | null) =>
-    {
-      setActivePin(
-        slug === null ? null : { slug, criterion: criterionExternalId }
-      )
-    },
-    [criterionExternalId]
-  )
+  const {
+    activeSlug,
+    railTab,
+    searchQuery,
+    setActiveSlug,
+    setRailTab,
+    setSearchQuery,
+    setSort,
+    setVizMode,
+    sort,
+    vizMode,
+  } = useConsensusBodyState(criterionExternalId)
 
   const itemsEnabled = isAggregateReady(aggregate)
   const isActiveRanking = activeSlug !== null
+  const activeGeneration = itemsEnabled ? aggregate.activeGeneration : null
   // keep the aggregate subscription warm even while a pin is active so
   // returning to the community average snaps in - no skeleton flash
   const itemsPage = useTemplateRankingAggregateItems({
     templateSlug: template.slug,
     criterionExternalId,
-    generation: aggregate?.activeGeneration,
+    generation: activeGeneration,
     sort,
     search: searchQuery.trim() || null,
     enabled: itemsEnabled,
@@ -482,27 +427,12 @@ export const CommunityConsensusSection = ({
   )
   const yourPlacements = myRanking?.placements ?? null
 
-  // rail data — server sort by featured/top/recent (All tab reuses recent
-  // + loadMore). scoping by criterion keeps the rail in lockstep w/ viz
-  const railSort = RAIL_SORT_BY_TAB[railTab]
-  const railResult = usePaginatedRankingsForTemplate({
-    templateSlug: itemsEnabled ? template.slug : null,
-    sort: railSort,
-    criterionExternalId,
+  const { railResult, spotlightRanking } = useConsensusRailData({
     enabled: itemsEnabled,
-    pageSize: RAIL_PAGE_SIZE,
-  })
-
-  // spotlight is the top featured ranking, pinned above the rail tabs
-  // regardless of which tab is active so the headline pick is always visible
-  const featuredHead = usePaginatedRankingsForTemplate({
-    templateSlug: itemsEnabled ? template.slug : null,
-    sort: 'featured',
     criterionExternalId,
-    enabled: itemsEnabled,
-    pageSize: 1,
+    railTab,
+    templateSlug: template.slug,
   })
-  const spotlightRanking = featuredHead.items[0] ?? null
 
   const compare = useCompareRanking({
     slug: activeSlug,
@@ -571,51 +501,26 @@ export const CommunityConsensusSection = ({
   const isPinLoading = isActiveRanking && compare.detail === undefined
   const isPinFailed = isActiveRanking && compare.detail === null
 
-  const currentFrame = useMemo<ViewFrame | null>(() =>
-  {
-    if (isPinLoading || isPinFailed) return null
-    if (!aggregate || !isAggregateReady(aggregate)) return null
-    if (filteredRows.length === 0) return null
-    const buckets =
-      isActiveRanking && compare.buckets ? compare.buckets : aggregate.buckets
-    return {
-      aggregate,
-      rows: filteredRows,
-      buckets,
-      yourPlacements: overlayActive ? yourPlacements : null,
-      showControversy: sort === 'controversy' && !isActiveRanking,
-      activeRankingMeta,
-    }
-  }, [
+  const {
+    cachedFrame,
+    renderFrame,
+    showLaneStaleFrame,
+    showPinStaleFrame,
+    showStaleFrame,
+  } = useConsensusViewFrame({
     activeRankingMeta,
     aggregate,
-    compare.buckets,
+    compareBuckets: compare.buckets,
+    criterionExternalId,
     filteredRows,
     isActiveRanking,
     isPinFailed,
     isPinLoading,
     overlayActive,
     sort,
+    templateSlug: template.slug,
     yourPlacements,
-  ])
-
-  // scoped by template + criterion so a lane swap never shows wrong tiers
-  // behind a load. this is a render fallback, not render-driving state
-  const frameCacheKey = `${template.slug}:${criterionExternalId}`
-  if (
-    currentFrame !== null &&
-    VIEW_FRAME_CACHE.get(frameCacheKey) !== currentFrame
-  )
-  {
-    VIEW_FRAME_CACHE.set(frameCacheKey, currentFrame)
-  }
-
-  const cachedFrame = VIEW_FRAME_CACHE.get(frameCacheKey) ?? null
-  const showPinStaleFrame = isPinLoading && cachedFrame !== null
-  const showLaneStaleFrame =
-    aggregate === undefined && !isActiveRanking && cachedFrame !== null
-  const showStaleFrame = showPinStaleFrame || showLaneStaleFrame
-  const renderFrame = currentFrame ?? (showStaleFrame ? cachedFrame : null)
+  })
 
   const renderBody = (): ReactNode =>
   {
@@ -624,7 +529,7 @@ export const CommunityConsensusSection = ({
     if (isPinFailed)
     {
       return (
-        <StateCard
+        <EmptyCard
           title="Ranking unavailable"
           body="It may have been unpublished. Pick another ranking or return to the community average."
         />
@@ -647,7 +552,7 @@ export const CommunityConsensusSection = ({
       if (filteredRows.length === 0 && sourceRowCount === 0)
       {
         return (
-          <StateCard
+          <EmptyCard
             title="No items in the consensus yet"
             body="The recompute job hasn’t projected items into this view. Check back in a bit."
           />
@@ -656,7 +561,7 @@ export const CommunityConsensusSection = ({
       if (filteredRows.length === 0)
       {
         return (
-          <StateCard
+          <EmptyCard
             title="Nothing matches this view"
             body="Try clearing the search or changing the sort."
           />
@@ -802,29 +707,6 @@ export const CommunityConsensusSection = ({
     </>
   )
 
-  const renderConsensusShell = ({
-    body,
-    totalCount,
-    rail,
-    actions,
-  }: {
-    body: ReactNode
-    totalCount: number
-    rail: ReactNode
-    actions: ReactNode
-  }): ReactNode => (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_auto] lg:items-stretch">
-      <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-        {renderToolbar(totalCount)}
-      </div>
-      <div className="lg:col-start-2 lg:row-start-1">{actions}</div>
-      <div className="min-w-0 lg:col-start-1 lg:row-start-2">{body}</div>
-      <aside className="flex flex-col gap-3 lg:col-start-2 lg:row-start-2 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)]">
-        {rail}
-      </aside>
-    </div>
-  )
-
   // keep compare defaults available across every aggregate state
   const compareDefaultRight = useMemo(() =>
   {
@@ -901,7 +783,7 @@ export const CommunityConsensusSection = ({
       )
     }
     return (
-      <StateCard
+      <EmptyCard
         title="No community consensus yet"
         body="Once people publish rankings made from this template, the spread shows up here."
       />
@@ -924,21 +806,27 @@ export const CommunityConsensusSection = ({
       const totalCount = renderFrame?.aggregate.itemCount ?? knownItemCount
       const rankingCount =
         renderFrame?.aggregate.rankingCount ?? knownRankingCount
-      return renderConsensusShell({
-        body: renderFrame ? (
-          renderBody()
-        ) : (
-          <LoadingBlock
-            message={`Loading ${laneLabel} consensus…`}
-            className="rounded-lg min-h-[28rem]"
-          />
-        ),
-        totalCount,
-        rail: renderFrame
-          ? renderRail(rankingCount)
-          : renderRailLoading(rankingCount),
-        actions: renderConsensusActions(),
-      })
+      return (
+        <ConsensusShell
+          toolbar={renderToolbar(totalCount)}
+          body={
+            renderFrame ? (
+              renderBody()
+            ) : (
+              <LoadingBlock
+                message={`Loading ${laneLabel} consensus…`}
+                className="rounded-lg min-h-[28rem]"
+              />
+            )
+          }
+          rail={
+            renderFrame
+              ? renderRail(rankingCount)
+              : renderRailLoading(rankingCount)
+          }
+          actions={renderConsensusActions()}
+        />
+      )
     }
     if (aggregate === null || aggregate.state === 'empty')
     {
@@ -947,7 +835,7 @@ export const CommunityConsensusSection = ({
     if (aggregate.state === 'failed')
     {
       return (
-        <StateCard
+        <EmptyCard
           title="Community consensus is unavailable"
           body="The current consensus pass could not finish. New rankings will trigger another pass."
         />
@@ -959,12 +847,14 @@ export const CommunityConsensusSection = ({
         <LoadingBlock message="Computing consensus from public rankings…" />
       )
     }
-    return renderConsensusShell({
-      body: renderBody(),
-      totalCount: aggregate.itemCount,
-      rail: renderRail(aggregate.rankingCount),
-      actions: renderConsensusActions(),
-    })
+    return (
+      <ConsensusShell
+        toolbar={renderToolbar(aggregate.itemCount)}
+        body={renderBody()}
+        rail={renderRail(aggregate.rankingCount)}
+        actions={renderConsensusActions()}
+      />
+    )
   }
 
   const showYourPlacementsCopy =

@@ -4,36 +4,35 @@
 from __future__ import annotations
 
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Callable
 
 from .convex_client import ConvexClientError
+from .concurrency import run_in_parallel
 from .manifest import JsonObject, as_list
-from .reports import _report_header, _write_report
-from .runs import (
+from .report_layout import report_header, write_report
+from .run_context import (
     SeedRunContext,
     SeedRunOptions,
-    _assert_write_allowed,
-    _begin_seed_run,
-    _load_context,
-    _run_request,
+    assert_write_allowed,
+    begin_seed_run,
+    load_context,
+    run_request,
 )
 
 
-SEED_RANKINGS_PREFLIGHT_FUNCTION = "marketplace/rankings/seed:preflightSeedRankings"
+SEED_RANKINGS_PREFLIGHT_FUNCTION = "marketplace/rankings/seed/actions:preflightSeedRankings"
 SEED_RANKINGS_ENSURE_AUTHORS_FUNCTION = (
-    "marketplace/rankings/seed:ensureSeedRankingAuthors"
+    "marketplace/rankings/seed/actions:ensureSeedRankingAuthors"
 )
-SEED_RANKINGS_APPLY_FUNCTION = "marketplace/rankings/seed:applySeedRankingChunk"
+SEED_RANKINGS_APPLY_FUNCTION = "marketplace/rankings/seed/actions:applySeedRankingChunk"
 SEED_RANKINGS_CLEANUP_STALE_FUNCTION = (
-    "marketplace/rankings/seed:cleanupStaleSeedRankings"
+    "marketplace/rankings/seed/actions:cleanupStaleSeedRankings"
 )
-SEED_RANKINGS_VERIFY_FUNCTION = "marketplace/rankings/seed:verifySeedRankings"
-SEED_RANKINGS_ACTIVATE_FUNCTION = "marketplace/rankings/seedLifecycle:activateSeedRankings"
-SEED_RANKINGS_ROLLBACK_FUNCTION = "marketplace/rankings/seedLifecycle:rollbackSeedRankings"
+SEED_RANKINGS_VERIFY_FUNCTION = "marketplace/rankings/seed/actions:verifySeedRankings"
+SEED_RANKINGS_ACTIVATE_FUNCTION = "marketplace/rankings/seed/lifecycle:activateSeedRankings"
+SEED_RANKINGS_ROLLBACK_FUNCTION = "marketplace/rankings/seed/lifecycle:rollbackSeedRankings"
 SEED_RANKINGS_QUEUE_AGGREGATES_FUNCTION = (
-    "marketplace/rankings/seedLifecycle:queueActiveSeedRankingAggregates"
+    "marketplace/rankings/seed/lifecycle:queueActiveSeedRankingAggregates"
 )
 MAX_RANKING_ACTIVATION_BATCHES = 200
 RANKING_ACTIVATION_THROTTLE_SECONDS = 2.0
@@ -58,7 +57,7 @@ def preflight_rankings_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "rankings:preflight")
+    context = load_context(manifest_path, repo_root, options, "rankings:preflight")
     result = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_FUNCTION)
     return _write_ranking_summary_report(context, "preflight", result)
 
@@ -68,14 +67,14 @@ def apply_rankings_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "rankings:apply")
-    _assert_write_allowed(options, "rankings apply")
+    context = load_context(manifest_path, repo_root, options, "rankings:apply")
+    assert_write_allowed(options, "rankings apply")
     ranking_seeds = _require_ranking_seeds(context.compiled)
     if options.dry_run:
         context.progress.log("dry run complete; no ranking writes performed")
         preflight = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_FUNCTION)
         return _write_ranking_apply_report(context, preflight, dry_run=True)
-    _begin_seed_run(context)
+    begin_seed_run(context)
     result = _apply_rankings_with_authors(context, ranking_seeds)
     return _write_ranking_apply_report(context, result)
 
@@ -85,7 +84,7 @@ def verify_rankings_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "rankings:verify")
+    context = load_context(manifest_path, repo_root, options, "rankings:verify")
     result = _ranking_query(context, SEED_RANKINGS_VERIFY_FUNCTION)
     return _write_ranking_summary_report(context, "verify", result)
 
@@ -95,8 +94,8 @@ def activate_rankings_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "rankings:activate")
-    _assert_write_allowed(options, "rankings activate")
+    context = load_context(manifest_path, repo_root, options, "rankings:activate")
+    assert_write_allowed(options, "rankings activate")
     if not options.confirm_activation:
         msg = "ranking activation requires --confirm-activation"
         raise RuntimeError(msg)
@@ -109,8 +108,8 @@ def rollback_rankings_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "rankings:rollback")
-    _assert_write_allowed(options, "rankings rollback")
+    context = load_context(manifest_path, repo_root, options, "rankings:rollback")
+    assert_write_allowed(options, "rankings rollback")
     if not options.confirm_activation:
         msg = "ranking rollback requires --confirm-activation"
         raise RuntimeError(msg)
@@ -126,8 +125,8 @@ def run_rankings_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "rankings:run")
-    _assert_write_allowed(options, "rankings run")
+    context = load_context(manifest_path, repo_root, options, "rankings:run")
+    assert_write_allowed(options, "rankings run")
     preflight = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_FUNCTION)
     if _has_error_diagnostics(preflight):
         return _write_ranking_run_report(
@@ -138,7 +137,7 @@ def run_rankings_manifest(
     if options.dry_run:
         context.progress.log("dry run complete; no ranking writes performed")
         return _write_ranking_run_report(context, ["dry-run preflight complete"], preflight)
-    _begin_seed_run(context)
+    begin_seed_run(context)
     ranking_seeds = _require_ranking_seeds(context.compiled)
     apply_result = _apply_rankings_with_authors(context, ranking_seeds)
     verify_result = _ranking_query(context, SEED_RANKINGS_VERIFY_FUNCTION)
@@ -318,18 +317,18 @@ def _apply_ranking_targets(
             context,
             SEED_RANKINGS_APPLY_FUNCTION,
             {
-                **_run_request(context),
+                **run_request(context),
                 "rankingSeeds": chunk,
             },
             f"ranking target {_label(chunk)}",
         )
 
-    results = _run_in_parallel(
+    results = run_in_parallel(
         chunks,
         _apply_one,
         max_workers=min(RANKING_APPLY_WORKERS, len(chunks)),
-        on_complete=lambda index, total, chunk: context.progress.log(
-            f"ranking target {index + 1}/{total}: {_label(chunk)}"
+        on_complete=lambda completed, total, chunk: context.progress.log(
+            f"ranking target {completed}/{total}: {_label(chunk)}"
         ),
     )
     merged = _merge_apply_results(context, results, author_result)
@@ -341,34 +340,6 @@ def _apply_ranking_targets(
     merged["rankingsCleaned"] = int(cleanup.get("rankingsDeleted", 0))
     merged["boardsCleaned"] = int(cleanup.get("boardsDeleted", 0))
     return merged
-
-
-def _run_in_parallel(
-    items: list[JsonObject],
-    worker: Callable[[JsonObject], JsonObject],
-    max_workers: int,
-    on_complete: Callable[[int, int, JsonObject], None] | None = None,
-) -> list[JsonObject]:
-    if max_workers <= 1 or len(items) <= 1:
-        results: list[JsonObject] = []
-        for index, item in enumerate(items):
-            results.append(worker(item))
-            if on_complete is not None:
-                on_complete(index, len(items), item)
-        return results
-    results = [None] * len(items)  # type: ignore[assignment]
-    completed = 0
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        future_to_index = {
-            pool.submit(worker, item): index for index, item in enumerate(items)
-        }
-        for future in as_completed(future_to_index):
-            index = future_to_index[future]
-            results[index] = future.result()
-            if on_complete is not None:
-                on_complete(completed, len(items), items[index])
-            completed += 1
-    return results  # type: ignore[return-value]
 
 
 def _is_convex_write_rate_error(error: BaseException) -> bool:
@@ -417,7 +388,7 @@ def _cleanup_stale_ranking_rows(
         context,
         SEED_RANKINGS_CLEANUP_STALE_FUNCTION,
         {
-            **_run_request(context),
+            **run_request(context),
             "rankingSeeds": ranking_seeds,
         },
         "ranking stale cleanup",
@@ -433,7 +404,7 @@ def _ensure_ranking_authors(
     return context.client.action(
         SEED_RANKINGS_ENSURE_AUTHORS_FUNCTION,
         {
-            **_run_request(context),
+            **run_request(context),
             "authorPassword": author_password,
             "rankingSeeds": ranking_seeds,
         },
@@ -591,12 +562,12 @@ def _write_ranking_summary_report(
     kind: str,
     result: JsonObject,
 ) -> Path:
-    lines = _report_header(
+    lines = report_header(
         context, _RANKING_REPORT_TITLES[kind], extra=_ranking_summary_extras(result)
     )
     _append_ranking_lanes(lines, result.get("aggregateLanes", []))
     _append_diagnostics(lines, result.get("diagnostics", []))
-    return _write_report(context, _RANKING_REPORT_FILENAMES[kind], lines)
+    return write_report(context, _RANKING_REPORT_FILENAMES[kind], lines)
 
 
 def _write_ranking_apply_report(
@@ -605,7 +576,7 @@ def _write_ranking_apply_report(
     dry_run: bool = False,
 ) -> Path:
     rankings_applied = _rankings_applied(result)
-    lines = _report_header(
+    lines = report_header(
         context,
         "Ranking Seed Apply Report",
         dry_run=dry_run,
@@ -627,7 +598,7 @@ def _write_ranking_apply_report(
     )
     _append_ranking_lanes(lines, result.get("aggregateLanes", []))
     _append_diagnostics(lines, result.get("diagnostics", []))
-    return _write_report(context, _RANKING_REPORT_FILENAMES["apply"], lines)
+    return write_report(context, _RANKING_REPORT_FILENAMES["apply"], lines)
 
 
 def _write_ranking_activation_report(
@@ -636,7 +607,7 @@ def _write_ranking_activation_report(
     rollback: bool = False,
 ) -> Path:
     title = "Ranking Seed Rollback Report" if rollback else "Ranking Seed Activation Report"
-    lines = _report_header(
+    lines = report_header(
         context,
         title,
         extra=[
@@ -645,7 +616,7 @@ def _write_ranking_activation_report(
             f"- Aggregate jobs queued: {result.get('aggregateJobsQueued', 0)}",
         ],
     )
-    return _write_report(context, _RANKING_REPORT_FILENAMES["activation"], lines)
+    return write_report(context, _RANKING_REPORT_FILENAMES["activation"], lines)
 
 
 def _write_ranking_run_report(
@@ -653,7 +624,7 @@ def _write_ranking_run_report(
     steps: list[str],
     result: JsonObject,
 ) -> Path:
-    lines = _report_header(
+    lines = report_header(
         context, _RANKING_REPORT_TITLES["run"], extra=_ranking_summary_extras(result)
     )
     lines.extend(["## Steps", ""])
@@ -661,7 +632,7 @@ def _write_ranking_run_report(
     lines.append("")
     _append_ranking_lanes(lines, result.get("aggregateLanes", []))
     _append_diagnostics(lines, result.get("diagnostics", []))
-    return _write_report(context, _RANKING_REPORT_FILENAMES["run"], lines)
+    return write_report(context, _RANKING_REPORT_FILENAMES["run"], lines)
 
 
 def _append_ranking_lanes(lines: list[str], lanes: object) -> None:

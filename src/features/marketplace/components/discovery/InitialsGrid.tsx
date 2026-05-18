@@ -4,7 +4,7 @@
 
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { externalIdToCode, labelToCode } from '~/shared/board-ui/initialsCode'
+import { externalIdToCode, labelToCode } from '~/shared/lib/initials'
 import type { MosaicDensity } from './Mosaic'
 
 interface InitialsGridProps

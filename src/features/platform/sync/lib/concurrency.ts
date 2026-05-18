@@ -6,8 +6,8 @@ export const SYNC_CONCURRENCY = {
   firstLoginBoard: 3,
   // parallel board pulls from the cloud
   pull: 3,
-  // page size when paginating pulled board lists
-  pullBatch: 3,
+  // server reads one full board state per query; parallelism happens above this
+  pullBatch: 1,
   // parallel board deletes
   delete: 4,
   // serial media uploads keep storage writes & finalize actions from bursting

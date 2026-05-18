@@ -2,10 +2,9 @@
 // sign-out-everywhere account action
 
 import { useState } from 'react'
-import { useMutation } from 'convex/react'
 import { LogOut } from 'lucide-react'
 
-import { api } from '@convex/_generated/api'
+import { useSignOutEverywhereMutation } from '~/features/platform/auth/model/useAccountMutations'
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { formatError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
@@ -20,7 +19,7 @@ export const AccountSessionsSection = ({
   onClose,
 }: AccountSessionsSectionProps) =>
 {
-  const signOutEverywhere = useMutation(api.users.signOutEverywhere)
+  const signOutEverywhere = useSignOutEverywhereMutation()
   const { signOut } = useAuthActions()
   const [pending, setPending] = useState(false)
 
@@ -30,7 +29,7 @@ export const AccountSessionsSection = ({
     setPending(true)
     try
     {
-      await signOutEverywhere({})
+      await signOutEverywhere()
       await signOut()
       toast('Signed out from every device', 'success')
       onClose()

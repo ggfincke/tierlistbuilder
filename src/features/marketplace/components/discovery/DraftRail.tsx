@@ -6,7 +6,7 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 
 import type { MarketplaceTemplateDraft } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { formatRelativeTime } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { Cover as MarketplaceCover } from '../cover/Cover'
 import { MediaMatteFrame } from '../cover/MediaMatteFrame'

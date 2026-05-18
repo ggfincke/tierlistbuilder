@@ -1,8 +1,6 @@
 // src/shared/board-ui/ItemContent.tsx
 // shared image-vs-text item rendering primitive
 
-import { type ReactNode } from 'react'
-
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import type {
   ImageFit,
@@ -16,8 +14,9 @@ import {
 } from '~/shared/lib/imageRefs'
 import { getTextColor } from '../lib/color'
 import { FramedItemMedia } from './FramedItemMedia'
-import { CaptionStrip, OverlayLabelBlock } from './labelBlocks'
+import { OverlayLabelBlock } from './labelBlocks'
 import type { ResolvedLabelDisplay } from './labelDisplay'
+import { TileLayoutShell } from './TileLayoutShell'
 
 interface ItemContentProps
 {
@@ -38,27 +37,6 @@ interface ItemContentProps
   fit?: ImageFit
   imageRendition?: ImageRendition
   imageLoading?: 'eager' | 'lazy'
-}
-
-// wraps content in a flex column w/ a CaptionStrip above or below — used by
-// both the resolved-image & matte-while-loading branches so they stay
-// layout-identical
-const CaptionedFrame = ({
-  caption,
-  children,
-}: {
-  caption: ResolvedLabelDisplay
-  children: ReactNode
-}) =>
-{
-  const isAbove = caption.placement.mode === 'captionAbove'
-  return (
-    <div className="flex h-full w-full flex-col">
-      {isAbove && <CaptionStrip display={caption} />}
-      <div className="relative min-h-0 flex-1">{children}</div>
-      {!isAbove && <CaptionStrip display={caption} />}
-    </div>
-  )
 }
 
 export const ItemContent = ({
@@ -114,7 +92,7 @@ export const ItemContent = ({
     )
 
     return isCaptioned ? (
-      <CaptionedFrame caption={label}>{imageArea}</CaptionedFrame>
+      <TileLayoutShell caption={label}>{imageArea}</TileLayoutShell>
     ) : (
       imageArea
     )
@@ -133,7 +111,7 @@ export const ItemContent = ({
     )
 
     return isCaptioned ? (
-      <CaptionedFrame caption={label}>{matte}</CaptionedFrame>
+      <TileLayoutShell caption={label}>{matte}</TileLayoutShell>
     ) : (
       matte
     )

@@ -3,6 +3,7 @@
 
 import { logger } from '~/shared/lib/logger'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { pruneOldestMapEntries } from '~/shared/lib/lru'
 
 const DB_NAME = 'tierlistbuilder-images'
 // bumped past 5 because main shipped a v5 schema (blobs+blobRefs only); this
@@ -55,6 +56,11 @@ const memoryBlobs = new Map<string, BlobRecord>()
 const memoryUploadIndex = new Map<string, UploadIndexRecord>()
 const memoryBlobRefs = new Map<string, BlobRefRecord>()
 
+interface ImageStoreReadOptions
+{
+  signal?: AbortSignal
+}
+
 const uploadIndexKey = (userId: string, hash: string): string =>
   `${userId}|${hash}`
 
@@ -69,22 +75,6 @@ const touchMemoryUploadIndex = (record: UploadIndexRecord): void =>
   const key = uploadIndexKey(record.userId, record.hash)
   memoryUploadIndex.delete(key)
   memoryUploadIndex.set(key, record)
-}
-
-const pruneOldestMapEntries = <TKey, TValue>(
-  map: Map<TKey, TValue>,
-  maxSize: number,
-  isProtected: (key: TKey, value: TValue) => boolean = () => false
-): void =>
-{
-  if (map.size <= maxSize) return
-
-  for (const [key, value] of map)
-  {
-    if (map.size <= maxSize) return
-    if (isProtected(key, value)) continue
-    map.delete(key)
-  }
 }
 
 const pruneMemoryCaches = (
@@ -178,6 +168,22 @@ const openDatabase = (): Promise<IDBDatabase> =>
   return pending
 }
 
+export const disposeImageStore = (): void =>
+{
+  const pending = dbPromise
+  dbPromise = null
+  blobRefWriteQueues.clear()
+  memoryBlobs.clear()
+  memoryUploadIndex.clear()
+  memoryBlobRefs.clear()
+  if (pending)
+  {
+    void pending.then((db) => db.close()).catch(() => undefined)
+  }
+}
+
+import.meta.hot?.dispose(disposeImageStore)
+
 const openDatabaseSafe = async (): Promise<IDBDatabase | null> =>
 {
   try
@@ -199,15 +205,55 @@ const awaitRequest = <T>(request: IDBRequest<T>): Promise<T> =>
       reject(request.error ?? new Error('IndexedDB request failed.'))
   })
 
+const makeAbortError = (): DOMException =>
+  new DOMException('IndexedDB transaction aborted.', 'AbortError')
+
 const awaitTransaction = (tx: IDBTransaction): Promise<void> =>
   new Promise((resolve, reject) =>
   {
     tx.oncomplete = () => resolve()
     tx.onerror = () =>
       reject(tx.error ?? new Error('IndexedDB transaction failed.'))
-    tx.onabort = () =>
-      reject(tx.error ?? new Error('IndexedDB transaction aborted.'))
+    tx.onabort = () => reject(tx.error ?? makeAbortError())
   })
+
+const abortTransactionOnSignal = (
+  tx: IDBTransaction,
+  signal: AbortSignal | undefined
+): (() => void) =>
+{
+  if (!signal) return () => undefined
+
+  const handleAbort = (): void =>
+  {
+    try
+    {
+      tx.abort()
+    }
+    catch
+    {
+      // Transaction may already have completed by the time an abort event lands.
+    }
+  }
+
+  if (signal.aborted)
+  {
+    handleAbort()
+    return () => undefined
+  }
+
+  signal.addEventListener('abort', handleAbort, { once: true })
+  return () => signal.removeEventListener('abort', handleAbort)
+}
+
+const rethrowIfSignalAborted = (
+  signal: AbortSignal | undefined,
+  fallback: unknown
+): void =>
+{
+  if (!signal?.aborted) return
+  throw signal.reason ?? fallback
+}
 
 const awaitIndexDeletes = (
   store: IDBObjectStore,
@@ -328,9 +374,15 @@ export const putBlob = async (record: BlobRecord): Promise<void> =>
 }
 
 // read a single blob record
-export const getBlob = async (hash: string): Promise<BlobRecord | null> =>
+export const getBlob = async (
+  hash: string,
+  options: ImageStoreReadOptions = {}
+): Promise<BlobRecord | null> =>
 {
+  const { signal } = options
+  signal?.throwIfAborted()
   const db = await openDatabaseSafe()
+  signal?.throwIfAborted()
   if (!db)
   {
     const record = memoryBlobs.get(hash) ?? null
@@ -341,15 +393,26 @@ export const getBlob = async (hash: string): Promise<BlobRecord | null> =>
   try
   {
     const tx = db.transaction(BLOBS_STORE, 'readonly')
-    const result = (await awaitRequest(
-      tx.objectStore(BLOBS_STORE).get(hash)
-    )) as BlobRecord | undefined
-    const fallbackRecord = memoryBlobs.get(hash) ?? null
-    if (!result && fallbackRecord) touchMemoryBlob(fallbackRecord)
-    return result ?? fallbackRecord
+    const cleanupAbort = abortTransactionOnSignal(tx, signal)
+    try
+    {
+      const result = (await awaitRequest(
+        tx.objectStore(BLOBS_STORE).get(hash)
+      )) as BlobRecord | undefined
+      await awaitTransaction(tx)
+      signal?.throwIfAborted()
+      const fallbackRecord = memoryBlobs.get(hash) ?? null
+      if (!result && fallbackRecord) touchMemoryBlob(fallbackRecord)
+      return result ?? fallbackRecord
+    }
+    finally
+    {
+      cleanupAbort()
+    }
   }
   catch (error)
   {
+    rethrowIfSignalAborted(signal, error)
     logger.warn('image', `IDB getBlob failed for ${hash}:`, error)
     const record = memoryBlobs.get(hash) ?? null
     if (record) touchMemoryBlob(record)
@@ -402,9 +465,12 @@ export const putBlobs = async (
 // read many blob records in one transaction, bounded concurrency to keep
 // the IDB worker responsive on large board loads
 export const getBlobsBatch = async (
-  hashes: readonly string[]
+  hashes: readonly string[],
+  options: ImageStoreReadOptions = {}
 ): Promise<Map<string, BlobRecord | null>> =>
 {
+  const { signal } = options
+  signal?.throwIfAborted()
   const results = new Map<string, BlobRecord | null>()
 
   if (hashes.length === 0)
@@ -413,6 +479,7 @@ export const getBlobsBatch = async (
   }
 
   const db = await openDatabaseSafe()
+  signal?.throwIfAborted()
   if (!db)
   {
     fillMemoryFallback(hashes, results)
@@ -423,22 +490,34 @@ export const getBlobsBatch = async (
   {
     const tx = db.transaction(BLOBS_STORE, 'readonly')
     const store = tx.objectStore(BLOBS_STORE)
+    const cleanupAbort = abortTransactionOnSignal(tx, signal)
 
-    await mapAsyncLimit(hashes, IDB_READ_CONCURRENCY, async (hash) =>
+    try
     {
-      const record = (await awaitRequest(store.get(hash))) as
-        | BlobRecord
-        | undefined
-      const fallbackRecord = memoryBlobs.get(hash) ?? null
-      if (!record && fallbackRecord) touchMemoryBlob(fallbackRecord)
-      results.set(hash, record ?? fallbackRecord)
-    })
+      await mapAsyncLimit(hashes, IDB_READ_CONCURRENCY, async (hash) =>
+      {
+        signal?.throwIfAborted()
+        const record = (await awaitRequest(store.get(hash))) as
+          | BlobRecord
+          | undefined
+        signal?.throwIfAborted()
+        const fallbackRecord = memoryBlobs.get(hash) ?? null
+        if (!record && fallbackRecord) touchMemoryBlob(fallbackRecord)
+        results.set(hash, record ?? fallbackRecord)
+      })
 
-    await awaitTransaction(tx)
-    return results
+      await awaitTransaction(tx)
+      signal?.throwIfAborted()
+      return results
+    }
+    finally
+    {
+      cleanupAbort()
+    }
   }
   catch (error)
   {
+    rethrowIfSignalAborted(signal, error)
     logger.warn(
       'image',
       `IDB getBlobsBatch failed for ${hashes.length} hash(es):`,

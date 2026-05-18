@@ -4,9 +4,10 @@
 import type { CSSProperties, ReactNode } from 'react'
 
 import { joinClassNames } from '~/shared/lib/className'
-
-export type MediaLoading = 'eager' | 'lazy'
-export type MediaDecoding = 'async' | 'auto' | 'sync'
+import type {
+  MediaDecoding,
+  MediaLoading,
+} from '~/shared/board-ui/mediaImageAttrs'
 
 interface MediaMatteFrameProps
 {

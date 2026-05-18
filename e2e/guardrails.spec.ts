@@ -333,20 +333,19 @@ test('marketplace filters follow query-param changes while mounted', async ({
   await expect(page).toHaveURL(/tag=bosses/)
 })
 
-test('My Lists signed-out CTA opens auth and links to templates', async ({
+test('My Boards signed-out sync CTA opens auth and links to templates', async ({
   page,
 }) =>
 {
   await page.goto('/boards')
 
+  await expect(page.getByRole('heading', { name: 'My boards' })).toBeVisible()
   await expect(
-    page.getByRole('heading', {
-      name: "A home for every ranking you've made.",
-    })
+    page.getByText('These boards live on this device only.')
   ).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add tier' })).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Sign in to see your lists' }).click()
+  await page.getByRole('button', { name: 'Sign in to sync' }).click()
   const signIn = page.getByRole('dialog', { name: 'Sign in' })
   await expect(signIn).toBeVisible()
   await expect(signIn.getByLabel('Email')).toBeFocused()
@@ -359,7 +358,7 @@ test('My Lists signed-out CTA opens auth and links to templates', async ({
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
-  await page.getByRole('link', { name: 'Browse templates' }).click()
+  await page.getByRole('link', { name: 'Templates' }).click()
   await expect(page).toHaveURL(/\/templates$/)
   await expect(templateSearchBox(page)).toBeVisible()
 })

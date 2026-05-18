@@ -6,22 +6,33 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 import {
   appPreferencesValidator,
+  mediaVariantKindValidator,
+  mediaVariantSummaryValidator,
+  userPlanValidator,
+} from './lib/validators/platform'
+import {
   boardCloudStateValidator,
-  boardLabelSettingsValidator,
   boardLibrarySummaryValidator,
   boardMaterializationStateValidator,
   boardPausedReasonValidator,
+} from './lib/validators/workspace'
+import {
+  boardLabelSettingsValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
-  mediaVariantKindValidator,
-  mediaVariantSummaryValidator,
   paletteIdValidator,
+  textStyleIdValidator,
+  tierColorSpecValidator,
+  tierPresetTiersValidator,
+} from './lib/validators/common'
+import {
   templateCardCoverItemValidator,
   templateCardMediaValidator,
   templateCategoryValidator,
   templateCoverFramingValidator,
   templateCriteriaValidator,
   templateJobStatusValidator,
+  templateSizeClassValidator,
   templateRankingAggregateJobPhaseValidator,
   templateRankingAggregateJobStatusValidator,
   templateRankingAggregateStateValidator,
@@ -29,16 +40,24 @@ import {
   rankingFeaturedBadgeValidator,
   rankingPublicationStateValidator,
   rankingVisibilityValidator,
+  templateVisibilityValidator,
+} from './lib/validators/marketplace'
+import {
   seedRankingReleaseStatusValidator,
   seedRunStatusValidator,
   seedTemplateReleaseStatusValidator,
-  templateSizeClassValidator,
-  templateVisibilityValidator,
-  textStyleIdValidator,
-  tierColorSpecValidator,
-  tierPresetTiersValidator,
-  userPlanValidator,
-} from './lib/validators'
+} from './lib/validators/seedPipeline'
+const boardSourceTemplateValidator = v.object({
+  id: v.union(v.id('templates'), v.null()),
+  category: v.union(templateCategoryValidator, v.null()),
+  sizeClass: v.union(templateSizeClassValidator, v.null()),
+  title: v.union(v.string(), v.null()),
+})
+
+const boardSourceRankingValidator = v.object({
+  id: v.union(v.id('publishedRankings'), v.null()),
+  title: v.union(v.string(), v.null()),
+})
 
 export default defineSchema({
   // @convex-dev/auth tables — authAccounts, authSessions, authVerificationCodes,
@@ -90,37 +109,34 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.union(v.number(), v.null()),
-    revision: v.optional(v.number()),
-    // slot aspect ratio (w/h); absent -> 1 (square)
-    itemAspectRatio: v.optional(v.number()),
-    // 'auto' tracks content, 'manual' pins to itemAspectRatio
-    itemAspectRatioMode: v.optional(
-      v.union(v.literal('auto'), v.literal('manual'))
+    revision: v.number(),
+    // slot aspect ratio (w/h); null -> 1 (square)
+    itemAspectRatio: v.union(v.number(), v.null()),
+    // 'auto' tracks content, 'manual' pins to itemAspectRatio; null -> auto
+    itemAspectRatioMode: v.union(
+      v.literal('auto'),
+      v.literal('manual'),
+      v.null()
     ),
-    // suppresses the mixed-ratio modal on this board
-    aspectRatioPromptDismissed: v.optional(v.boolean()),
-    // board-wide fit when an item has no override
-    defaultItemImageFit: v.optional(
-      v.union(v.literal('cover'), v.literal('contain'))
+    // suppresses the mixed-ratio modal on this board.
+    aspectRatioPromptDismissed: v.boolean(),
+    // board-wide fit when an item has no override; null -> cover
+    defaultItemImageFit: v.union(
+      v.literal('cover'),
+      v.literal('contain'),
+      v.null()
     ),
-    // source template for boards created through "Use this template"
-    sourceTemplateId: v.union(v.id('templates'), v.null()),
-    sourceTemplateCategory: v.union(templateCategoryValidator, v.null()),
-    sourceTemplateSizeClass: v.union(templateSizeClassValidator, v.null()),
-    // source ranking for boards created via "Remix" — null for direct forks &
-    // for boards created from scratch. set alongside sourceTemplateId since a
-    // remix is also a fork of the underlying template
-    sourceRankingId: v.union(v.id('publishedRankings'), v.null()),
-    // denormalized titles captured at fork/remix time — drives the BoardHeader
-    // "Forked from..." breadcrumb w/o a round trip & survives source deletion
-    sourceTemplateTitle: v.union(v.string(), v.null()),
-    sourceRankingTitle: v.union(v.string(), v.null()),
+    // Source attribution captured at fork/remix time. Leaf fields are nullable
+    // so the no-source case stays indexable; writers update the object as a
+    // unit so id/category/title cannot drift independently.
+    sourceTemplate: boardSourceTemplateValidator,
+    sourceRanking: boardSourceRankingValidator,
     // whether the fork counter has already ticked for this board. flips true
-    // the first time a sourceTemplateId-bearing board lands server-side
+    // the first time a sourceTemplate.id-bearing board lands server-side
     // (useTemplate insert, large-clone completion, or first local-fork sync)
     forkCounted: v.boolean(),
     // fork source criterion; publish modal uses it as the default lane
-    preferredCriterionExternalId: v.optional(v.string()),
+    preferredCriterionExternalId: v.union(v.string(), v.null()),
     livePublicTemplateId: v.union(v.id('templates'), v.null()),
     cloudState: boardCloudStateValidator,
     materializationState: boardMaterializationStateValidator,
@@ -134,19 +150,19 @@ export default defineSchema({
       v.literal('complete')
     ),
     librarySummary: boardLibrarySummaryValidator,
-    // per-board override of the user-default tier palette; absent -> user default
-    paletteId: v.optional(paletteIdValidator),
-    // per-board override of the user-default text style; absent -> user default
-    textStyleId: v.optional(textStyleIdValidator),
-    // per-board page background color override; absent -> user default
-    pageBackground: v.optional(v.string()),
-    // per-board label rendering defaults; absent -> inherit AppPreferences.showLabels
+    // per-board override of the user-default tier palette; null -> user default
+    paletteId: v.union(paletteIdValidator, v.null()),
+    // per-board override of the user-default text style; null -> user default
+    textStyleId: v.union(textStyleIdValidator, v.null()),
+    // per-board page background color override; null -> user default
+    pageBackground: v.union(v.string(), v.null()),
+    // per-board label rendering defaults; null -> inherit AppPreferences.showLabels
     // & built-in defaults
-    labels: v.optional(boardLabelSettingsValidator),
+    labels: v.union(boardLabelSettingsValidator, v.null()),
     seedDatasetKey: v.union(v.string(), v.null()),
     seedReleaseId: v.union(v.string(), v.null()),
     seedExternalId: v.union(v.string(), v.null()),
-    seedContentHash: v.optional(v.string()),
+    seedContentHash: v.union(v.string(), v.null()),
     seedKind: v.union(
       v.literal('ranking-sample'),
       v.literal('ranking-curated'),
@@ -166,7 +182,7 @@ export default defineSchema({
       'updatedAt',
     ])
     .index('byDeletedAt', ['deletedAt'])
-    .index('bySourceTemplate', ['sourceTemplateId'])
+    .index('bySourceTemplateId', ['sourceTemplate.id'])
     .index('bySeedDatasetReleaseAndExternalId', [
       'seedDatasetKey',
       'seedReleaseId',
@@ -268,10 +284,10 @@ export default defineSchema({
     tags: v.array(v.string()),
     visibility: templateVisibilityValidator,
     coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
-    // per-surface framings of the cover image. absent on rows w/o a cover or
+    // per-surface framings of the cover image. null on rows w/o a cover or
     // when the author hasn't framed yet — runtime falls back to full-image
     // object-cover into the surface container
-    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
+    coverFraming: v.union(templateCoverFramingValidator, v.null()),
     coverItems: v.array(
       v.object({
         mediaAssetId: v.id('mediaAssets'),
@@ -291,22 +307,26 @@ export default defineSchema({
     itemCount: v.number(),
     featuredRank: v.union(v.number(), v.null()),
     creditLine: v.union(v.string(), v.null()),
-    // slot aspect ratio (w/h) the template was designed against; absent ->
+    // slot aspect ratio (w/h) the template was designed against; null ->
     // forks fall back to the board default (1, square)
-    itemAspectRatio: v.optional(v.union(v.number(), v.null())),
+    itemAspectRatio: v.union(v.number(), v.null()),
     // 'auto' tracks content; 'manual' pins the ratio. seed action snaps to a
     // preset & writes 'manual' so forked boards land on the same canonical
     // ratio the per-item transforms were computed against
-    itemAspectRatioMode: v.optional(
-      v.union(v.literal('auto'), v.literal('manual'), v.null())
+    itemAspectRatioMode: v.union(
+      v.literal('auto'),
+      v.literal('manual'),
+      v.null()
     ),
     // board-wide fit when an item has no per-item override on the forked board
-    defaultItemImageFit: v.optional(
-      v.union(v.literal('cover'), v.literal('contain'), v.null())
+    defaultItemImageFit: v.union(
+      v.literal('cover'),
+      v.literal('contain'),
+      v.null()
     ),
     // pre-baked label rendering defaults — forked boards inherit these so the
     // publisher's caption styling shows up without each user toggling labels
-    labels: v.optional(boardLabelSettingsValidator),
+    labels: v.union(boardLabelSettingsValidator, v.null()),
     // seed identity fields let Python diff/upsert by stable external IDs
     // while user-published templates continue to omit them
     seedDatasetKey: v.optional(v.string()),
@@ -350,7 +370,7 @@ export default defineSchema({
     coverMedia: v.union(templateCardMediaValidator, v.null()),
     // mirror of templates.coverFraming so gallery cards can apply per-surface
     // crops without a parent-table read
-    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
+    coverFraming: v.union(templateCoverFramingValidator, v.null()),
     coverItems: v.array(templateCardCoverItemValidator),
     // mirror of templates.itemAspectRatio so gallery cards can frame cover
     // tiles identically to the detail item grid w/o a parent-table read
@@ -362,19 +382,16 @@ export default defineSchema({
       v.null()
     ),
     featuredRank: v.union(v.number(), v.null()),
-    // forkCount replaced legacy useCount; keep both optional during the
-    // backfill window so older marketplace rows can load & be rewritten.
-    forkCount: v.optional(v.number()),
-    useCount: v.optional(v.number()),
+    forkCount: v.number(),
     viewCount: v.number(),
     // denormalized total of public published rankings across every criterion.
-    // maintained by rollupTemplateRankingCount off the aggregate job finish;
-    // absent on rows last written before the field landed -> read as `?? 0`
-    rankingCount: v.optional(v.number()),
-    weeklyForkCount: v.optional(v.number()),
-    weeklyViewCount: v.optional(v.number()),
-    trendingScore: v.optional(v.number()),
-    trendingComputedAt: v.optional(v.union(v.number(), v.null())),
+    // initialized to 0 on insert; rollupTemplateRankingCount patches it after
+    // each aggregate job finish
+    rankingCount: v.number(),
+    weeklyForkCount: v.number(),
+    weeklyViewCount: v.number(),
+    trendingScore: v.number(),
+    trendingComputedAt: v.union(v.number(), v.null()),
     creditLine: v.union(v.string(), v.null()),
     searchText: v.string(),
     createdAt: v.number(),
@@ -420,10 +437,7 @@ export default defineSchema({
 
   templateStats: defineTable({
     templateId: v.id('templates'),
-    // forkCount replaced legacy useCount; keep both optional during the
-    // backfill window so older marketplace rows can load & be rewritten.
-    forkCount: v.optional(v.number()),
-    useCount: v.optional(v.number()),
+    forkCount: v.number(),
     viewCount: v.number(),
     updatedAt: v.number(),
   }).index('byTemplateId', ['templateId']),
@@ -432,10 +446,7 @@ export default defineSchema({
     templateId: v.id('templates'),
     category: templateCategoryValidator,
     dayStartAt: v.number(),
-    // forkCount replaced legacy useCount; keep both optional during the
-    // backfill window so existing metric-day rows validate while rewritten.
-    forkCount: v.optional(v.number()),
-    useCount: v.optional(v.number()),
+    forkCount: v.number(),
     viewCount: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -447,7 +458,7 @@ export default defineSchema({
     // denormalized per-category breakdown of public template count. keys are
     // TemplateCategory values; categories w/ zero templates are absent so the
     // record stays compact across taxonomy churn
-    publicTemplateCountByCategory: v.optional(v.record(v.string(), v.number())),
+    publicTemplateCountByCategory: v.record(v.string(), v.number()),
     updatedAt: v.number(),
   }).index('byKey', ['key']),
 
@@ -571,6 +582,9 @@ export default defineSchema({
   publishedRankings: defineTable({
     slug: v.string(),
     ownerId: v.id('users'),
+    // source* attribution stays flat (vs. boards.sourceTemplate's nested
+    // object) — rankings always have a source, fields are set once at publish
+    // & never patched independently, so no atomic-update concern to solve
     sourceTemplateId: v.id('templates'),
     sourceBoardId: v.union(v.id('boards'), v.null()),
     sourceTemplateSlug: v.string(),
@@ -610,24 +624,12 @@ export default defineSchema({
   })
     .index('bySlug', ['slug'])
     .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
-    .index('bySourceTemplateOwnerPublicationStateUpdatedAt', [
-      'sourceTemplateId',
-      'ownerId',
-      'publicationState',
-      'updatedAt',
-    ])
     .index('bySourceTemplateCriterionOwnerPublicationStateUpdatedAt', [
       'sourceTemplateId',
       'sourceCriterionExternalId',
       'ownerId',
       'publicationState',
       'updatedAt',
-    ])
-    .index('bySourceTemplateOwnerPublicCreatedAt', [
-      'sourceTemplateId',
-      'ownerId',
-      'isPubliclyListable',
-      'createdAt',
     ])
     .index('bySourceTemplateCriterionOwnerPublicCreatedAt', [
       'sourceTemplateId',
@@ -673,33 +675,16 @@ export default defineSchema({
       'isFeatured',
       'featuredRank',
     ])
-    .index('bySourceTemplatePublicCreatedAt', [
-      'sourceTemplateId',
-      'isPubliclyListable',
-      'createdAt',
-    ])
     .index('bySourceTemplateCriterionPublicCreatedAt', [
       'sourceTemplateId',
       'sourceCriterionExternalId',
       'isPubliclyListable',
       'createdAt',
     ])
-    .index('byOwnerSourceTemplateCriterionCreatedAt', [
-      'ownerId',
-      'sourceTemplateId',
-      'sourceCriterionExternalId',
-      'createdAt',
-    ])
     .index('bySeedDatasetReleaseAndExternalId', [
       'seedDatasetKey',
       'seedReleaseId',
       'seedExternalId',
-    ])
-    .index('bySeedDatasetReleaseTemplateCriterion', [
-      'seedDatasetKey',
-      'seedReleaseId',
-      'seedTemplateExternalId',
-      'seedCriterionExternalId',
     ])
     .index('bySeedDatasetReleaseStatus', [
       'seedDatasetKey',
@@ -728,19 +713,17 @@ export default defineSchema({
   publishedRankingItems: defineTable({
     rankingId: v.id('publishedRankings'),
     templateItemId: v.id('templateItems'),
-    templateItemExternalId: v.optional(v.string()),
-    externalId: v.optional(v.string()),
+    templateItemExternalId: v.string(),
+    externalId: v.string(),
     tierExternalId: v.union(v.string(), v.null()),
-    label: v.optional(v.union(v.string(), v.null())),
-    backgroundColor: v.optional(v.union(v.string(), v.null())),
-    altText: v.optional(v.union(v.string(), v.null())),
-    mediaAssetId: v.optional(v.union(v.id('mediaAssets'), v.null())),
+    label: v.union(v.string(), v.null()),
+    backgroundColor: v.union(v.string(), v.null()),
+    altText: v.union(v.string(), v.null()),
+    mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
-    aspectRatio: v.optional(v.union(v.number(), v.null())),
-    imageFit: v.optional(
-      v.union(v.literal('cover'), v.literal('contain'), v.null())
-    ),
-    transform: v.optional(v.union(itemTransformValidator, v.null())),
+    aspectRatio: v.union(v.number(), v.null()),
+    imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+    transform: v.union(itemTransformValidator, v.null()),
   })
     .index('byRanking', ['rankingId', 'order'])
     .index('byMedia', ['mediaAssetId']),
@@ -824,6 +807,9 @@ export default defineSchema({
       'generation',
       'templateItemId',
     ])
+    // band='all' sort indexes — let .paginate() walk the B-tree at storage
+    // layer instead of fetching MAX_SYNC_ITEMS rows + JS-sorting per page.
+    // band-filtered views still fall back to in-memory sort.
     .index('byTemplateIdAndCriterionAndGenerationAndAvgTopSortAndOrder', [
       'templateId',
       'criterionExternalId',
@@ -859,38 +845,6 @@ export default defineSchema({
       'isTopBucket',
       'order',
     ])
-    .index('byTemplateCriterionGenerationTopAverageTopOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isTopBucket',
-      'averageTopSort',
-      'order',
-    ])
-    .index('byTemplateCriterionGenerationTopAverageBottomOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isTopBucket',
-      'averageBottomSort',
-      'order',
-    ])
-    .index('byTemplateCriterionGenerationTopConsensusOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isTopBucket',
-      'consensusSort',
-      'order',
-    ])
-    .index('byTemplateCriterionGenerationTopControversyOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isTopBucket',
-      'controversySort',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationBottomOrder', [
       'templateId',
       'criterionExternalId',
@@ -898,75 +852,11 @@ export default defineSchema({
       'isBottomBucket',
       'order',
     ])
-    .index('byTemplateCriterionGenerationBottomAverageTopOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isBottomBucket',
-      'averageTopSort',
-      'order',
-    ])
-    .index('byTemplateCriterionGenerationBottomAverageBottomOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isBottomBucket',
-      'averageBottomSort',
-      'order',
-    ])
-    .index('byTemplateCriterionGenerationBottomConsensusOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isBottomBucket',
-      'consensusSort',
-      'order',
-    ])
-    .index('byTemplateCriterionGenerationBottomControversyOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isBottomBucket',
-      'controversySort',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationControversialOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'isControversial',
-      'order',
-    ])
-    .index('byTemplateCriterionGenerationControversialAverageTopOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isControversial',
-      'averageTopSort',
-      'order',
-    ])
-    .index('byTemplateCriterionGenerationControversialAverageBottomOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isControversial',
-      'averageBottomSort',
-      'order',
-    ])
-    .index('byTemplateCriterionGenerationControversialConsensusOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isControversial',
-      'consensusSort',
-      'order',
-    ])
-    .index('byTemplateCriterionGenerationControversialControversyOrder', [
-      'templateId',
-      'criterionExternalId',
-      'generation',
-      'isControversial',
-      'controversySort',
       'order',
     ])
     .searchIndex('searchByTemplateCriterionGeneration', {

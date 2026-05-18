@@ -8,7 +8,7 @@ type ToastId = `toast-${string}`
 // optional inline action — surfaced as a button next to the message.
 // clicking the button dismisses the toast & invokes `onClick`; used by flows
 // like local-fork "Sign in to sync" that nudge a follow-up without blocking
-export interface ToastAction
+interface ToastAction
 {
   label: string
   onClick: () => void
@@ -127,3 +127,12 @@ export const toastWithAction = (
 {
   useToastStore.getState().addToast(message, type, action)
 }
+
+import.meta.hot?.dispose(() =>
+{
+  for (const id of [...dismissalTimers.keys()])
+  {
+    clearDismissalTimer(id)
+  }
+  dismissalTimers.clear()
+})

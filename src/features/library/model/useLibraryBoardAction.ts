@@ -2,11 +2,12 @@
 // per-board action runner shared by library mutation hooks — tracks the
 // in-flight externalId, dedups overlapping calls, & toasts on error
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback } from 'react'
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
+import { usePerKeyAsyncAction } from '~/shared/hooks/usePerKeyAsyncAction'
 
 interface RunOptions
 {
@@ -26,13 +27,15 @@ interface LibraryBoardActionState
 
 export const useLibraryBoardAction = (): LibraryBoardActionState =>
 {
-  const [pendingExternalId, setPendingExternalId] = useState<BoardId | null>(
-    null
+  const handleError = useCallback(
+    (error: unknown, _externalId: BoardId, options: RunOptions) =>
+    {
+      logger.warn('library', options.logTag, error)
+      toast(options.errorMessage, 'error')
+    },
+    []
   )
-  // tracks every in-flight board so back-to-back actions on different boards
-  // don't have the earlier finish() prematurely clear a later board's pending
-  // state. pendingExternalId mirrors the latest-started id (or null when none)
-  const inflightRef = useRef<Set<BoardId>>(new Set())
+  const { run: runPerBoardAction, pendingKey } = usePerKeyAsyncAction<BoardId>()
 
   const run = useCallback(
     async <T>(
@@ -41,31 +44,21 @@ export const useLibraryBoardAction = (): LibraryBoardActionState =>
       action: () => Promise<T>
     ): Promise<T | null> =>
     {
-      if (inflightRef.current.has(externalId)) return null
-
-      inflightRef.current.add(externalId)
-      setPendingExternalId(externalId)
-
-      try
+      return await runPerBoardAction(externalId, async () =>
       {
-        return await action()
-      }
-      catch (error)
-      {
-        logger.warn('library', options.logTag, error)
-        toast(options.errorMessage, 'error')
-        return null
-      }
-      finally
-      {
-        inflightRef.current.delete(externalId)
-        setPendingExternalId((current) =>
-          current === externalId ? null : current
-        )
-      }
+        try
+        {
+          return await action()
+        }
+        catch (error)
+        {
+          handleError(error, externalId, options)
+          throw error
+        }
+      })
     },
-    []
+    [handleError, runPerBoardAction]
   )
 
-  return { run, pendingExternalId }
+  return { run, pendingExternalId: pendingKey }
 }

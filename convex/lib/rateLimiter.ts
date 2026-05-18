@@ -32,6 +32,12 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: HOUR,
     capacity: 20,
   },
+  userTemplateView: {
+    kind: 'token bucket',
+    rate: 120,
+    period: HOUR,
+    capacity: 120,
+  },
 })
 
 // enforce a bucket & throw a structured ConvexError on exhaustion w/ retryAfter
@@ -41,7 +47,8 @@ export const enforceRateLimit = async (
     | 'userShortLink'
     | 'userShortLinkCreate'
     | 'userMediaUpload'
-    | 'userTemplatePublish',
+    | 'userTemplatePublish'
+    | 'userTemplateView',
   userId: Id<'users'>
 ): Promise<void> =>
 {

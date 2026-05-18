@@ -3,11 +3,13 @@
 // TTL lock so peer tabs skip flushes for recently-claimed boards
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import { setMapEntryLru } from '~/shared/lib/lru'
 
 // 10s TTL covers a typical flush round trip while keeping a crashed tab
 // from blocking peers indefinitely
 const PEER_LOCK_TTL_MS = 10_000
 const CHANNEL_NAME = 'tlb-sync'
+const MAX_PEER_LOCK_ENTRIES = 128
 
 interface LockMessage
 {
@@ -33,7 +35,12 @@ const getChannel = (): BroadcastChannel | null =>
     {
       const data = event.data as LockMessage | undefined
       if (!data || data.type !== 'lock') return
-      lastAcquiredByPeer.set(data.boardId, data.at)
+      setMapEntryLru(
+        lastAcquiredByPeer,
+        data.boardId,
+        data.at,
+        MAX_PEER_LOCK_ENTRIES
+      )
     })
     return channel
   }
@@ -48,7 +55,9 @@ export const isBoardLockedByPeer = (boardId: BoardId): boolean =>
 {
   const at = lastAcquiredByPeer.get(boardId)
   if (at === undefined) return false
-  return Date.now() - at < PEER_LOCK_TTL_MS
+  const locked = Date.now() - at < PEER_LOCK_TTL_MS
+  if (!locked) lastAcquiredByPeer.delete(boardId)
+  return locked
 }
 
 // ms until the peer lock expires; 0 when unlocked. callers wait this out
@@ -58,7 +67,9 @@ export const getPeerLockRemainingMs = (boardId: BoardId): number =>
   const at = lastAcquiredByPeer.get(boardId)
   if (at === undefined) return 0
   const remaining = PEER_LOCK_TTL_MS - (Date.now() - at)
-  return remaining > 0 ? remaining : 0
+  if (remaining > 0) return remaining
+  lastAcquiredByPeer.delete(boardId)
+  return 0
 }
 
 // broadcast a fresh claim; idempotent — re-calling bumps the TTL window

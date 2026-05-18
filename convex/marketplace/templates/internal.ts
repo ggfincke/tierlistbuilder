@@ -1,4 +1,5 @@
 // convex/marketplace/templates/internal.ts
+// internal template maintenance helpers shared by user-data cleanup flows
 
 import { v, type Infer } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'
@@ -7,12 +8,12 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import { BATCH_LIMITS } from '../../lib/limits'
 import {
   CASCADE_DELETE_PAGE_SIZE,
-  deleteCascadePageAndSchedule,
+  runCascadePhaseMachine,
 } from '../../lib/cascadeDelete'
 import {
   deleteTemplateRankingAggregateParentRows,
   rollupTemplateRankingCount,
-} from '../rankings/aggregate'
+} from '../rankings/aggregate/lib'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { LIBRARY_BOARD_COVER_ITEM_LIMIT } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -35,7 +36,6 @@ import {
   isPublishedTemplateRow,
   markTemplateNotPublic,
   patchTemplateAndSyncCard,
-  readLegacyForkCount,
   setSourceBoardLivePublicTemplate,
   syncTemplateTagRows,
   writeTemplateCardPreservingCounters,
@@ -160,7 +160,7 @@ export const processTemplatePublishJob = internalMutation({
       return null
     }
     if (
-      (board.revision ?? 0) !== job.sourceBoardRevision ||
+      board.revision !== job.sourceBoardRevision ||
       board.activeItemCount !== job.itemCount
     )
     {
@@ -451,100 +451,8 @@ export const cascadeDeleteTemplate = internalMutation({
     }
 
     const phase: CascadePhase = args.phase ?? 'items'
-    if (phase === 'items')
-    {
-      const page = await ctx.db
-        .query('templateItems')
-        .withIndex('byTemplate', (q) => q.eq('templateId', args.templateId))
-        .paginate({
-          numItems: CASCADE_DELETE_PAGE_SIZE,
-          cursor: args.cursor ?? null,
-        })
-
-      const scheduled = await deleteCascadePageAndSchedule({
-        ctx,
-        page,
-        schedule: async (nextArgs) =>
-          await ctx.scheduler.runAfter(
-            0,
-            internal.marketplace.templates.internal.cascadeDeleteTemplate,
-            nextArgs
-          ),
-        parentKey: 'templateId',
-        parentId: args.templateId,
-        phase: 'items',
-        nextPhase: 'tags',
-      })
-      if (scheduled) return null
-    }
-
-    if (phase === 'tags')
-    {
-      const tagPage = await ctx.db
-        .query('templateTags')
-        .withIndex('byTemplate', (q) => q.eq('templateId', args.templateId))
-        .paginate({
-          numItems: CASCADE_DELETE_PAGE_SIZE,
-          cursor: args.cursor ?? null,
-        })
-
-      const scheduled = await deleteCascadePageAndSchedule({
-        ctx,
-        page: tagPage,
-        schedule: async (nextArgs) =>
-          await ctx.scheduler.runAfter(
-            0,
-            internal.marketplace.templates.internal.cascadeDeleteTemplate,
-            nextArgs
-          ),
-        parentKey: 'templateId',
-        parentId: args.templateId,
-        phase: 'tags',
-        nextPhase: 'bookmarks',
-      })
-      if (scheduled) return null
-    }
-
-    if (phase === 'bookmarks')
-    {
-      const bookmarkPage = await ctx.db
-        .query('userTemplateBookmarks')
-        .withIndex('byTemplateUser', (q) => q.eq('templateId', args.templateId))
-        .paginate({
-          numItems: CASCADE_DELETE_PAGE_SIZE,
-          cursor: args.cursor ?? null,
-        })
-
-      const scheduled = await deleteCascadePageAndSchedule({
-        ctx,
-        page: bookmarkPage,
-        schedule: async (nextArgs) =>
-          await ctx.scheduler.runAfter(
-            0,
-            internal.marketplace.templates.internal.cascadeDeleteTemplate,
-            nextArgs
-          ),
-        parentKey: 'templateId',
-        parentId: args.templateId,
-        phase: 'bookmarks',
-        nextPhase: 'aggregateItems',
-      })
-      if (scheduled) return null
-    }
-
-    const aggregatePage = await ctx.db
-      .query('templateRankingAggregateItems')
-      .withIndex('byTemplateIdAndOrder', (q) =>
-        q.eq('templateId', args.templateId)
-      )
-      .paginate({
-        numItems: CASCADE_DELETE_PAGE_SIZE,
-        cursor: args.cursor ?? null,
-      })
-
-    const scheduled = await deleteCascadePageAndSchedule({
+    const scheduled = await runCascadePhaseMachine({
       ctx,
-      page: aggregatePage,
       schedule: async (nextArgs) =>
         await ctx.scheduler.runAfter(
           0,
@@ -553,7 +461,62 @@ export const cascadeDeleteTemplate = internalMutation({
         ),
       parentKey: 'templateId',
       parentId: args.templateId,
-      phase: 'aggregateItems',
+      phase,
+      cursor: args.cursor,
+      phases: [
+        {
+          phase: 'items',
+          page: async (cursor) =>
+            await ctx.db
+              .query('templateItems')
+              .withIndex('byTemplate', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          phase: 'tags',
+          page: async (cursor) =>
+            await ctx.db
+              .query('templateTags')
+              .withIndex('byTemplate', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          phase: 'bookmarks',
+          page: async (cursor) =>
+            await ctx.db
+              .query('userTemplateBookmarks')
+              .withIndex('byTemplateUser', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          phase: 'aggregateItems',
+          page: async (cursor) =>
+            await ctx.db
+              .query('templateRankingAggregateItems')
+              .withIndex('byTemplateIdAndOrder', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+      ],
     })
     if (scheduled) return null
 
@@ -616,7 +579,7 @@ const recomputeTemplateTrendingForCard = async (
   let weeklyViewCount = 0
   for (const row of metricRows)
   {
-    weeklyForkCount += readLegacyForkCount(row)
+    weeklyForkCount += row.forkCount
     weeklyViewCount += row.viewCount
   }
   const trendingScore = calculateTemplateTrendingScore({
@@ -699,139 +662,6 @@ export const backfillTemplateCardRankingCount = internalMutation({
         0,
         internal.marketplace.templates.internal
           .backfillTemplateCardRankingCount,
-        { cursor: page.continueCursor }
-      )
-    }
-
-    return { processed: page.page.length, isDone: page.isDone }
-  },
-})
-
-// one-time compatibility backfill for the useCount -> forkCount rename.
-// During the widened schema window, reads fall back to useCount; this rewrites
-// rows so validators & fork-count indexes see a real forkCount again.
-export const backfillTemplateStatsForkCount = internalMutation({
-  args: { cursor: v.union(v.string(), v.null()) },
-  returns: v.object({ processed: v.number(), isDone: v.boolean() }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ processed: number; isDone: boolean }> =>
-  {
-    const page = await ctx.db.query('templateStats').paginate({
-      numItems: BATCH_LIMITS.templateTrendingRecompute,
-      cursor: args.cursor,
-    })
-    const now = Date.now()
-
-    await Promise.all(
-      page.page.map((stats) =>
-      {
-        const nextForkCount = readLegacyForkCount(stats)
-        if (stats.forkCount === nextForkCount && stats.useCount === undefined)
-        {
-          return null
-        }
-        return ctx.db.patch(stats._id, {
-          forkCount: nextForkCount,
-          useCount: undefined,
-          updatedAt: now,
-        })
-      })
-    )
-
-    if (!page.isDone)
-    {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.marketplace.templates.internal.backfillTemplateStatsForkCount,
-        { cursor: page.continueCursor }
-      )
-    }
-
-    return { processed: page.page.length, isDone: page.isDone }
-  },
-})
-
-export const backfillTemplateCardForkCount = internalMutation({
-  args: { cursor: v.union(v.string(), v.null()) },
-  returns: v.object({ processed: v.number(), isDone: v.boolean() }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ processed: number; isDone: boolean }> =>
-  {
-    const page = await ctx.db.query('templateCards').paginate({
-      numItems: BATCH_LIMITS.templateTrendingRecompute,
-      cursor: args.cursor,
-    })
-    const now = Date.now()
-
-    await Promise.all(
-      page.page.map((card) =>
-      {
-        const nextForkCount = readLegacyForkCount(card)
-        if (card.forkCount === nextForkCount && card.useCount === undefined)
-        {
-          return null
-        }
-        return ctx.db.patch(card._id, {
-          forkCount: nextForkCount,
-          useCount: undefined,
-          updatedAt: now,
-        })
-      })
-    )
-
-    if (!page.isDone)
-    {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.marketplace.templates.internal.backfillTemplateCardForkCount,
-        { cursor: page.continueCursor }
-      )
-    }
-
-    return { processed: page.page.length, isDone: page.isDone }
-  },
-})
-
-export const backfillTemplateMetricDayForkCount = internalMutation({
-  args: { cursor: v.union(v.string(), v.null()) },
-  returns: v.object({ processed: v.number(), isDone: v.boolean() }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ processed: number; isDone: boolean }> =>
-  {
-    const page = await ctx.db.query('templateMetricDays').paginate({
-      numItems: BATCH_LIMITS.templateTrendingRecompute,
-      cursor: args.cursor,
-    })
-    const now = Date.now()
-
-    await Promise.all(
-      page.page.map((row) =>
-      {
-        const nextForkCount = readLegacyForkCount(row)
-        if (row.forkCount === nextForkCount && row.useCount === undefined)
-        {
-          return null
-        }
-        return ctx.db.patch(row._id, {
-          forkCount: nextForkCount,
-          useCount: undefined,
-          updatedAt: now,
-        })
-      })
-    )
-
-    if (!page.isDone)
-    {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.marketplace.templates.internal
-          .backfillTemplateMetricDayForkCount,
         { cursor: page.continueCursor }
       )
     }

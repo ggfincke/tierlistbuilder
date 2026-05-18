@@ -10,7 +10,7 @@ import {
 } from '@tierlistbuilder/contracts/workspace/board'
 import { mutation } from '../../_generated/server'
 import { requireCurrentUserId } from '../../lib/auth'
-import { appPreferencesValidator } from '../../lib/validators'
+import { appPreferencesValidator } from '../../lib/validators/platform'
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput } from '../../lib/text'
 

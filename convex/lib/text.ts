@@ -47,3 +47,24 @@ export const normalizeNullableText = (
   }
   return value
 }
+
+export const assertStringLength = (
+  field: string,
+  value: string | null | undefined,
+  maxLength: number,
+  formatMessage?: (args: {
+    field: string
+    length: number
+    maxLength: number
+  }) => string
+): void =>
+{
+  const length = value?.length ?? 0
+  if (length > maxLength)
+  {
+    failInput(
+      formatMessage?.({ field, length, maxLength }) ??
+        `${field} too long: ${length} exceeds ${maxLength}`
+    )
+  }
+}

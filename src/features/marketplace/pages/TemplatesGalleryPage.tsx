@@ -12,7 +12,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
-import { lazy, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
@@ -34,28 +34,27 @@ import { RailHeader } from '~/features/marketplace/components/discovery/RailHead
 import { SearchInput } from '~/features/marketplace/components/discovery/SearchInput'
 import { Button } from '~/shared/ui/Button'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
+import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
-import { useGalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
-import { useOpenTemplateDraft } from '~/features/marketplace/model/useOpenTemplateDraft'
-import { useTemplatesGallery } from '~/features/marketplace/model/useTemplatesGallery'
+import { useGalleryFilters } from '~/features/marketplace/model/gallery/useGalleryFilters'
+import { useOpenTemplateDraft } from '~/features/marketplace/model/gallery/useOpenTemplateDraft'
+import { useTemplatesGallery } from '~/features/marketplace/model/gallery/useTemplatesGallery'
 import { useStartBlankBoard } from '~/features/workspace/boards/model/useStartBlankBoard'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
-import { formatCount, pluralize } from '~/shared/catalog/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
+import { pluralizeWord } from '~/shared/lib/pluralize'
 import {
   loadPublishModal,
   preloadPublishModal,
 } from '~/features/marketplace/components/publish/loadPublishModal'
+import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { SkeletonCard } from '~/shared/ui/Skeleton'
 import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
-const PublishModal = lazy(() =>
-  loadPublishModal().then((m) => ({
-    default: m.PublishModal,
-  }))
-)
+const PublishModal = lazyNamed(loadPublishModal, 'PublishModal')
 
 const SORT_LABELS: Record<TemplateListSort, string> = {
   featured: 'Featured',
@@ -91,7 +90,7 @@ const railMeta = (
   word: string
 ): string | undefined =>
   items !== undefined
-    ? `${formatCount(items.length)} ${pluralize(items.length, word)}`
+    ? `${formatCount(items.length)} ${pluralizeWord(items.length, word)}`
     : undefined
 
 interface EmptyHintFilters
@@ -120,7 +119,7 @@ const getBrowseHeading = (filters: BrowseHeadingFilters): string =>
 }
 
 const formatTemplateResultsCount = (count: number, atLimit: boolean): string =>
-  `${count}${atLimit ? '+' : ''} ${pluralize(count, 'template')}`
+  `${count}${atLimit ? '+' : ''} ${pluralizeWord(count, 'template')}`
 
 const getEmptyGalleryHint = (filters: EmptyHintFilters): string =>
 {
@@ -504,24 +503,25 @@ export const TemplatesGalleryPage = () =>
         </div>
 
         {gallery.results && gallery.results.length === 0 && (
-          <div className="mt-8 rounded-lg border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-6 py-10 text-center">
-            <p className="text-sm font-medium text-[var(--t-text)]">
-              No templates match your filters.
-            </p>
-            <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-              {getEmptyGalleryHint(filters)}
-            </p>
-            {filtersActive && (
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="focus-custom mt-4 inline-flex items-center gap-1.5 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-              >
-                <X className="h-3 w-3" strokeWidth={1.8} />
-                Clear filters
-              </button>
-            )}
-          </div>
+          <EmptyCard
+            className="mt-8"
+            padding="lg"
+            titleWeight="medium"
+            title="No templates match your filters."
+            body={getEmptyGalleryHint(filters)}
+            action={
+              filtersActive ? (
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="focus-custom inline-flex items-center gap-1.5 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                >
+                  <X className="h-3 w-3" strokeWidth={1.8} />
+                  Clear filters
+                </button>
+              ) : null
+            }
+          />
         )}
       </section>
 

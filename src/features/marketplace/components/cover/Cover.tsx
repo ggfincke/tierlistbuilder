@@ -9,13 +9,13 @@ import type {
   TemplateCoverItem,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { FramedCoverImage } from './FramedCoverImage'
+import { FramedCoverImage } from '~/shared/board-ui/FramedCoverImage'
+import type {
+  MediaDecoding,
+  MediaLoading,
+} from '~/shared/board-ui/mediaImageAttrs'
 import { InitialsGrid } from '../discovery/InitialsGrid'
-import {
-  MediaMatteFrame,
-  type MediaDecoding,
-  type MediaLoading,
-} from '../cover/MediaMatteFrame'
+import { MediaMatteFrame } from '../cover/MediaMatteFrame'
 import { Mosaic, type MosaicDensity } from '../discovery/Mosaic'
 
 export type CoverStyle = 'auto' | 'initials'

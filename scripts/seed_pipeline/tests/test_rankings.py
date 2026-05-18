@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from seed_pipeline.convex_client import ConvexClientError, SEED_HTTP_ROUTES
+from seed_pipeline.concurrency import run_in_parallel
 from seed_pipeline.ranking_config import compile_ranking_seeds
 from seed_pipeline.rankings import (
     RANKING_APPLY_THROTTLE_BASE_SECONDS,
@@ -177,7 +178,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
     def test_ranking_routes_are_registered(self) -> None:
         self.assertEqual(
             SEED_HTTP_ROUTES[
-                ("query", "marketplace/rankings/seed:preflightSeedRankings")
+                ("query", "marketplace/rankings/seed/actions:preflightSeedRankings")
             ],
             "/api/seed/rankings/preflight",
         )
@@ -220,19 +221,19 @@ class RankingSeedCompilationTests(unittest.TestCase):
         self.assertEqual(chunks[1]["targets"][0]["templateExternalId"], "two")
         self.assertEqual(
             SEED_HTTP_ROUTES[
-                ("action", "marketplace/rankings/seed:applySeedRankingChunk")
+                ("action", "marketplace/rankings/seed/actions:applySeedRankingChunk")
             ],
             "/api/seed/rankings/apply",
         )
         self.assertEqual(
             SEED_HTTP_ROUTES[
-                ("action", "marketplace/rankings/seed:cleanupStaleSeedRankings")
+                ("action", "marketplace/rankings/seed/actions:cleanupStaleSeedRankings")
             ],
             "/api/seed/rankings/cleanup-stale",
         )
         self.assertEqual(
             SEED_HTTP_ROUTES[
-                ("action", "marketplace/rankings/seed:ensureSeedRankingAuthors")
+                ("action", "marketplace/rankings/seed/actions:ensureSeedRankingAuthors")
             ],
             "/api/seed/rankings/ensure-authors",
         )
@@ -240,7 +241,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
             SEED_HTTP_ROUTES[
                 (
                     "mutation",
-                    "marketplace/rankings/seedLifecycle:activateSeedRankings",
+                    "marketplace/rankings/seed/lifecycle:activateSeedRankings",
                 )
             ],
             "/api/seed/rankings/activate",
@@ -249,7 +250,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
             SEED_HTTP_ROUTES[
                 (
                     "mutation",
-                    "marketplace/rankings/seedLifecycle:queueActiveSeedRankingAggregates",
+                    "marketplace/rankings/seed/lifecycle:queueActiveSeedRankingAggregates",
                 )
             ],
             "/api/seed/rankings/queue-aggregates",
@@ -370,6 +371,30 @@ class RankingSeedCompilationTests(unittest.TestCase):
         self.assertTrue(
             any("throttled by write-rate limit" in msg for msg in context.progress.messages)
         )
+
+    def test_run_in_parallel_reports_one_based_completion_counts(self) -> None:
+        callbacks: list[tuple[int, int, str]] = []
+        items = [{"id": "a"}, {"id": "b"}, {"id": "c"}]
+
+        results = run_in_parallel(
+            items,
+            lambda item: {"id": item["id"], "done": True},
+            max_workers=2,
+            on_complete=lambda completed, total, item: callbacks.append(
+                (completed, total, str(item["id"]))
+            ),
+        )
+
+        self.assertEqual(
+            results,
+            [
+                {"id": "a", "done": True},
+                {"id": "b", "done": True},
+                {"id": "c", "done": True},
+            ],
+        )
+        self.assertEqual([completed for completed, _, _ in callbacks], [1, 2, 3])
+        self.assertEqual({total for _, total, _ in callbacks}, {3})
 
 
 def _manifest(overrides: dict[str, object]) -> dict[str, object]:

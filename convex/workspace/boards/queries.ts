@@ -27,17 +27,21 @@ import {
   cloudBoardStateValidator,
   deletedBoardListItemValidator,
   libraryBoardListItemValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/workspace'
 import {
   createTemplateProjectionCache,
   toTemplateMediaRefWithFallback,
 } from '../../marketplace/templates/lib'
+import { memoizePromise } from '../../lib/cache'
+import { getBoardSourceTemplateId } from './sourceFields'
 import { loadBoardCloudState } from '../sync/boardStateLoader'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 
 const MAX_BOARDS_PER_USER = 200
 const MAX_DELETED_BOARDS_PER_USER = 200
-const MAX_BOARD_STATE_BATCH = 3
+// A single board pull can read thousands of item/tier/reference rows, so keep
+// the public batch at one board per query & let the client parallelize calls.
+const MAX_BOARD_STATE_BATCH = 1
 const DEFAULT_LIBRARY_PALETTE_ID: PaletteId = 'classic'
 const DEFAULT_LIBRARY_CATEGORY: TemplateCategory = 'other'
 
@@ -46,7 +50,7 @@ const toBoardListItem = (board: Doc<'boards'>): BoardListItem => ({
   title: board.title,
   createdAt: board.createdAt,
   updatedAt: board.updatedAt,
-  revision: board.revision ?? 0,
+  revision: board.revision,
 })
 
 // asserts the row's deletedAt is non-null & narrows the type for callers.
@@ -238,28 +242,26 @@ export const getMyLibraryBoards = query({
     const loadStorageUrl = (
       storageId: Id<'_storage'>
     ): Promise<string | null> =>
-    {
-      const existing = storageUrlCache.get(storageId)
-      if (existing) return existing
-      const pending = ctx.storage.getUrl(storageId)
-      storageUrlCache.set(storageId, pending)
-      return pending
-    }
+      memoizePromise(storageUrlCache, storageId, () =>
+        ctx.storage.getUrl(storageId)
+      )
 
     const sourceTemplateCovers = await loadSourceTemplateCovers(ctx, boards)
 
     return Promise.all(
       boards.map((board) =>
-        projectLibraryRow(board, {
+      {
+        const sourceTemplateId = getBoardSourceTemplateId(board)
+        return projectLibraryRow(board, {
           userDefaultPaletteId,
           loadStorageUrl,
           sourceCover:
-            board.sourceTemplateId !== null
-              ? (sourceTemplateCovers.get(board.sourceTemplateId) ??
+            sourceTemplateId !== null
+              ? (sourceTemplateCovers.get(sourceTemplateId) ??
                 EMPTY_SOURCE_TEMPLATE_COVER)
               : EMPTY_SOURCE_TEMPLATE_COVER,
         })
-      )
+      })
     )
   },
 })
@@ -290,8 +292,10 @@ const loadSourceTemplateCovers = async (
   const templateIds = Array.from(
     new Set(
       boards.flatMap((board) =>
-        board.sourceTemplateId !== null ? [board.sourceTemplateId] : []
-      )
+      {
+        const sourceTemplateId = getBoardSourceTemplateId(board)
+        return sourceTemplateId !== null ? [sourceTemplateId] : []
+      })
     )
   )
 
@@ -340,7 +344,7 @@ const projectLibraryRow = async (
     }))
   )
 
-  const category = board.sourceTemplateCategory ?? DEFAULT_LIBRARY_CATEGORY
+  const category = board.sourceTemplate.category ?? DEFAULT_LIBRARY_CATEGORY
   const hasPublishedTemplate = board.livePublicTemplateId !== null
 
   const rankedItemCount = Math.max(
@@ -361,7 +365,7 @@ const projectLibraryRow = async (
     title: board.title,
     createdAt: board.createdAt,
     updatedAt: board.updatedAt,
-    revision: board.revision ?? 0,
+    revision: board.revision,
     activeItemCount: board.activeItemCount,
     unrankedItemCount: board.unrankedItemCount,
     rankedItemCount,
@@ -369,7 +373,7 @@ const projectLibraryRow = async (
     syncState,
     visibility: hasPublishedTemplate ? 'public' : 'private',
     category,
-    sourceTemplateSizeClass: board.sourceTemplateSizeClass,
+    sourceTemplateSizeClass: board.sourceTemplate.sizeClass,
     sourceTemplateCoverMedia: rowCtx.sourceCover.media,
     sourceTemplateCoverFraming: rowCtx.sourceCover.framing,
     coverItems,

@@ -5,6 +5,7 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import { collectSnapshotRenderImageVariantRefs } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
+import { pruneOldestMapEntries, touchMapEntry } from '~/shared/lib/lru'
 import { getBlobsBatch } from './imageStore'
 
 // pluggable cloud image batch fetcher — features register it at boot so shared
@@ -150,12 +151,7 @@ export const markCloudRequestsFailed = (
     failedCloudRequests.set(request.hash, request)
   }
 
-  while (failedCloudRequests.size > MAX_FAILED_CLOUD_REQUESTS)
-  {
-    const oldestHash = failedCloudRequests.keys().next().value
-    if (!oldestHash) break
-    failedCloudRequests.delete(oldestHash)
-  }
+  pruneOldestMapEntries(failedCloudRequests, MAX_FAILED_CLOUD_REQUESTS)
 }
 
 // requeue previously-failed cloud requests. fired on `online` events so
@@ -186,7 +182,6 @@ const retryFailedCloudRequests = (): void =>
 interface CachedImageEntry
 {
   url: string
-  lastAccessedAt: number
 }
 
 const MAX_CACHED_IMAGE_URLS = 512
@@ -213,17 +208,9 @@ const publish = (hashes: Iterable<string>): void =>
 
 const touchCachedHashes = (hashes: Iterable<string>): void =>
 {
-  const now = Date.now()
-
   for (const hash of hashes)
   {
-    const entry = cache.get(hash)
-    if (entry)
-    {
-      entry.lastAccessedAt = now
-      cache.delete(hash)
-      cache.set(hash, entry)
-    }
+    touchMapEntry(cache, hash)
   }
 }
 
@@ -238,14 +225,16 @@ const pruneCache = (protectedHashes: ReadonlySet<string>): void =>
 
   const changed: string[] = []
 
-  for (const [hash, entry] of cache)
-  {
-    if (cache.size <= MAX_CACHED_IMAGE_URLS) break
-    if (protectedHashes.has(hash) || listeners.has(hash)) continue
-    URL.revokeObjectURL(entry.url)
-    cache.delete(hash)
-    changed.push(hash)
-  }
+  pruneOldestMapEntries(
+    cache,
+    MAX_CACHED_IMAGE_URLS,
+    (hash) => protectedHashes.has(hash) || listeners.has(hash),
+    (hash, entry) =>
+    {
+      URL.revokeObjectURL(entry.url)
+      changed.push(hash)
+    }
+  )
 
   if (changed.length > 0)
   {
@@ -309,23 +298,16 @@ export const cacheFreshBlobs = (
 ): void =>
 {
   const changed = new Set<string>()
-  const now = Date.now()
 
   for (const [hash, blob] of blobs)
   {
-    const existing = cache.get(hash)
-    if (existing)
+    if (cache.has(hash))
     {
-      existing.lastAccessedAt = now
-      cache.delete(hash)
-      cache.set(hash, existing)
+      touchMapEntry(cache, hash)
       continue
     }
 
-    cache.set(hash, {
-      url: URL.createObjectURL(blob),
-      lastAccessedAt: now,
-    })
+    cache.set(hash, { url: URL.createObjectURL(blob) })
     changed.add(hash)
   }
 
@@ -372,6 +354,13 @@ if (typeof window !== 'undefined')
 {
   window.addEventListener('pagehide', handlePageHide)
   window.addEventListener('online', retryFailedCloudRequests)
+
+  import.meta.hot?.dispose(() =>
+  {
+    window.removeEventListener('pagehide', handlePageHide)
+    window.removeEventListener('online', retryFailedCloudRequests)
+    disposeImageBlobCache()
+  })
 }
 
 export const warmImageHashes = async (
@@ -403,17 +392,15 @@ export const warmImageHashes = async (
   }
 
   signal?.throwIfAborted()
-  const records = await getBlobsBatch(missing)
+  const records = await getBlobsBatch(missing, { signal })
   signal?.throwIfAborted()
   const changed = new Set<string>()
-  const now = Date.now()
 
   for (const hash of missing)
   {
-    const existing = cache.get(hash)
-    if (existing)
+    if (cache.has(hash))
     {
-      existing.lastAccessedAt = now
+      touchMapEntry(cache, hash)
       continue
     }
 
@@ -423,10 +410,7 @@ export const warmImageHashes = async (
       continue
     }
 
-    cache.set(hash, {
-      url: URL.createObjectURL(record.bytes),
-      lastAccessedAt: now,
-    })
+    cache.set(hash, { url: URL.createObjectURL(record.bytes) })
     changed.add(hash)
   }
 

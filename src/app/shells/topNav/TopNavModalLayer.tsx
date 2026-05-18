@@ -1,55 +1,60 @@
 // src/app/shells/topNav/TopNavModalLayer.tsx
 // lazy account, auth, & preferences modal slots for global chrome
 
-import { lazy } from 'react'
-
+import type { ModalStack } from '~/app/shells/useModalStack'
+import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 
-const AccountModal = lazy(() =>
-  import('~/features/platform/auth/ui/AccountModal').then((module) => ({
-    default: module.AccountModal,
-  }))
+const AccountModal = lazyNamed(
+  () => import('~/app/shells/topNav/AccountModal'),
+  'AccountModal'
 )
 
-const PreferencesModal = lazy(() =>
-  import('~/features/platform/preferences/ui/PreferencesModal').then(
-    (module) => ({
-      default: module.PreferencesModal,
-    })
-  )
+const PreferencesModal = lazyNamed(
+  () => import('~/features/platform/preferences/ui/PreferencesModal'),
+  'PreferencesModal'
 )
 
-const SignInModal = lazy(() =>
-  import('~/features/platform/auth/ui/SignInModal').then((module) => ({
-    default: module.SignInModal,
-  }))
+const SignInModal = lazyNamed(
+  () => import('~/features/platform/auth/ui/SignInModal'),
+  'SignInModal'
 )
 
-export type TopNavModalKey = 'account' | 'preferences'
+export type TopNavModalPayloads = {
+  account: undefined
+  preferences: undefined
+}
+
+export type TopNavModalKey = keyof TopNavModalPayloads
 
 interface TopNavModalLayerProps
 {
-  open: TopNavModalKey | null
+  modalStack: ModalStack<TopNavModalPayloads>
   signInOpen: boolean
-  onClose: () => void
   onCloseSignIn: () => void
 }
 
 export const TopNavModalLayer = ({
-  open,
+  modalStack,
   signInOpen,
-  onClose,
   onCloseSignIn,
-}: TopNavModalLayerProps) => (
-  <>
-    <LazyModalSlot when={signInOpen} section="sign in">
-      {() => <SignInModal open onClose={onCloseSignIn} />}
-    </LazyModalSlot>
-    <LazyModalSlot when={open === 'account'} section="account">
-      {() => <AccountModal open onClose={onClose} />}
-    </LazyModalSlot>
-    <LazyModalSlot when={open === 'preferences'} section="preferences">
-      {() => <PreferencesModal open onClose={onClose} />}
-    </LazyModalSlot>
-  </>
-)
+}: TopNavModalLayerProps) =>
+{
+  const { state: modalState, close: closeModal } = modalStack
+
+  return (
+    <>
+      <LazyModalSlot when={signInOpen} section="sign in">
+        {() => <SignInModal open onClose={onCloseSignIn} />}
+      </LazyModalSlot>
+      <LazyModalSlot when={modalState.account} section="account">
+        {() => <AccountModal open onClose={() => closeModal('account')} />}
+      </LazyModalSlot>
+      <LazyModalSlot when={modalState.preferences} section="preferences">
+        {() => (
+          <PreferencesModal open onClose={() => closeModal('preferences')} />
+        )}
+      </LazyModalSlot>
+    </>
+  )
+}

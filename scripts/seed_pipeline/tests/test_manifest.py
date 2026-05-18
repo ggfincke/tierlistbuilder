@@ -14,7 +14,12 @@ from PIL import Image
 
 from seed_pipeline import assets as assets_module
 from seed_pipeline.build import build_compiled_manifest
-from seed_pipeline.manifest import find_repo_root
+from seed_pipeline.manifest import (
+    find_repo_root,
+    iter_compiled_asset_entries,
+    iter_compiled_assets,
+    read_json,
+)
 from seed_pipeline.settings import COMPILE_FINGERPRINT_FILENAME
 from seed_pipeline.validate import validate_source_manifest
 
@@ -102,6 +107,32 @@ class ManifestValidationTests(unittest.TestCase):
         self.assertIn("preview:", first["templates"][0]["items"][0]["asset"]["dedupeHash"])
         self.assertTrue(report_exists)
 
+    def test_build_preserves_item_order_with_parallel_workers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_repo_fixture(root)
+            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
+            manifest = _source_manifest()
+            manifest["templates"][0]["items"].append(
+                {
+                    "externalId": "luigi",
+                    "image": "02-luigi.png",
+                    "label": "Luigi",
+                }
+            )
+            _write_json(manifest_path, manifest)
+            with mock.patch("seed_pipeline.build.BUILD_WORKERS", 2):
+                compiled_path = build_compiled_manifest(manifest_path, root)
+            compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            [
+                item["externalId"]
+                for item in compiled["templates"][0]["items"]
+            ],
+            ["mario", "luigi"],
+        )
+
     def test_build_honors_non_explicit_label_policies(self) -> None:
         cases = {
             "explicit-or-filename-fallback": "Mario",
@@ -172,6 +203,25 @@ class ManifestValidationTests(unittest.TestCase):
     def test_find_repo_root_finds_current_workspace(self) -> None:
         root = find_repo_root(Path.cwd())
         self.assertTrue((root / "package.json").is_file())
+
+    def test_iter_compiled_assets_includes_cover_and_item_assets(self) -> None:
+        root = find_repo_root(Path.cwd())
+        compiled = read_json(root / "data/seeds/examples/compiled-manifest.example.json")
+
+        entries = list(iter_compiled_asset_entries(compiled))
+
+        self.assertEqual(
+            [entry["assetKey"] for entry in entries],
+            [
+                "gaming:ssbu-fighters:cover",
+                "gaming:ssbu-fighters:mario",
+                "gaming:zelda-games:the-legend-of-zelda",
+            ],
+        )
+        self.assertEqual(
+            [entry["asset"] for entry in entries],
+            list(iter_compiled_assets(compiled)),
+        )
 
 
 def _write_repo_fixture(root: Path) -> None:

@@ -7,7 +7,7 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 // shape of the source-attribution slice on a BoardSnapshot — every field is
 // optional because pure local boards & community-template forks omit different
 // subsets
-export type SourceTemplateFields = Pick<
+type SourceTemplateFields = Pick<
   BoardSnapshot,
   | 'sourceTemplateId'
   | 'sourceRankingId'

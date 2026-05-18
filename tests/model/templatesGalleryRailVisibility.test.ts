@@ -6,7 +6,7 @@ import type { MarketplaceTemplateGalleryCard } from '@tierlistbuilder/contracts/
 import {
   hasPopularRailActivity,
   hasTrendingRailActivity,
-} from '~/features/marketplace/model/useTemplatesGallery'
+} from '~/features/marketplace/model/gallery/useTemplatesGallery'
 
 const card = (
   overrides: Partial<MarketplaceTemplateGalleryCard> = {}

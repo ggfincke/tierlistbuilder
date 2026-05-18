@@ -7,7 +7,7 @@ import type { ComponentType, SVGProps } from 'react'
 
 // keys index the denormalized counts on a marketplace template summary; every
 // one resolves to a number, so a surface reads template[stat.key] directly
-export interface TemplateStatMeta
+interface TemplateStatMeta
 {
   key: 'itemCount' | 'rankingCount' | 'forkCount' | 'viewCount'
   label: string

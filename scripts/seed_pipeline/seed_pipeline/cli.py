@@ -4,15 +4,17 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import sys
 import traceback
 from pathlib import Path
+from typing import Callable
 
 from .build import build_compiled_manifest
 from .diff import write_diff_report_for_manifest
 from .manifest import find_repo_root
+from .run_context import SeedRunOptions
 from .runs import (
-    SeedRunOptions,
     activate_seed_manifest,
     apply_seed_manifest,
     cleanup_seed_manifest,
@@ -31,6 +33,8 @@ from .rankings import (
 )
 from .validate import ManifestValidationError, validate_source_manifest
 
+ReportCommand = Callable[[Path, Path, SeedRunOptions], Path]
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = _parser()
@@ -38,100 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = find_repo_root()
     manifest_path = (repo_root / args.manifest).resolve()
     try:
-        if args.command == "validate":
-            return _validate(manifest_path, repo_root, args.fail_on_warning)
-        if args.command == "build":
-            return _build(manifest_path, repo_root, args.fail_on_warning)
-        if args.command in {"diff", "preflight"}:
-            return _diff(manifest_path, repo_root, args)
-        if args.command == "upload":
-            return _write_command(
-                "seed upload report", upload_seed_manifest, manifest_path, repo_root, args
-            )
-        if args.command == "apply":
-            return _write_command(
-                "seed apply report", apply_seed_manifest, manifest_path, repo_root, args
-            )
-        if args.command == "verify":
-            return _write_command(
-                "seed verify report", verify_seed_manifest, manifest_path, repo_root, args
-            )
-        if args.command == "cleanup":
-            return _write_command(
-                "seed cleanup report",
-                cleanup_seed_manifest,
-                manifest_path,
-                repo_root,
-                args,
-            )
-        if args.command == "activate":
-            return _write_command(
-                "seed activation report",
-                activate_seed_manifest,
-                manifest_path,
-                repo_root,
-                args,
-            )
-        if args.command == "rollback":
-            return _write_command(
-                "seed rollback report",
-                rollback_seed_manifest,
-                manifest_path,
-                repo_root,
-                args,
-            )
-        if args.command == "run":
-            return _write_command(
-                "seed run report", run_seed_manifest, manifest_path, repo_root, args
-            )
-        if args.command == "rankings:preflight":
-            return _write_command(
-                "ranking seed preflight report",
-                preflight_rankings_manifest,
-                manifest_path,
-                repo_root,
-                args,
-            )
-        if args.command == "rankings:apply":
-            return _write_command(
-                "ranking seed apply report",
-                apply_rankings_manifest,
-                manifest_path,
-                repo_root,
-                args,
-            )
-        if args.command == "rankings:verify":
-            return _write_command(
-                "ranking seed verify report",
-                verify_rankings_manifest,
-                manifest_path,
-                repo_root,
-                args,
-            )
-        if args.command == "rankings:activate":
-            return _write_command(
-                "ranking seed activation report",
-                activate_rankings_manifest,
-                manifest_path,
-                repo_root,
-                args,
-            )
-        if args.command == "rankings:rollback":
-            return _write_command(
-                "ranking seed rollback report",
-                rollback_rankings_manifest,
-                manifest_path,
-                repo_root,
-                args,
-            )
-        if args.command == "rankings:run":
-            return _write_command(
-                "ranking seed run report",
-                run_rankings_manifest,
-                manifest_path,
-                repo_root,
-                args,
-            )
+        return args.handler(manifest_path, repo_root, args)
     except ManifestValidationError as error:
         _print_diagnostics(error.errors)
         return 1
@@ -141,17 +52,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"seed pipeline failed: {error}", file=sys.stderr)
         traceback.print_exc()
         return 1
-    parser.error(f"unsupported command: {args.command}")
-    return 2
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m seed_pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    for command in ("validate", "build"):
-        command_parser = subparsers.add_parser(command)
-        command_parser.add_argument("manifest", type=Path)
-        command_parser.add_argument("--fail-on-warning", action="store_true")
+
+    validate_parser = subparsers.add_parser("validate")
+    validate_parser.add_argument("manifest", type=Path)
+    validate_parser.add_argument("--fail-on-warning", action="store_true")
+    validate_parser.set_defaults(handler=_validate)
+
+    build_parser = subparsers.add_parser("build")
+    build_parser.add_argument("manifest", type=Path)
+    build_parser.add_argument("--fail-on-warning", action="store_true")
+    build_parser.set_defaults(handler=_build)
+
     for command in ("diff", "preflight"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("manifest", type=Path)
@@ -160,56 +76,102 @@ def _parser() -> argparse.ArgumentParser:
         command_parser.add_argument("--seed-secret")
         command_parser.add_argument("--state-json", type=Path)
         command_parser.add_argument("--fail-on-warning", action="store_true")
+        command_parser.set_defaults(handler=_diff)
 
-    for command in ("upload", "apply", "verify", "cleanup", "activate", "run"):
-        command_parser = subparsers.add_parser(command)
-        command_parser.add_argument("manifest", type=Path)
-        _add_seed_run_args(command_parser)
-    rollback_parser = subparsers.add_parser("rollback")
-    rollback_parser.add_argument("manifest", type=Path)
-    _add_seed_run_args(rollback_parser)
-    rollback_parser.add_argument("--target-release-id", required=True)
-    for command in (
+    _add_report_command(
+        subparsers, "upload", "seed upload report", upload_seed_manifest
+    )
+    _add_report_command(subparsers, "apply", "seed apply report", apply_seed_manifest)
+    _add_report_command(
+        subparsers, "verify", "seed verify report", verify_seed_manifest
+    )
+    _add_report_command(
+        subparsers, "cleanup", "seed cleanup report", cleanup_seed_manifest
+    )
+    _add_report_command(
+        subparsers, "activate", "seed activation report", activate_seed_manifest
+    )
+    _add_report_command(
+        subparsers,
+        "rollback",
+        "seed rollback report",
+        rollback_seed_manifest,
+        target_release=True,
+    )
+    _add_report_command(subparsers, "run", "seed run report", run_seed_manifest)
+
+    _add_report_command(
+        subparsers,
         "rankings:preflight",
+        "ranking seed preflight report",
+        preflight_rankings_manifest,
+    )
+    _add_report_command(
+        subparsers,
         "rankings:apply",
+        "ranking seed apply report",
+        apply_rankings_manifest,
+    )
+    _add_report_command(
+        subparsers,
         "rankings:verify",
+        "ranking seed verify report",
+        verify_rankings_manifest,
+    )
+    _add_report_command(
+        subparsers,
         "rankings:activate",
+        "ranking seed activation report",
+        activate_rankings_manifest,
+    )
+    _add_report_command(
+        subparsers,
+        "rankings:rollback",
+        "ranking seed rollback report",
+        rollback_rankings_manifest,
+        target_release=True,
+    )
+    _add_report_command(
+        subparsers,
         "rankings:run",
-    ):
-        command_parser = subparsers.add_parser(command)
-        command_parser.add_argument("manifest", type=Path)
-        _add_seed_run_args(command_parser)
-    ranking_rollback_parser = subparsers.add_parser("rankings:rollback")
-    ranking_rollback_parser.add_argument("manifest", type=Path)
-    _add_seed_run_args(ranking_rollback_parser)
-    ranking_rollback_parser.add_argument("--target-release-id", required=True)
+        "ranking seed run report",
+        run_rankings_manifest,
+    )
     return parser
 
 
-def _validate(manifest_path: Path, repo_root: Path, fail_on_warning: bool) -> int:
+def _validate(
+    manifest_path: Path, repo_root: Path, args: argparse.Namespace
+) -> int:
     result = validate_source_manifest(manifest_path, repo_root)
     _print_diagnostics((*result.errors, *result.warnings))
-    if result.errors or (fail_on_warning and result.warnings):
+    if result.errors or (args.fail_on_warning and result.warnings):
         return 1
     print(f"valid source manifest: {manifest_path}")
     return 0
 
 
-def _build(manifest_path: Path, repo_root: Path, fail_on_warning: bool) -> int:
-    compiled_path = build_compiled_manifest(manifest_path, repo_root, fail_on_warning)
+def _build(
+    manifest_path: Path, repo_root: Path, args: argparse.Namespace
+) -> int:
+    compiled_path = build_compiled_manifest(
+        manifest_path, repo_root, args.fail_on_warning
+    )
     print(f"wrote compiled manifest: {compiled_path}")
     return 0
 
 
-def _diff(manifest_path: Path, repo_root: Path, args: object) -> int:
+def _diff(
+    manifest_path: Path, repo_root: Path, args: argparse.Namespace
+) -> int:
     report_path = write_diff_report_for_manifest(
         manifest_path,
         repo_root,
-        env_name=getattr(args, "env"),
-        fail_on_warning=getattr(args, "fail_on_warning"),
-        convex_url=getattr(args, "convex_url"),
-        seed_secret=getattr(args, "seed_secret"),
-        state_json=getattr(args, "state_json"),
+        env_name=args.env,
+        fail_on_warning=args.fail_on_warning,
+        convex_url=args.convex_url,
+        seed_secret=args.seed_secret,
+        state_json=args.state_json,
     )
     print(f"wrote seed diff report: {report_path}")
     return 0
@@ -217,15 +179,33 @@ def _diff(manifest_path: Path, repo_root: Path, args: object) -> int:
 
 def _write_command(
     label: str,
-    command: object,
+    command: ReportCommand,
     manifest_path: Path,
     repo_root: Path,
-    args: object,
+    args: argparse.Namespace,
 ) -> int:
     options = _seed_run_options(args)
     report_path = command(manifest_path, repo_root, options)
     print(f"wrote {label}: {report_path}")
     return 0
+
+
+def _add_report_command(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    name: str,
+    label: str,
+    command: ReportCommand,
+    *,
+    target_release: bool = False,
+) -> None:
+    command_parser = subparsers.add_parser(name)
+    command_parser.add_argument("manifest", type=Path)
+    _add_seed_run_args(command_parser)
+    if target_release:
+        command_parser.add_argument("--target-release-id", required=True)
+    command_parser.set_defaults(
+        handler=functools.partial(_write_command, label, command)
+    )
 
 
 def _add_seed_run_args(parser: argparse.ArgumentParser) -> None:
@@ -243,20 +223,20 @@ def _add_seed_run_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--previous-release-id")
 
 
-def _seed_run_options(args: object) -> SeedRunOptions:
+def _seed_run_options(args: argparse.Namespace) -> SeedRunOptions:
     return SeedRunOptions(
-        env_name=getattr(args, "env"),
-        convex_url=getattr(args, "convex_url"),
-        seed_secret=getattr(args, "seed_secret"),
-        run_id=getattr(args, "run_id"),
-        dry_run=getattr(args, "dry_run"),
-        yes=getattr(args, "yes"),
-        fail_on_warning=getattr(args, "fail_on_warning"),
-        max_upload_bytes=getattr(args, "max_upload_bytes"),
-        confirm_activation=getattr(args, "confirm_activation"),
-        previous_release_id=getattr(args, "previous_release_id"),
+        env_name=args.env,
+        convex_url=args.convex_url,
+        seed_secret=args.seed_secret,
+        run_id=args.run_id,
+        dry_run=args.dry_run,
+        yes=args.yes,
+        fail_on_warning=args.fail_on_warning,
+        max_upload_bytes=args.max_upload_bytes,
+        confirm_activation=args.confirm_activation,
+        previous_release_id=args.previous_release_id,
         target_release_id=getattr(args, "target_release_id", None),
-        state_json=getattr(args, "state_json"),
+        state_json=args.state_json,
     )
 
 

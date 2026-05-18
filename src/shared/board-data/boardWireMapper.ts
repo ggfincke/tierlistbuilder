@@ -320,18 +320,19 @@ const wireItemToSnapshotItem = (
   const imageFit = normalizeEnum(item.imageFit, IMAGE_FITS)
   const transform = normalizeItemTransform(item.transform)
   const labelOptions = normalizeItemLabelOptions(item.labelOptions)
-  const base: TierItem = {
-    id,
-    label,
-    backgroundColor,
-    altText,
-    notes,
-    sourceTemplateItemExternalId,
-    aspectRatio,
-    imageFit,
-    ...(transform ? { transform } : {}),
-    ...(labelOptions ? { labelOptions } : {}),
+  const base: TierItem = { id }
+  if (label !== undefined) base.label = label
+  if (backgroundColor !== undefined) base.backgroundColor = backgroundColor
+  if (altText !== undefined) base.altText = altText
+  if (notes !== undefined) base.notes = notes
+  if (sourceTemplateItemExternalId !== undefined)
+  {
+    base.sourceTemplateItemExternalId = sourceTemplateItemExternalId
   }
+  if (aspectRatio !== undefined) base.aspectRatio = aspectRatio
+  if (imageFit !== undefined) base.imageFit = imageFit
+  if (transform !== undefined) base.transform = transform
+  if (labelOptions !== undefined) base.labelOptions = labelOptions
 
   if (prepared)
   {

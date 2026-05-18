@@ -10,6 +10,10 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import schema from '../../convex/schema'
 import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
 import {
+  EMPTY_BOARD_SOURCE_RANKING,
+  EMPTY_BOARD_SOURCE_TEMPLATE,
+} from '../../convex/workspace/boards/sourceFields'
+import {
   modules,
   seedCloudBoard,
   seedPublishedTemplate,
@@ -361,13 +365,14 @@ describe('media variants', () =>
         updatedAt: 0,
         deletedAt: null,
         revision: 1,
-        sourceTemplateId: null,
-        sourceTemplateCategory: null,
-        sourceTemplateSizeClass: null,
-        sourceRankingId: null,
-        sourceTemplateTitle: null,
-        sourceRankingTitle: null,
+        itemAspectRatio: null,
+        itemAspectRatioMode: null,
+        aspectRatioPromptDismissed: false,
+        defaultItemImageFit: null,
+        sourceTemplate: EMPTY_BOARD_SOURCE_TEMPLATE,
+        sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
         forkCounted: false,
+        preferredCriterionExternalId: null,
         ...buildFreshBoardCloudFields(0),
         activeItemCount: 1,
         unrankedItemCount: 1,
@@ -377,9 +382,14 @@ describe('media variants', () =>
           tierColors: [],
           tierBreakdown: [],
         },
+        paletteId: null,
+        textStyleId: null,
+        pageBackground: null,
+        labels: null,
         seedDatasetKey: null,
         seedReleaseId: null,
         seedExternalId: null,
+        seedContentHash: null,
         seedKind: null,
         seedReleaseStatus: null,
       })

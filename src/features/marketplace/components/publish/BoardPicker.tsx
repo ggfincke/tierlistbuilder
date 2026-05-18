@@ -5,7 +5,8 @@ import { Layers } from 'lucide-react'
 import { useId } from 'react'
 
 import type { PublishableBoard } from '~/features/workspace/boards/model/usePublishableBoards'
-import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 interface BoardPickerProps
 {
@@ -74,7 +75,7 @@ export const BoardPicker = ({
               <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--t-text-faint)]">
                 <span className="inline-flex items-center gap-1">
                   <Layers className="h-3 w-3" strokeWidth={1.8} />
-                  {board.itemCount} {pluralize(board.itemCount, 'item')}
+                  {formatCountedWord(board.itemCount, 'item')}
                 </span>
                 <span>·</span>
                 <span>created {formatRelativeTime(board.createdAt)}</span>

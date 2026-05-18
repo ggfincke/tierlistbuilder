@@ -4,7 +4,7 @@
 
 import { Eye, Loader2, Sparkles, TrendingUp } from 'lucide-react'
 import { useMemo, type ComponentType, type SVGProps } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 import {
   isRankingSlug,
@@ -17,11 +17,13 @@ import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { getTextColor } from '~/shared/lib/color'
-import { useRankingBySlug } from '~/features/marketplace/model/useRankingDetail'
-import { useRecordRankingView } from '~/features/marketplace/model/useRecordRankingView'
-import { useRemixRanking } from '~/features/marketplace/model/useRemixRanking'
+import { useRankingBySlug } from '~/features/marketplace/model/detail/useRankingDetail'
+import { useRecordRankingView } from '~/features/marketplace/model/analytics/useRecordRankingView'
+import { useRemixRanking } from '~/features/marketplace/model/remix/useRemixRanking'
+import { useValidatedSlug } from '~/features/marketplace/model/detail/useValidatedSlug'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
-import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { InitialAvatar } from '~/shared/ui/InitialAvatar'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
@@ -30,10 +32,10 @@ import {
   RANKINGS_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
 } from '~/shared/routes/pathname'
-import { CriterionBadge } from '~/features/marketplace/components/consensus/CriterionBadge'
+import { CriterionBadge } from '~/features/marketplace/components/consensus/criterion/CriterionBadge'
 import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
-import { MetaPill } from '~/features/marketplace/components/MetaPill'
+import { MetaPill } from '~/features/marketplace/components/meta/MetaPill'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 
 // neutral palette for ranking surfaces; viewers don't carry workspace prefs
@@ -267,8 +269,7 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
 
 export const RankingDetailPage = () =>
 {
-  const { slug } = useParams<{ slug: string }>()
-  const validSlug = slug && isRankingSlug(slug) ? slug : null
+  const validSlug = useValidatedSlug(isRankingSlug)
   const detail = useRankingBySlug(validSlug)
   useRecordRankingView(detail ? detail.slug : null)
   useDocumentTitle(detail ? `${detail.title} · TierListBuilder` : null)

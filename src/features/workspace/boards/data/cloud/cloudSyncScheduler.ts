@@ -4,10 +4,7 @@
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
-import {
-  boardDataFieldsEqual,
-  type BoardDataSelection,
-} from '~/shared/board-data/boardSnapshot'
+import { boardDataFieldsEqual } from '~/shared/board-data/boardSnapshot'
 import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
 import {
   announceBoardLock,
@@ -29,7 +26,6 @@ export interface PendingBoardSync
 {
   boardId: BoardId
   snapshot: BoardSnapshot
-  boardDataSelection: BoardDataSelection
   syncState: BoardSyncState
 }
 
@@ -237,8 +233,7 @@ export const createCloudSyncScheduler = (
     shouldProceed: options.shouldProceed,
     prepareWork: ensurePendingSyncMarker,
     beforeFlush,
-    dedupEqual: (a, b) =>
-      boardDataFieldsEqual(a.boardDataSelection, b.boardDataSelection),
+    dedupEqual: (a, b) => boardDataFieldsEqual(a.snapshot, b.snapshot),
     retainLastFlushed: true,
     flushQueuedAfterSuccess: 'immediate',
     dropQueuedOnUnretryableError: true,

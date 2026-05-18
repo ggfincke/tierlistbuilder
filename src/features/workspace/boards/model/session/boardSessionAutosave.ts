@@ -1,10 +1,7 @@
 // src/features/workspace/boards/model/session/boardSessionAutosave.ts
 // active-board autosave subscription & load-suppression state
 
-import {
-  boardDataFieldsEqual,
-  selectBoardDataSource,
-} from '~/shared/board-data/boardSnapshot'
+import { boardDataFieldsEqual } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
@@ -56,7 +53,7 @@ export const registerBoardAutosaveController = (
   }
 
   const unsubscribe = useActiveBoardStore.subscribe(
-    selectBoardDataSource,
+    (state) => state,
     () =>
     {
       if (consumeAutosaveSuppression())

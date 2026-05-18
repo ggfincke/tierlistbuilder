@@ -1,7 +1,7 @@
 // scripts/setup-local-convex-auth.mjs
 // Configure Convex Auth env vars for the selected local deployment.
 
-import { execFileSync } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { generateKeyPairSync } from 'node:crypto'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,16 +16,39 @@ const siteUrl =
   siteUrlArg?.split('=').slice(1).join('=') || 'http://localhost:5173'
 
 const runConvex = (args, options = {}) =>
-  execFileSync('npx', ['convex', ...args], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', options.stderr ?? 'ignore'],
+  execFileSync('npx', ['convex', ...args], { encoding: 'utf8', ...options })
+
+const runConvexAsync = (args, options = {}) =>
+  new Promise((resolve, reject) =>
+  {
+    execFile(
+      'npx',
+      ['convex', ...args],
+      { encoding: 'utf8', ...options },
+      (error, stdout) =>
+      {
+        if (error)
+        {
+          reject(error)
+          return
+        }
+        resolve(stdout)
+      }
+    )
   })
 
-const getEnv = (name) =>
+const getEnv = async (name) =>
 {
   try
   {
-    return runConvex(['env', 'get', '--deployment', 'local', name]).trim()
+    const value = await runConvexAsync([
+      'env',
+      'get',
+      '--deployment',
+      'local',
+      name,
+    ])
+    return value.trim()
   }
   catch
   {
@@ -35,13 +58,9 @@ const getEnv = (name) =>
 
 const setEnv = (name, value) =>
 {
-  execFileSync(
-    'npx',
-    ['convex', 'env', 'set', '--deployment', 'local', name, value],
-    {
-      stdio: 'ignore',
-    }
-  )
+  runConvex(['env', 'set', '--deployment', 'local', name, value], {
+    stdio: 'ignore',
+  })
 }
 
 const quoteEnv = (value) =>
@@ -82,18 +101,8 @@ const setAuthKeys = () =>
       `JWT_PRIVATE_KEY=${quoteEnv(jwtPrivateKey)}\nJWKS=${quoteEnv(jwks)}\n`,
       { mode: 0o600 }
     )
-    execFileSync(
-      'npx',
-      [
-        'convex',
-        'env',
-        'set',
-        '--deployment',
-        'local',
-        '--from-file',
-        file,
-        '--force',
-      ],
+    runConvex(
+      ['env', 'set', '--deployment', 'local', '--from-file', file, '--force'],
       { stdio: 'ignore' }
     )
   }
@@ -106,8 +115,12 @@ const setAuthKeys = () =>
 setEnv('SITE_URL', siteUrl)
 console.log(`SITE_URL: ${siteUrl}`)
 
-const hasJwtPrivateKey = getEnv('JWT_PRIVATE_KEY') !== ''
-const hasJwks = getEnv('JWKS') !== ''
+const [jwtPrivateKeyValue, jwksValue] = await Promise.all([
+  getEnv('JWT_PRIVATE_KEY'),
+  getEnv('JWKS'),
+])
+const hasJwtPrivateKey = jwtPrivateKeyValue !== ''
+const hasJwks = jwksValue !== ''
 
 if (shouldRotate || !hasJwtPrivateKey || !hasJwks)
 {

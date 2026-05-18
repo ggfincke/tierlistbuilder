@@ -17,8 +17,8 @@ import {
 } from '~/shared/board-ui/StaticBoard'
 import { APP_PUBLIC_URL } from '~/shared/lib/urls'
 
-// palette used to colorize embedded boards. `classic` is the app's neutral
-// baseline; embed consumers don't get palette choice today
+// palette used to colorize embedded board tiers. Scoreboard chrome pairs w/
+// the neutral classic tier palette; embed consumers don't get palette choice.
 const EMBED_DEFAULT_PALETTE_ID: PaletteId = 'classic'
 
 const EMBED_APPEARANCE: StaticBoardAppearance = {

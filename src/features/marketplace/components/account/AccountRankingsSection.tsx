@@ -9,11 +9,13 @@ import type {
   MarketplaceRankingSummary,
   RankingVisibility,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
-import { useMyRankings } from '~/features/marketplace/model/useRankingDetail'
+import { useMyRankings } from '~/features/marketplace/model/detail/useRankingDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
-import { CriterionBadge } from '~/features/marketplace/components/consensus/CriterionBadge'
-import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
+import { CriterionBadge } from '~/features/marketplace/components/consensus/criterion/CriterionBadge'
+import { formatCount } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { RANKINGS_ROUTE_PATH } from '~/shared/routes/pathname'
+import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
 const VisibilityBadge = ({ visibility }: { visibility: RankingVisibility }) =>
@@ -98,10 +100,11 @@ export const AccountRankingsSection = () =>
   if (list.items.length === 0)
   {
     return (
-      <p className="rounded-md border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-4 py-6 text-center text-sm text-[var(--t-text-muted)]">
-        Complete a template ranking & publish it to share your ranking with the
-        community.
-      </p>
+      <EmptyCard
+        radius="md"
+        padding="sm"
+        body="Complete a template ranking & publish it to share your ranking with the community."
+      />
     )
   }
 

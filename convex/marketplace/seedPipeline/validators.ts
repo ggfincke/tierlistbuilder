@@ -4,17 +4,23 @@
 import { v } from 'convex/values'
 import {
   boardLabelSettingsValidator,
-  imageMimeTypeValidator,
   itemTransformValidator,
+  tierPresetTiersValidator,
+} from '../../lib/validators/common'
+import {
+  imageMimeTypeValidator,
   mediaVariantKindValidator,
+} from '../../lib/validators/platform'
+import {
   seedRunStatusValidator,
   seedTemplateReleaseStatusValidator,
+} from '../../lib/validators/seedPipeline'
+import {
   templateCategoryValidator,
   templateCoverFramingValidator,
   templateCriterionStatusValidator,
-  tierPresetTiersValidator,
   templateVisibilityValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/marketplace'
 
 export const seedUploadVariantKindValidator = v.union(
   v.literal('tile'),

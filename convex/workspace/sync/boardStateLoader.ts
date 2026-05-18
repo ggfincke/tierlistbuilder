@@ -8,6 +8,10 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import {
+  getBoardSourceRankingId,
+  getBoardSourceTemplateId,
+} from '../boards/sourceFields'
 
 // client-facing source identity uses public slugs since signed-out users can
 // only ever know the slug. resolve typed table ids -> slugs at load time so
@@ -136,28 +140,32 @@ export const loadBoardCloudState = async (
   // resolve source-fork identity in parallel w/ the items mapping below — both
   // wait on the same DB roundtrip latency, no need to serialize them
   const [sourceTemplateSlug, sourceRankingSlug] = await Promise.all([
-    loadSourceTemplateSlug(ctx, board.sourceTemplateId),
-    loadSourceRankingSlug(ctx, board.sourceRankingId),
+    loadSourceTemplateSlug(ctx, getBoardSourceTemplateId(board)),
+    loadSourceRankingSlug(ctx, getBoardSourceRankingId(board)),
   ])
 
   return {
     title: board.title,
-    revision: board.revision ?? 0,
-    itemAspectRatio: board.itemAspectRatio,
-    itemAspectRatioMode: board.itemAspectRatioMode,
-    aspectRatioPromptDismissed: board.aspectRatioPromptDismissed,
-    defaultItemImageFit: board.defaultItemImageFit,
-    paletteId: board.paletteId,
-    textStyleId: board.textStyleId,
-    pageBackground: board.pageBackground,
-    labels: board.labels,
+    revision: board.revision,
+    itemAspectRatio: board.itemAspectRatio ?? undefined,
+    itemAspectRatioMode: board.itemAspectRatioMode ?? undefined,
+    // omit when false so the wire payload stays minimal — the client treats
+    // missing as "not dismissed"
+    aspectRatioPromptDismissed: board.aspectRatioPromptDismissed
+      ? true
+      : undefined,
+    defaultItemImageFit: board.defaultItemImageFit ?? undefined,
+    paletteId: board.paletteId ?? undefined,
+    textStyleId: board.textStyleId ?? undefined,
+    pageBackground: board.pageBackground ?? undefined,
+    labels: board.labels ?? undefined,
     // surface source-template/ranking identity as public slugs so the wire
     // stays slug-based both ways. titles are denormalized on the board record
     // so the breadcrumb survives even if the source template was unpublished
     sourceTemplateId: sourceTemplateSlug,
     sourceRankingId: sourceRankingSlug,
-    sourceTemplateTitle: board.sourceTemplateTitle,
-    sourceRankingTitle: board.sourceRankingTitle,
+    sourceTemplateTitle: board.sourceTemplate.title,
+    sourceRankingTitle: board.sourceRanking.title,
     preferredCriterionExternalId: board.preferredCriterionExternalId ?? null,
     tiers: serverTiers
       .slice()
