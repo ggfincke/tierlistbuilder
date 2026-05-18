@@ -11,6 +11,7 @@ import {
 } from '~/features/workspace/boards/data/local/boardStorage'
 import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
+import { resetBoardSelectorCaches } from '~/features/workspace/boards/model/slices/selectors'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   EMPTY_BOARD_SYNC_STATE,
@@ -24,10 +25,13 @@ import { toast } from '~/shared/notifications/useToastStore'
 import {
   clearPendingAutosave,
   runWithAutosaveSuppressed,
-} from './boardSessionAutosave'
-import { notifyBoardLoaded } from './boardSessionEvents'
-import { getActivePaletteId, hasBoardMeta } from './boardSessionRegistry'
-import { reportStorageWarningIfNeeded } from './storageWarningReporter'
+} from '~/features/workspace/boards/model/session/boardSessionAutosave'
+import { notifyBoardLoaded } from '~/features/workspace/boards/model/session/boardSessionEvents'
+import {
+  getActivePaletteId,
+  hasBoardMeta,
+} from '~/features/workspace/boards/model/session/boardSessionRegistry'
+import { reportStorageWarningIfNeeded } from '~/features/workspace/boards/model/session/storageWarningReporter'
 
 interface LoadedBoardState
 {
@@ -82,6 +86,11 @@ export const loadBoardState = (
   syncState: BoardSyncState = EMPTY_BOARD_SYNC_STATE
 ): void =>
 {
+  // drop any timer scheduled by the previous board so it doesn't fire after
+  // the switch & write the just-loaded snapshot back to the new board's slot
+  clearPendingAutosave()
+  resetBoardSelectorCaches()
+
   runWithAutosaveSuppressed(() =>
   {
     useActiveBoardStore.getState().loadBoard(snapshot, syncState)

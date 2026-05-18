@@ -4,7 +4,7 @@
 import { Suspense, type ReactNode } from 'react'
 
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
-import { BaseModal } from './BaseModal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
 
 interface LazyModalSlotProps<T>
 {

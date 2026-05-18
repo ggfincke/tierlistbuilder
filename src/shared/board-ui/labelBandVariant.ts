@@ -8,7 +8,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 
-import { resolveLabelDisplay } from './labelDisplay'
+import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 
 // font family can change caption line-height; keep it in the variant key
 export interface LabelBandVariant

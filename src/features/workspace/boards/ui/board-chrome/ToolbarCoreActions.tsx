@@ -30,7 +30,7 @@ import {
 } from '~/shared/overlay/OverlaySurface'
 import { ActionButton } from '~/shared/ui/ActionButton'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
-import type { BoardActionBarMenuPosition } from './BoardActionBar.types'
+import type { BoardActionBarMenuPosition } from '~/features/workspace/boards/ui/board-chrome/BoardActionBar.types'
 
 type ShuffleMenuId = 'root' | 'shuffleAll'
 

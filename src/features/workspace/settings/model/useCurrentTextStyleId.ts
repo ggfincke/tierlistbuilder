@@ -1,7 +1,7 @@
 // src/features/workspace/settings/model/useCurrentTextStyleId.ts
 // resolve the active text style for workspace renderers
 
-import { useCurrentBoardOverride } from './useCurrentBoardOverride'
+import { useCurrentBoardOverride } from '~/features/workspace/settings/model/useCurrentBoardOverride'
 
 export const useCurrentTextStyleId = () =>
   useCurrentBoardOverride(

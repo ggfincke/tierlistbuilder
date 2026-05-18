@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from 'react'
 
-import { useDismissibleLayer } from './dismissibleLayer'
+import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 
 interface UseAnchoredPopupOptions
 {

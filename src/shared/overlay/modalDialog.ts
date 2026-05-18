@@ -3,8 +3,8 @@
 
 import { useEffect, type RefObject } from 'react'
 
-import { useFocusTrap } from './focusTrap'
-import { useModalBackgroundInert } from './modalLayer'
+import { useFocusTrap } from '~/shared/overlay/focusTrap'
+import { useModalBackgroundInert } from '~/shared/overlay/modalLayer'
 
 interface UseModalDialogOptions
 {

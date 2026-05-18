@@ -1,8 +1,11 @@
 // src/features/workspace/boards/model/slices/boardData/deletedItemActions.ts
 // deleted-item buffer actions for restore, discard, & clear
 
-import { withUndo } from '../undoSlice'
-import type { ActiveBoardSliceCreator, BoardDataSlice } from '../types'
+import { withUndo } from '~/features/workspace/boards/model/slices/undoSlice'
+import type {
+  ActiveBoardSliceCreator,
+  BoardDataSlice,
+} from '~/features/workspace/boards/model/slices/types'
 
 type DeletedItemActions = Pick<
   BoardDataSlice,

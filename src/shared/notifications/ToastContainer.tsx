@@ -3,7 +3,7 @@
 
 import { X } from 'lucide-react'
 
-import { useToastStore, type Toast } from './useToastStore'
+import { useToastStore, type Toast } from '~/shared/notifications/useToastStore'
 
 const TYPE_CLASSES: Record<Toast['type'], string> = {
   info: 'border-[rgb(var(--t-overlay)/0.18)] bg-[var(--t-bg-overlay)]',

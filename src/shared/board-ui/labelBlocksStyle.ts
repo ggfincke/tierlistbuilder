@@ -8,7 +8,7 @@ import { TEXT_STYLES } from '~/shared/theme/textStyles'
 import type { LabelTextColor } from '@tierlistbuilder/contracts/workspace/board'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
-import type { ResolvedLabelDisplay } from './labelDisplay'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 
 export const LABEL_SCRIM_CLASS = {
   none: '',

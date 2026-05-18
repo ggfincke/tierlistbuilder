@@ -2,9 +2,9 @@
 // theme runtime service — sync theme tokens & font loading to the DOM
 
 import type { TextStyleId, ThemeId } from '@tierlistbuilder/contracts/lib/theme'
-import { getTextColor } from '../lib/color'
-import { TEXT_STYLES } from './textStyles'
-import { THEMES } from './tokens'
+import { getTextColor } from '~/shared/lib/color'
+import { TEXT_STYLES } from '~/shared/theme/textStyles'
+import { THEMES } from '~/shared/theme/tokens'
 
 const FONT_LINK_ID = 'theme-google-font'
 

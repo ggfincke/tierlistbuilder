@@ -1,33 +1,22 @@
 // tests/model/boardSession.test.ts
-// board session sync persistence & autosave/delete listener behavior
+// local board session persistence behavior
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
+import { boardStorageKey } from '~/features/workspace/boards/data/local/boardStorage'
 import {
-  boardStorageKey,
-  boardSyncStorageKey,
-} from '~/features/workspace/boards/data/local/boardStorage'
-import {
+  bootstrapBoardSession,
   deleteBoardSession,
-  duplicateBoardSession,
   loadBoardIntoSession,
-  persistBoardStateForSync,
   registerBoardAutosave,
   renameBoardSession,
-  setBoardChangedListener,
   setBoardLoadedListener,
-  setBoardDeletedListener,
 } from '~/features/workspace/boards/model/boardSession'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import {
-  loadBoardFromStorage,
-  loadBoardSyncStateOnly,
-  saveBoardToStorage,
-} from '~/features/workspace/boards/data/local/boardStorage'
-import { loadBoardDeleteSyncMeta } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
-import { createFailingStorage } from '../shared-lib/memoryStorage'
+import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
+import { createFailingStorage } from '@tests/shared-lib/memoryStorage'
 
 const TEST_BOARD_ID = 'board-local-session-test' as BoardId
 const OTHER_BOARD_ID = 'board-local-session-other' as BoardId
@@ -35,9 +24,16 @@ const OTHER_BOARD_ID = 'board-local-session-other' as BoardId
 const resetStores = (): void =>
 {
   useWorkspaceBoardRegistryStore.setState({
-    boards: [{ id: TEST_BOARD_ID, title: 'Board', createdAt: Date.now() }],
+    boards: [
+      {
+        id: TEST_BOARD_ID,
+        title: 'Board',
+        createdAt: Date.now(),
+      },
+    ],
     activeBoardId: TEST_BOARD_ID,
   })
+
   useActiveBoardStore.setState({
     ...createInitialBoardData('classic'),
     title: 'Board',
@@ -51,82 +47,67 @@ const resetStores = (): void =>
     selection: { ids: [], set: new Set() },
     lastClickedItemId: null,
     itemsManuallyMoved: false,
-    activeItemCount: 0,
     runtimeError: null,
-    lastSyncedRevision: null,
-    cloudBoardExternalId: null,
-    pendingSyncAt: null,
   })
 }
 
-describe('board session', () =>
+describe('board session persistence', () =>
 {
   let disposeAutosave: (() => void) | null = null
 
-  beforeEach(() => resetStores())
+  beforeEach(() =>
+  {
+    resetStores()
+  })
+
   afterEach(() =>
   {
     disposeAutosave?.()
     disposeAutosave = null
     setBoardLoadedListener(null)
-    setBoardChangedListener(null)
-    setBoardDeletedListener(null)
     resetStores()
     vi.useRealTimers()
   })
 
-  it('keeps active sync state in memory when persistence fails', () =>
-  {
-    vi.stubGlobal(
-      'localStorage',
-      createFailingStorage(new Set([boardStorageKey(TEST_BOARD_ID)]))
-    )
-
-    const ok = persistBoardStateForSync(
-      TEST_BOARD_ID,
-      { ...createInitialBoardData('classic'), title: 'Updated' },
-      {
-        lastSyncedRevision: 3,
-        cloudBoardExternalId: 'cloud-a',
-        pendingSyncAt: 123,
-      }
-    )
-
-    expect(ok).toBe(false)
-    expect(useActiveBoardStore.getState()).toMatchObject({
-      lastSyncedRevision: 3,
-      pendingSyncAt: 123,
-    })
-    expect(localStorage.getItem(boardStorageKey(TEST_BOARD_ID))).toBeNull()
-    expect(localStorage.getItem(boardSyncStorageKey(TEST_BOARD_ID))).toBeNull()
-  })
-
-  it('notifies board-loaded listener before the registry active id flips', async () =>
+  it('notifies board loads even before the registry active id flips', async () =>
   {
     useWorkspaceBoardRegistryStore.setState({
       boards: [
-        { id: OTHER_BOARD_ID, title: 'Old', createdAt: Date.now() },
-        { id: TEST_BOARD_ID, title: 'Loaded', createdAt: Date.now() },
+        {
+          id: OTHER_BOARD_ID,
+          title: 'Old board',
+          createdAt: Date.now(),
+        },
+        {
+          id: TEST_BOARD_ID,
+          title: 'Loaded board',
+          createdAt: Date.now(),
+        },
       ],
       activeBoardId: OTHER_BOARD_ID,
     })
+
     saveBoardToStorage(TEST_BOARD_ID, {
       ...createInitialBoardData('classic'),
-      title: 'Loaded',
+      title: 'Loaded board',
     })
 
-    const loadedIds: BoardId[] = []
-    setBoardLoadedListener((id) => loadedIds.push(id))
+    const loadedBoardIds: BoardId[] = []
+    setBoardLoadedListener((boardId) =>
+    {
+      loadedBoardIds.push(boardId)
+    })
+
     await loadBoardIntoSession(TEST_BOARD_ID)
 
-    expect(loadedIds).toEqual([TEST_BOARD_ID])
-    expect(useActiveBoardStore.getState().title).toBe('Loaded')
+    expect(loadedBoardIds).toEqual([TEST_BOARD_ID])
+    expect(useActiveBoardStore.getState().title).toBe('Loaded board')
     expect(useWorkspaceBoardRegistryStore.getState().activeBoardId).toBe(
       OTHER_BOARD_ID
     )
   })
 
-  it('autosaves active board after one debounce window', () =>
+  it('autosaves active board data after one debounce window', () =>
   {
     vi.useFakeTimers()
     saveBoardToStorage(TEST_BOARD_ID, {
@@ -139,136 +120,143 @@ describe('board session', () =>
 
     useActiveBoardStore.setState({ title: 'Autosaved' })
     vi.advanceTimersByTime(299)
-    expect(
-      JSON.parse(localStorage.getItem(boardStorageKey(TEST_BOARD_ID)) ?? '{}')
-        .data?.title
-    ).toBe('Board')
+
+    const before = JSON.parse(
+      localStorage.getItem(boardStorageKey(TEST_BOARD_ID)) ?? '{}'
+    ) as { data?: { title?: string } }
+    expect(before.data?.title).toBe('Board')
 
     vi.advanceTimersByTime(1)
-    expect(
-      JSON.parse(localStorage.getItem(boardStorageKey(TEST_BOARD_ID)) ?? '{}')
-        .data?.title
-    ).toBe('Autosaved')
+
+    const after = JSON.parse(
+      localStorage.getItem(boardStorageKey(TEST_BOARD_ID)) ?? '{}'
+    ) as { data?: { title?: string } }
+    expect(after.data?.title).toBe('Autosaved')
   })
 
-  it('persists inactive renames and queues them for sync', () =>
+  it('clears pending autosaves before loading another board', async () =>
   {
-    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(987)
-    try
-    {
-      useWorkspaceBoardRegistryStore.setState({
-        boards: [
-          { id: TEST_BOARD_ID, title: 'Board', createdAt: 1 },
-          { id: OTHER_BOARD_ID, title: 'Old title', createdAt: 2 },
-        ],
-        activeBoardId: TEST_BOARD_ID,
-      })
-      saveBoardToStorage(
-        OTHER_BOARD_ID,
-        { ...createInitialBoardData('classic'), title: 'Old title' },
-        {
-          syncState: {
-            lastSyncedRevision: 5,
-            cloudBoardExternalId: 'cloud-board-other',
-            pendingSyncAt: null,
-          },
-        }
-      )
-
-      const changedIds: BoardId[] = []
-      setBoardChangedListener((id) => changedIds.push(id))
-      renameBoardSession(OTHER_BOARD_ID, 'New title')
-
-      const stored = loadBoardFromStorage(OTHER_BOARD_ID)
-      expect(stored.status).toBe('ok')
-      expect(stored.status === 'ok' ? stored.data.title : null).toBe(
-        'New title'
-      )
-      expect(loadBoardSyncStateOnly(OTHER_BOARD_ID)).toEqual({
-        lastSyncedRevision: 5,
-        cloudBoardExternalId: 'cloud-board-other',
-        pendingSyncAt: 987,
-      })
-      expect(changedIds).toEqual([OTHER_BOARD_ID])
-    }
-    finally
-    {
-      nowSpy.mockRestore()
-    }
-  })
-
-  it('does not dirty a board when renaming to the already-persisted title', () =>
-  {
-    saveBoardToStorage(TEST_BOARD_ID, {
+    vi.useFakeTimers()
+    saveBoardToStorage(OTHER_BOARD_ID, {
       ...createInitialBoardData('classic'),
-      title: 'Cloud title',
+      title: 'Other board',
     })
-    useActiveBoardStore.setState({ title: 'Cloud title' })
+    useWorkspaceBoardRegistryStore.setState({
+      boards: [
+        {
+          id: TEST_BOARD_ID,
+          title: 'Board',
+          createdAt: Date.now(),
+        },
+        {
+          id: OTHER_BOARD_ID,
+          title: 'Other board',
+          createdAt: Date.now(),
+        },
+      ],
+      activeBoardId: TEST_BOARD_ID,
+    })
 
-    const changed = vi.fn()
-    setBoardChangedListener(changed)
-    renameBoardSession(TEST_BOARD_ID, 'Cloud title')
+    disposeAutosave = registerBoardAutosave()
+    useActiveBoardStore.setState({ title: 'Pending edit' })
+    useWorkspaceBoardRegistryStore.getState().setActiveBoardId(OTHER_BOARD_ID)
+    const setItemSpy = vi.spyOn(localStorage, 'setItem')
 
-    expect(changed).not.toHaveBeenCalled()
-    expect(loadBoardSyncStateOnly(TEST_BOARD_ID).pendingSyncAt).toBeNull()
+    await loadBoardIntoSession(OTHER_BOARD_ID)
+    vi.advanceTimersByTime(300)
+
+    const stored = JSON.parse(
+      localStorage.getItem(boardStorageKey(OTHER_BOARD_ID)) ?? '{}'
+    ) as { data?: { title?: string } }
+    expect(stored.data?.title).toBe('Other board')
+    expect(setItemSpy).not.toHaveBeenCalled()
   })
 
-  it('marks duplicated boards pending so signed-in library copies sync', async () =>
+  it('keeps healthy board registry entries when active board data is corrupted', async () =>
   {
-    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1234)
-    try
-    {
-      saveBoardToStorage(TEST_BOARD_ID, {
-        ...createInitialBoardData('classic'),
-        title: 'Copy source',
-      })
-      await duplicateBoardSession(TEST_BOARD_ID)
+    vi.useFakeTimers()
+    vi.stubGlobal('window', {
+      clearTimeout: globalThis.clearTimeout,
+      setTimeout: globalThis.setTimeout,
+    })
+    useWorkspaceBoardRegistryStore.setState({
+      boards: [
+        {
+          id: TEST_BOARD_ID,
+          title: 'Corrupted board',
+          createdAt: Date.now(),
+        },
+        {
+          id: OTHER_BOARD_ID,
+          title: 'Healthy board',
+          createdAt: Date.now(),
+        },
+      ],
+      activeBoardId: TEST_BOARD_ID,
+    })
+    localStorage.setItem(boardStorageKey(TEST_BOARD_ID), '{broken')
+    saveBoardToStorage(OTHER_BOARD_ID, {
+      ...createInitialBoardData('classic'),
+      title: 'Healthy board',
+    })
 
-      const duplicateId =
-        useWorkspaceBoardRegistryStore.getState().activeBoardId
-      expect(duplicateId).not.toBe(TEST_BOARD_ID)
-      expect(duplicateId).toBeTruthy()
-      expect(loadBoardSyncStateOnly(duplicateId as BoardId)).toEqual({
-        lastSyncedRevision: null,
-        cloudBoardExternalId: null,
-        pendingSyncAt: 1234,
-      })
-    }
-    finally
-    {
-      nowSpy.mockRestore()
-    }
+    await bootstrapBoardSession()
+    await vi.runOnlyPendingTimersAsync()
+
+    const registry = useWorkspaceBoardRegistryStore.getState()
+    expect(useActiveBoardStore.getState().title).toBe('Healthy board')
+    expect(registry.activeBoardId).toBe(OTHER_BOARD_ID)
+    expect(registry.boards).toEqual([
+      expect.objectContaining({
+        id: OTHER_BOARD_ID,
+        title: 'Healthy board',
+      }),
+    ])
+    expect(localStorage.getItem(boardStorageKey(OTHER_BOARD_ID))).not.toBeNull()
   })
 
-  it('stamps pending cloud deletes & notifies the delete listener', async () =>
+  it('deletes local board data and registry metadata', async () =>
   {
     useWorkspaceBoardRegistryStore.setState({
       boards: [
-        { id: TEST_BOARD_ID, title: 'Board', createdAt: Date.now() },
-        { id: OTHER_BOARD_ID, title: 'Other', createdAt: Date.now() },
+        {
+          id: TEST_BOARD_ID,
+          title: 'Board',
+          createdAt: Date.now(),
+        },
+        {
+          id: OTHER_BOARD_ID,
+          title: 'Other board',
+          createdAt: Date.now(),
+        },
       ],
       activeBoardId: OTHER_BOARD_ID,
     })
-    saveBoardToStorage(TEST_BOARD_ID, createInitialBoardData('classic'), {
-      syncState: {
-        lastSyncedRevision: 4,
-        cloudBoardExternalId: 'cloud-board-a',
-        pendingSyncAt: null,
-      },
-    })
+    saveBoardToStorage(TEST_BOARD_ID, createInitialBoardData('classic'))
 
-    let notified = false
-    setBoardDeletedListener(() => (notified = true))
     await deleteBoardSession(TEST_BOARD_ID)
 
-    expect(notified).toBe(true)
-    expect(loadBoardDeleteSyncMeta().pendingExternalIds).toEqual([
-      'cloud-board-a',
-    ])
+    expect(localStorage.getItem(boardStorageKey(TEST_BOARD_ID))).toBeNull()
     expect(
       useWorkspaceBoardRegistryStore
         .getState()
-        .boards.some((b) => b.id === TEST_BOARD_ID)
+        .boards.some((board) => board.id === TEST_BOARD_ID)
     ).toBe(false)
+  })
+
+  it('returns active-board rename storage failures to callers', () =>
+  {
+    vi.stubGlobal(
+      'localStorage',
+      createFailingStorage(new Set([boardStorageKey(TEST_BOARD_ID)]))
+    )
+    resetStores()
+
+    const result = renameBoardSession(TEST_BOARD_ID, 'Renamed board')
+
+    expect(result).toMatchObject({ ok: false })
+    expect(useActiveBoardStore.getState().runtimeError).toBe(
+      result.ok ? null : result.message
+    )
   })
 })

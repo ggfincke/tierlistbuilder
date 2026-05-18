@@ -10,7 +10,7 @@ import {
   isSameItemTransform,
 } from '~/shared/lib/imageTransform'
 import { clamp } from '~/shared/lib/math'
-import { normalizeRotation } from './imageEditorGeometry'
+import { normalizeRotation } from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
 
 interface WheelZoomInput
 {

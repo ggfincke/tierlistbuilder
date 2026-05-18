@@ -16,7 +16,7 @@ import {
   findTierById,
   makeContainerSnapshot,
   makeTier,
-} from '../fixtures'
+} from '@tests/fixtures'
 
 describe('createContainerSnapshot', () =>
 {

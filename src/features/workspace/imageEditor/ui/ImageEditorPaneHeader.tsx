@@ -8,8 +8,8 @@ import {
   formatAspectRatio,
   itemHasAspectMismatch,
 } from '~/shared/board-ui/aspectRatio'
-import type { AutoCropStatus } from '../model/auto-crop/useImageEditorAutoCropItem'
-import { SaveStatusIndicator } from './SaveStatusIndicator'
+import type { AutoCropStatus } from '~/features/workspace/imageEditor/model/auto-crop/useImageEditorAutoCropItem'
+import { SaveStatusIndicator } from '~/features/workspace/imageEditor/ui/SaveStatusIndicator'
 
 interface ImageEditorPaneHeaderProps
 {

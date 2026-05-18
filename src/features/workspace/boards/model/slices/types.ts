@@ -20,7 +20,7 @@ import type {
   UndoEntry,
 } from '~/features/workspace/boards/model/runtime'
 import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
-import type { BoardSyncStatePatch } from './syncStateOps'
+import type { BoardSyncStatePatch } from '~/features/workspace/boards/model/slices/syncStateOps'
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   PaletteId,

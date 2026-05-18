@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { resolveDragEndDecision } from '~/features/workspace/boards/dnd/dragEndDecision'
-import { makeContainerSnapshot } from '../fixtures'
+import { makeContainerSnapshot } from '@tests/fixtures'
 
 const TIER_IDS = ['tier-s', 'tier-a', 'tier-b']
 

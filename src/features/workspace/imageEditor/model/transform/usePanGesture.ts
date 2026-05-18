@@ -17,8 +17,8 @@ import {
   applyAxisSnap,
   PAN_SNAP_THRESHOLD_PX,
   PAN_START_THRESHOLD_PX,
-} from '../../lib/imageEditorGeometry'
-import type { ImageEditorTransformDraftSetter } from '../transform/useImageEditorTransformDraft'
+} from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
+import type { ImageEditorTransformDraftSetter } from '~/features/workspace/imageEditor/model/transform/useImageEditorTransformDraft'
 
 interface UsePanGestureInput
 {

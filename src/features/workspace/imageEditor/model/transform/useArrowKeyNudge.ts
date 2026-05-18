@@ -3,9 +3,9 @@
 
 import { useEffect } from 'react'
 
-import { isInteractiveArrowTarget } from '../../lib/imageEditorGeometry'
-import { nudgeImageEditorTransformByPixels } from '../../lib/imageEditorTransformOps'
-import type { ImageEditorTransformDraftSetter } from '../transform/useImageEditorTransformDraft'
+import { isInteractiveArrowTarget } from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
+import { nudgeImageEditorTransformByPixels } from '~/features/workspace/imageEditor/lib/imageEditorTransformOps'
+import type { ImageEditorTransformDraftSetter } from '~/features/workspace/imageEditor/model/transform/useImageEditorTransformDraft'
 
 interface UseArrowKeyNudgeInput
 {

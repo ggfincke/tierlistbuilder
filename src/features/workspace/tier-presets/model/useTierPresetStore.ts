@@ -10,7 +10,7 @@ import { createAppPersistStorage } from '~/shared/lib/browserStorage'
 import {
   PRESET_STORAGE_KEY,
   PRESET_STORAGE_VERSION,
-} from '../data/local/tierPresetStorage'
+} from '~/features/workspace/tier-presets/data/local/tierPresetStorage'
 
 interface TierPresetStore
 {

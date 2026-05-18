@@ -3,8 +3,8 @@
 
 import { useId } from 'react'
 
-import { BaseModal } from './BaseModal'
-import { resolveProgressOverlayState } from './progress'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { resolveProgressOverlayState } from '~/shared/overlay/progress'
 
 interface ProgressOverlayProps
 {

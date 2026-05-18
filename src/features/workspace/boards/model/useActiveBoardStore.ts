@@ -5,12 +5,12 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 
-import { createBoardDataSlice } from './slices/boardDataSlice'
-import { createDragPreviewSlice } from './slices/dragPreviewSlice'
-import { createKeyboardSlice } from './slices/keyboardSlice'
-import { createSelectionSlice } from './slices/selectionSlice'
-import { createUndoSlice } from './slices/undoSlice'
-import type { ActiveBoardStore } from './slices/types'
+import { createBoardDataSlice } from '~/features/workspace/boards/model/slices/boardDataSlice'
+import { createDragPreviewSlice } from '~/features/workspace/boards/model/slices/dragPreviewSlice'
+import { createKeyboardSlice } from '~/features/workspace/boards/model/slices/keyboardSlice'
+import { createSelectionSlice } from '~/features/workspace/boards/model/slices/selectionSlice'
+import { createUndoSlice } from '~/features/workspace/boards/model/slices/undoSlice'
+import type { ActiveBoardStore } from '~/features/workspace/boards/model/slices/types'
 
 export {
   selectCanRedo,
@@ -18,7 +18,7 @@ export {
   selectHasKeyboardSelection,
   selectIsDragging,
   selectKeyboardTabStopItemId,
-} from './slices/selectors'
+} from '~/features/workspace/boards/model/slices/selectors'
 
 export const useActiveBoardStore = create<ActiveBoardStore>()(
   subscribeWithSelector((...args) => ({

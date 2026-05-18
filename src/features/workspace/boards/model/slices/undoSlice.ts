@@ -8,12 +8,16 @@ import {
   createUndoRestoreRuntimePatch,
   type UndoEntry,
 } from '~/features/workspace/boards/model/runtime'
-import { MAX_UNDO_HISTORY, countActiveItems, isSameSnapshot } from './helpers'
+import {
+  MAX_UNDO_HISTORY,
+  countActiveItems,
+  isSameSnapshot,
+} from '~/features/workspace/boards/model/slices/helpers'
 import type {
   ActiveBoardSliceCreator,
   ActiveBoardStore,
   UndoSlice,
-} from './types'
+} from '~/features/workspace/boards/model/slices/types'
 
 const DEFAULT_UNDO_LABEL = 'Change'
 

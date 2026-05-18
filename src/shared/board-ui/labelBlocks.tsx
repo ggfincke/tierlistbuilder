@@ -11,8 +11,8 @@ import {
   captionPaddingStyle,
   labelFontStyle,
   overlayPaddingStyle,
-} from './labelBlocksStyle'
-import type { ResolvedLabelDisplay } from './labelDisplay'
+} from '~/shared/board-ui/labelBlocksStyle'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 
 interface OverlayLabelBlockProps
 {

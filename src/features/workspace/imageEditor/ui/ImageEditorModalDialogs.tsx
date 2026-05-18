@@ -3,7 +3,7 @@
 
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { formatCountedWord } from '~/shared/lib/pluralize'
-import type { GateProjection } from '../model/useImageEditorModalActions'
+import type { GateProjection } from '~/features/workspace/imageEditor/model/useImageEditorModalActions'
 
 interface ImageEditorModalDialogsProps
 {

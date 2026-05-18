@@ -11,7 +11,7 @@ import type {
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { CaptionStrip as SharedCaptionStrip } from '~/shared/board-ui/labelBlocks'
-import { DraggableLabelOverlay } from './DraggableLabelOverlay'
+import { DraggableLabelOverlay } from '~/features/workspace/imageEditor/ui/DraggableLabelOverlay'
 
 interface ImageEditorPreviewCanvasProps
 {

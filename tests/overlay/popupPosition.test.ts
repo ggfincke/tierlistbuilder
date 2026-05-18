@@ -1,5 +1,5 @@
 // tests/overlay/popupPosition.test.ts
-// fixed-popup placement, viewport clamping, & flip-above behavior
+// anchored popup positioning
 
 import { describe, expect, it } from 'vitest'
 import {
@@ -7,59 +7,116 @@ import {
   computeCustomColorPickerStyle,
   computeSettingsMenuStyle,
 } from '~/shared/overlay/popupPosition'
-import { makeRect } from '../fixtures'
+import { makeRect } from '@tests/fixtures'
 
-describe('popup positioning', () =>
+describe('computeColorPickerStyle', () =>
 {
-  it('anchors below trigger, falls back to tray rect, & clamps within the viewport', () =>
+  it('anchors the tray below the trigger & right-aligns it to the viewport', () =>
   {
-    const colorButton = {
+    const button = {
       getBoundingClientRect: () => makeRect({ bottom: 40, right: 300 }),
     } as HTMLButtonElement
-    expect(
-      computeColorPickerStyle(colorButton, { width: 1200, height: 800 })
-    ).toEqual({ position: 'fixed', top: 48, right: 900 })
 
-    const trayButton = {
+    expect(
+      computeColorPickerStyle(button, {
+        width: 1200,
+        height: 800,
+      })
+    ).toEqual({
+      position: 'fixed',
+      top: 48,
+      right: 900,
+    })
+  })
+})
+
+describe('computeCustomColorPickerStyle', () =>
+{
+  it('uses the tray rect as the anchor when available', () =>
+  {
+    const button = {
       getBoundingClientRect: () => makeRect({ bottom: 48, left: 60 }),
     } as HTMLButtonElement
     const tray = {
       getBoundingClientRect: () => makeRect({ bottom: 160, left: 320 }),
     } as HTMLDivElement
+
     expect(
-      computeCustomColorPickerStyle(trayButton, tray, 280, 0, {
+      computeCustomColorPickerStyle(button, tray, 280, 0, {
         width: 1200,
         height: 800,
       })
-    ).toEqual({ position: 'fixed', top: 168, left: 320 })
+    ).toEqual({
+      position: 'fixed',
+      top: 168,
+      left: 320,
+    })
+  })
 
-    const edgeButton = {
+  it('clamps the popup inside the viewport when the anchor is near the edge', () =>
+  {
+    const button = {
       getBoundingClientRect: () => makeRect({ bottom: 620, left: 980 }),
     } as HTMLButtonElement
+
     expect(
-      computeCustomColorPickerStyle(edgeButton, null, 280, 200, {
+      computeCustomColorPickerStyle(button, null, 280, 200, {
         width: 1000,
         height: 700,
       })
-    ).toEqual({ position: 'fixed', top: 492, left: 712 })
+    ).toEqual({
+      position: 'fixed',
+      top: 492,
+      left: 712,
+    })
+  })
+})
+
+describe('computeSettingsMenuStyle', () =>
+{
+  it('opens below the trigger when there is enough room', () =>
+  {
+    const button = {
+      getBoundingClientRect: () =>
+        makeRect({
+          top: 100,
+          bottom: 160,
+          right: 400,
+        }),
+    } as HTMLButtonElement
+
+    expect(
+      computeSettingsMenuStyle(button, {
+        width: 1200,
+        height: 900,
+      })
+    ).toEqual({
+      position: 'fixed',
+      top: 168,
+      right: 800,
+    })
   })
 
-  it('flips menus above when the viewport is too short below the trigger', () =>
+  it('flips above the trigger when the viewport is too short', () =>
   {
-    const tallButton = {
+    const button = {
       getBoundingClientRect: () =>
-        makeRect({ top: 100, bottom: 160, right: 400 }),
+        makeRect({
+          top: 450,
+          bottom: 700,
+          right: 400,
+        }),
     } as HTMLButtonElement
-    expect(
-      computeSettingsMenuStyle(tallButton, { width: 1200, height: 900 })
-    ).toEqual({ position: 'fixed', top: 168, right: 800 })
 
-    const flipButton = {
-      getBoundingClientRect: () =>
-        makeRect({ top: 450, bottom: 700, right: 400 }),
-    } as HTMLButtonElement
     expect(
-      computeSettingsMenuStyle(flipButton, { width: 1200, height: 800 })
-    ).toEqual({ position: 'fixed', bottom: 358, right: 800 })
+      computeSettingsMenuStyle(button, {
+        width: 1200,
+        height: 800,
+      })
+    ).toEqual({
+      position: 'fixed',
+      bottom: 358,
+      right: 800,
+    })
   })
 })

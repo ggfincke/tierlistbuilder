@@ -4,7 +4,7 @@
 import { useCallback, useEffect, type MouseEvent } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 
-import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
+import { useAppBootstrap, useAppReady } from '~/app/bootstrap/useAppBootstrap'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { useCloudSync } from '~/app/sync/useCloudSync'
@@ -47,7 +47,11 @@ const WorkspaceSkipLink = () =>
 export const AppChromeLayout = () =>
 {
   const { pathname } = useLocation()
-  const appReady = useAppBootstrap()
+  // single bootstrap-owner for the chrome-wrapped routes; child routes
+  // subscribe via useAppReady so each nav doesn't re-register hydration
+  // listeners or run its own bootstrap effect
+  useAppBootstrap()
+  const appReady = useAppReady()
   const session = useAuthSession()
   const signInPromptOpen = useSignInPromptStore((state) => state.open)
   const hideSignInPrompt = useSignInPromptStore((state) => state.hide)

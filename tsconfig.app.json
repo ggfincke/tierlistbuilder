@@ -8,6 +8,7 @@
     "paths": {
       "~/*": ["./src/*"],
       "@convex/*": ["./convex/*"],
+      "@tests/*": ["./tests/*"],
       "@tierlistbuilder/contracts/*": ["./packages/contracts/*"]
     },
     "types": ["vite/client"],

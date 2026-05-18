@@ -29,8 +29,8 @@ import { toast } from '~/shared/notifications/useToastStore'
 import {
   loadedBoardStateFromResult,
   loadBoardState,
-} from './boardSessionPersistence'
-import { createBoardMeta } from './boardSessionRegistry'
+} from '~/features/workspace/boards/model/session/boardSessionPersistence'
+import { createBoardMeta } from '~/features/workspace/boards/model/session/boardSessionRegistry'
 
 const scheduleIdle = (callback: () => void, timeout = 2_000): void =>
 {
@@ -130,26 +130,41 @@ export const bootstrapBoardSession = async (): Promise<void> =>
   const requestedActiveId =
     boardStore.activeBoardId ?? boardStore.boards[0]?.id ?? null
 
+  // walk requested-active first, then the rest of the registry; on corruption
+  // fall through to the next candidate. async pruner emits the toast.
+  const candidates: BoardId[] = []
+  const seen = new Set<BoardId>()
   if (requestedActiveId)
   {
-    const result = loadBoardFromStorage(requestedActiveId)
+    candidates.push(requestedActiveId)
+    seen.add(requestedActiveId)
+  }
+  for (const meta of boardStore.boards)
+  {
+    if (seen.has(meta.id)) continue
+    seen.add(meta.id)
+    candidates.push(meta.id)
+  }
 
-    if (result.status === 'ok')
+  for (const candidateId of candidates)
+  {
+    const result = loadBoardFromStorage(candidateId)
+    if (result.status !== 'ok')
     {
-      const state = loadedBoardStateFromResult(result)
-      if (boardStore.activeBoardId !== requestedActiveId)
-      {
-        boardStore.setActiveBoardId(requestedActiveId)
-      }
-      await warmFromBoard(state.snapshot)
-      loadBoardState(requestedActiveId, state.snapshot, state.syncState)
-      pruneOrphanedRegistryEntriesAsync(requestedActiveId)
-      reconcileLocalImageRefsAsync()
-      return
+      removeBoardFromStorage(candidateId)
+      continue
     }
 
-    removeBoardFromStorage(requestedActiveId)
-    toast('Board data was corrupted and has been reset.', 'error')
+    const state = loadedBoardStateFromResult(result)
+    if (boardStore.activeBoardId !== candidateId)
+    {
+      boardStore.setActiveBoardId(candidateId)
+    }
+    await warmFromBoard(state.snapshot)
+    loadBoardState(candidateId, state.snapshot, state.syncState)
+    pruneOrphanedRegistryEntriesAsync(candidateId)
+    reconcileLocalImageRefsAsync()
+    return
   }
 
   const id = generateBoardId()

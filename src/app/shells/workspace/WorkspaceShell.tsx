@@ -4,13 +4,13 @@
 import { useCallback } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
+import { useAppReady } from '~/app/bootstrap/useAppBootstrap'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
 import { useModalStack } from '~/app/shells/useModalStack'
-import { WorkspaceModalLayer } from './WorkspaceModalLayer'
-import { useWorkspaceExportActions } from './useWorkspaceExportActions'
-import type { WorkspaceModalPayloads } from './workspaceModals'
+import { WorkspaceModalLayer } from '~/app/shells/workspace/WorkspaceModalLayer'
+import { useWorkspaceExportActions } from '~/app/shells/workspace/useWorkspaceExportActions'
+import type { WorkspaceModalPayloads } from '~/app/shells/workspace/workspaceModals'
 import { useRankingPublishAvailability } from '~/features/marketplace/model/publish/useRankingPublishAvailability'
 import { BoardActionBar } from '~/features/workspace/boards/ui/board-chrome/BoardActionBar'
 import { BoardManager } from '~/features/workspace/boards/ui/board-chrome/BoardManager'
@@ -36,7 +36,7 @@ import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 
 export const WorkspaceShell = () =>
 {
-  const appReady = useAppBootstrap()
+  const appReady = useAppReady()
   const paletteId = useCurrentPaletteId()
   const runtimeError = useActiveBoardStore((state) => state.runtimeError)
   const { toolbarPosition: rawToolbarPosition, reducedMotion } =

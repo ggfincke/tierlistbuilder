@@ -12,9 +12,9 @@ import {
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { logger } from '~/shared/lib/logger'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
-import { TopNavAccountMenu } from './TopNavAccountMenu'
-import { TopNavAvatarButton } from './TopNavAvatarButton'
-import type { TopNavModalKey } from './TopNavModalLayer'
+import { TopNavAccountMenu } from '~/app/shells/topNav/TopNavAccountMenu'
+import { TopNavAvatarButton } from '~/app/shells/topNav/TopNavAvatarButton'
+import type { TopNavModalKey } from '~/app/shells/topNav/TopNavModalLayer'
 
 interface TopNavAccountControlProps
 {

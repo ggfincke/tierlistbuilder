@@ -15,14 +15,14 @@ import {
   useConfirmationGate,
   type ConfirmationGate,
 } from '~/features/workspace/imageEditor/model/useConfirmationGate'
-import { isInteractiveArrowTarget } from '../lib/imageEditorGeometry'
+import { isInteractiveArrowTarget } from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
 import {
   countAdjustedImageEditorItems,
   countLabelOverridesAffected,
   createApplyLabelToAllPlan,
   type LabelOptionsClearEntry,
-} from './imageEditorModalPlans'
-import type { PendingImageEditorPaneEdit } from './pendingImageEdit'
+} from '~/features/workspace/imageEditor/model/imageEditorModalPlans'
+import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 interface UseRatioChangeGuardInput
 {

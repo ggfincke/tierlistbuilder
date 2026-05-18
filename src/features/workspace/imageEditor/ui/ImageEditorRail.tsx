@@ -22,8 +22,8 @@ import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import {
   boundedAspectSize,
   RAIL_THUMBNAIL_BOUND,
-} from '../lib/imageEditorGeometry'
-import type { ImageEditorFilter } from '../model/useImageEditorStore'
+} from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
+import type { ImageEditorFilter } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 
 const FILTER_OPTIONS: { value: ImageEditorFilter; label: string }[] = [
   { value: 'all', label: 'All' },

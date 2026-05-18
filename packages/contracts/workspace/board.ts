@@ -293,12 +293,17 @@ export const isEmptyItemLabelOptions = (
     options.textStyleId === undefined &&
     options.textColor === undefined)
 
+// origin of the bytes a TierItemImageRef points at. only 'source' today —
+// source-owned refs point at marketplace assets & must upload a copy pre-sync.
+// authoritative list; never hand-type the literal at a call site
+export const CLOUD_MEDIA_OWNERSHIPS = ['source'] as const
+export type CloudMediaOwnership = (typeof CLOUD_MEDIA_OWNERSHIPS)[number]
+
 export interface TierItemImageRef
 {
   hash: string
   cloudMediaExternalId?: string
-  // source-owned refs point at marketplace assets; upload a copy pre-sync.
-  cloudMediaOwnership?: 'source'
+  cloudMediaOwnership?: CloudMediaOwnership
 }
 
 // single item placed in a tier or the unranked pool. imageRef is the small
@@ -437,6 +442,10 @@ export interface BoardSnapshotWire
   sourceRankingId?: string
   sourceTemplateTitle?: string
   sourceRankingTitle?: string
+  sourceTemplateCoverMedia?: import('../marketplace/template').TemplateMediaRef
+  sourceTemplateCoverFraming?:
+    | import('../marketplace/template').TemplateCoverFraming
+    | null
   preferredCriterionExternalId?: string
 }
 

@@ -5,9 +5,9 @@ import { useId, useRef } from 'react'
 
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { BaseModal } from './BaseModal'
-import { DialogActions } from './DialogActions'
-import { ModalHeader } from './ModalHeader'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { DialogActions } from '~/shared/overlay/DialogActions'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 
 interface ConfirmDialogProps
 {

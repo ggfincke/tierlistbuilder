@@ -13,14 +13,14 @@ import {
   LABEL_FONT_SIZE_CLASS,
   LABEL_PADDING_CLASS,
   LABEL_WIDTH_PX,
-} from './constants'
+} from '~/shared/board-ui/constants'
 import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
 } from '@tierlistbuilder/contracts/platform/preferences'
-import { getTextColor } from '../lib/color'
-import { joinClassNames } from '../lib/className'
+import { getTextColor } from '~/shared/lib/color'
+import { joinClassNames } from '~/shared/lib/className'
 
 interface BoardRowContentProps
 {

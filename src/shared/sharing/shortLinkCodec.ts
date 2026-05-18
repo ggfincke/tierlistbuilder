@@ -9,7 +9,7 @@ import {
 import { snapshotToWire } from '~/shared/board-data/boardWireMapper'
 import {
   stripDeletedItemsForShare,
-  stripPrivateItemFieldsForShare,
+  stripPrivateFieldsForShare,
 } from '~/shared/sharing/hashShare'
 import { compressSnapshotPayloadBytes } from '~/shared/sharing/snapshotCompression'
 
@@ -44,7 +44,7 @@ export const compressShortLinkSnapshotBytes = async (
 ): Promise<Uint8Array> =>
 {
   const stripped = stripDeletedItemsForShare(
-    stripPrivateItemFieldsForShare(data)
+    stripPrivateFieldsForShare(data)
   )
   const preflightBytes = new TextEncoder().encode(JSON.stringify(stripped))
   assertShortLinkPreflightSize(preflightBytes.byteLength)

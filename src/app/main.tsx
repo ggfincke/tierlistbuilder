@@ -4,8 +4,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ConvexAuthProvider } from '@convex-dev/auth/react'
-import './index.css'
-import App from './App.tsx'
+import '~/app/index.css'
+import App from '~/app/App.tsx'
 import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 

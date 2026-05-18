@@ -13,16 +13,19 @@ import {
   type UniqueIdentifier,
 } from '@dnd-kit/core'
 
-import { animateDropDistribute } from './dragDropAnimation'
+import { animateDropDistribute } from '~/features/workspace/boards/dnd/dragDropAnimation'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { announce } from '~/shared/a11y/announce'
 import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
-import { resolveDragCollisions } from './dragCollision'
-import { resolveDragEndDecision } from './dragEndDecision'
-import { toItemId, toStringId } from './dragHelpers'
+import { resolveDragCollisions } from '~/features/workspace/boards/dnd/dragCollision'
+import { resolveDragEndDecision } from '~/features/workspace/boards/dnd/dragEndDecision'
+import {
+  toItemId,
+  toStringId,
+} from '~/features/workspace/boards/dnd/dragHelpers'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { syncDraggedItemPosition } from './dragPreviewController'
-import { useDragSensors } from './dragSensors'
+import { syncDraggedItemPosition } from '~/features/workspace/boards/dnd/dragPreviewController'
+import { useDragSensors } from '~/features/workspace/boards/dnd/dragSensors'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { getItemElementById } from '~/features/workspace/boards/lib/dndIds'
 import {

@@ -13,7 +13,7 @@ import type { LabelOverlayPlacement } from '@tierlistbuilder/contracts/workspace
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { OverlayLabelBlock as SharedOverlayLabelBlock } from '~/shared/board-ui/labelBlocks'
 import { clamp } from '~/shared/lib/math'
-import { applyAxisSnap } from '../lib/imageEditorGeometry'
+import { applyAxisSnap } from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
 
 interface DraggableLabelOverlayProps
 {

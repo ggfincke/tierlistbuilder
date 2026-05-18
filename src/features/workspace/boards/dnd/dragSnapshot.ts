@@ -91,24 +91,28 @@ export const getEffectiveTiers = (
     return tiers
   }
 
+  // fast path: tier order matches; pre-check every itemIds before allocating
+  // .map output so a no-op drag-preview frame returns the input array
   if (
     tiers.length === dragPreview.tiers.length &&
     tiers.every((tier, index) => tier.id === dragPreview.tiers[index]?.id)
   )
   {
-    let changed = false
-    const next = tiers.map((tier, index) =>
+    const allItemIdsUnchanged = tiers.every(
+      (tier, index) => tier.itemIds === dragPreview.tiers[index].itemIds
+    )
+    if (allItemIdsUnchanged)
+    {
+      return tiers
+    }
+
+    return tiers.map((tier, index) =>
     {
       const previewItemIds = dragPreview.tiers[index].itemIds
-      if (previewItemIds === tier.itemIds)
-      {
-        return tier
-      }
-      changed = true
-      return { ...tier, itemIds: previewItemIds }
+      return previewItemIds === tier.itemIds
+        ? tier
+        : { ...tier, itemIds: previewItemIds }
     })
-
-    return changed ? next : tiers
   }
 
   const itemIdsByTierId = new Map(

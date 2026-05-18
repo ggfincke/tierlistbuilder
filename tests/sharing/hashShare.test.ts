@@ -14,7 +14,7 @@ import {
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
 import { bytesToBase64Url } from '~/shared/lib/binaryCodec'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeBoardSnapshot, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeTier } from '@tests/fixtures'
 
 describe('snapshot codec', () =>
 {
@@ -44,6 +44,7 @@ describe('snapshot codec', () =>
         [asItemId('a')]: {
           id: asItemId('a'),
           label: 'x',
+          notes: 'private rationale',
           imageRef: { hash: 'img-1' },
           tileImageRef: { hash: 'tile-1' },
           sourceImageRef: { hash: 'source-1' },
@@ -58,6 +59,7 @@ describe('snapshot codec', () =>
     expect(item).not.toHaveProperty('imageRef')
     expect(item).not.toHaveProperty('tileImageRef')
     expect(item).not.toHaveProperty('sourceImageRef')
+    expect(item).not.toHaveProperty('notes')
     expect(stripped.deletedItems).toEqual([])
   })
 

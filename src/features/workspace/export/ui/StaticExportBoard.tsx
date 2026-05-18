@@ -2,7 +2,7 @@
 // static board renderer used by isolated export capture sessions
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import type { ExportAppearance } from '../model/runtime'
+import type { ExportAppearance } from '~/features/workspace/export/model/runtime'
 import { EXPORT_BOARD_ROOT_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { StaticBoard } from '~/shared/board-ui/StaticBoard'
 

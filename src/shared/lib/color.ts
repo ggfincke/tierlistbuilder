@@ -1,7 +1,7 @@
 // src/shared/lib/color.ts
 // shared color utilities for picker parsing, normalization, & contrast
 
-import { clamp } from './math'
+import { clamp } from '~/shared/lib/math'
 
 // numeric rgb channel triplet
 interface RgbColor

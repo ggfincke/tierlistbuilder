@@ -18,6 +18,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Marketplace (Backend)**: `marketplace/{templates,rankings}` Convex namespaces — gallery query, paginated items, draft rail, publish from board, clone-to-board w/ media re-upload, ranking publish/remix, rolling trending metrics, owner management reads, and seed script
 - **Marketplace (Frontend)**: Routed `/templates` and `/rankings/:slug` surfaces w/ gallery rails, template detail community rankings, ranking publish gating, ranking detail, remix CTA, account template management, and workspace gallery entry points
 
+## [0.9.0] - 2026-05-18
+
+### Added
+
+- **Scoreboard Design System (v6)**: Theme token + palette refresh w/ chunky-shadow Button accent across chrome themes; defaults renamed `classic` → `scoreboard`, `classic-light` → `paper`, `high-contrast` → `volt` (#40)
+- **Shared UI Primitives**: Chip, Skeleton, DisplayHeadline, InitialAvatar, IconToggleGroup, LivePulse, NumberStepper, SearchField, chunkyShadow, selectChange (#40)
+- **Top Nav Refresh**: BrandPill wordmark, NewBoardAction dropdown (Start blank / From community template), & sibling SurfaceNav / +New / account avatar under a 1px accent-gradient top edge (#40)
+- **Image Editor Overhaul**: Per-item single mode (rotate / zoom / pan, alt text, notes, label editor) + multi mode "adjust to fit board" — replaces the deleted ItemEditPopover (#40)
+- **Library Page**: PublishState / SyncState model, `lists` → `boards` rename, a11y labels, density icons, & rename-failure plumbing (#40)
+- **Item Preview Modal**: Dedicated modal w/ `workspace/preview/` store (#40)
+- **Platform Preferences**: Hoisted to `platform/preferences`; `showItemEditButton` (was `showAltTextButton`), `defaultLabelFontSizePx`, & per-board palette / text / page background overrides (#40)
+- **Shared Lib & Sync Helpers**: New `promise`, `lru`, `axisSnap`, `clipboard`, `dateFormatting`, `lazyNamed`, `keyboardShortcut`, `initials`, hook utilities, & `shared/lib/sync/` machinery (#40)
+
+### Changed
+
+- **Overlay Layer Modularized**: `OverlaySurface` adds OverlayMenuItem; new `anchoredPopup`, `dismissibleLayer`, `menuItemClass` helpers; `toolbarPosition` moved into `shared/overlay` (#40)
+- **Settings & Board UI Reorg**: Aspect-ratio & auto-crop split into subdirs (new AspectRatioIssueModal, BulkFitSegmentedControl, MismatchPreviewStrip); board UI into `board-chrome/`, `tier-list/`, `items/`, `menus/`, `drag-overlay/` (#40)
+- **Project-wide Alias Sweep**: 147 src + 20 test files migrated from relative paths to `~/`-prefixed (or `@tests/`-prefixed) absolute paths (#40)
+- **Perf**: `useImageUrlChain` content-keyed sources memo halves `useSyncExternalStore` registrations on a 500-tile board; `selectTiersMeta` stable-ref projection stops drag-preview churn from re-rendering ItemContextMenu / BulkActionBar; `useAppBootstrap` hoisted to AppChromeLayout so subscriber-only routes skip per-mount hydration; `pruneMemoryCaches` short-circuits when under thresholds (#40)
+
+### Removed
+
+- **Cloud-coupled UI**: Marketplace publish + remix flows, marketplace UI subtree, account / sign-in modals, BoardSyncBadge, ConflictResolverModal, RecentlyDeletedModal, RecentSharesModal, SaveOrPublishMenu, short-link sharing UI, & `/templates` affordances — stripped from this branch, kept on backend branch; hash-fragment share preserved (#40)
+- **Orphans**: 19 reorg copies plus `useBoardsLibrary` shim, `shortLinkCodec`, `EmbedShell`, `initialsCode`, `EmptyCard`, `catalog/formatters`, `theme/zIndex` (#40)
+
+### Fixed
+
+- **Board Session**: `loadBoardState` clears pending autosave before snapshot swap so stale timers don't write the previous board's data into the new slot; `bootstrapBoardSession` walks the registry for healthy fallbacks instead of bailing at the first corruption (#40)
+- **Selector Cache Aliasing**: `resetBoardSelectorCaches()` from `loadBoardState` so `cachedTiersRef` / `cachedOverrideItems` don't alias the previous board on swap (#40)
+- **Toast Timer Leak**: `import.meta.hot?.dispose` clears dismissal timers across HMR reloads (#40)
+
 ## [0.8.0] - 2026-05-03
 
 ### Added

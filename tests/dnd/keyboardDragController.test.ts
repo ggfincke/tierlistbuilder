@@ -14,7 +14,7 @@ import {
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
 
 const makeBoard = (): BoardSnapshot =>
   makeBoardSnapshot({

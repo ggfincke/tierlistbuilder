@@ -3,17 +3,19 @@
 
 import { describe, it, expect } from 'vitest'
 import {
-  boardDataFieldsEqual,
   createInitialBoardData,
   createNewTier,
-  extractBoardData,
   resetBoardData,
   normalizeBoardSnapshot,
 } from '~/shared/board-data/boardSnapshot'
-import { normalizeCanonicalTierColorSpec } from '~/shared/theme/tierColors'
+import {
+  createCustomTierColorSpec,
+  normalizeCanonicalTierColorSpec,
+} from '~/shared/theme/tierColors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
-import { asInvalid } from '../typeHelpers'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
+import { asInvalid } from '@tests/typeHelpers'
 
 describe('createInitialBoardData', () =>
 {
@@ -80,52 +82,6 @@ describe('resetBoardData', () =>
   })
 })
 
-describe('board data projection', () =>
-{
-  it('extracts only persisted board fields from runtime state', () =>
-  {
-    const board = makeBoardSnapshot({
-      sourceTemplateId: 'Template123',
-      sourceTemplateTitle: 'Template',
-      sourceTemplateCoverMedia: {
-        externalId: 'cover',
-        contentHash: 'hash-cover',
-        url: 'https://cdn.test/cover.jpg',
-        width: 1200,
-        height: 800,
-        mimeType: 'image/jpeg',
-      },
-      sourceTemplateCoverFraming: {
-        browseHero: null,
-        detailHero: null,
-        card: { x: 0.1, y: 0.2, width: 0.8, height: 0.5 },
-      },
-      preferredCriterionExternalId: 'favorites',
-    })
-    const state = {
-      ...board,
-      runtimeError: 'ignored',
-    }
-
-    const snapshot = extractBoardData(state)
-
-    expect(snapshot).not.toHaveProperty('runtimeError')
-    expect(snapshot.sourceTemplateCoverMedia?.externalId).toBe('cover')
-    expect(snapshot.sourceTemplateCoverFraming?.card).toEqual({
-      x: 0.1,
-      y: 0.2,
-      width: 0.8,
-      height: 0.5,
-    })
-    expect(boardDataFieldsEqual(state, { ...state, runtimeError: null })).toBe(
-      true
-    )
-    expect(boardDataFieldsEqual(state, { ...state, title: 'Changed' })).toBe(
-      false
-    )
-  })
-})
-
 describe('normalizeBoardSnapshot', () =>
 {
   it('returns valid defaults for null input', () =>
@@ -144,108 +100,114 @@ describe('normalizeBoardSnapshot', () =>
         items: {
           [id]: makeItem({
             id,
-            imageRef: {
-              hash: 'thumb-hash',
-              cloudMediaExternalId: 'media-thumb',
-              cloudMediaOwnership: 'source',
-            },
-            tileImageRef: {
-              hash: 'tile-hash',
-              cloudMediaExternalId: 'media-tile',
-            },
+            imageRef: { hash: 'thumb-hash' },
+            tileImageRef: { hash: 'tile-hash' },
             sourceImageRef: { hash: 'source-hash' },
             transform: { rotation: 0, zoom: 1, offsetX: 0, offsetY: 0 },
-            sourceTemplateItemExternalId: 'template-item-1',
           }),
         },
       }),
       'classic'
     )
 
-    expect(result.items[id].imageRef).toEqual({
-      hash: 'thumb-hash',
-      cloudMediaExternalId: 'media-thumb',
-      cloudMediaOwnership: 'source',
-    })
-    expect(result.items[id].tileImageRef).toEqual({
-      hash: 'tile-hash',
-      cloudMediaExternalId: 'media-tile',
-    })
+    expect(result.items[id].tileImageRef).toEqual({ hash: 'tile-hash' })
     expect(result.items[id].sourceImageRef).toEqual({ hash: 'source-hash' })
-    expect(result.items[id].sourceTemplateItemExternalId).toBe(
-      'template-item-1'
-    )
     expect(result.items[id].transform).toBeUndefined()
   })
 
-  it('preserves source board metadata through normalization', () =>
+  it('preserves source metadata, private notes, and cloud media refs', () =>
   {
+    const id = asItemId('source-item')
+    const deletedId = asItemId('deleted-source-item')
     const result = normalizeBoardSnapshot(
       makeBoardSnapshot({
-        sourceTemplateId: 'Template123',
-        sourceRankingId: 'Ranking123',
-        sourceTemplateTitle: 'Template',
-        sourceRankingTitle: 'Ranking',
+        sourceTemplateId: 'template-slug',
+        sourceRankingId: 'ranking-slug',
+        sourceTemplateTitle: 'Template title',
+        sourceRankingTitle: 'Ranking title',
+        preferredCriterionExternalId: 'criterion-external-id',
         sourceTemplateCoverMedia: {
-          externalId: 'cover',
-          contentHash: 'hash-cover',
-          url: 'https://cdn.test/cover.jpg',
-          width: 1920,
-          height: 1080,
-          mimeType: 'image/jpeg',
+          externalId: 'media-cover',
+          contentHash: 'cover-hash',
+          url: 'https://example.test/cover.webp',
+          width: 1200,
+          height: 800,
+          mimeType: 'image/webp',
         },
         sourceTemplateCoverFraming: {
-          browseHero: null,
+          browseHero: { x: 0, y: 0, width: 1, height: 1 },
           detailHero: null,
-          card: { x: 0.1, y: 0.2, width: 0.8, height: 0.5 },
+          card: { x: 0.1, y: 0.2, width: 0.8, height: 0.7 },
         },
-        preferredCriterionExternalId: 'favorites',
-      }),
-      'classic'
-    )
-
-    expect(result).toMatchObject({
-      sourceTemplateId: 'Template123',
-      sourceRankingId: 'Ranking123',
-      sourceTemplateTitle: 'Template',
-      sourceRankingTitle: 'Ranking',
-      sourceTemplateCoverMedia: {
-        externalId: 'cover',
-        contentHash: 'hash-cover',
-      },
-      sourceTemplateCoverFraming: {
-        card: { x: 0.1, y: 0.2, width: 0.8, height: 0.5 },
-      },
-      preferredCriterionExternalId: 'favorites',
-    })
-  })
-
-  it('preserves private notes for live and deleted items', () =>
-  {
-    const liveId = asItemId('item-live')
-    const deletedId = asItemId('item-deleted')
-    const result = normalizeBoardSnapshot(
-      makeBoardSnapshot({
         items: {
-          [liveId]: makeItem({
-            id: liveId,
-            label: 'Live',
-            notes: 'Private live note',
+          [id]: makeItem({
+            id,
+            notes: 'Private rationale',
+            sourceTemplateItemExternalId: 'template-item-1',
+            imageRef: {
+              hash: 'image-hash',
+              cloudMediaExternalId: 'media-source',
+              cloudMediaOwnership: 'source',
+            },
           }),
         },
         deletedItems: [
           makeItem({
             id: deletedId,
-            label: 'Deleted',
-            notes: 'Private deleted note',
+            notes: 'Deleted note',
+            sourceTemplateItemExternalId: 'template-item-deleted',
           }),
         ],
       }),
       'classic'
     )
 
-    expect(result.items[liveId].notes).toBe('Private live note')
-    expect(result.deletedItems[0].notes).toBe('Private deleted note')
+    expect(result.sourceTemplateId).toBe('template-slug')
+    expect(result.sourceRankingId).toBe('ranking-slug')
+    expect(result.sourceTemplateTitle).toBe('Template title')
+    expect(result.sourceRankingTitle).toBe('Ranking title')
+    expect(result.preferredCriterionExternalId).toBe('criterion-external-id')
+    expect(result.sourceTemplateCoverMedia?.externalId).toBe('media-cover')
+    expect(result.sourceTemplateCoverFraming?.card).toEqual({
+      x: 0.1,
+      y: 0.2,
+      width: 0.8,
+      height: 0.7,
+    })
+    expect(result.items[id]).toMatchObject({
+      notes: 'Private rationale',
+      sourceTemplateItemExternalId: 'template-item-1',
+      imageRef: {
+        hash: 'image-hash',
+        cloudMediaExternalId: 'media-source',
+        cloudMediaOwnership: 'source',
+      },
+    })
+    expect(result.deletedItems[0]).toMatchObject({
+      notes: 'Deleted note',
+      sourceTemplateItemExternalId: 'template-item-deleted',
+    })
+  })
+
+  it('clamps board slot ratios but preserves natural image ratios', () =>
+  {
+    const id = asItemId('panoramic')
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        itemAspectRatio: 100,
+        items: {
+          [id]: makeItem({
+            id,
+            imageRef: { hash: 'panoramic' },
+            aspectRatio: 100,
+          }),
+        },
+      }),
+      'classic'
+    )
+
+    expect(result.itemAspectRatio).toBe(4)
+    expect(result.items[id].aspectRatio).toBe(100)
   })
 
   it('falls back to auto palette color when a tier is missing its colorSpec', () =>
@@ -266,6 +228,46 @@ describe('normalizeBoardSnapshot', () =>
       index: 0,
     })
   })
+
+  it('preserves a valid rowColorSpec & drops invalid input', () =>
+  {
+    const present = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        tiers: [
+          makeTier({
+            id: 'tier-s',
+            name: 'S',
+            rowColorSpec: createCustomTierColorSpec('#112233'),
+          }),
+        ],
+      }),
+      'classic'
+    )
+    expect(present.tiers[0].rowColorSpec).toEqual({
+      kind: 'custom',
+      hex: '#112233',
+    })
+
+    const invalid: Partial<BoardSnapshot> & { tiers: unknown[] } = {
+      tiers: [
+        {
+          id: 'tier-s',
+          name: 'S',
+          colorSpec: { kind: 'palette', index: 0 },
+          rowColorSpec: 'not a spec',
+          itemIds: [],
+        },
+      ],
+      unrankedItemIds: [],
+      items: {},
+      deletedItems: [],
+    }
+    const dropped = normalizeBoardSnapshot(
+      invalid as Partial<BoardSnapshot>,
+      'classic'
+    )
+    expect(dropped.tiers[0].rowColorSpec).toBeUndefined()
+  })
 })
 
 describe('normalizeCanonicalTierColorSpec', () =>
@@ -281,6 +283,18 @@ describe('normalizeCanonicalTierColorSpec', () =>
     expect(
       normalizeCanonicalTierColorSpec({ kind: 'custom', hex: 'not-a-color' })
     ).toEqual({ kind: 'custom', hex: '#888888' })
+  })
+
+  it('returns null for nullish, primitive, or missing-field inputs', () =>
+  {
+    expect(normalizeCanonicalTierColorSpec(null)).toBeNull()
+    expect(normalizeCanonicalTierColorSpec(undefined)).toBeNull()
+    expect(normalizeCanonicalTierColorSpec('palette')).toBeNull()
+    expect(normalizeCanonicalTierColorSpec(42)).toBeNull()
+    expect(normalizeCanonicalTierColorSpec(true)).toBeNull()
+    expect(normalizeCanonicalTierColorSpec({ index: 0 })).toBeNull()
+    expect(normalizeCanonicalTierColorSpec({ kind: 'palette' })).toBeNull()
+    expect(normalizeCanonicalTierColorSpec({ kind: 'custom' })).toBeNull()
   })
 })
 

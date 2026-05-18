@@ -3,22 +3,21 @@
 
 import { useEffect, useState } from 'react'
 
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  LABEL_FONT_SIZE_PX_DEFAULT,
+  type BoardSnapshot,
+} from '@tierlistbuilder/contracts/workspace/board'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
-import {
-  getInboundShareRecoveryCopy,
-  resolveInboundShare,
-} from '~/features/platform/share/inboundShare'
+import { resolveInboundShare } from '~/features/platform/share/inboundShare'
 import {
   StaticBoard,
   type StaticBoardAppearance,
 } from '~/shared/board-ui/StaticBoard'
 import { APP_PUBLIC_URL } from '~/shared/lib/urls'
 
-// palette used to colorize embedded board tiers. Scoreboard chrome pairs w/
-// the neutral classic tier palette; embed consumers don't get palette choice.
+// palette used to colorize embedded boards. `classic` is the app's neutral
+// baseline; embed consumers don't get palette choice today
 const EMBED_DEFAULT_PALETTE_ID: PaletteId = 'classic'
 
 const EMBED_APPEARANCE: StaticBoardAppearance = {
@@ -38,73 +37,58 @@ const EMBED_APPEARANCE: StaticBoardAppearance = {
   tierLabelFontSize: 'medium',
 }
 
-type EmbedLoadState =
-  | { status: 'loading' }
-  | { status: 'ready'; data: BoardSnapshot }
-  | { status: 'message'; title: string; body: string }
+// load embed data from the current share fragment
+const loadEmbedData = async (
+  signal: AbortSignal
+): Promise<BoardSnapshot | null> =>
+{
+  const result = await resolveInboundShare({ signal })
+  return result.kind === 'resolved' ? result.data : null
+}
 
 export const EmbedView = () =>
 {
-  const [state, setState] = useState<EmbedLoadState>({ status: 'loading' })
+  const [data, setData] = useState<BoardSnapshot | null>(null)
+  const [error, setError] = useState(false)
 
   useEffect(() =>
   {
     const controller = new AbortController()
 
-    void resolveInboundShare({ signal: controller.signal })
+    void loadEmbedData(controller.signal)
       .then((result) =>
       {
         if (controller.signal.aborted) return
-        if (result.kind === 'resolved')
+        if (result)
         {
-          setState({
-            status: 'ready',
-            data: normalizeBoardSnapshot(result.data, EMBED_DEFAULT_PALETTE_ID),
-          })
-          return
+          setData(normalizeBoardSnapshot(result, EMBED_DEFAULT_PALETTE_ID))
         }
-
-        const copy = getInboundShareRecoveryCopy(result)
-        setState({ status: 'message', title: copy.title, body: copy.body })
+        else
+        {
+          setError(true)
+        }
       })
       .catch(() =>
       {
         if (controller.signal.aborted) return
-        setState({
-          status: 'message',
-          title: 'Embed could not load',
-          body: 'The embedded board could not be loaded. Refresh the page or ask for a fresh embed URL.',
-        })
+        setError(true)
       })
 
     return () => controller.abort()
   }, [])
 
-  if (state.status === 'message')
+  if (error)
   {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--t-bg-page)] p-4 text-center">
-        <div className="max-w-sm">
-          <h1 className="text-base font-semibold text-[var(--t-text)]">
-            {state.title}
-          </h1>
-          <p className="mt-2 text-sm text-[var(--t-text-muted)]">
-            {state.body}
-          </p>
-          <a
-            href={APP_PUBLIC_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-4 inline-flex rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)]"
-          >
-            Open TierListBuilder
-          </a>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--t-bg-page)] p-4">
+        <p className="text-sm text-[var(--t-text-muted)]">
+          Could not load embedded tier list.
+        </p>
       </div>
     )
   }
 
-  if (state.status === 'loading')
+  if (!data)
   {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--t-bg-page)]">
@@ -116,15 +100,15 @@ export const EmbedView = () =>
   return (
     <div className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text-secondary)]">
       <div className="mx-auto max-w-5xl">
-        {state.data.title && (
+        {data.title && (
           <div className="px-4 pt-3 pb-2">
             <h1 className="text-base font-semibold text-[var(--t-text)]">
-              {state.data.title}
+              {data.title}
             </h1>
           </div>
         )}
 
-        <StaticBoard data={state.data} appearance={EMBED_APPEARANCE} />
+        <StaticBoard data={data} appearance={EMBED_APPEARANCE} />
 
         <div className="px-4 py-2 text-right">
           <a

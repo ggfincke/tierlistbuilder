@@ -9,7 +9,7 @@ import {
   labelBandVariantKey,
   type LabelBandVariant,
 } from '~/shared/board-ui/labelBandVariant'
-import { LabelAwareAspectMeasurementNodes } from './LabelAwareEffectiveAspectMeasurements'
+import { LabelAwareAspectMeasurementNodes } from '~/features/workspace/imageEditor/model/labels/LabelAwareEffectiveAspectMeasurements'
 
 // covers ascenders/descenders while staying short enough to avoid wrapping
 const MEASUREMENT_PLACEHOLDER_TEXT = 'Aj Mg'

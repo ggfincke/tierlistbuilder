@@ -14,10 +14,13 @@ import {
   getBoardAspectRatioMode,
 } from '~/shared/board-ui/aspectRatio'
 import { generateItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { MAX_DELETED_ITEMS } from '../helpers'
-import { withUndo } from '../undoSlice'
-import { buildRemoveItemsPatch } from './itemRemoval'
-import type { ActiveBoardSliceCreator, BoardDataSlice } from '../types'
+import { MAX_DELETED_ITEMS } from '~/features/workspace/boards/model/slices/helpers'
+import { withUndo } from '~/features/workspace/boards/model/slices/undoSlice'
+import { buildRemoveItemsPatch } from '~/features/workspace/boards/model/slices/boardData/itemRemoval'
+import type {
+  ActiveBoardSliceCreator,
+  BoardDataSlice,
+} from '~/features/workspace/boards/model/slices/types'
 
 type ItemActions = Pick<
   BoardDataSlice,

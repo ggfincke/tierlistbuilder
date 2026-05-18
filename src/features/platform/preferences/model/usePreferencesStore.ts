@@ -28,7 +28,7 @@ import { THEME_PALETTE } from '~/shared/theme/palettes'
 import {
   PREFERENCES_STORAGE_KEY,
   PREFERENCES_STORAGE_VERSION,
-} from '../data/local/preferencesStorage'
+} from '~/features/platform/preferences/data/local/preferencesStorage'
 
 const DEFAULT_THEME_ID: ThemeId = 'scoreboard'
 export const HIGH_CONTRAST_THEME_ID: ThemeId = 'volt'

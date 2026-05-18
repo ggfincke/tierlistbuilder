@@ -23,8 +23,11 @@ import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
-import { useBoardAspectRatioPicker } from '../../model/aspect-ratio/useBoardAspectRatioPicker'
-import { AspectRatioChips, CustomRatioInput } from './AspectRatioPicker'
+import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/aspect-ratio/useBoardAspectRatioPicker'
+import {
+  AspectRatioChips,
+  CustomRatioInput,
+} from '~/features/workspace/settings/ui/aspect-ratio/AspectRatioPicker'
 import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
 import { SettingRow } from '~/shared/ui/settings/SettingRow'
 import { Toggle } from '~/shared/ui/settings/Toggle'

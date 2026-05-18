@@ -13,8 +13,8 @@ import {
 import { createPortal } from 'react-dom'
 
 import { joinClassNames } from '~/shared/lib/className'
-import { useModalDialog } from './modalDialog'
-import { OverlayPanelSurface } from './OverlaySurface'
+import { useModalDialog } from '~/shared/overlay/modalDialog'
+import { OverlayPanelSurface } from '~/shared/overlay/OverlaySurface'
 
 interface BaseModalProps
 {

@@ -16,7 +16,7 @@ import {
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import { useCollectAutoCropTransformsRunner } from '~/shared/lib/useCollectAutoCropTransformsRunner'
 import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
-import type { PendingImageEditorPaneEdit } from '../pendingImageEdit'
+import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 interface UseImageEditorAutoCropAllInput
 {

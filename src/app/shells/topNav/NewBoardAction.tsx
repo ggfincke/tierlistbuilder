@@ -1,21 +1,24 @@
 // src/app/shells/topNav/NewBoardAction.tsx
-// "+ New board" trigger w/ chevron dropdown — 2 paths (blank vs community).
-// Single click opens menu; both blank & template paths require one selection
+// "+ New board" trigger w/ chevron dropdown. The action stays disabled until
+// bootstrap has loaded the persisted active board into the in-memory store.
 
 import { ChevronDown, Plus } from 'lucide-react'
 import { useCallback, useId, useRef, useState } from 'react'
 
+import { useAppReady } from '~/app/bootstrap/useAppBootstrap'
 import { useStartBlankBoard } from '~/features/workspace/boards/model/useStartBlankBoard'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { Button } from '~/shared/ui/Button'
-import { NewBoardMenu } from './NewBoardMenu'
+import { NewBoardMenu } from '~/app/shells/topNav/NewBoardMenu'
 
 export const NewBoardAction = () =>
 {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuId = useId()
   const wrapRef = useRef<HTMLDivElement>(null)
-  const { start: handleStartBlank } = useStartBlankBoard()
+  const appReady = useAppReady()
+  const { start: handleStartBlank, isPending } = useStartBlankBoard()
+  const disabled = !appReady || isPending
 
   const closeMenu = useCallback(() =>
   {
@@ -35,11 +38,12 @@ export const NewBoardAction = () =>
         tone="accent"
         size="sm"
         onClick={() => setMenuOpen((open) => !open)}
+        disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-controls={menuId}
         aria-label="Create a new board"
-        title="Create a new board"
+        title={appReady ? 'Create a new board' : 'Loading boards'}
         className="pointer-events-auto whitespace-nowrap"
       >
         <Plus className="h-3.5 w-3.5" strokeWidth={2.4} aria-hidden />

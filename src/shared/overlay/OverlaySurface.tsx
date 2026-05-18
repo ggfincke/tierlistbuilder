@@ -13,7 +13,7 @@ import { joinClassNames } from '~/shared/lib/className'
 import {
   overlayMenuItemClass,
   type OverlayMenuItemDensity,
-} from './menuItemClass'
+} from '~/shared/overlay/menuItemClass'
 
 interface OverlaySurfaceProps extends HTMLAttributes<HTMLDivElement>
 {

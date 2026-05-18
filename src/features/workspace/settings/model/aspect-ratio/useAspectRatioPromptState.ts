@@ -15,7 +15,7 @@ import { isAbortError } from '~/shared/lib/errors'
 import { logger } from '~/shared/lib/logger'
 import { sleep, withTimeout } from '~/shared/lib/promise'
 import type { RatioOption } from '~/shared/board-ui/aspectRatio'
-import { useAutoCropController } from '../auto-crop/useAutoCropController'
+import { useAutoCropController } from '~/features/workspace/settings/model/auto-crop/useAutoCropController'
 
 interface UseAspectRatioPromptStateInput
 {

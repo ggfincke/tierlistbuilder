@@ -7,9 +7,9 @@ import type { ItemRotation } from '@tierlistbuilder/contracts/workspace/board'
 import {
   getDisplayZoomBounds,
   WHEEL_ZOOM_SENSITIVITY,
-} from '../../lib/imageEditorGeometry'
-import { zoomImageEditorTransformAtPoint } from '../../lib/imageEditorTransformOps'
-import type { ImageEditorTransformDraftSetter } from '../transform/useImageEditorTransformDraft'
+} from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
+import { zoomImageEditorTransformAtPoint } from '~/features/workspace/imageEditor/lib/imageEditorTransformOps'
+import type { ImageEditorTransformDraftSetter } from '~/features/workspace/imageEditor/model/transform/useImageEditorTransformDraft'
 
 interface UseWheelZoomInput
 {

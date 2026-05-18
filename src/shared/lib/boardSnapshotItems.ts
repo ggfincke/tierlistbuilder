@@ -14,7 +14,7 @@ import {
   getImageRefsByRendition,
   getRenderImageRefs,
 } from '~/shared/lib/imageRefs'
-import { isIdentityTransform } from './imageTransform'
+import { isIdentityTransform } from '~/shared/lib/imageTransform'
 
 const itemHasRenderTransform = (item: TierItem): boolean =>
 {

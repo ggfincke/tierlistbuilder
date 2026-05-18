@@ -7,9 +7,9 @@ import {
   MAX_DELETED_ITEMS,
   runtimeCleanupForItems,
   stripItemsFromContainers,
-} from '../helpers'
-import { withUndo } from '../undoSlice'
-import type { ActiveBoardStore } from '../types'
+} from '~/features/workspace/boards/model/slices/helpers'
+import { withUndo } from '~/features/workspace/boards/model/slices/undoSlice'
+import type { ActiveBoardStore } from '~/features/workspace/boards/model/slices/types'
 
 export const buildRemoveItemsPatch = (
   state: ActiveBoardStore,

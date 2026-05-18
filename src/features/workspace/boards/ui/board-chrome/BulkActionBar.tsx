@@ -8,6 +8,7 @@ import {
   selectIsDragging,
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { selectTiersMeta } from '~/features/workspace/boards/model/slices/selectors'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
@@ -18,7 +19,6 @@ export const BulkActionBar = () =>
   const {
     selectedCount,
     isDragging,
-    tiers,
     moveSelectedToTier,
     moveSelectedToUnranked,
     deleteSelectedItems,
@@ -27,13 +27,15 @@ export const BulkActionBar = () =>
     useShallow((state) => ({
       selectedCount: state.selection.ids.length,
       isDragging: selectIsDragging(state),
-      tiers: state.tiers,
       moveSelectedToTier: state.moveSelectedToTier,
       moveSelectedToUnranked: state.moveSelectedToUnranked,
       deleteSelectedItems: state.deleteSelectedItems,
       clearSelection: state.clearSelection,
     }))
   )
+  // separate subscription so itemIds churn during drag preview no longer
+  // re-runs this component's useShallow comparator
+  const tiers = useActiveBoardStore(selectTiersMeta)
   const reducedMotion = usePreferencesStore((state) => state.reducedMotion)
   const paletteId = useCurrentPaletteId()
 

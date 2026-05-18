@@ -10,11 +10,11 @@ import {
   transformSnapshotItemsAsync,
 } from '~/shared/lib/boardSnapshotItems'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeBoardSnapshot, makeItem } from '../fixtures'
+import { makeBoardSnapshot, makeItem } from '@tests/fixtures'
 
 describe('board snapshot image hash collection', () =>
 {
-  it('collects export & local image hashes by rendition role', () =>
+  it('collects export, render, & local image hashes by rendition role', () =>
   {
     const id = asItemId('item-image')
     const snapshot = makeBoardSnapshot({
@@ -33,6 +33,9 @@ describe('board snapshot image hash collection', () =>
       'tile-hash',
       'thumb-hash',
     ])
+    expect(
+      collectSnapshotRenderImageVariantRefs(snapshot).map((r) => r.ref.hash)
+    ).toEqual([])
     expect(collectSnapshotLocalImageHashes(snapshot)).toEqual([
       'thumb-hash',
       'tile-hash',
@@ -62,14 +65,12 @@ describe('board snapshot image hash collection', () =>
     })
 
     expect(
-      collectSnapshotRenderImageVariantRefs(snapshot).map(
-        ({ ref, variant }) => [ref.hash, variant]
-      )
+      collectSnapshotRenderImageVariantRefs(snapshot).map((r) => r.ref.hash)
     ).toEqual([
-      ['tile-hash', 'tile'],
-      ['thumb-hash', 'preview'],
-      ['fallback-source-hash', 'editor'],
-      ['fallback-thumb-hash', 'preview'],
+      'tile-hash',
+      'thumb-hash',
+      'fallback-source-hash',
+      'fallback-thumb-hash',
     ])
   })
 

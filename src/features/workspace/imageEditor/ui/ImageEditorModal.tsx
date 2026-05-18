@@ -30,26 +30,29 @@ import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/auto
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { useImageEditorAutoCropAll } from '../model/auto-crop/useImageEditorAutoCropAll'
-import { useImageEditorItems } from '../model/useImageEditorItems'
-import { useLabelAwareEffectiveAspect } from '../model/labels/useLabelAwareEffectiveAspect'
+import { useImageEditorAutoCropAll } from '~/features/workspace/imageEditor/model/auto-crop/useImageEditorAutoCropAll'
+import { useImageEditorItems } from '~/features/workspace/imageEditor/model/useImageEditorItems'
+import { useLabelAwareEffectiveAspect } from '~/features/workspace/imageEditor/model/labels/useLabelAwareEffectiveAspect'
 import {
   useImageEditorApplyLabelToAll,
   useImageEditorAutoCropAllConfirmation,
   useImageEditorModalKeyboardShortcuts,
   useImageEditorRatioChangeGuard,
-} from '../model/useImageEditorModalActions'
-import { useImageEditorSelection } from '../model/useImageEditorSelection'
-import { useSelectedItemHandlers } from '../model/transform/useSelectedItemHandlers'
-import { BoardControlsBar } from './BoardControlsBar'
-import { ImageEditorPane, type ImageEditorPaneHandle } from './ImageEditorPane'
-import { ImageEditorModalDialogs } from './ImageEditorModalDialogs'
-import { ImageEditorRail } from './ImageEditorRail'
+} from '~/features/workspace/imageEditor/model/useImageEditorModalActions'
+import { useImageEditorSelection } from '~/features/workspace/imageEditor/model/useImageEditorSelection'
+import { useSelectedItemHandlers } from '~/features/workspace/imageEditor/model/transform/useSelectedItemHandlers'
+import { BoardControlsBar } from '~/features/workspace/imageEditor/ui/BoardControlsBar'
+import {
+  ImageEditorPane,
+  type ImageEditorPaneHandle,
+} from '~/features/workspace/imageEditor/ui/ImageEditorPane'
+import { ImageEditorModalDialogs } from '~/features/workspace/imageEditor/ui/ImageEditorModalDialogs'
+import { ImageEditorRail } from '~/features/workspace/imageEditor/ui/ImageEditorRail'
 import {
   useImageEditorStore,
   type ImageEditorFilter,
   type ImageEditorMode,
-} from '../model/useImageEditorStore'
+} from '~/features/workspace/imageEditor/model/useImageEditorStore'
 
 const NOOP = () =>
 {

@@ -51,6 +51,17 @@ export const useImageUrlChain = (
   sources: readonly ImageUrlSource[]
 ): string | null =>
 {
+  // callers pass fresh `[primary, fallback]` literals every render, so a memo
+  // keyed on the array reference never hits. length-prefix the variable fields
+  // so the content key is collision-free for any future externalId format
+  const sourcesKey = sources
+    .map((source) =>
+    {
+      if (!source.hash) return ''
+      const id = source.cloudMediaExternalId ?? ''
+      return `${source.hash.length}.${source.hash}.${id.length}.${id}.${source.variant ?? 'tile'}`
+    })
+    .join('|')
   const stableSources = useMemo<StableImageUrlSource[]>(
     () =>
       sources
@@ -62,7 +73,8 @@ export const useImageUrlChain = (
           cloudMediaExternalId: source.cloudMediaExternalId ?? '',
           variant: source.variant ?? 'tile',
         })),
-    [sources]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sourcesKey is the stable content hash; sources is recomputed each call
+    [sourcesKey]
   )
   const subscribe = useCallback(
     (listener: () => void) =>

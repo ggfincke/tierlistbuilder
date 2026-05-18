@@ -30,7 +30,7 @@ import {
 import { getBlobsBatch, probeImageStore } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { decodeImageAspectRatioFromBlob } from '~/shared/images/imageLoad'
-import { isRecord } from '~/shared/lib/typeGuards'
+import { isOptionalString, isRecord } from '~/shared/lib/typeGuards'
 import {
   ASPECT_RATIO_MODES,
   IMAGE_FITS,
@@ -40,10 +40,7 @@ import {
   normalizeItemTransform,
   normalizePositiveFinite,
 } from '~/shared/board-data/boardNormalizers'
-import {
-  normalizeSourceTemplateFields,
-  pickSourceTemplateFields,
-} from '~/shared/board-data/sourceTemplateFields'
+import { normalizeSourceTemplateFields } from '~/shared/board-data/sourceTemplateFields'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
 
@@ -57,45 +54,21 @@ const isTierItemImageRef = (value: unknown): value is TierItemImageRef =>
   return isRecord(value) && typeof value.hash === 'string'
 }
 
+const OPTIONAL_STRING_WIRE_FIELDS = [
+  'imageUrl',
+  'label',
+  'backgroundColor',
+  'altText',
+  'notes',
+  'sourceTemplateItemExternalId',
+] as const satisfies readonly (keyof TierItemWire)[]
+
 const isTierItemWire = (value: unknown): value is TierItemWire =>
 {
-  if (!isRecord(value) || typeof value.id !== 'string')
-  {
-    return false
-  }
-
-  if (value.imageUrl !== undefined && typeof value.imageUrl !== 'string')
-  {
-    return false
-  }
-
-  if (value.label !== undefined && typeof value.label !== 'string')
-  {
-    return false
-  }
-
-  if (
-    value.backgroundColor !== undefined &&
-    typeof value.backgroundColor !== 'string'
+  if (!isRecord(value) || typeof value.id !== 'string') return false
+  return OPTIONAL_STRING_WIRE_FIELDS.every((field) =>
+    isOptionalString(value[field])
   )
-  {
-    return false
-  }
-
-  if (value.altText !== undefined && typeof value.altText !== 'string')
-  {
-    return false
-  }
-
-  if (
-    value.sourceTemplateItemExternalId !== undefined &&
-    typeof value.sourceTemplateItemExternalId !== 'string'
-  )
-  {
-    return false
-  }
-
-  return value.notes === undefined || typeof value.notes === 'string'
 }
 
 const getBlobDataUrl = async (
@@ -181,7 +154,9 @@ const assertInlineImageByteBudget = (
   }
 }
 
-// convert a snapshot to wire shape using a preloaded hash -> Blob map
+// convert a snapshot to wire shape using a preloaded hash -> Blob map.
+// every non-item field passes through verbatim (snapshot & wire only differ on
+// item shape), so spread + override keeps the field list in one place
 export const snapshotToWireWithBlobs = async (
   snapshot: BoardSnapshot,
   blobsByHash: ReadonlyMap<string, Blob | null>
@@ -197,23 +172,9 @@ export const snapshotToWireWithBlobs = async (
     )
 
   return {
-    title: snapshot.title,
-    tiers: snapshot.tiers,
-    unrankedItemIds: snapshot.unrankedItemIds,
+    ...snapshot,
     items: items as BoardSnapshotWire['items'],
     deletedItems,
-    itemAspectRatio: snapshot.itemAspectRatio,
-    itemAspectRatioMode: snapshot.itemAspectRatioMode,
-    aspectRatioPromptDismissed: snapshot.aspectRatioPromptDismissed,
-    defaultItemImageFit: snapshot.defaultItemImageFit,
-    paletteId: snapshot.paletteId,
-    textStyleId: snapshot.textStyleId,
-    pageBackground: snapshot.pageBackground,
-    labels: snapshot.labels,
-    // source-template/ranking identity round-trips through JSON export so a
-    // re-imported board still knows where it came from. titles are denormalized
-    // so the breadcrumb works for recipients who don't have the source loaded
-    ...pickSourceTemplateFields(snapshot),
   }
 }
 
@@ -395,7 +356,11 @@ export const wireToSnapshot = async (
     ([key, item]) => wireItemToSnapshotItem(item, preparedById.get(key))
   )
 
+  // spread first for the source-template & criterion passthroughs; the
+  // downstream normalizeBoardSnapshot pass re-validates them at the JSON-import
+  // boundary, so untrusted strings can't reach the store
   return {
+    ...wire,
     title: typeof wire.title === 'string' ? wire.title : fallbackTitle,
     tiers: Array.isArray(wire.tiers) ? wire.tiers : [],
     unrankedItemIds: Array.isArray(wire.unrankedItemIds)

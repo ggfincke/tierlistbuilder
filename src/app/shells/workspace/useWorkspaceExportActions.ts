@@ -5,7 +5,7 @@
 import { useCallback, useState } from 'react'
 
 import type { ModalStackState, ModalStack } from '~/app/shells/useModalStack'
-import type { WorkspaceModalPayloads } from './workspaceModals'
+import type { WorkspaceModalPayloads } from '~/app/shells/workspace/workspaceModals'
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import { useExportController } from '~/features/workspace/export/model/useExportController'
 

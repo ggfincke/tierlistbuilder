@@ -44,10 +44,10 @@ import {
   BoardRowContent,
   BoardRowSurface,
 } from '~/shared/board-ui/BoardPrimitives'
-import { TierItem } from '../items/TierItem'
-import { TierLabel } from './TierLabel'
-import { TierRowSettingsMenu } from '../menus/TierRowSettingsMenu'
-import { ColorPicker } from '../menus/ColorPicker'
+import { TierItem } from '~/features/workspace/boards/ui/items/TierItem'
+import { TierLabel } from '~/features/workspace/boards/ui/tier-list/TierLabel'
+import { TierRowSettingsMenu } from '~/features/workspace/boards/ui/menus/TierRowSettingsMenu'
+import { ColorPicker } from '~/features/workspace/boards/ui/menus/ColorPicker'
 import { OverlayFixedPopupSurface } from '~/shared/overlay/OverlaySurface'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import { lazyNamed } from '~/shared/lib/lazyNamed'

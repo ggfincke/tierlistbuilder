@@ -6,7 +6,7 @@ import {
   FIXED_POPUP_GAP_PX,
   OVERLAY_VIEWPORT_MARGIN_PX,
   SETTINGS_MENU_HEIGHT_PX,
-} from './uiMeasurements'
+} from '~/shared/overlay/uiMeasurements'
 
 interface ViewportSize
 {

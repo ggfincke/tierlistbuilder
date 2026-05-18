@@ -10,6 +10,7 @@ const repoRoot = path.resolve(here, '..')
 
 const srcRoot = path.resolve(repoRoot, 'src')
 const convexRoot = path.resolve(repoRoot, 'convex')
+const testsRoot = path.resolve(repoRoot, 'tests')
 const contractsRoot = path.resolve(repoRoot, 'packages/contracts')
 
 // ~/ -> src/
@@ -22,6 +23,11 @@ const convexAlias = {
   find: /^@convex\//,
   replacement: `${convexRoot}/`,
 }
+// @tests/ -> tests/ — used by tests for fixtures & shared helpers
+const testsAlias = {
+  find: /^@tests\//,
+  replacement: `${testsRoot}/`,
+}
 // resolve subpath imports like @tierlistbuilder/contracts/workspace/board
 const contractsSubpathAlias = {
   find: /^@tierlistbuilder\/contracts\/(.*)$/,
@@ -29,4 +35,9 @@ const contractsSubpathAlias = {
 }
 
 // vite & vitest both accept the array form of alias entries
-export const moduleAliases = [sourceAlias, convexAlias, contractsSubpathAlias]
+export const moduleAliases = [
+  sourceAlias,
+  convexAlias,
+  testsAlias,
+  contractsSubpathAlias,
+]

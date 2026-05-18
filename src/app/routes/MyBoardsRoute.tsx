@@ -1,7 +1,7 @@
 // src/app/routes/MyBoardsRoute.tsx
 // /boards route — wraps the local library page shell
 
-import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
+import { useAppReady } from '~/app/bootstrap/useAppBootstrap'
 import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { MyBoardsPage } from '~/features/library/pages/MyBoardsPage'
@@ -10,7 +10,7 @@ import { ToastContainer } from '~/shared/notifications/ToastContainer'
 
 export const MyBoardsRoute = () =>
 {
-  const appReady = useAppBootstrap()
+  const appReady = useAppReady()
   useThemeSync()
   const reducedMotion = usePreferencesStore((state) => state.reducedMotion)
 

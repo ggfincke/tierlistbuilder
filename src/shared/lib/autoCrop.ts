@@ -23,12 +23,12 @@ import {
 
 import { cacheFreshBlob } from '~/shared/images/imageBlobCache'
 import { getBlob, type BlobRecord } from '~/shared/images/imageStore'
-import { mapAsyncLimit } from './asyncMapLimit'
-import { isAbortError } from './errors'
-import { getPrimaryImageRef } from './imageRefs'
-import { logger } from './logger'
-import { setMapEntryLru, touchMapEntry } from './lru'
-import { withAbortSignal, withTimeout } from './promise'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { isAbortError } from '~/shared/lib/errors'
+import { getPrimaryImageRef } from '~/shared/lib/imageRefs'
+import { logger } from '~/shared/lib/logger'
+import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
+import { withAbortSignal, withTimeout } from '~/shared/lib/promise'
 
 const AUTO_CROP_BATCH_CONCURRENCY = 4
 const AUTO_CROP_DECODE_TIMEOUT_MS = 5_000

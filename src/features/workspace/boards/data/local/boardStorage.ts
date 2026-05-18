@@ -28,7 +28,10 @@ import {
   replaceBlobRefs,
 } from '~/shared/images/imageStore'
 
-import { boardStorageKey, boardSyncStorageKey } from './storageKeys'
+import {
+  boardStorageKey,
+  boardSyncStorageKey,
+} from '~/features/workspace/boards/data/local/storageKeys'
 
 export { boardStorageKey, boardSyncStorageKey }
 
@@ -68,7 +71,7 @@ interface SaveBoardToStorageOptions
   onError?: (message: string) => void
 }
 
-type StorageWriteResult = { ok: true } | { ok: false; message: string }
+export type StorageWriteResult = { ok: true } | { ok: false; message: string }
 
 const writeStorageValue = (
   key: string,

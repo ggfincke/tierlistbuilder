@@ -9,7 +9,7 @@ import {
   resolveRovingTabIndex,
   resolveSelectionActiveKey,
 } from '~/shared/selection/selectionState'
-import { asInvalid } from '../typeHelpers'
+import { asInvalid } from '@tests/typeHelpers'
 
 describe('resolveSelectionActiveKey & resolveRovingTabIndex', () =>
 {

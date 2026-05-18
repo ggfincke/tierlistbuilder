@@ -12,10 +12,10 @@ import {
   TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
 } from '~/shared/routes/pathname'
-import { AppChromeLayout } from './AppChromeLayout'
+import { AppChromeLayout } from '~/app/routes/AppChromeLayout'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
-import { NotFoundRoute } from './NotFoundRoute'
-import { WorkspaceRoute } from './WorkspaceRoute'
+import { NotFoundRoute } from '~/app/routes/NotFoundRoute'
+import { WorkspaceRoute } from '~/app/routes/WorkspaceRoute'
 
 // embed bundle ships shared/board-ui + EmbedView which workspace users never
 // hit — lazy load keeps it out of the primary chunk
@@ -62,9 +62,6 @@ const RouteFallback = () => (
   <main className="min-h-screen bg-[var(--t-bg-page)]" />
 )
 
-// react-router-dom 6 expects an absolute basename. BASE_URL defaults to '/'
-// when no Vite base is configured; normalizeBasePath() strips the trailing
-// slash for non-root deploys & returns '' at root, which we map back to '/'
 const routerBasename = normalizeBasePath() || '/'
 
 export const AppRouter = () => (

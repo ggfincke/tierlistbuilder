@@ -9,7 +9,7 @@ import {
 } from '~/features/workspace/settings/ui/aspect-ratio/AspectRatioPicker'
 import { AutoCropTrimToggle } from '~/features/workspace/settings/ui/auto-crop/AutoCropTrimToggle'
 import { ShowLabelsToggle } from '~/features/workspace/settings/ui/ShowLabelsToggle'
-import { AutoCropButton } from './AutoCropButton'
+import { AutoCropButton } from '~/features/workspace/imageEditor/ui/AutoCropButton'
 
 interface BoardControlsBarProps
 {

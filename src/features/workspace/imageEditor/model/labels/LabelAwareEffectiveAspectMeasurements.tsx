@@ -7,7 +7,7 @@ import { placementFromMode } from '@tierlistbuilder/contracts/workspace/board'
 import type { LabelBandVariant } from '~/shared/board-ui/labelBandVariant'
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { TileLayoutShell } from '~/shared/board-ui/TileLayoutShell'
-import { useMeasuredElementSize } from '../../lib/useMeasuredElementSize'
+import { useMeasuredElementSize } from '~/features/workspace/imageEditor/lib/useMeasuredElementSize'
 
 interface LabelAwareAspectMeasurementNodesProps
 {

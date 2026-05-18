@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { registerAnnouncer } from './announce'
+import { registerAnnouncer } from '~/shared/a11y/announce'
 
 // short delay so the empty-string reset commits to the DOM before the new
 // text is set — without it, repeated identical messages wouldn't re-announce

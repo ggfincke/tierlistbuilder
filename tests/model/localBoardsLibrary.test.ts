@@ -1,135 +1,100 @@
 // tests/model/localBoardsLibrary.test.ts
-// local My Boards projection should expose forked-board cover thumbnails.
+// local board library projection resilience
 
 import { describe, expect, it } from 'vitest'
 
-import type {
-  BoardId,
-  ItemId,
-  TierId,
-} from '@tierlistbuilder/contracts/lib/ids'
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
+import { asItemId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import {
-  projectLocalRow,
-  projectLocalRows,
-} from '~/features/library/model/useLocalBoardsLibrary'
+  boardStorageKey,
+  saveBoardToStorage,
+} from '~/features/workspace/boards/data/local/boardStorage'
+import { projectLocalRow } from '~/features/library/model/useLocalBoardsLibrary'
+import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
 
-const boardId = 'board-local-library' as BoardId
-const tierId = 'tier-s' as TierId
-const marioId = 'item-mario' as ItemId
-const linkId = 'item-link' as ItemId
+const TEST_BOARD_ID = 'board-library-projection-test' as BoardId
 
-const snapshot: BoardSnapshot = {
-  title: 'Local Smash Fork',
-  tiers: [
-    {
-      id: tierId,
-      name: 'S',
-      colorSpec: { kind: 'palette', index: 0 },
-      itemIds: [],
-    },
-  ],
-  items: {
-    [marioId]: {
-      id: marioId,
-      label: 'Mario',
-      imageRef: {
-        hash: 'preview-mario',
-        cloudMediaExternalId: 'media-mario',
-      },
-      tileImageRef: {
-        hash: 'tile-mario',
-        cloudMediaExternalId: 'media-mario',
-      },
-    },
-    [linkId]: {
-      id: linkId,
-      label: 'Link',
-    },
-  },
-  unrankedItemIds: [marioId, linkId],
-  deletedItems: [],
-  sourceTemplateCoverMedia: {
-    externalId: 'ssbu-cover',
-    contentHash: 'hash-ssbu-cover',
-    url: 'https://cdn.test/ssbu-cover.jpg',
-    width: 1920,
-    height: 1080,
-    mimeType: 'image/jpeg',
-  },
-  sourceTemplateCoverFraming: {
-    browseHero: null,
-    detailHero: null,
-    card: { x: 0.1, y: 0.2, width: 0.8, height: 0.5 },
-  },
+const meta = {
+  id: TEST_BOARD_ID,
+  title: 'Library board',
+  createdAt: 123,
 }
 
-describe('useLocalBoardsLibrary projection', () =>
+describe('projectLocalRow', () =>
 {
-  it('projects local fork cover items with lazy image refs', () =>
+  it('normalizes malformed tier entries instead of crashing', () =>
   {
-    const saved = saveBoardToStorage(boardId, snapshot)
-    expect(saved.ok).toBe(true)
+    localStorage.setItem(
+      boardStorageKey(TEST_BOARD_ID),
+      JSON.stringify({
+        version: BOARD_DATA_VERSION,
+        data: {
+          title: 'Malformed board',
+          tiers: [
+            {
+              id: 'tier-s',
+              name: 'S',
+              colorSpec: { kind: 'palette', index: 0 },
+            },
+          ],
+          items: {
+            item_1: { id: 'item_1', label: 'One' },
+          },
+          unrankedItemIds: [],
+          deletedItems: [],
+          paletteId: 'classic',
+        },
+      })
+    )
 
-    const row = projectLocalRow({
-      id: boardId,
-      title: 'Local Smash Fork',
-      createdAt: 123,
-    })
+    const row = projectLocalRow(meta)
 
-    expect(row).toMatchObject({
-      activeItemCount: 2,
-      rankedItemCount: 0,
-      publishState: 'draft',
-      sourceTemplateCoverMedia: {
-        externalId: 'ssbu-cover',
-        contentHash: 'hash-ssbu-cover',
-      },
-      sourceTemplateCoverFraming: {
-        card: { x: 0.1, y: 0.2, width: 0.8, height: 0.5 },
-      },
-    })
-    expect(row.coverItems).toEqual([
+    expect(row.activeItemCount).toBe(0)
+    expect(row.rankedItemCount).toBe(0)
+    expect(row.tierBreakdown).toEqual([
       {
-        externalId: marioId,
-        label: 'Mario',
-        mediaUrl: null,
-        mediaHash: 'preview-mario',
-        mediaCloudExternalId: 'media-mario',
-        mediaVariant: 'preview',
-      },
-      {
-        externalId: linkId,
-        label: 'Link',
-        mediaUrl: null,
+        tierIndex: 0,
+        itemCount: 0,
+        colorSpec: { kind: 'palette', index: 0 },
       },
     ])
   })
 
-  it('re-reads storage when stable registry meta points at an edited board', () =>
+  it('still projects corrupted envelopes as zeroed rows', () =>
   {
-    const meta = {
-      id: boardId,
-      title: 'Local Smash Fork',
-      createdAt: 123,
-    }
-    expect(saveBoardToStorage(boardId, snapshot).ok).toBe(true)
-    expect(projectLocalRows([meta])[0]).toMatchObject({
-      rankedItemCount: 0,
-      unrankedItemCount: 2,
+    localStorage.setItem(boardStorageKey(TEST_BOARD_ID), '{broken')
+
+    const row = projectLocalRow(meta)
+
+    expect(row.activeItemCount).toBe(0)
+    expect(row.rankedItemCount).toBe(0)
+    expect(row.unrankedItemCount).toBe(0)
+    expect(row.tierBreakdown).toEqual([])
+  })
+
+  it('preserves valid local counts after normalization', () =>
+  {
+    saveBoardToStorage(TEST_BOARD_ID, {
+      ...createInitialBoardData('classic'),
+      items: {
+        item_1: { id: asItemId('item_1'), label: 'One' },
+        item_2: { id: asItemId('item_2'), label: 'Two' },
+      },
+      tiers: [
+        {
+          id: 'tier-s',
+          name: 'S',
+          colorSpec: { kind: 'palette', index: 0 },
+          itemIds: [asItemId('item_1')],
+        },
+      ],
+      unrankedItemIds: [asItemId('item_2')],
     })
 
-    const editedSnapshot: BoardSnapshot = {
-      ...snapshot,
-      tiers: [{ ...snapshot.tiers[0], itemIds: [marioId] }],
-      unrankedItemIds: [linkId],
-    }
-    expect(saveBoardToStorage(boardId, editedSnapshot).ok).toBe(true)
+    const row = projectLocalRow(meta)
 
-    expect(projectLocalRows([meta])[0]).toMatchObject({
-      rankedItemCount: 1,
-      unrankedItemCount: 1,
-    })
+    expect(row.activeItemCount).toBe(2)
+    expect(row.rankedItemCount).toBe(1)
+    expect(row.unrankedItemCount).toBe(1)
   })
 })
