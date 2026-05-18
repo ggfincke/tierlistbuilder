@@ -11,6 +11,7 @@ import {
 } from '~/features/workspace/boards/data/local/boardStorage'
 import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
+import { resetBoardSelectorCaches } from '~/features/workspace/boards/model/slices/selectors'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   EMPTY_BOARD_SYNC_STATE,
@@ -82,6 +83,8 @@ export const loadBoardState = (
   syncState: BoardSyncState = EMPTY_BOARD_SYNC_STATE
 ): void =>
 {
+  resetBoardSelectorCaches()
+
   runWithAutosaveSuppressed(() =>
   {
     useActiveBoardStore.getState().loadBoard(snapshot, syncState)

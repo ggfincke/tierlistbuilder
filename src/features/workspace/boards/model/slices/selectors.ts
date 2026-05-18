@@ -191,3 +191,15 @@ export const selectLabelOverrideStatus = (
   cachedOverrideResult = next
   return next
 }
+
+// drop module-level caches on board swap so a new active board doesn't
+// alias the previous board's tier/label memo entries
+export const resetBoardSelectorCaches = (): void =>
+{
+  cachedTiersRef = null
+  cachedUnrankedRef = null
+  cachedFallback = null
+  cachedOverrideItems = null
+  cachedOverrideLabels = undefined
+  cachedOverrideResult = null
+}

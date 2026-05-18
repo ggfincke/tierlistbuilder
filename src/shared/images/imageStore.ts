@@ -81,6 +81,18 @@ const pruneMemoryCaches = (
   protectedBlobHashes: ReadonlySet<string> = new Set()
 ): void =>
 {
+  // hot import paths (prepareItemRenditions ships 3 putBlobs per item) call
+  // this on every blob write; short-circuit when nothing is over its cap so
+  // the referencedBlobHashes walk over up-to-4096 refs doesn't run for nothing
+  if (
+    memoryUploadIndex.size <= MAX_MEMORY_UPLOAD_INDEX &&
+    memoryBlobRefs.size <= MAX_MEMORY_BLOB_REFS &&
+    memoryBlobs.size <= MAX_MEMORY_BLOBS
+  )
+  {
+    return
+  }
+
   pruneOldestMapEntries(memoryUploadIndex, MAX_MEMORY_UPLOAD_INDEX)
   pruneOldestMapEntries(memoryBlobRefs, MAX_MEMORY_BLOB_REFS)
 
