@@ -181,12 +181,23 @@ const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
     rankingSeedLifecycle.rollbackSeedRankings,
   ],
   ['/api/seed/status', 'query', seedRuns.getSeedRunStatus],
-  ['/api/dev/reset', 'action', internal.dev.reset.wipeDeployment],
 ] as const
 
 for (const [path, kind, ref] of SEED_ROUTES)
 {
   http.route({ path, method: 'POST', handler: seedHttpAction(kind, ref) })
+}
+
+// /api/dev/reset is registered only when CONVEX_DEV_RESET_ALLOWED=true, so
+// prod (where the env is never set) returns 404 at the edge rather than
+// exposing the inner wipeDeployment gate to a leaked seed secret
+if (process.env.CONVEX_DEV_RESET_ALLOWED === 'true')
+{
+  http.route({
+    path: '/api/dev/reset',
+    method: 'POST',
+    handler: seedHttpAction('action', internal.dev.reset.wipeDeployment),
+  })
 }
 
 export default http
