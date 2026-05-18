@@ -9,7 +9,7 @@ import {
   getItemsInContainer,
   getOrderedContainerIds,
   moveItemToIndexInSnapshot,
-} from './dragSnapshot'
+} from '~/features/workspace/boards/dnd/dragSnapshot'
 
 export type KeyboardDragDirection =
   | 'ArrowLeft'

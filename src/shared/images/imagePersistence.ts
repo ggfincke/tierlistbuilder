@@ -5,8 +5,12 @@ import type { TierItemImageRef } from '@tierlistbuilder/contracts/workspace/boar
 import { dataUrlMimeType, dataUrlToBytes } from '~/shared/lib/binaryCodec'
 import { sha256Hex, sha256HexFromBlob } from '~/shared/lib/sha256'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
-import { cacheFreshBlobs } from './imageBlobCache'
-import { probeImageStore, putBlobs, type BlobRecord } from './imageStore'
+import { cacheFreshBlobs } from '~/shared/images/imageBlobCache'
+import {
+  probeImageStore,
+  putBlobs,
+  type BlobRecord,
+} from '~/shared/images/imageStore'
 
 // bound parallel blob prepare work (hash + record build). limit is low because
 // hashing is CPU-heavy & we don't want to starve the main thread
@@ -72,7 +76,8 @@ export const prepareDataUrlRecord = async (
   }
 }
 
-// commit prepared records in one store transaction & warm the cache once
+// commit prepared records & warm the cache. putBlobs throws IDB failures so
+// upload/import callers never attach refs to bytes that will vanish on reload.
 export const persistPreparedBlobRecords = async (
   prepared: readonly PreparedBlobRecord[],
   warmCache = true
@@ -83,17 +88,7 @@ export const persistPreparedBlobRecords = async (
     return
   }
 
-  try
-  {
-    await putBlobs(prepared.map((entry) => entry.record))
-  }
-  catch (error)
-  {
-    if (error instanceof Error && error.message.includes('Image store'))
-    {
-      throw new Error(IMAGE_STORAGE_UNAVAILABLE_MESSAGE)
-    }
-  }
+  await putBlobs(prepared.map((entry) => entry.record))
 
   if (warmCache)
   {

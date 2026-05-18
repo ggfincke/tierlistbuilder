@@ -4,7 +4,7 @@
 import { useEffect } from 'react'
 
 import { applyTextStyle } from '~/shared/theme/runtime'
-import { useCurrentTextStyleId } from './useCurrentTextStyleId'
+import { useCurrentTextStyleId } from '~/features/workspace/settings/model/useCurrentTextStyleId'
 
 export function useBoardThemeOverrides(): void
 {

@@ -180,7 +180,6 @@ export const useInlineEdit = <
     commitEdit,
     getInputProps,
     isEditing: (id: TId) => editing?.id === id,
-    setEditValue,
     startEdit,
   }
 }

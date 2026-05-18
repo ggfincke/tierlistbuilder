@@ -10,7 +10,7 @@ import {
   findContainer,
   getItemsInContainer,
   moveItemInSnapshot,
-} from './dragSnapshot'
+} from '~/features/workspace/boards/dnd/dragSnapshot'
 
 interface GetDraggedItemRectArgs
 {

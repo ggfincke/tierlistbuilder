@@ -37,7 +37,15 @@ desktop.ini
 # orphan files outside that path should never be tracked
 *.tsbuildinfo
 
-# local AI agent metadata
+# convex generated files — the runtime .js, type .d.ts, & sourcemaps under
+# convex/_generated/ are committed so both `tsc -b` & `vite build` can run
+# in CI w/o a deployment. they regenerate on every `npx convex dev` run, so
+# expect occasional small diffs when schema or function signatures change.
+# ai/ dir is per-user tooling output & never committed
+convex/_generated/ai/
+.convex
+
+# convex AI files dropped by `npx convex dev`
 .agents
 .claude
 skills-lock.json
@@ -47,6 +55,9 @@ skills-lock.json
 
 # Generated screenshots (local dev only)
 /screenshots
+
+# Cover preview composites from scripts/preview-cover.ts (local dev only)
+/cover-previews
 
 # Playwright output
 /test-results
@@ -63,3 +74,18 @@ dev-dist
 
 # ESLint cache (when run w/ --cache)
 .eslintcache
+
+# Local scratch / throwaway artifacts
+.tmp/
+
+# Python cache / test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+*.egg-info/
+
+# Python seed pipeline cache
+.seed-cache/

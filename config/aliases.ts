@@ -9,12 +9,18 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(here, '..')
 
 const srcRoot = path.resolve(repoRoot, 'src')
+const testsRoot = path.resolve(repoRoot, 'tests')
 const contractsRoot = path.resolve(repoRoot, 'packages/contracts')
 
 // ~/ -> src/
 const sourceAlias = {
   find: /^~\//,
   replacement: `${srcRoot}/`,
+}
+// @tests/ -> tests/ — used by tests for fixtures & shared helpers
+const testsAlias = {
+  find: /^@tests\//,
+  replacement: `${testsRoot}/`,
 }
 // resolve subpath imports like @tierlistbuilder/contracts/workspace/board
 const contractsSubpathAlias = {
@@ -23,4 +29,4 @@ const contractsSubpathAlias = {
 }
 
 // vite & vitest both accept the array form of alias entries
-export const moduleAliases = [sourceAlias, contractsSubpathAlias]
+export const moduleAliases = [sourceAlias, testsAlias, contractsSubpathAlias]

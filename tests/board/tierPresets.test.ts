@@ -13,7 +13,7 @@ import {
 } from '~/shared/theme/tierColors'
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
 
 const CLASSIC_PRESET = BUILTIN_PRESETS.find((p) => p.id === 'builtin-classic')!
 

@@ -3,7 +3,7 @@
 // reset mock call history before each test so suites share no hidden state
 
 import { afterEach, beforeEach, vi } from 'vitest'
-import { createMemoryStorage } from './shared-lib/memoryStorage'
+import { createMemoryStorage } from '@tests/shared-lib/memoryStorage'
 
 beforeEach(() =>
 {

@@ -6,7 +6,7 @@ import { useCallback, useMemo, useState } from 'react'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type { TierItem } from '@tierlistbuilder/contracts/workspace/board'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
-import type { ImageEditorFilter } from './useImageEditorStore'
+import type { ImageEditorFilter } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 
 interface UseImageEditorSelectionInput
 {

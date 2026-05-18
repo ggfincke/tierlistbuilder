@@ -4,8 +4,8 @@
 import { useCallback, useId, useRef, useState } from 'react'
 
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
-import { TopNavAccountMenu } from './TopNavAccountMenu'
-import { TopNavAvatarButton } from './TopNavAvatarButton'
+import { TopNavAccountMenu } from '~/app/shells/topNav/TopNavAccountMenu'
+import { TopNavAvatarButton } from '~/app/shells/topNav/TopNavAvatarButton'
 
 interface TopNavAccountControlProps
 {

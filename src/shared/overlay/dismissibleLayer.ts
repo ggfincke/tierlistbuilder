@@ -1,9 +1,9 @@
 // src/shared/overlay/dismissibleLayer.ts
 // outside interaction, Escape, & position-update handling for popups
 
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 
-import { hasActiveModalLayer } from './modalLayer'
+import { hasActiveModalLayer } from '~/shared/overlay/modalLayer'
 
 const EMPTY_IGNORE_REFS: ReadonlyArray<RefObject<HTMLElement | null>> = []
 const SCROLL_LISTENER_OPTIONS = { capture: true, passive: true } as const
@@ -22,6 +22,19 @@ interface UseDismissibleLayerOptions
   onPositionUpdate?: () => void
 }
 
+interface LatestDismissibleLayerOptions
+{
+  layerRef?: RefObject<HTMLElement | null>
+  triggerRef?: RefObject<HTMLElement | null>
+  ignoreRefs: ReadonlyArray<RefObject<HTMLElement | null>>
+  onDismiss: () => void
+  closeOnEscape: boolean
+  closeOnInteractOutside: boolean
+  escapePhase: 'capture' | 'bubble'
+  stopEscapePropagation: boolean
+  onPositionUpdate?: () => void
+}
+
 export const useDismissibleLayer = ({
   open,
   layerRef,
@@ -35,6 +48,34 @@ export const useDismissibleLayer = ({
   onPositionUpdate,
 }: UseDismissibleLayerOptions) =>
 {
+  const latestRef = useRef<LatestDismissibleLayerOptions>({
+    layerRef,
+    triggerRef,
+    ignoreRefs,
+    onDismiss,
+    closeOnEscape,
+    closeOnInteractOutside,
+    escapePhase,
+    stopEscapePropagation,
+    onPositionUpdate,
+  })
+  const hasPositionUpdate = onPositionUpdate !== undefined
+
+  useEffect(() =>
+  {
+    latestRef.current = {
+      layerRef,
+      triggerRef,
+      ignoreRefs,
+      onDismiss,
+      closeOnEscape,
+      closeOnInteractOutside,
+      escapePhase,
+      stopEscapePropagation,
+      onPositionUpdate,
+    }
+  })
+
   useEffect(() =>
   {
     if (!open)
@@ -44,6 +85,8 @@ export const useDismissibleLayer = ({
 
     const isInsideManagedElement = (target: Node): boolean =>
     {
+      const { layerRef, triggerRef, ignoreRefs } = latestRef.current
+
       if (layerRef?.current?.contains(target))
       {
         return true
@@ -59,6 +102,7 @@ export const useDismissibleLayer = ({
 
     const isManagedInsideModal = (): boolean =>
     {
+      const { layerRef, triggerRef, ignoreRefs } = latestRef.current
       const managedElements = [
         layerRef?.current,
         triggerRef?.current,
@@ -72,6 +116,8 @@ export const useDismissibleLayer = ({
 
     const handlePointerDown = (event: PointerEvent) =>
     {
+      const { closeOnInteractOutside, onDismiss } = latestRef.current
+
       if (hasActiveModalLayer() && !isManagedInsideModal())
       {
         return
@@ -94,6 +140,9 @@ export const useDismissibleLayer = ({
 
     const handleKeyDown = (event: KeyboardEvent) =>
     {
+      const { closeOnEscape, onDismiss, stopEscapePropagation } =
+        latestRef.current
+
       if (event.defaultPrevented)
       {
         return
@@ -117,7 +166,7 @@ export const useDismissibleLayer = ({
       onDismiss()
     }
 
-    const handlePositionUpdate = () => onPositionUpdate?.()
+    const handlePositionUpdate = () => latestRef.current.onPositionUpdate?.()
 
     document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener(
@@ -126,7 +175,7 @@ export const useDismissibleLayer = ({
       escapePhase === 'capture'
     )
 
-    if (onPositionUpdate)
+    if (hasPositionUpdate)
     {
       window.addEventListener(
         'scroll',
@@ -145,7 +194,7 @@ export const useDismissibleLayer = ({
         escapePhase === 'capture'
       )
 
-      if (onPositionUpdate)
+      if (hasPositionUpdate)
       {
         window.removeEventListener(
           'scroll',
@@ -155,16 +204,5 @@ export const useDismissibleLayer = ({
         window.removeEventListener('resize', handlePositionUpdate)
       }
     }
-  }, [
-    open,
-    layerRef,
-    triggerRef,
-    ignoreRefs,
-    onDismiss,
-    closeOnEscape,
-    closeOnInteractOutside,
-    escapePhase,
-    stopEscapePropagation,
-    onPositionUpdate,
-  ])
+  }, [open, escapePhase, hasPositionUpdate])
 }

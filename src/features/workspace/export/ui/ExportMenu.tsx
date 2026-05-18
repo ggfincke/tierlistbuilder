@@ -16,9 +16,9 @@ import {
   SquareArrowUp,
 } from 'lucide-react'
 
-import type { ImageFormat } from '../model/runtime'
-import type { ExportStatus } from '../model/useExportController'
-import type { MenuPositionClasses } from '~/shared/layout/toolbarPosition'
+import type { ImageFormat } from '~/features/workspace/export/model/runtime'
+import type { ExportStatus } from '~/features/workspace/export/model/useExportController'
+import type { MenuPositionClasses } from '~/shared/overlay/toolbarPosition'
 import { formatError } from '~/shared/lib/errors'
 import {
   preloadHtmlToImageLib,
@@ -26,10 +26,9 @@ import {
   preloadZipLib,
 } from '~/shared/lib/lazyDependencies'
 import {
-  useNestedMenus,
+  useNestedDropdown,
   type NestedMenuDefinition,
 } from '~/shared/overlay/nestedMenus'
-import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
 
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
@@ -150,11 +149,8 @@ export const ExportMenu = ({
   const title = useActiveBoardStore((state) => state.title)
   const setRuntimeError = useActiveBoardStore((state) => state.setRuntimeError)
 
-  const buttonRef = useRef<HTMLButtonElement | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
   const jsonInputRef = useRef<HTMLInputElement | null>(null)
   const isDisabled = exportStatus !== null || exportingAll
-  const exportDialogId = useId()
   const imageOptionsGroupId = useId()
   const formatOptionsGroupId = useId()
   const exportAllOptionsGroupId = useId()
@@ -173,14 +169,28 @@ export const ExportMenu = ({
     return [] as const
   }, [boardCount, isDisabled])
   const { getRef: getOverflowRef } = useMenuOverflowFlipRefs<ExportMenuId>()
-  const { closeAllMenus, closeMenu, isOpen, toggleMenu } = useNestedMenus({
+  const {
+    buttonRef,
+    menuRef,
+    dialogId: exportDialogId,
+    closeAllMenus,
+    closeMenu,
+    isOpen,
+    isRootOpen: showMenu,
+    toggleMenu,
+  } = useNestedDropdown({
+    rootId: 'root',
     definitions: EXPORT_MENU_DEFINITIONS,
     disabledIds: disabledMenuIds,
   })
-  const showMenu = isOpen('root')
   const showImageMenu = isOpen('image')
   const showFormatMenu = isOpen('format')
   const showExportAllMenu = isOpen('exportAll')
+  const exportTitle = exportStatus
+    ? 'Export is already running'
+    : exportingAll
+      ? 'Bulk export is already running'
+      : 'Open export, share, and import options'
 
   const handleJsonExport = async (): Promise<void> =>
   {
@@ -221,20 +231,13 @@ export const ExportMenu = ({
     closeAllMenus()
   }
 
-  useDismissibleLayer({
-    open: showMenu,
-    triggerRef: buttonRef,
-    layerRef: menuRef,
-    onDismiss: closeAllMenus,
-  })
-
   return (
     <>
       <div className="relative">
         <ActionButton
           ref={buttonRef}
           label="Open export options"
-          title="Export"
+          title={exportTitle}
           onClick={() => toggleMenu('root')}
           disabled={isDisabled}
           hasPopup="dialog"

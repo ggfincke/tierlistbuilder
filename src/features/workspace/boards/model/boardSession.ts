@@ -1,10 +1,10 @@
 // src/features/workspace/boards/model/boardSession.ts
-// public board session facade for UI, export, & bootstrap callers
+// public board session facade for UI, export, bootstrap, & sync callers
 
-import { registerBoardAutosaveController } from './session/boardSessionAutosave'
-import { saveActiveBoardSnapshot } from './session/boardSessionPersistence'
+import { registerBoardAutosaveController } from '~/features/workspace/boards/model/session/boardSessionAutosave'
+import { saveActiveBoardSnapshot } from '~/features/workspace/boards/model/session/boardSessionPersistence'
 
-export { bootstrapBoardSession } from './session/boardSessionBootstrap'
+export { bootstrapBoardSession } from '~/features/workspace/boards/model/session/boardSessionBootstrap'
 export {
   createBoardSession,
   createBoardSessionFromPreset,
@@ -14,14 +14,20 @@ export {
   importBoardsSession,
   renameBoardSession,
   switchBoardSession,
-} from './session/boardSessionCrud'
+} from '~/features/workspace/boards/model/session/boardSessionCrud'
 export {
   loadBoardIntoSession,
   loadPersistedBoard,
-  saveActiveBoardSnapshot,
-  saveBoardSnapshot,
-} from './session/boardSessionPersistence'
-export { setBoardLoadedListener } from './session/boardSessionEvents'
+  loadPersistedBoardState,
+  persistBoardStateForSync,
+  persistBoardSyncState,
+  persistBoardSyncStateToStorageOnly,
+} from '~/features/workspace/boards/model/session/boardSessionPersistence'
+export {
+  setBoardChangedListener,
+  setBoardDeletedListener,
+  setBoardLoadedListener,
+} from '~/features/workspace/boards/model/session/boardSessionEvents'
 
 export const registerBoardAutosave = (): (() => void) =>
   registerBoardAutosaveController(saveActiveBoardSnapshot)

@@ -11,21 +11,22 @@ import {
   type UniqueIdentifier,
 } from '@dnd-kit/core'
 
-import { toStringId } from './dragHelpers'
-import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { toStringId } from '~/features/workspace/boards/dnd/dragHelpers'
 import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { brandedStringArrayIncludes } from '~/shared/lib/typeGuards'
 import {
   findContainer,
-  getEffectiveContainerSnapshot,
   getItemsInContainer,
 } from '~/features/workspace/boards/dnd/dragSnapshot'
-import { isPointerInTrailingLastRowSpace } from './dragLayoutRows'
+import { isPointerInTrailingLastRowSpace } from '~/features/workspace/boards/dnd/dragLayoutRows'
+import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 
 export const resolveDragCollisions = (
   args: Parameters<CollisionDetection>[0],
   lastOverIdRef: MutableRefObject<UniqueIdentifier | null>,
-  movedToNewContainerRef: MutableRefObject<boolean>
+  movedToNewContainerRef: MutableRefObject<boolean>,
+  getCurrentSnapshot: () => ContainerSnapshot,
+  getTierIds: () => ReadonlySet<string>
 ): ReturnType<CollisionDetection> =>
 {
   const activeId = toStringId(args.active.id)
@@ -37,16 +38,14 @@ export const resolveDragCollisions = (
   // tier drag — use closestCenter against tier IDs only
   if (args.active.data.current?.type === 'tier')
   {
-    const tierIds = new Set(
-      useActiveBoardStore.getState().tiers.map((tier) => String(tier.id))
-    )
+    const tierIds = getTierIds()
     const tierContainers = args.droppableContainers.filter((c) =>
       tierIds.has(String(c.id))
     )
     return closestCenter({ ...args, droppableContainers: tierContainers })
   }
 
-  const state = getEffectiveContainerSnapshot(useActiveBoardStore.getState())
+  const state = getCurrentSnapshot()
   const pointerIntersections = pointerWithin(args)
   const intersections =
     pointerIntersections.length > 0

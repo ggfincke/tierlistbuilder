@@ -18,11 +18,11 @@ import type { KeyboardDragDirection } from '~/features/workspace/boards/dnd/drag
 import {
   focusKeyboardBoardRegion,
   scheduleKeyboardFocusRestore,
-} from './keyboardFocus'
+} from '~/features/workspace/boards/interaction/keyboardFocus'
 import {
   resolveBrowseKeyboardNavigation,
   resolveDraggingKeyboardNavigation,
-} from './keyboardNavigation'
+} from '~/features/workspace/boards/interaction/keyboardNavigation'
 import { logger } from '~/shared/lib/logger'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 

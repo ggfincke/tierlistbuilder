@@ -1,38 +1,31 @@
 // src/app/routes/AppRouter.tsx
 // react-router-dom v6 router — workspace, library, embed, & 404 routes
 
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
+import { lazyNamed } from '~/shared/lib/lazyNamed'
 import {
   BOARDS_ROUTE_PATH,
   EMBED_ROUTE_PATH,
   normalizeBasePath,
 } from '~/shared/routes/pathname'
-import { AppChromeLayout } from './AppChromeLayout'
+import { AppChromeLayout } from '~/app/routes/AppChromeLayout'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
-import { NotFoundRoute } from './NotFoundRoute'
-import { WorkspaceRoute } from './WorkspaceRoute'
+import { NotFoundRoute } from '~/app/routes/NotFoundRoute'
+import { WorkspaceRoute } from '~/app/routes/WorkspaceRoute'
 
-// embed bundle ships shared/board-ui + EmbedView which workspace users never
-// hit — lazy load keeps it out of the primary chunk
-const EmbedRoute = lazy(() =>
-  import('./EmbedRoute').then((m) => ({ default: m.EmbedRoute }))
+const EmbedRoute = lazyNamed(() => import('./EmbedRoute'), 'EmbedRoute')
+
+const MyBoardsRoute = lazyNamed(
+  () => import('./MyBoardsRoute'),
+  'MyBoardsRoute'
 )
 
-const MyListsRoute = lazy(() =>
-  import('./MyListsRoute').then((m) => ({ default: m.MyListsRoute }))
-)
-
-// matches the page-color shell each lazy chunk applies once mounted, so users
-// don't see a white flash while the JS arrives
 const RouteFallback = () => (
   <main className="min-h-screen bg-[var(--t-bg-page)]" />
 )
 
-// react-router-dom 6 expects an absolute basename. BASE_URL defaults to '/'
-// when no Vite base is configured; normalizeBasePath() strips the trailing
-// slash for non-root deploys & returns '' at root, which we map back to '/'
 const routerBasename = normalizeBasePath() || '/'
 
 export const AppRouter = () => (
@@ -53,13 +46,14 @@ export const AppRouter = () => (
         <Route
           path={BOARDS_ROUTE_PATH}
           element={
-            <ErrorBoundary section="my lists">
+            <ErrorBoundary section="my boards">
               <Suspense fallback={<RouteFallback />}>
-                <MyListsRoute />
+                <MyBoardsRoute />
               </Suspense>
             </ErrorBoundary>
           }
         />
+        <Route path="*" element={<NotFoundRoute />} />
       </Route>
       <Route
         path={EMBED_ROUTE_PATH}
@@ -71,7 +65,6 @@ export const AppRouter = () => (
           </ErrorBoundary>
         }
       />
-      <Route path="*" element={<NotFoundRoute />} />
     </Routes>
   </BrowserRouter>
 )

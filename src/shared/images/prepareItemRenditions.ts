@@ -61,19 +61,17 @@ export const buildItemRenditionRecords = async (
     previewMax
   )
 
-  const [sourceBlob, tileBlob, previewBlob] = await Promise.all([
-    canvasToBlob(sourceCanvas, { mimeType: 'image/png' }),
+  const [source_, tile, preview] = await Promise.all([
+    canvasToBlob(sourceCanvas, { mimeType: 'image/png' }).then(
+      prepareBlobRecord
+    ),
     canvasToBlob(tileCanvas, {
       mimeType: BOARD_TILE_IMAGE_MIME_TYPE,
       quality: BOARD_TILE_IMAGE_QUALITY,
-    }),
-    canvasToBlob(previewCanvas, { mimeType: 'image/png' }),
-  ])
-
-  const [source_, tile, preview] = await Promise.all([
-    prepareBlobRecord(sourceBlob),
-    prepareBlobRecord(tileBlob),
-    prepareBlobRecord(previewBlob),
+    }).then(prepareBlobRecord),
+    canvasToBlob(previewCanvas, { mimeType: 'image/png' }).then(
+      prepareBlobRecord
+    ),
   ])
 
   return {

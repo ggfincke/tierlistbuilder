@@ -1,6 +1,11 @@
 // src/app/routes/EmbedRoute.tsx
-// embed route entry that renders the read-only iframe shell
+// embed route entry that locks chrome tokens for the read-only iframe view
 
-import { EmbedShell } from '~/app/shells/EmbedShell'
+import { EmbedView } from '~/features/embed/ui/EmbedView'
+import { useLockedTheme } from '~/features/platform/preferences/model/useThemeSync'
 
-export const EmbedRoute = () => <EmbedShell />
+export const EmbedRoute = () =>
+{
+  useLockedTheme('scoreboard', 'default')
+  return <EmbedView />
+}

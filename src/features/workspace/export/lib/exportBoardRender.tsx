@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import type { ExportAppearance } from '../model/runtime'
+import type { ExportAppearance } from '~/features/workspace/export/model/runtime'
 import {
   normalizeExportItemsPerRow,
   type AppPreferences,
@@ -13,10 +13,11 @@ import {
 import { StaticExportBoard } from '~/features/workspace/export/ui/StaticExportBoard'
 import { EXPORT_BOARD_ROOT_SELECTOR } from '~/shared/board-ui/boardTestIds'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
-import { Z } from '~/shared/theme/zIndex'
+import { withTimeout } from '~/shared/lib/promise'
 
 const EXPORT_CAPTURE_HOST_ID = 'export-capture-host'
 const EXPORT_IMAGE_READY_TIMEOUT_MS = 10_000
+const OFFSCREEN_EXPORT_Z_INDEX = -1
 
 interface ExportCaptureSession
 {
@@ -37,6 +38,7 @@ export const getExportAppearance = (
   itemSize: preferences.itemSize,
   showLabels: preferences.showLabels,
   defaultLabelPlacementMode: preferences.defaultLabelPlacementMode,
+  defaultLabelFontSizePx: preferences.defaultLabelFontSizePx,
   itemShape: preferences.itemShape,
   compactMode: preferences.compactMode,
   maxItemsPerRow: normalizeExportItemsPerRow(preferences.exportItemsPerRow),
@@ -76,28 +78,11 @@ const waitForImageReady = async (image: HTMLImageElement): Promise<void> =>
     typeof image.decode === 'function'
       ? image.decode().catch(() => undefined)
       : waitForImageLoadEvent(image)
-  let timeoutId: number | undefined
 
-  try
-  {
-    await Promise.race([
-      loadPromise,
-      new Promise<void>((_, reject) =>
-      {
-        timeoutId = window.setTimeout(
-          () => reject(new Error('Timed out waiting for export image.')),
-          EXPORT_IMAGE_READY_TIMEOUT_MS
-        )
-      }),
-    ])
-  }
-  finally
-  {
-    if (timeoutId !== undefined)
-    {
-      window.clearTimeout(timeoutId)
-    }
-  }
+  await withTimeout(loadPromise, EXPORT_IMAGE_READY_TIMEOUT_MS, {
+    mode: 'reject',
+    message: 'Timed out waiting for export image.',
+  })
 }
 
 // wait for web fonts, image decode, & a paint tick before capture
@@ -126,7 +111,7 @@ const createCaptureHost = (): HTMLDivElement =>
   host.style.top = '0'
   host.style.pointerEvents = 'none'
   host.style.opacity = '1'
-  host.style.zIndex = String(Z.offscreen)
+  host.style.zIndex = String(OFFSCREEN_EXPORT_Z_INDEX)
   host.style.width = 'max-content'
   document.body.appendChild(host)
   return host

@@ -15,7 +15,7 @@ import {
   type LabelOptionsClearEntry,
 } from '~/shared/board-ui/labelOverrides'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
-import type { PendingImageEditorPaneEdit } from './pendingImageEdit'
+import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 export type { LabelOptionsClearEntry } from '~/shared/board-ui/labelOverrides'
 
@@ -39,7 +39,7 @@ export const countAdjustedImageEditorItems = (
   return count
 }
 
-export const buildBoardLabelSettingsFromSource = ({
+const buildBoardLabelSettingsFromSource = ({
   source,
   boardLabels,
   globalLabelDefaults,

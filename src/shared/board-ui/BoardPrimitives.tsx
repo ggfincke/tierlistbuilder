@@ -13,14 +13,14 @@ import {
   LABEL_FONT_SIZE_CLASS,
   LABEL_PADDING_CLASS,
   LABEL_WIDTH_PX,
-} from './constants'
+} from '~/shared/board-ui/constants'
 import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
 } from '@tierlistbuilder/contracts/platform/preferences'
-import { getTextColor } from '../lib/color'
-import { joinClassNames } from '../lib/className'
+import { getTextColor } from '~/shared/lib/color'
+import { joinClassNames } from '~/shared/lib/className'
 
 interface BoardRowContentProps
 {
@@ -89,7 +89,7 @@ export const BoardItemsGrid = forwardRef(function BoardItemsGrid(
       ref={ref}
       {...props}
       className={joinClassNames(
-        'flex flex-1 flex-wrap content-start p-0',
+        'flex min-w-0 flex-1 flex-wrap content-start overflow-hidden p-0',
         backgroundOverride ? '' : 'bg-[var(--t-bg-surface)]',
         compactMode ? 'gap-0' : 'gap-px',
         className

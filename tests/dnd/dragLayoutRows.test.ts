@@ -10,7 +10,7 @@ import {
   resolveColumnAwareCrossContainerIndexFromLayouts,
   resolveIntraContainerRowMoveFromLayout,
 } from '~/features/workspace/boards/dnd/dragLayoutRows'
-import { brandItemIds as ids, makeRect } from '../fixtures'
+import { brandItemIds as ids, makeRect } from '@tests/fixtures'
 
 describe('buildRenderedRowLayout', () =>
 {

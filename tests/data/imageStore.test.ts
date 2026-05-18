@@ -2,7 +2,10 @@
 // persistent image-store GC planning
 
 import { describe, expect, it } from 'vitest'
-import { resolveUnreferencedBlobHashes } from '~/shared/images/imageStore'
+import {
+  putBlobs,
+  resolveUnreferencedBlobHashes,
+} from '~/shared/images/imageStore'
 
 describe('imageStore GC planning', () =>
 {
@@ -23,5 +26,20 @@ describe('imageStore GC planning', () =>
     )
 
     expect(stale).toEqual(['unreferenced-old'])
+  })
+
+  it('fails durable blob writes when IndexedDB is unavailable', async () =>
+  {
+    await expect(
+      putBlobs([
+        {
+          hash: 'hash',
+          mimeType: 'image/png',
+          byteSize: 4,
+          createdAt: 0,
+          bytes: new Blob(['data'], { type: 'image/png' }),
+        },
+      ])
+    ).rejects.toThrow('IndexedDB image storage is unavailable')
   })
 })

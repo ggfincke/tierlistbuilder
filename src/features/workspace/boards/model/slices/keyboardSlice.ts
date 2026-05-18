@@ -1,7 +1,10 @@
 // src/features/workspace/boards/model/slices/keyboardSlice.ts
 // keyboard slice — browse/drag mode state & keyboard navigation actions
 
-import type { ActiveBoardSliceCreator, KeyboardSlice } from './types'
+import type {
+  ActiveBoardSliceCreator,
+  KeyboardSlice,
+} from '~/features/workspace/boards/model/slices/types'
 
 export const createKeyboardSlice: ActiveBoardSliceCreator<KeyboardSlice> = (
   set

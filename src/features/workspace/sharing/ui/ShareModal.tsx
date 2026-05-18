@@ -17,7 +17,7 @@ import {
   buildAppUrl,
   encodeBoardToShareFragment,
 } from '~/shared/sharing/hashShare'
-import { EMBED_ROUTE_PATH } from '~/app/routes/pathname'
+import { EMBED_ROUTE_PATH } from '~/shared/routes/pathname'
 
 interface ShareModalProps
 {

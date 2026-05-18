@@ -55,12 +55,6 @@ export const RATIO_OPTIONS: readonly RatioOption[] = [
   CUSTOM_RATIO_OPTION,
 ]
 
-export const isValidCustomDim = (value: string): boolean =>
-{
-  const n = Number(value)
-  return isPositiveFiniteNumber(n)
-}
-
 export const parseCustomAspectRatio = (
   width: string,
   height: string
@@ -163,20 +157,6 @@ export const groupMismatchedItems = (
     representative: group.representative,
     items: group.values,
   }))
-}
-
-// true if any item has a ratio that doesn't match the board's; short-circuits
-// on first mismatch for cheap polling (used by toast & settings visibility)
-export const hasAspectRatioIssues = (
-  board: Pick<BoardSnapshot, 'items' | 'itemAspectRatio'>
-): boolean =>
-{
-  const boardRatio = getBoardItemAspectRatio(board)
-  for (const item of Object.values(board.items))
-  {
-    if (itemHasAspectMismatch(item, boardRatio)) return true
-  }
-  return false
 }
 
 // resolve the effective aspect ratio for a board in auto mode based on its

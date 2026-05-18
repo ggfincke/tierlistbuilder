@@ -234,7 +234,7 @@ test('mixed aspect-ratio prompt fits a mobile settings viewport', async ({
   await expect(settings).toBeVisible()
 
   await page.getByRole('tab', { name: /layout/i }).click()
-  await settings.getByRole('button', { name: '1:1' }).click()
+  await settings.getByRole('button', { name: '1:1', exact: true }).click()
   await page.getByRole('tab', { name: /items/i }).click()
 
   const imageUrl = new URL('/e2e-wide.svg', page.url()).toString()

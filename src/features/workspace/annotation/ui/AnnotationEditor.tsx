@@ -10,8 +10,8 @@ import { useAnnotationCanvas } from '~/features/workspace/annotation/model/useAn
 import { formatError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { AnnotationCanvas } from './AnnotationCanvas'
-import { AnnotationToolbar } from './AnnotationToolbar'
+import { AnnotationCanvas } from '~/features/workspace/annotation/ui/AnnotationCanvas'
+import { AnnotationToolbar } from '~/features/workspace/annotation/ui/AnnotationToolbar'
 
 interface AnnotationEditorProps
 {

@@ -1,13 +1,14 @@
 // src/features/workspace/imageEditor/ui/ImageEditorModal.tsx
 // store-aware modal orchestration for per-item image editing
 
-import { useCallback, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   isEmptyItemLabelOptions,
   type GlobalLabelDefaults,
+  type TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   resolveEffectiveShowLabels,
@@ -18,41 +19,65 @@ import {
   getEffectiveImageFit,
   type RatioOption,
 } from '~/shared/board-ui/aspectRatio'
+import {
+  getItemLabelBandVariant,
+  type LabelBandVariant,
+} from '~/shared/board-ui/labelBandVariant'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/useBoardAspectRatioPicker'
+import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/aspect-ratio/useBoardAspectRatioPicker'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/useAutoCropTrimShadows'
+import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/auto-crop/useAutoCropTrimShadows'
 import { BaseModal } from '~/shared/overlay/BaseModal'
-import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { useImageEditorAutoCropAll } from '../model/useImageEditorAutoCropAll'
-import { useImageEditorItems } from '../model/useImageEditorItems'
+import { useImageEditorAutoCropAll } from '~/features/workspace/imageEditor/model/auto-crop/useImageEditorAutoCropAll'
+import { useImageEditorItems } from '~/features/workspace/imageEditor/model/useImageEditorItems'
+import { useLabelAwareEffectiveAspect } from '~/features/workspace/imageEditor/model/labels/useLabelAwareEffectiveAspect'
 import {
   useImageEditorApplyLabelToAll,
   useImageEditorAutoCropAllConfirmation,
   useImageEditorModalKeyboardShortcuts,
   useImageEditorRatioChangeGuard,
-} from '../model/useImageEditorModalActions'
-import { useImageEditorSelection } from '../model/useImageEditorSelection'
-import { BoardControlsBar } from './BoardControlsBar'
-import { ImageEditorPane, type ImageEditorPaneHandle } from './ImageEditorPane'
-import { ImageEditorRail } from './ImageEditorRail'
+} from '~/features/workspace/imageEditor/model/useImageEditorModalActions'
+import { useImageEditorSelection } from '~/features/workspace/imageEditor/model/useImageEditorSelection'
+import { useSelectedItemHandlers } from '~/features/workspace/imageEditor/model/transform/useSelectedItemHandlers'
+import { BoardControlsBar } from '~/features/workspace/imageEditor/ui/BoardControlsBar'
+import {
+  ImageEditorPane,
+  type ImageEditorPaneHandle,
+} from '~/features/workspace/imageEditor/ui/ImageEditorPane'
+import { ImageEditorModalDialogs } from '~/features/workspace/imageEditor/ui/ImageEditorModalDialogs'
+import { ImageEditorRail } from '~/features/workspace/imageEditor/ui/ImageEditorRail'
 import {
   useImageEditorStore,
   type ImageEditorFilter,
-} from '../model/useImageEditorStore'
+  type ImageEditorMode,
+} from '~/features/workspace/imageEditor/model/useImageEditorStore'
+
+const NOOP = () =>
+{
+  /* placeholder for multi-mode handlers when in single mode */
+}
 
 export const ImageEditorModal = () =>
 {
-  const isOpen = useImageEditorStore((s) => s.isOpen)
+  const { isOpen, mode } = useImageEditorStore(
+    useShallow((s) => ({ isOpen: s.isOpen, mode: s.mode }))
+  )
   if (!isOpen) return null
-  return <ImageEditorModalBody />
+  // remount on mode change so per-pane drafts/refs reset cleanly
+  return <ImageEditorModalBody key={mode} mode={mode} />
 }
 
-const ImageEditorModalBody = () =>
+interface ImageEditorModalBodyProps
+{
+  mode: ImageEditorMode
+}
+
+const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
 {
   const titleId = useId()
+  const isSingleMode = mode === 'single'
   const { filter, setFilter, initialItemId, close } = useImageEditorStore(
     useShallow((s) => ({
       filter: s.filter,
@@ -61,58 +86,53 @@ const ImageEditorModalBody = () =>
       close: s.close,
     }))
   )
-  const {
-    items,
-    tiers,
-    unrankedItemIds,
-    boardAspectRatio,
-    setItemTransform,
-    setItemsTransform,
-    boardDefaultFit,
-    boardLabels,
-    setBoardLabelSettings,
-    setItemLabelOptions,
-    setBoardAndItemsLabelOptions,
-    setItemLabel,
-  } = useActiveBoardStore(
+  const { items, tiers, unrankedItemIds } = useActiveBoardStore(
     useShallow((s) => ({
       items: s.items,
       tiers: s.tiers,
       unrankedItemIds: s.unrankedItemIds,
-      boardAspectRatio: getBoardItemAspectRatio(s),
-      setItemTransform: s.setItemTransform,
-      setItemsTransform: s.setItemsTransform,
+    }))
+  )
+  const boardAspectRatio = useActiveBoardStore(getBoardItemAspectRatio)
+  const { boardDefaultFit, boardLabels } = useActiveBoardStore(
+    useShallow((s) => ({
       boardDefaultFit: s.defaultItemImageFit,
       boardLabels: s.labels,
+    }))
+  )
+  const {
+    setItemTransform,
+    setItemsTransform,
+    setBoardLabelSettings,
+    setBoardAndItemsLabelOptions,
+  } = useActiveBoardStore(
+    useShallow((s) => ({
+      setItemTransform: s.setItemTransform,
+      setItemsTransform: s.setItemsTransform,
       setBoardLabelSettings: s.setBoardLabelSettings,
-      setItemLabelOptions: s.setItemLabelOptions,
       setBoardAndItemsLabelOptions: s.setBoardAndItemsLabelOptions,
-      setItemLabel: s.setItemLabel,
     }))
   )
   const globalShowLabels = usePreferencesStore((s) => s.showLabels)
   const globalLabelPlacementMode = usePreferencesStore(
     (s) => s.defaultLabelPlacementMode
   )
+  const globalLabelFontSizePx = usePreferencesStore(
+    (s) => s.defaultLabelFontSizePx
+  )
   const globalLabelDefaults = useMemo<GlobalLabelDefaults>(
     () => ({
       showLabels: globalShowLabels,
       placementMode: globalLabelPlacementMode,
+      fontSizePx: globalLabelFontSizePx,
     }),
-    [globalShowLabels, globalLabelPlacementMode]
+    [globalShowLabels, globalLabelPlacementMode, globalLabelFontSizePx]
   )
   const globalTextStyleId = usePreferencesStore((s) => s.textStyleId)
   const boardItemSize = usePreferencesStore((s) => s.itemSize)
   const effectiveShowLabels = resolveEffectiveShowLabels(
     boardLabels,
     globalShowLabels
-  )
-  const handleShowLabelsChange = useCallback(
-    (show: boolean) =>
-    {
-      setBoardLabelSettings(withBoardShowLabels(boardLabels, show))
-    },
-    [boardLabels, setBoardLabelSettings]
   )
   const ratioPicker = useBoardAspectRatioPicker()
   const { trimSoftShadows, setTrimSoftShadows } = useAutoCropTrimShadows()
@@ -127,17 +147,87 @@ const ImageEditorModalBody = () =>
       filter,
       boardAspectRatio,
     })
+  // The modal owns label-aware measurements for both bulk crop & the active
+  // pane, so the pane does not mount its own duplicate hidden tile.
+  const singleModeItem =
+    isSingleMode && initialItemId ? items[initialItemId] : undefined
+  const labelMeasurementItems = useMemo(
+    () =>
+      isSingleMode ? (singleModeItem ? [singleModeItem] : []) : filteredItems,
+    [filteredItems, isSingleMode, singleModeItem]
+  )
+  // bulk auto-crop measures each distinct caption-band variant once
+  const bulkLabelVariants = useMemo<readonly LabelBandVariant[]>(() =>
+  {
+    const list: LabelBandVariant[] = []
+    for (const item of labelMeasurementItems)
+    {
+      const variant = getItemLabelBandVariant({
+        item,
+        boardLabels,
+        globalLabelDefaults,
+      })
+      if (variant) list.push(variant)
+    }
+    return list
+  }, [labelMeasurementItems, boardLabels, globalLabelDefaults])
+  const {
+    getEffectiveAspectRatio: getBulkEffectiveAspectRatio,
+    measurementsReady: bulkMeasurementsReady,
+    measurementNodes: bulkMeasurementNodes,
+  } = useLabelAwareEffectiveAspect({
+    boardAspectRatio,
+    itemSize: boardItemSize,
+    variants: bulkLabelVariants,
+  })
+  const getBoardAspectRatioForItem = useCallback(
+    (item: TierItem): number =>
+      getBulkEffectiveAspectRatio(
+        getItemLabelBandVariant({ item, boardLabels, globalLabelDefaults })
+      ),
+    [getBulkEffectiveAspectRatio, boardLabels, globalLabelDefaults]
+  )
   const {
     autoCropProgress,
     autoCropAllApplied,
+    cancelAutoCropAll,
     handleAutoCropAll,
     getManualAdjustmentCount,
   } = useImageEditorAutoCropAll({
     filteredItems,
-    boardAspectRatio,
+    getBoardAspectRatioForItem,
     trimSoftShadows,
     setItemsTransform,
   })
+  const rerunAutoCropAfterLabelChangeRef = useRef(false)
+  const handleShowLabelsChange = useCallback(
+    (show: boolean) =>
+    {
+      const shouldRerunAutoCrop = autoCropAllApplied || autoCropProgress.running
+      if (shouldRerunAutoCrop)
+      {
+        rerunAutoCropAfterLabelChangeRef.current = true
+        cancelAutoCropAll()
+      }
+      setBoardLabelSettings(withBoardShowLabels(boardLabels, show))
+    },
+    [
+      autoCropAllApplied,
+      autoCropProgress.running,
+      boardLabels,
+      cancelAutoCropAll,
+      setBoardLabelSettings,
+    ]
+  )
+
+  useEffect(() =>
+  {
+    if (!rerunAutoCropAfterLabelChangeRef.current) return
+    if (autoCropProgress.running || !bulkMeasurementsReady) return
+
+    rerunAutoCropAfterLabelChangeRef.current = false
+    void handleAutoCropAll()
+  }, [autoCropProgress.running, bulkMeasurementsReady, handleAutoCropAll])
 
   const getActivePendingEdit = useCallback(
     () => activePaneRef.current?.getPendingEdit() ?? null,
@@ -185,11 +275,12 @@ const ImageEditorModalBody = () =>
     globalLabelDefaults,
     setBoardAndItemsLabelOptions,
   })
+  const requestApplyLabelToAll = applyLabel.request
 
   const {
     selectedIndex,
-    selectedItem,
-    selectedId,
+    selectedItem: multiSelectedItem,
+    selectedId: multiSelectedId,
     setPickedId,
     goPrev,
     goNext,
@@ -203,6 +294,13 @@ const ImageEditorModalBody = () =>
     filter,
   })
 
+  // single-mode bypasses the rail-driven selection so text-only items (which
+  // useImageEditorItems excludes by design) still resolve through to the pane
+  const selectedItem = isSingleMode ? singleModeItem : multiSelectedItem
+  const selectedId = isSingleMode
+    ? (singleModeItem?.id ?? null)
+    : multiSelectedId
+
   const handleCommit = useCallback(
     (id: ItemId, transform: Parameters<typeof setItemTransform>[1]) =>
     {
@@ -211,12 +309,62 @@ const ImageEditorModalBody = () =>
     },
     [clearSkipped, setItemTransform]
   )
+  const {
+    handleSelectedAltTextChange,
+    handleSelectedApplyLabelToAll,
+    handleSelectedBackgroundColorChange,
+    handleSelectedCommit,
+    handleSelectedLabelChange,
+    handleSelectedLabelOptionsChange,
+    handleSelectedNotesChange,
+  } = useSelectedItemHandlers({
+    selectedId,
+    onCommit: handleCommit,
+    requestApplyLabelToAll,
+  })
+  const labelAppliedToAll = useMemo(
+    () => allImageItems.every((it) => isEmptyItemLabelOptions(it.labelOptions)),
+    [allImageItems]
+  )
+  const applyLabelToAllTitle = useMemo(() =>
+  {
+    if (allImageItems.length <= 1) return 'No other image items on the board'
+    const otherCount = allImageItems.length - 1
+    return `Use this item's label settings as the board default and clear per-tile overrides on ${otherCount} other ${
+      otherCount === 1 ? 'item' : 'items'
+    }`
+  }, [allImageItems.length])
+
+  const paneNavigation = useMemo(
+    () =>
+      isSingleMode
+        ? {
+            canNext: false,
+            canPrev: false,
+            canSkip: false,
+            onNext: NOOP,
+            onPrev: NOOP,
+            onSkip: NOOP,
+          }
+        : {
+            canNext:
+              selectedIndex >= 0 && selectedIndex < filteredItems.length - 1,
+            canPrev: selectedIndex > 0,
+            canSkip:
+              selectedIndex >= 0 && selectedIndex < filteredItems.length - 1,
+            onNext: goNext,
+            onPrev: goPrev,
+            onSkip: goSkip,
+          },
+    [isSingleMode, selectedIndex, filteredItems.length, goNext, goPrev, goSkip]
+  )
+  const onApplyLabelToAll = isSingleMode ? NOOP : handleSelectedApplyLabelToAll
 
   useImageEditorModalKeyboardShortcuts({
     flushActivePaneEdit,
-    goPrev,
-    goNext,
-    goSkip,
+    goPrev: paneNavigation.onPrev,
+    goNext: paneNavigation.onNext,
+    goSkip: paneNavigation.onSkip,
   })
 
   return (
@@ -232,10 +380,13 @@ const ImageEditorModalBody = () =>
         width: 'min(1120px, calc(100vw - 4rem))',
       }}
     >
+      {bulkMeasurementNodes}
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-5 py-3">
         <div className="flex min-w-0 items-baseline gap-3">
-          <ModalHeader titleId={titleId}>Adjust items to fit board</ModalHeader>
-          {selectedIndex >= 0 && filteredItems.length > 0 && (
+          <ModalHeader titleId={titleId}>
+            {isSingleMode ? 'Edit item' : 'Adjust items to fit board'}
+          </ModalHeader>
+          {!isSingleMode && selectedIndex >= 0 && filteredItems.length > 0 && (
             <span
               className="text-xs tabular-nums text-[var(--t-text-faint)]"
               aria-live="polite"
@@ -263,38 +414,43 @@ const ImageEditorModalBody = () =>
           Close
         </SecondaryButton>
       </div>
-      <BoardControlsBar
-        ratioPicker={ratioPicker}
-        onRatioOption={handleRatioOption}
-        onApplyCustomRatio={handleApplyCustomRatio}
-        onAutoCropAll={autoCropAll.request}
-        autoCropProgress={autoCropProgress}
-        autoCropAllApplied={autoCropAllApplied}
-        trimSoftShadows={trimSoftShadows}
-        onTrimSoftShadowsChange={setTrimSoftShadows}
-        showLabels={effectiveShowLabels}
-        onShowLabelsChange={handleShowLabelsChange}
-      />
-      <div className="flex min-h-0 flex-1">
-        <ImageEditorRail
-          filter={filter}
-          onFilterChange={setFilter}
-          items={filteredItems}
-          totalCount={allImageItems.length}
-          boardAspectRatio={boardAspectRatio}
-          boardDefaultFit={boardDefaultFit}
-          boardLabels={boardLabels}
-          globalLabelDefaults={globalLabelDefaults}
-          selectedId={selectedId}
-          onSelect={setPickedId}
-          isSkipped={isSkipped}
+      {!isSingleMode && (
+        <BoardControlsBar
+          ratioPicker={ratioPicker}
+          onRatioOption={handleRatioOption}
+          onApplyCustomRatio={handleApplyCustomRatio}
+          onAutoCropAll={autoCropAll.request}
+          autoCropProgress={autoCropProgress}
+          autoCropAllApplied={autoCropAllApplied}
+          trimSoftShadows={trimSoftShadows}
+          onTrimSoftShadowsChange={setTrimSoftShadows}
+          showLabels={effectiveShowLabels}
+          onShowLabelsChange={handleShowLabelsChange}
         />
-        <div className="flex min-w-0 flex-1 flex-col">
+      )}
+      <div className="flex min-h-0 flex-1">
+        {!isSingleMode && (
+          <ImageEditorRail
+            filter={filter}
+            onFilterChange={setFilter}
+            items={filteredItems}
+            totalCount={allImageItems.length}
+            boardAspectRatio={boardAspectRatio}
+            boardDefaultFit={boardDefaultFit}
+            boardLabels={boardLabels}
+            globalLabelDefaults={globalLabelDefaults}
+            selectedId={selectedId}
+            onSelect={setPickedId}
+            isSkipped={isSkipped}
+          />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
           {selectedItem ? (
             <ImageEditorPane
               ref={activePaneRef}
               key={`${selectedItem.id}:${boardAspectRatio}:${getEffectiveImageFit(selectedItem, boardDefaultFit)}`}
               item={selectedItem}
+              mode={mode}
               boardAspectRatio={boardAspectRatio}
               boardDefaultFit={boardDefaultFit}
               trimSoftShadows={trimSoftShadows}
@@ -302,79 +458,41 @@ const ImageEditorModalBody = () =>
               globalLabelDefaults={globalLabelDefaults}
               globalTextStyleId={globalTextStyleId}
               boardItemSize={boardItemSize}
-              onCommit={(t) => handleCommit(selectedItem.id, t)}
-              onLabelChange={(label) => setItemLabel(selectedItem.id, label)}
-              onLabelOptionsChange={(opts) =>
-                setItemLabelOptions(selectedItem.id, opts)
-              }
-              onApplyLabelToAll={() => applyLabel.request(selectedItem.id)}
-              canApplyLabelToAll={allImageItems.length > 1}
-              labelAppliedToAll={allImageItems.every((it) =>
-                isEmptyItemLabelOptions(it.labelOptions)
-              )}
-              applyLabelToAllTitle={
-                allImageItems.length > 1
-                  ? `Use this item's label settings as the board default and clear per-tile overrides on ${allImageItems.length - 1} other ${
-                      allImageItems.length === 2 ? 'item' : 'items'
-                    }`
-                  : 'No other image items on the board'
-              }
+              getBoardAspectRatioForItem={getBoardAspectRatioForItem}
+              onCommit={handleSelectedCommit}
+              onLabelChange={handleSelectedLabelChange}
+              onLabelOptionsChange={handleSelectedLabelOptionsChange}
+              onApplyLabelToAll={onApplyLabelToAll}
+              canApplyLabelToAll={!isSingleMode && allImageItems.length > 1}
+              labelAppliedToAll={labelAppliedToAll}
+              applyLabelToAllTitle={applyLabelToAllTitle}
               captionExpanded={captionExpanded}
               onCaptionExpandedChange={setCaptionExpanded}
               imageExpanded={imageExpanded}
               onImageExpandedChange={setImageExpanded}
-              canPrev={selectedIndex > 0}
-              canNext={
-                selectedIndex >= 0 && selectedIndex < filteredItems.length - 1
-              }
-              canSkip={
-                selectedIndex >= 0 && selectedIndex < filteredItems.length - 1
-              }
-              onPrev={goPrev}
-              onNext={goNext}
-              onSkip={goSkip}
+              onAltTextChange={handleSelectedAltTextChange}
+              onNotesChange={handleSelectedNotesChange}
+              onBackgroundColorChange={handleSelectedBackgroundColorChange}
+              canPrev={paneNavigation.canPrev}
+              canNext={paneNavigation.canNext}
+              canSkip={paneNavigation.canSkip}
+              onPrev={paneNavigation.onPrev}
+              onNext={paneNavigation.onNext}
+              onSkip={paneNavigation.onSkip}
             />
           ) : (
-            <EmptyState totalCount={allImageItems.length} filter={filter} />
+            <EmptyState
+              totalCount={allImageItems.length}
+              filter={filter}
+              isSingleMode={isSingleMode}
+            />
           )}
         </div>
       </div>
-      <ConfirmDialog
-        open={autoCropAll.open}
-        title="Overwrite image adjustments?"
-        description={`Auto-crop will replace ${autoCropAll.count === 1 ? '1 saved or pending adjustment' : `${autoCropAll.count} saved or pending adjustments`} in this view. Items already auto-cropped or untouched stay as they are.`}
-        confirmText="Auto-crop all"
-        variant="accent"
-        onConfirm={autoCropAll.confirm}
-        onCancel={autoCropAll.cancel}
-      />
-      <ConfirmDialog
-        open={ratioGuard.open}
-        title="Change board ratio?"
-        description={`This will reflow every item to the new ratio. ${
-          ratioGuard.count === 1
-            ? '1 item has a manual crop'
-            : `${ratioGuard.count} items have manual crops`
-        } that may need re-checking.`}
-        confirmText="Change ratio"
-        cancelText="Keep current"
-        variant="accent"
-        onConfirm={ratioGuard.confirm}
-        onCancel={ratioGuard.cancel}
-      />
-      <ConfirmDialog
-        open={applyLabel.open}
-        title="Apply label settings to all items?"
-        description={`This sets the board default label settings to match this item, and clears per-tile label overrides on ${
-          applyLabel.count === 1
-            ? '1 other item'
-            : `${applyLabel.count} other items`
-        }. The board's text content stays per-item.`}
-        confirmText="Apply to all"
-        cancelText="Cancel"
-        variant="accent"
-        onConfirm={applyLabel.confirm}
-        onCancel={applyLabel.cancel}
+      <ImageEditorModalDialogs
+        applyLabel={applyLabel}
+        autoCropAll={autoCropAll}
+        ratioGuard={ratioGuard}
       />
     </BaseModal>
   )
@@ -384,13 +502,18 @@ interface EmptyStateProps
 {
   totalCount: number
   filter: ImageEditorFilter
+  isSingleMode: boolean
 }
 
 const getEmptyStateMessage = (
   totalCount: number,
-  filter: ImageEditorFilter
+  filter: ImageEditorFilter,
+  isSingleMode: boolean
 ): string =>
 {
+  // single-mode empty state should be rare — the modal opens w/ an explicit
+  // itemId, so this only fires if the item was removed mid-edit
+  if (isSingleMode) return 'This item is no longer on the board.'
   if (totalCount === 0) return 'This board has no image items to adjust yet.'
   if (filter === 'mismatched')
   {
@@ -400,8 +523,8 @@ const getEmptyStateMessage = (
   return 'No items match this filter.'
 }
 
-const EmptyState = ({ totalCount, filter }: EmptyStateProps) => (
+const EmptyState = ({ totalCount, filter, isSingleMode }: EmptyStateProps) => (
   <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-[var(--t-text-muted)]">
-    {getEmptyStateMessage(totalCount, filter)}
+    {getEmptyStateMessage(totalCount, filter, isSingleMode)}
   </div>
 )

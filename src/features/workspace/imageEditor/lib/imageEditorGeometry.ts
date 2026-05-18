@@ -17,6 +17,8 @@ import {
   resolveManualCropFitZoom,
 } from '~/shared/lib/imageTransform'
 
+export { applyAxisSnap } from '~/shared/lib/axisSnap'
+
 export const CANVAS_BOUND = 420
 export const RAIL_THUMBNAIL_BOUND = 36
 
@@ -28,36 +30,14 @@ export const PAN_START_THRESHOLD_PX = 4
 export const PAN_SNAP_THRESHOLD_PX = 5
 export const WHEEL_ZOOM_SENSITIVITY = 0.0015
 
-interface AxisSnapCandidate
-{
-  value: number
-  guide: boolean
-}
-
-export const applyAxisSnap = (
-  value: number,
-  threshold: number,
-  candidates: readonly AxisSnapCandidate[]
-): { value: number; guide: boolean } =>
-{
-  for (const candidate of candidates)
-  {
-    if (Math.abs(value - candidate.value) < threshold)
-    {
-      return { value: candidate.value, guide: candidate.guide }
-    }
-  }
-  return { value, guide: false }
-}
-
 export const normalizeRotation = (raw: number): ItemRotation =>
 {
   const wrapped = (((raw % 360) + 360) % 360) as ItemRotation
   return wrapped
 }
 
-export const createFitBaselineTransform = (
-  item: TierItem,
+export const createFitBaselineTransformForAspectRatio = (
+  imageAspectRatio: number | undefined,
   boardAspectRatio: number,
   fit: ImageFit,
   rotation: ItemRotation = 0
@@ -66,12 +46,25 @@ export const createFitBaselineTransform = (
     ...ITEM_TRANSFORM_IDENTITY,
     rotation,
     zoom: resolveManualCropFitZoom(
-      item.aspectRatio,
+      imageAspectRatio,
       boardAspectRatio,
       rotation,
       fit
     ),
   })
+
+const createFitBaselineTransform = (
+  item: TierItem,
+  boardAspectRatio: number,
+  fit: ImageFit,
+  rotation: ItemRotation = 0
+): ItemTransform =>
+  createFitBaselineTransformForAspectRatio(
+    item.aspectRatio,
+    boardAspectRatio,
+    fit,
+    rotation
+  )
 
 export const getSavedTransform = (item: TierItem): ItemTransform | undefined =>
   item.transform && !isIdentityTransform(item.transform)

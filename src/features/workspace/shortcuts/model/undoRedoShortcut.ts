@@ -2,6 +2,7 @@
 // shared Cmd/Ctrl undo-redo keyboard shortcut: pure detector + runtime runner
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { matchShortcut } from '~/shared/lib/keyboardShortcut'
 import { toast } from '~/shared/notifications/useToastStore'
 
 type UndoRedoShortcut = 'undo' | 'redo'
@@ -22,11 +23,9 @@ const getUndoRedoShortcut = (
   >
 ): UndoRedoShortcut | null =>
 {
-  const mod = event.ctrlKey || event.metaKey
-  if (!mod || event.altKey) return null
-  const key = event.key.toLowerCase()
-  if (key === 'z' && !event.shiftKey) return 'undo'
-  if ((key === 'z' && event.shiftKey) || key === 'y') return 'redo'
+  if (matchShortcut(event, { key: 'z', mod: true })) return 'undo'
+  if (matchShortcut(event, { key: 'z', mod: true, shift: true })) return 'redo'
+  if (matchShortcut(event, { key: 'y', mod: true })) return 'redo'
   return null
 }
 

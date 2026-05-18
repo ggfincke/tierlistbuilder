@@ -14,15 +14,15 @@ import { runUndoRedoShortcut } from '~/features/workspace/shortcuts/model/undoRe
 import {
   useConfirmationGate,
   type ConfirmationGate,
-} from '~/shared/hooks/useConfirmationGate'
-import { isInteractiveArrowTarget } from '../lib/imageEditorGeometry'
+} from '~/features/workspace/imageEditor/model/useConfirmationGate'
+import { isInteractiveArrowTarget } from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
 import {
   countAdjustedImageEditorItems,
   countLabelOverridesAffected,
   createApplyLabelToAllPlan,
   type LabelOptionsClearEntry,
-} from './imageEditorModalPlans'
-import type { PendingImageEditorPaneEdit } from './pendingImageEdit'
+} from '~/features/workspace/imageEditor/model/imageEditorModalPlans'
+import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 interface UseRatioChangeGuardInput
 {
@@ -64,7 +64,7 @@ interface UseModalKeyboardShortcutsInput
   goSkip: () => void
 }
 
-type GateProjection = Pick<
+export type GateProjection = Pick<
   ConfirmationGate,
   'open' | 'count' | 'confirm' | 'cancel'
 >

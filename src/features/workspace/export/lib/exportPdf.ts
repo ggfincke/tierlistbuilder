@@ -3,10 +3,10 @@
 // a pixel-perfect PDF for download
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import type { ExportAppearance } from '../model/runtime'
+import type { ExportAppearance } from '~/features/workspace/export/model/runtime'
 import { toFileBase } from '~/shared/lib/fileName'
 import { loadPdfLib } from '~/shared/lib/lazyDependencies'
-import { captureBoardAsBlob } from './exportImage'
+import { captureBoardAsBlob } from '~/features/workspace/export/lib/exportImage'
 
 // capture the board as a PNG, embed the bytes in a single-page PDF, & download
 export const exportTierListAsPdf = async (

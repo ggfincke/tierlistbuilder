@@ -7,7 +7,8 @@ import type { CSSProperties } from 'react'
 import { TEXT_STYLES } from '~/shared/theme/textStyles'
 import type { LabelTextColor } from '@tierlistbuilder/contracts/workspace/board'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
-import type { ResolvedLabelDisplay } from './labelDisplay'
+import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 
 export const LABEL_SCRIM_CLASS = {
   none: '',
@@ -55,6 +56,7 @@ const LABEL_FONT_STYLES = Object.fromEntries(
 
 const captionPaddingCache = new Map<number, CSSProperties>()
 const overlayPaddingCache = new Map<number, CSSProperties>()
+const MAX_PADDING_STYLE_CACHE_ENTRIES = 128
 
 const paddingKey = (fontSizePx: number): number =>
   Number.isFinite(fontSizePx) ? Number(fontSizePx.toFixed(2)) : 0
@@ -63,12 +65,21 @@ export const captionPaddingStyle = (fontSizePx: number): CSSProperties =>
 {
   const key = paddingKey(fontSizePx)
   const cached = captionPaddingCache.get(key)
-  if (cached) return cached
+  if (cached)
+  {
+    touchMapEntry(captionPaddingCache, key)
+    return cached
+  }
   const style = {
     paddingInline: `${Math.max(2, Math.round(fontSizePx * 0.35))}px`,
     paddingBlock: `${Math.max(1, Math.round(fontSizePx * 0.12))}px`,
   }
-  captionPaddingCache.set(key, style)
+  setMapEntryLru(
+    captionPaddingCache,
+    key,
+    style,
+    MAX_PADDING_STYLE_CACHE_ENTRIES
+  )
   return style
 }
 
@@ -76,12 +87,21 @@ export const overlayPaddingStyle = (fontSizePx: number): CSSProperties =>
 {
   const key = paddingKey(fontSizePx)
   const cached = overlayPaddingCache.get(key)
-  if (cached) return cached
+  if (cached)
+  {
+    touchMapEntry(overlayPaddingCache, key)
+    return cached
+  }
   const style = {
     paddingInline: `${Math.max(2, Math.round(fontSizePx * 0.4))}px`,
     paddingBlock: `${Math.max(1, Math.round(fontSizePx * 0.15))}px`,
   }
-  overlayPaddingCache.set(key, style)
+  setMapEntryLru(
+    overlayPaddingCache,
+    key,
+    style,
+    MAX_PADDING_STYLE_CACHE_ENTRIES
+  )
   return style
 }
 

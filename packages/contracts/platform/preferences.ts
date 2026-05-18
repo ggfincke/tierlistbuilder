@@ -30,7 +30,7 @@ export type TierLabelFontSize = (typeof TIER_LABEL_FONT_SIZES)[number]
 export const TOOLBAR_POSITIONS = ['top', 'bottom', 'left', 'right'] as const
 export type ToolbarPosition = (typeof TOOLBAR_POSITIONS)[number]
 
-export const EXPORT_ITEMS_PER_ROW_MIN = 4
+export const EXPORT_ITEMS_PER_ROW_MIN = 3
 export const EXPORT_ITEMS_PER_ROW_MAX = 20
 export const EXPORT_ITEMS_PER_ROW_DEFAULT = 10
 
@@ -55,6 +55,9 @@ export interface AppPreferences
   // fallback placement applied when a board (or item) has no explicit
   // placement override — matches the LabelPlacement.mode discriminant
   defaultLabelPlacementMode: LabelPlacementMode
+  // fallback caption font size in CSS px when neither item nor board pins
+  // one — clamped to LABEL_FONT_SIZE_PX_MIN..MAX in board contracts
+  defaultLabelFontSizePx: number
   itemShape: ItemShape
   compactMode: boolean
   exportBackgroundOverride: string | null
@@ -72,6 +75,16 @@ export interface AppPreferences
   boardLocked: boolean
   reducedMotion: boolean
   toolbarPosition: ToolbarPosition
-  showAltTextButton: boolean
+  // gates the item-edit pencil overlay shown on each tier item
+  showItemEditButton: boolean
   autoCropTrimSoftShadows: boolean
+}
+
+// cloud-read wire shape for user preferences. server wall-clock updatedAt
+// accompanies the payload so the client's sidecar can mark lastSyncedAt w/
+// the actual cloud timestamp instead of an approximation
+export interface CloudPreferencesRead
+{
+  preferences: AppPreferences
+  updatedAt: number
 }

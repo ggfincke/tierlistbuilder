@@ -7,12 +7,12 @@ import {
   isEmptyItemLabelOptions,
   itemLabelOptionsEqual,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { withUndo } from '../undoSlice'
+import { withUndo } from '~/features/workspace/boards/model/slices/undoSlice'
 import type {
   ActiveBoardSliceCreator,
   ActiveBoardStore,
   BoardDataSlice,
-} from '../types'
+} from '~/features/workspace/boards/model/slices/types'
 
 type LabelActions = Pick<
   BoardDataSlice,

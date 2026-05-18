@@ -2,9 +2,9 @@
 // theme runtime service — sync theme tokens & font loading to the DOM
 
 import type { TextStyleId, ThemeId } from '@tierlistbuilder/contracts/lib/theme'
-import { getTextColor } from '../lib/color'
-import { TEXT_STYLES } from './textStyles'
-import { THEMES } from './tokens'
+import { getTextColor } from '~/shared/lib/color'
+import { TEXT_STYLES } from '~/shared/theme/textStyles'
+import { THEMES } from '~/shared/theme/tokens'
 
 const FONT_LINK_ID = 'theme-google-font'
 
@@ -18,7 +18,9 @@ export const applyThemeTokens = (themeId: ThemeId): void =>
     root.style.setProperty(`--t-${key}`, value)
   }
 
-  root.style.setProperty('--t-accent-foreground', getTextColor(theme.accent))
+  // accent-foreground is now stored per-theme (set above via Object.entries).
+  // destructive-foreground stays computed — no design intent diverges from
+  // "auto-pick black or white on the destructive bg."
   root.style.setProperty(
     '--t-destructive-foreground',
     getTextColor(theme.destructive)

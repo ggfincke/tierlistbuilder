@@ -24,7 +24,7 @@ graph TD
     C --> E["Feature UI"]
     D --> E
     A --> E
-    F["Z ladder (shared/theme/zIndex.ts)"] --> D
+    F["Layering policy (local Tailwind z-*)"] --> D
     F --> E
 ```
 
@@ -32,7 +32,7 @@ Three rules keep this stack honest:
 
 1. **Tokens, never hex.** App chrome reads `var(--t-*)` / `var(--ts-*)`. Hardcoded colors are reserved for tier palettes, user-chosen item backgrounds, and the always-dark overlay exceptions called out below.
 2. **Primitives, never raw `<button>` / `<input>` / portal.** If a primitive exists for the role, use it; if it doesn't, build one in `shared/ui/` or `shared/overlay/` rather than inlining chrome.
-3. **One Z rung at a time.** Stacking goes through `Z` in `shared/theme/zIndex.ts` — eight rungs total. Don't invent `z-[27]`.
+3. **Layer locally and predictably.** Stacking uses explicit Tailwind `z-*` classes at the owning surface. Reuse the nearest established layer for comparable chrome instead of inventing arbitrary values.
 
 ---
 
@@ -40,16 +40,16 @@ Three rules keep this stack honest:
 
 ### Color tokens (`--t-*`)
 
-Defined per theme in `src/shared/theme/tokens.ts`, written to `:root` by `applyThemeTokens()` in `src/shared/theme/runtime.ts`. There are **22 color tokens** grouped by role:
+Defined per theme in `src/shared/theme/tokens.ts`, written to `:root` by `applyThemeTokens()` in `src/shared/theme/runtime.ts`. There are **26 per-theme color tokens** grouped by role, plus computed/static defaults in `src/app/index.css` for values that are not theme-specific:
 
 | Role        | Tokens                                                                                                                  |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Backgrounds | `--t-bg-page`, `--t-bg-surface`, `--t-bg-sunken`, `--t-bg-overlay`, `--t-bg-drag-over`, `--t-bg-hover`, `--t-bg-active` |
 | Borders     | `--t-border`, `--t-border-secondary`, `--t-border-hover`                                                                |
 | Text        | `--t-text`, `--t-text-secondary`, `--t-text-muted`, `--t-text-faint`, `--t-text-dim`                                    |
-| Accent      | `--t-accent`, `--t-accent-hover`, `--t-accent-foreground` (computed contrast)                                           |
+| Accent      | `--t-accent`, `--t-accent-hover`, `--t-accent-2`, `--t-accent-foreground`, `--t-accent-glow`                            |
 | Destructive | `--t-destructive`, `--t-destructive-hover`, `--t-destructive-foreground` (computed contrast)                            |
-| Success     | `--t-success`                                                                                                           |
+| Feedback    | `--t-success`, `--t-warning`                                                                                            |
 | Mixing      | `--t-overlay` (space-separated RGB triplet for `rgb(var(--t-overlay)/0.12)` opacity tints)                              |
 | Export      | `--t-export-bg`                                                                                                         |
 
@@ -85,22 +85,12 @@ Defined in `src/shared/theme/textStyles.ts`. Five text styles ship: `default`, `
 
 `useThemeSync` (`features/platform/preferences/model/useThemeSync.ts`) syncs the active style to `:root`. Non-system fonts are loaded dynamically from Google Fonts by `applyTextStyle()` — keep new styles offline-capable by listing system fallbacks first.
 
-### Z-index ladder
+### Layering
 
-```typescript title="src/shared/theme/zIndex.ts"
-export const Z = {
-  offscreen: -1, // export hosts that mount but don't render
-  base: 0,
-  dropdown: 10, // item focus rings, inline canvas text input, drag-raised items
-  popup: 20, // selected/active item elevation
-  submenu: 30, // primary submenu layer for toolbar popups
-  overlay: 40, // floating panels (board manager, bulk action bar)
-  modal: 50, // modals, toasts, modal-layer menus
-} as const
-```
+Layering is owned by the component that creates the surface. Use the existing local Tailwind layers as precedent: top navigation sits at `z-30`, card menus at `z-20`, skip links and modal-focus affordances at `z-50`, and offscreen export hosts use the `OFFSCREEN_EXPORT_Z_INDEX` constant in `src/features/workspace/export/lib/exportBoardRender.tsx`.
 
 > [!IMPORTANT]
-> Adding a new rung is a design decision, not an escape hatch. If you find yourself wanting `submenu + 5`, the right move is usually a different rung or an anchored popup at the same rung — not a new value.
+> A new layer is a design decision, not an escape hatch. If an overlay seems to need a one-off arbitrary value, first check whether the surface should instead share an existing modal, popup, card-menu, or top-chrome layer.
 
 ---
 
@@ -230,7 +220,7 @@ graph TD
 
 ### Popup & menu building blocks
 
-Used by `ColorPicker`, `TierRowSettingsMenu`, `BoardManager`, `ExportMenu`, `ItemEditPopover`, etc.
+Used by `ColorPicker`, `TierRowSettingsMenu`, `BoardManager`, `ExportMenu`, card menus, etc.
 
 | Module                | Role                                                                         |
 | --------------------- | ---------------------------------------------------------------------------- |
@@ -265,7 +255,7 @@ graph LR
 ```
 
 - **Per-board overrides.** `WorkspaceShell` layers board-specific theme/text-style overrides through `useBoardThemeOverrides()` so a single board can render in a different theme without touching the global preference.
-- **Locked themes (embed).** `EmbedShell` calls `useLockedTheme('classic', 'default')` so embed iframes render a stable theme regardless of the host's preference. Use this pattern any time you need theme-stable output (export rendering already uses an isolated host).
+- **Locked themes (embed).** `EmbedRoute` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render the Scoreboard theme regardless of the host's preference. Use this pattern any time you need theme-stable output (export rendering already uses an isolated host).
 - **Adding a theme.** New theme -> add an entry to `THEMES` in `src/shared/theme/tokens.ts`, extend `ThemeId` in `packages/contracts/lib/theme.ts`, ship a swatch row in `dev-docs/theming-system.mdx`. Computed contrast tokens (`--t-accent-foreground`, `--t-destructive-foreground`) are derived in `runtime.ts`; you don't list them per theme.
 
 > [!NOTE]
@@ -299,19 +289,19 @@ Updates to this doc happen in the same PR as the primitive change, alongside any
 
 ## Reference index
 
-| Topic              | Source                                                                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Color tokens       | `src/shared/theme/tokens.ts`                                                                                          |
-| Tier palettes      | `src/shared/theme/palettes.ts`                                                                                        |
-| Text styles        | `src/shared/theme/textStyles.ts`                                                                                      |
-| Theme runtime      | `src/shared/theme/runtime.ts`                                                                                         |
-| Tier color helpers | `src/shared/theme/tierColors.ts`                                                                                      |
-| Z ladder           | `src/shared/theme/zIndex.ts`                                                                                          |
-| Button primitive   | `src/shared/ui/Button.tsx`, `buttonBase.ts`                                                                           |
-| Form inputs        | `src/shared/ui/TextInput.tsx`, `TextArea.tsx`, `ColorInput.tsx`, `UploadDropzone.tsx`                                 |
-| Settings controls  | `src/shared/ui/settings/`, `SettingsSection.tsx`, `TabbedSettingsModal.tsx`, `PickerGrid.tsx`                         |
-| Overlay surfaces   | `src/shared/overlay/BaseModal.tsx`, `ConfirmDialog.tsx`, `ProgressOverlay.tsx`, `OverlaySurface.tsx`                  |
-| Modal behavior     | `src/shared/overlay/modalDialog.ts`, `focusTrap.ts`, `modalLayer.ts`                                                  |
-| Popup behavior     | `src/shared/overlay/anchoredPopup.ts`, `dismissibleLayer.ts`, `popupPosition.ts`, `menuOverflow.ts`, `nestedMenus.ts` |
-| Theme spec (long)  | [`dev-docs/theming-system.mdx`](../dev-docs/theming-system.mdx)                                                       |
-| Style conventions  | [`AGENTS.md` § Style conventions](../AGENTS.md#style-conventions)                                                     |
+| Topic              | Source                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Color tokens       | `src/shared/theme/tokens.ts`                                                                                                    |
+| Tier palettes      | `src/shared/theme/palettes.ts`                                                                                                  |
+| Text styles        | `src/shared/theme/textStyles.ts`                                                                                                |
+| Theme runtime      | `src/shared/theme/runtime.ts`                                                                                                   |
+| Tier color helpers | `src/shared/theme/tierColors.ts`                                                                                                |
+| Layering policy    | Component-local Tailwind `z-*` classes; `OFFSCREEN_EXPORT_Z_INDEX` in `src/features/workspace/export/lib/exportBoardRender.tsx` |
+| Button primitive   | `src/shared/ui/Button.tsx`, `buttonBase.ts`                                                                                     |
+| Form inputs        | `src/shared/ui/TextInput.tsx`, `TextArea.tsx`, `ColorInput.tsx`, `UploadDropzone.tsx`                                           |
+| Settings controls  | `src/shared/ui/settings/`, `SettingsSection.tsx`, `TabbedSettingsModal.tsx`, `PickerGrid.tsx`                                   |
+| Overlay surfaces   | `src/shared/overlay/BaseModal.tsx`, `ConfirmDialog.tsx`, `ProgressOverlay.tsx`, `OverlaySurface.tsx`                            |
+| Modal behavior     | `src/shared/overlay/modalDialog.ts`, `focusTrap.ts`, `modalLayer.ts`                                                            |
+| Popup behavior     | `src/shared/overlay/anchoredPopup.ts`, `dismissibleLayer.ts`, `popupPosition.ts`, `menuOverflow.ts`, `nestedMenus.ts`           |
+| Theme spec (long)  | [`dev-docs/theming-system.mdx`](../dev-docs/theming-system.mdx)                                                                 |
+| Style conventions  | [`AGENTS.md` § Style conventions](../AGENTS.md#style-conventions)                                                               |

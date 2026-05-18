@@ -9,13 +9,15 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { CaptionStrip as SharedCaptionStrip } from '~/shared/board-ui/labelBlocks'
-import { DraggableLabelOverlay } from './DraggableLabelOverlay'
+import { DraggableLabelOverlay } from '~/features/workspace/imageEditor/ui/DraggableLabelOverlay'
 
 interface ImageEditorPreviewCanvasProps
 {
   item: TierItem
   url: string | null
+  hasImage: boolean
   previewW: number
   previewH: number
   canvasRef: RefObject<HTMLDivElement | null>
@@ -43,6 +45,7 @@ interface ImageEditorPreviewCanvasProps
 export const ImageEditorPreviewCanvas = ({
   item,
   url,
+  hasImage,
   previewW,
   previewH,
   canvasRef,
@@ -61,67 +64,80 @@ export const ImageEditorPreviewCanvas = ({
   onPointerEnd,
   onLabelDragMove,
   onLabelDragEnd,
-}: ImageEditorPreviewCanvasProps) => (
-  <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--t-bg-sunken)] p-6">
-    <div
-      className={`overflow-hidden rounded border border-[var(--t-border-secondary)] bg-black/20 select-none ${
-        captionPreviewMode ? 'flex flex-col' : ''
-      }`}
-      style={{
-        width: previewW,
-        height: previewH,
-      }}
-    >
-      {captionPreviewMode && resolvedPlacement.mode === 'captionAbove' && (
-        <SharedCaptionStrip display={previewLabelDisplay} />
-      )}
+}: ImageEditorPreviewCanvasProps) =>
+{
+  const showCaptionFrame = hasImage && captionPreviewMode
+
+  return (
+    <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--t-bg-sunken)] p-6">
       <div
-        ref={canvasRef}
-        className={`relative overflow-hidden ${
-          captionPreviewMode ? 'min-h-0 flex-1' : 'h-full w-full'
+        className={`overflow-hidden rounded border border-[var(--t-border-secondary)] bg-black/20 select-none ${
+          showCaptionFrame ? 'flex flex-col' : ''
         }`}
         style={{
-          cursor: isDragging ? 'grabbing' : url ? 'grab' : 'default',
-          touchAction: 'none',
+          width: previewW,
+          height: previewH,
         }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerEnd}
-        onPointerCancel={onPointerEnd}
-        role="presentation"
       >
-        {url ? (
-          <img
-            src={url}
-            alt={item.altText ?? item.label ?? 'Tier item'}
-            className={imgClass}
-            style={imgStyle}
-            draggable={false}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-[var(--t-text-faint)]">
-            Loading...
-          </div>
+        {showCaptionFrame && resolvedPlacement.mode === 'captionAbove' && (
+          <SharedCaptionStrip display={previewLabelDisplay} />
         )}
-        {snap.x && <SnapGuide axis="x" />}
-        {snap.y && <SnapGuide axis="y" />}
-        {placementDraft && labelDragSnap.x && <SnapGuide axis="x" />}
-        {placementDraft && labelDragSnap.y && <SnapGuide axis="y" />}
-        {showLivePreview && resolvedPlacement.mode === 'overlay' && (
-          <DraggableLabelOverlay
-            display={previewLabelDisplay}
-            canvasRef={canvasRef}
-            onDragMove={onLabelDragMove}
-            onDragEnd={onLabelDragEnd}
-          />
+        <div
+          ref={canvasRef}
+          className={`relative overflow-hidden ${
+            showCaptionFrame ? 'min-h-0 flex-1' : 'h-full w-full'
+          }`}
+          style={{
+            cursor: isDragging
+              ? 'grabbing'
+              : hasImage && url
+                ? 'grab'
+                : 'default',
+            touchAction: 'none',
+          }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerEnd}
+          onPointerCancel={onPointerEnd}
+          role="presentation"
+        >
+          {url ? (
+            <img
+              src={url}
+              alt={item.altText ?? item.label ?? 'Tier item'}
+              className={imgClass}
+              style={imgStyle}
+              draggable={false}
+            />
+          ) : !hasImage ? (
+            <ItemContent item={item} variant="default" label={null} />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs text-[var(--t-text-faint)]">
+              Loading...
+            </div>
+          )}
+          {snap.x && <SnapGuide axis="x" />}
+          {snap.y && <SnapGuide axis="y" />}
+          {placementDraft && labelDragSnap.x && <SnapGuide axis="x" />}
+          {placementDraft && labelDragSnap.y && <SnapGuide axis="y" />}
+          {hasImage &&
+            showLivePreview &&
+            resolvedPlacement.mode === 'overlay' && (
+              <DraggableLabelOverlay
+                display={previewLabelDisplay}
+                canvasRef={canvasRef}
+                onDragMove={onLabelDragMove}
+                onDragEnd={onLabelDragEnd}
+              />
+            )}
+        </div>
+        {showCaptionFrame && resolvedPlacement.mode === 'captionBelow' && (
+          <SharedCaptionStrip display={previewLabelDisplay} />
         )}
       </div>
-      {captionPreviewMode && resolvedPlacement.mode === 'captionBelow' && (
-        <SharedCaptionStrip display={previewLabelDisplay} />
-      )}
     </div>
-  </div>
-)
+  )
+}
 
 interface SnapGuideProps
 {

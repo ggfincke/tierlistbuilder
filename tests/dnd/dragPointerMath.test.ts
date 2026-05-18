@@ -6,7 +6,7 @@ import {
   getDraggedItemRect,
   resolveDragTargetIndex,
 } from '~/features/workspace/boards/dnd/dragPointerMath'
-import { makeRect } from '../fixtures'
+import { makeRect } from '@tests/fixtures'
 
 describe('getDraggedItemRect', () =>
 {

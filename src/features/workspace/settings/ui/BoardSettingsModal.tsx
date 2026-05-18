@@ -7,12 +7,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FALLBACK_COLOR, getPaletteColors } from '~/shared/theme/tierColors'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { getStorageUsageBytes } from '~/shared/lib/storageMetering'
+import { getStorageUsageBytes } from '~/features/workspace/boards/model/storageMetering'
 import { TabbedSettingsModal } from '~/shared/ui/TabbedSettingsModal'
-import { AppearanceTab } from './AppearanceTab'
-import { ItemsTab } from './ItemsTab'
-import { LayoutTab } from './LayoutTab'
-import { MoreTab } from './MoreTab'
+import { AppearanceTab } from '~/features/workspace/settings/ui/AppearanceTab'
+import { ItemsTab } from '~/features/workspace/settings/ui/ItemsTab'
+import { LayoutTab } from '~/features/workspace/settings/ui/LayoutTab'
+import { MoreTab } from '~/features/workspace/settings/ui/MoreTab'
 
 const TABS = ['items', 'appearance', 'layout', 'more'] as const
 export type SettingsTab = (typeof TABS)[number]

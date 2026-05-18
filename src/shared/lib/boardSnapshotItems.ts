@@ -6,13 +6,21 @@ import type {
   TierItem,
   TierItemImageRef,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { isPresent } from '~/shared/lib/typeGuards'
 import {
   getImageRefsByRendition,
-  getPrimaryImageRef,
+  getRenderImageRefs,
 } from '~/shared/lib/imageRefs'
-import { isPresent } from '~/shared/lib/typeGuards'
+import { isIdentityTransform } from '~/shared/lib/imageTransform'
+
+const itemHasRenderTransform = (item: TierItem): boolean =>
+{
+  const transform = item.transform
+  return !!transform && !isIdentityTransform(transform)
+}
 
 // visit every live & deleted snapshot item in stable order
 export const forEachSnapshotItem = (
@@ -51,33 +59,29 @@ const collectSnapshotItems = <T>(
   return results
 }
 
-// collect every editor-priority hash per item so wire export can fall back
-// when source bytes are missing but tile or preview bytes are still present
-export const collectSnapshotExportImageHashes = (
-  snapshot: BoardSnapshot
-): string[] => [
-  ...new Set(
-    collectSnapshotItems(snapshot, (item) =>
-      getImageRefsByRendition(item, 'editor').map((ref) => ref.hash)
-    ).flat()
-  ),
-]
-
-// hashes needed for visible board rendering. board priority's primary blob
-// (tile -> source -> preview) carries the visible quality; preview is warmed
-// alongside as a cheap fallback while the primary decodes
-export const collectSnapshotRenderImageRefs = (
-  snapshot: BoardSnapshot
-): TierItemImageRef[] =>
+interface SnapshotRenderImageRef
 {
-  const refs: TierItemImageRef[] = []
+  ref: TierItemImageRef
+  variant: MediaVariantKind
+}
+
+export const collectSnapshotRenderImageVariantRefs = (
+  snapshot: BoardSnapshot
+): SnapshotRenderImageRef[] =>
+{
+  const refs: SnapshotRenderImageRef[] = []
   const seen = new Set<ItemId>()
-  const seenHashes = new Set<string>()
-  const pushRef = (ref: TierItemImageRef | undefined): void =>
+  const seenKeys = new Set<string>()
+  const pushRef = (
+    ref: TierItemImageRef | undefined,
+    variant: MediaVariantKind
+  ): void =>
   {
-    if (!ref || seenHashes.has(ref.hash)) return
-    seenHashes.add(ref.hash)
-    refs.push(ref)
+    if (!ref) return
+    const key = `${ref.hash}:${variant}`
+    if (seenKeys.has(key)) return
+    seenKeys.add(key)
+    refs.push({ ref, variant })
   }
   const visitId = (id: ItemId): void =>
   {
@@ -85,9 +89,13 @@ export const collectSnapshotRenderImageRefs = (
     seen.add(id)
     const item = snapshot.items[id]
     if (!item) return
-    const primary = getPrimaryImageRef(item, 'board')
-    pushRef(primary)
-    if (primary && primary !== item.imageRef) pushRef(item.imageRef)
+    const { primary, fallback } = getRenderImageRefs(item, 'board')
+    pushRef(primary?.ref, primary?.variant ?? 'tile')
+    pushRef(fallback?.ref, fallback?.variant ?? 'preview')
+    if (itemHasRenderTransform(item) && item.sourceImageRef)
+    {
+      pushRef(item.sourceImageRef, 'editor')
+    }
   }
 
   for (const tier of snapshot.tiers)
@@ -99,11 +107,21 @@ export const collectSnapshotRenderImageRefs = (
   return refs
 }
 
-export const collectSnapshotRenderImageHashes = (
+// collect every editor-priority hash per item so wire export can fall back
+// when source bytes are missing but tile or preview bytes are still present
+export const collectSnapshotExportImageHashes = (
   snapshot: BoardSnapshot
-): string[] => collectSnapshotRenderImageRefs(snapshot).map((ref) => ref.hash)
+): string[] =>
+  Array.from(
+    new Set(
+      collectSnapshotItems(snapshot, (item) =>
+        getImageRefsByRendition(item, 'editor').map((ref) => ref.hash)
+      ).flat()
+    )
+  )
 
-// every local blob hash the snapshot needs to retain (drives IDB GC)
+// collect every local blob hash the snapshot needs to retain — covers all
+// three renditions (preview / tile / source) so IDB GC keeps each variant
 export const collectSnapshotLocalImageHashes = (
   snapshot: BoardSnapshot
 ): string[] => [

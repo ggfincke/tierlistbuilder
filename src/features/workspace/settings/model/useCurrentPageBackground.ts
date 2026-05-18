@@ -1,7 +1,7 @@
 // src/features/workspace/settings/model/useCurrentPageBackground.ts
 // resolve the active workspace page background override
 
-import { useCurrentBoardOverride } from './useCurrentBoardOverride'
+import { useCurrentBoardOverride } from '~/features/workspace/settings/model/useCurrentBoardOverride'
 
 export const useCurrentPageBackground = (): string | null =>
   useCurrentBoardOverride(

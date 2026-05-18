@@ -8,6 +8,7 @@ import {
   EXPORT_ITEMS_PER_ROW_DEFAULT,
   normalizeExportItemsPerRow,
 } from '@tierlistbuilder/contracts/platform/preferences'
+import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   AppPreferences,
   ItemShape,
@@ -27,12 +28,17 @@ import { THEME_PALETTE } from '~/shared/theme/palettes'
 import {
   PREFERENCES_STORAGE_KEY,
   PREFERENCES_STORAGE_VERSION,
-} from '../data/local/preferencesStorage'
+} from '~/features/platform/preferences/data/local/preferencesStorage'
+
+const DEFAULT_THEME_ID: ThemeId = 'scoreboard'
+export const HIGH_CONTRAST_THEME_ID: ThemeId = 'volt'
+const DEFAULT_PALETTE_ID: PaletteId = THEME_PALETTE[DEFAULT_THEME_ID]
 
 export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   itemSize: 'medium',
   showLabels: false,
   defaultLabelPlacementMode: 'overlay',
+  defaultLabelFontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
   itemShape: 'square',
   compactMode: false,
   exportBackgroundOverride: null,
@@ -41,8 +47,8 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   labelWidth: 'default',
   hideRowControls: false,
   confirmBeforeDelete: false,
-  themeId: 'classic',
-  paletteId: 'classic',
+  themeId: DEFAULT_THEME_ID,
+  paletteId: DEFAULT_PALETTE_ID,
   textStyleId: 'default',
   tierLabelBold: false,
   tierLabelItalic: false,
@@ -50,7 +56,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   boardLocked: false,
   reducedMotion: false,
   toolbarPosition: 'top',
-  showAltTextButton: false,
+  showItemEditButton: true,
   autoCropTrimSoftShadows: true,
 }
 
@@ -73,6 +79,7 @@ interface PreferencesStore extends AppPreferences, HighContrastTransitionState
   setItemSize: (size: ItemSize) => void
   setShowLabels: (show: boolean) => void
   setDefaultLabelPlacementMode: (mode: LabelPlacementMode) => void
+  setDefaultLabelFontSizePx: (px: number) => void
   setItemShape: (shape: ItemShape) => void
   setCompactMode: (compact: boolean) => void
   setExportBackgroundOverride: (color: string | null) => void
@@ -90,7 +97,7 @@ interface PreferencesStore extends AppPreferences, HighContrastTransitionState
   setBoardLocked: (locked: boolean) => void
   setReducedMotion: (reduced: boolean) => void
   setToolbarPosition: (position: ToolbarPosition) => void
-  setShowAltTextButton: (show: boolean) => void
+  setShowItemEditButton: (show: boolean) => void
   setAutoCropTrimSoftShadows: (trim: boolean) => void
   toggleHighContrast: (enabled: boolean) => void
 }
@@ -126,6 +133,11 @@ export const usePreferencesStore = create<PreferencesStore>()(
           set,
           get,
           'defaultLabelPlacementMode'
+        ),
+        setDefaultLabelFontSizePx: createPreferenceSetter(
+          set,
+          get,
+          'defaultLabelFontSizePx'
         ),
         setItemShape: createPreferenceSetter(set, get, 'itemShape'),
         setCompactMode: createPreferenceSetter(set, get, 'compactMode'),
@@ -165,10 +177,10 @@ export const usePreferencesStore = create<PreferencesStore>()(
         setBoardLocked: createPreferenceSetter(set, get, 'boardLocked'),
         setReducedMotion: createPreferenceSetter(set, get, 'reducedMotion'),
         setToolbarPosition: createPreferenceSetter(set, get, 'toolbarPosition'),
-        setShowAltTextButton: createPreferenceSetter(
+        setShowItemEditButton: createPreferenceSetter(
           set,
           get,
-          'showAltTextButton'
+          'showItemEditButton'
         ),
         setAutoCropTrimSoftShadows: createPreferenceSetter(
           set,
@@ -178,20 +190,22 @@ export const usePreferencesStore = create<PreferencesStore>()(
         toggleHighContrast: (enabled) =>
           set((state) =>
           {
+            // High contrast toggles to/from the Volt theme — the Scoreboard
+            // system's loud-mode theme doubles as the high-contrast option.
             if (enabled)
             {
               return {
                 preHighContrastThemeId: state.themeId,
                 preHighContrastPaletteId: state.paletteId,
-                themeId: 'high-contrast' as const,
-                paletteId: THEME_PALETTE['high-contrast'],
+                themeId: HIGH_CONTRAST_THEME_ID,
+                paletteId: THEME_PALETTE[HIGH_CONTRAST_THEME_ID],
               }
             }
             const restoreTheme =
               state.preHighContrastThemeId &&
-              state.preHighContrastThemeId !== 'high-contrast'
+              state.preHighContrastThemeId !== HIGH_CONTRAST_THEME_ID
                 ? state.preHighContrastThemeId
-                : ('classic' as const)
+                : DEFAULT_THEME_ID
             const restorePalette =
               state.preHighContrastPaletteId ?? THEME_PALETTE[restoreTheme]
             return {
@@ -211,6 +225,12 @@ export const usePreferencesStore = create<PreferencesStore>()(
           preHighContrastPaletteId: _p,
           ...rest
         }) => rest,
+        // Pre-1.0 storage bumps intentionally reset persisted preferences
+        // instead of preserving retired schema values.
+        migrate: () =>
+        {
+          return { ...DEFAULT_APP_PREFERENCES }
+        },
       }
     )
   )

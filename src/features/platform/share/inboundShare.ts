@@ -1,14 +1,17 @@
 // src/features/platform/share/inboundShare.ts
-// inbound hash-share resolver shared by workspace bootstrap & embed
+// inbound share resolver shared by workspace bootstrap & embed (hash-fragment only)
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import {
   clearShareFragment,
   decodeBoardFromShareFragment,
   getShareFragment,
+  isShareFragmentDecodeError,
 } from '~/shared/sharing/hashShare'
 
 type InboundShareSource = 'fragment'
+
+type InboundShareFailureReason = 'missing' | 'invalid' | 'too-large'
 
 interface InboundShareResolved
 {
@@ -21,6 +24,7 @@ interface InboundShareFailed
 {
   kind: 'failed'
   source: InboundShareSource
+  reason: InboundShareFailureReason
   error: unknown
 }
 
@@ -44,7 +48,21 @@ export const clearInboundShareFromUrl = (): void =>
   clearShareFragment()
 }
 
-// resolve the current URL's share marker into a BoardSnapshot
+const classifyInboundShareFailure = (
+  error: unknown
+): InboundShareFailureReason =>
+{
+  if (isShareFragmentDecodeError(error))
+  {
+    if (error.kind === 'empty') return 'missing'
+    if (error.kind === 'too-large') return 'too-large'
+    return 'invalid'
+  }
+
+  return 'invalid'
+}
+
+// resolve the current URL's share fragment into a BoardSnapshot
 export const resolveInboundShare = async (
   options: ResolveInboundShareOptions = {}
 ): Promise<InboundShareResult> =>
@@ -53,19 +71,24 @@ export const resolveInboundShare = async (
   if (signal?.aborted) throw signal.reason ?? new Error('aborted')
 
   const fragment = getShareFragment()
-  if (fragment)
+  if (fragment === null)
   {
-    try
-    {
-      const data = await decodeBoardFromShareFragment(fragment)
-      if (signal?.aborted) throw signal.reason ?? new Error('aborted')
-      return { kind: 'resolved', source: 'fragment', data }
-    }
-    catch (error)
-    {
-      return { kind: 'failed', source: 'fragment', error }
-    }
+    return { kind: 'none' }
   }
 
-  return { kind: 'none' }
+  try
+  {
+    const data = await decodeBoardFromShareFragment(fragment)
+    if (signal?.aborted) throw signal.reason ?? new Error('aborted')
+    return { kind: 'resolved', source: 'fragment', data }
+  }
+  catch (error)
+  {
+    return {
+      kind: 'failed',
+      source: 'fragment',
+      reason: classifyInboundShareFailure(error),
+      error,
+    }
+  }
 }

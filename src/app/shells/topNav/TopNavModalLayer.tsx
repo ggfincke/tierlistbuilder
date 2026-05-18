@@ -1,16 +1,12 @@
 // src/app/shells/topNav/TopNavModalLayer.tsx
 // lazy preferences modal slot for global chrome
 
-import { lazy } from 'react'
-
+import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 
-const PreferencesModal = lazy(() =>
-  import('~/features/platform/preferences/ui/PreferencesModal').then(
-    (module) => ({
-      default: module.PreferencesModal,
-    })
-  )
+const PreferencesModal = lazyNamed(
+  () => import('~/features/platform/preferences/ui/PreferencesModal'),
+  'PreferencesModal'
 )
 
 interface TopNavModalLayerProps

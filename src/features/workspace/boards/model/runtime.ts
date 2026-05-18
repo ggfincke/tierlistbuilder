@@ -60,6 +60,7 @@ export interface ActiveBoardRuntimeState extends BoardSnapshot
   keyboardMode: KeyboardMode
   keyboardFocusItemId: ItemId | null
   itemsManuallyMoved: boolean
+  activeItemCount: number
   selection: Selection
   lastClickedItemId: ItemId | null
   dragGroupIds: ItemId[]
@@ -78,6 +79,7 @@ export const createFreshRuntimeState = (): RuntimeOnlyState => ({
   keyboardMode: 'idle',
   keyboardFocusItemId: null,
   itemsManuallyMoved: false,
+  activeItemCount: 0,
   selection: EMPTY_SELECTION,
   lastClickedItemId: null,
   dragGroupIds: [],

@@ -15,7 +15,7 @@ import type {
   ImageFit,
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { OBJECT_FIT_CLASS } from './constants'
+import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
 import {
   buildManualCropImgStyle,
   isIdentityTransform,

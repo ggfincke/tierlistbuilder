@@ -5,10 +5,9 @@ import { describe, expect, it } from 'vitest'
 import {
   computeColorPickerStyle,
   computeCustomColorPickerStyle,
-  computeItemEditPopoverStyle,
   computeSettingsMenuStyle,
 } from '~/shared/overlay/popupPosition'
-import { makeRect } from '../fixtures'
+import { makeRect } from '@tests/fixtures'
 
 describe('computeColorPickerStyle', () =>
 {
@@ -118,31 +117,6 @@ describe('computeSettingsMenuStyle', () =>
       position: 'fixed',
       bottom: 358,
       right: 800,
-    })
-  })
-})
-
-describe('computeItemEditPopoverStyle', () =>
-{
-  it('positions the popover below the anchor & clamps it within the viewport', () =>
-  {
-    expect(
-      computeItemEditPopoverStyle(
-        makeRect({
-          bottom: 640,
-          left: 980,
-        }),
-        224,
-        140,
-        {
-          width: 1000,
-          height: 700,
-        }
-      )
-    ).toEqual({
-      position: 'fixed',
-      top: 552,
-      left: 768,
     })
   })
 })

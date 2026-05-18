@@ -6,7 +6,7 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef } from 'react'
 
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { ShortcutsList } from './ShortcutsList'
+import { ShortcutsList } from '~/features/workspace/shortcuts/ui/ShortcutsList'
 
 interface ShortcutsPanelProps
 {

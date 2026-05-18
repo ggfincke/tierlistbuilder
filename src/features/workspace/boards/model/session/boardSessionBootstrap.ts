@@ -24,14 +24,27 @@ import {
 } from '~/shared/images/imageStore'
 import { collectSnapshotLocalImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
-import { pluralizeVerb, pluralizeWord } from '~/shared/lib/pluralize'
-import { scheduleIdle } from '~/shared/lib/scheduleIdle'
+import { formatCountedWord, pluralizeWord } from '~/shared/lib/pluralize'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
   loadedBoardStateFromResult,
   loadBoardState,
-} from './boardSessionPersistence'
-import { createBoardMeta } from './boardSessionRegistry'
+} from '~/features/workspace/boards/model/session/boardSessionPersistence'
+import { createBoardMeta } from '~/features/workspace/boards/model/session/boardSessionRegistry'
+
+const scheduleIdle = (callback: () => void, timeout = 2_000): void =>
+{
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.requestIdleCallback === 'function'
+  )
+  {
+    window.requestIdleCallback(callback, { timeout })
+    return
+  }
+
+  setTimeout(callback, 0)
+}
 
 const pruneOrphanedRegistryEntriesAsync = (
   skipBoardId: BoardId | null
@@ -74,7 +87,7 @@ const pruneOrphanedRegistryEntriesAsync = (
       null
     boardStore.replaceRegistry(healthy, nextActiveId)
     toast(
-      `${pruned} ${pluralizeWord(pruned, 'board')} had corrupted data and ${pluralizeVerb(pruned, 'was', 'were')} removed.`,
+      `${formatCountedWord(pruned, 'board')} had corrupted data and ${pluralizeWord(pruned, 'was', 'were')} removed.`,
       'error'
     )
   })
@@ -101,56 +114,14 @@ const reconcileLocalImageRefs = async (): Promise<void> =>
     const scope = boardImageRefScope(meta.id)
     const hashes =
       result.status === 'ok'
-        ? collectSnapshotLocalImageHashes(loadedBoardStateFromResult(result))
+        ? collectSnapshotLocalImageHashes(
+            loadedBoardStateFromResult(result).snapshot
+          )
         : []
     await replaceBlobRefs(scope, hashes)
   }
 
   await pruneUnreferencedBlobs()
-}
-
-const loadHealthyBoardSession = async (boardId: BoardId): Promise<boolean> =>
-{
-  const result = loadBoardFromStorage(boardId)
-
-  if (result.status !== 'ok')
-  {
-    return false
-  }
-
-  const snapshot = loadedBoardStateFromResult(result)
-  const boardStore = useWorkspaceBoardRegistryStore.getState()
-  if (boardStore.activeBoardId !== boardId)
-  {
-    boardStore.setActiveBoardId(boardId)
-  }
-  await warmFromBoard(snapshot)
-  loadBoardState(boardId, snapshot)
-  pruneOrphanedRegistryEntriesAsync(boardId)
-  reconcileLocalImageRefsAsync()
-  return true
-}
-
-const tryLoadSiblingBoardSession = async (
-  requestedActiveId: BoardId
-): Promise<boolean> =>
-{
-  const boardStore = useWorkspaceBoardRegistryStore.getState()
-  const siblingIds = boardStore.boards
-    .map((board) => board.id)
-    .filter((id) => id !== requestedActiveId)
-
-  for (const siblingId of siblingIds)
-  {
-    if (await loadHealthyBoardSession(siblingId))
-    {
-      return true
-    }
-
-    removeBoardFromStorage(siblingId)
-  }
-
-  return false
 }
 
 export const bootstrapBoardSession = async (): Promise<void> =>
@@ -159,20 +130,41 @@ export const bootstrapBoardSession = async (): Promise<void> =>
   const requestedActiveId =
     boardStore.activeBoardId ?? boardStore.boards[0]?.id ?? null
 
+  // walk requested-active first, then the rest of the registry; on corruption
+  // fall through to the next candidate. async pruner emits the toast.
+  const candidates: BoardId[] = []
+  const seen = new Set<BoardId>()
   if (requestedActiveId)
   {
-    if (await loadHealthyBoardSession(requestedActiveId))
+    candidates.push(requestedActiveId)
+    seen.add(requestedActiveId)
+  }
+  for (const meta of boardStore.boards)
+  {
+    if (seen.has(meta.id)) continue
+    seen.add(meta.id)
+    candidates.push(meta.id)
+  }
+
+  for (const candidateId of candidates)
+  {
+    const result = loadBoardFromStorage(candidateId)
+    if (result.status !== 'ok')
     {
-      return
+      removeBoardFromStorage(candidateId)
+      continue
     }
 
-    removeBoardFromStorage(requestedActiveId)
-    toast('Board data was corrupted and has been reset.', 'error')
-
-    if (await tryLoadSiblingBoardSession(requestedActiveId))
+    const state = loadedBoardStateFromResult(result)
+    if (boardStore.activeBoardId !== candidateId)
     {
-      return
+      boardStore.setActiveBoardId(candidateId)
     }
+    await warmFromBoard(state.snapshot)
+    loadBoardState(candidateId, state.snapshot, state.syncState)
+    pruneOrphanedRegistryEntriesAsync(candidateId)
+    reconcileLocalImageRefsAsync()
+    return
   }
 
   const id = generateBoardId()

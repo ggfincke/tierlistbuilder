@@ -15,9 +15,9 @@ import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import {
   createAspectRatioPromptSnapshot,
   resolveAspectRatioPromptItems,
-} from '~/features/workspace/settings/model/aspectRatioPromptSnapshot'
-import { shouldOpenAspectRatioPromptAfterImport } from '~/features/workspace/settings/model/aspectRatioPromptImport'
-import { makeBoardSnapshot, makeItem } from '../fixtures'
+} from '~/features/workspace/settings/model/aspect-ratio/aspectRatioPromptSnapshot'
+import { shouldOpenAspectRatioPromptAfterImport } from '~/features/workspace/settings/model/aspect-ratio/aspectRatioPromptImport'
+import { makeBoardSnapshot, makeItem } from '@tests/fixtures'
 
 describe('aspect ratio prompt snapshot', () =>
 {

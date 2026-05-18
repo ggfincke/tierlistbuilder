@@ -1,16 +1,17 @@
 // packages/contracts/lib/theme.ts
 // theme, palette, text-style identifiers, & tier color spec primitives
 
-// color theme identifiers
+// color theme identifiers — Scoreboard design system (v6); 8 chrome themes
+// share one Inter Black + JetBrains Mono editorial vocabulary, swap palette pairs
 export const THEME_IDS = [
-  'classic',
-  'classic-light',
+  'scoreboard',
+  'paper',
   'midnight',
   'forest',
   'ember',
   'sakura',
   'amoled',
-  'high-contrast',
+  'volt',
 ] as const
 export type ThemeId = (typeof THEME_IDS)[number]
 

@@ -11,7 +11,7 @@ import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { TierDistributionChart } from './TierDistributionChart'
+import { TierDistributionChart } from '~/features/workspace/stats/ui/TierDistributionChart'
 
 interface StatsModalProps
 {

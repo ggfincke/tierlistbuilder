@@ -16,7 +16,7 @@ import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import * as imagePersistence from '~/shared/images/imagePersistence'
 import * as imageStore from '~/shared/images/imageStore'
 import * as downloadBlobModule from '~/shared/lib/downloadBlob'
-import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
 
 // minimal valid board data — satisfies parseBoardJson validation
 const makeValidBoard = (overrides?: Partial<BoardSnapshot>): BoardSnapshot =>
@@ -243,6 +243,82 @@ describe('parseBoardJson', () =>
     expect(result.title).toBe('Imported Tier List')
   })
 
+  it('preserves notes and source metadata through JSON import', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        title: 'Imported fork',
+        tiers: [
+          {
+            id: 'tier-s',
+            name: 'S',
+            colorSpec: { kind: 'palette', index: 0 },
+            itemIds: ['item-1'],
+          },
+        ],
+        items: {
+          'item-1': {
+            id: 'item-1',
+            label: 'First',
+            notes: 'Private note',
+            sourceTemplateItemExternalId: 'template-item-1',
+          },
+        },
+        deletedItems: [
+          {
+            id: 'deleted-1',
+            label: 'Deleted',
+            notes: 'Deleted note',
+            sourceTemplateItemExternalId: 'template-item-deleted',
+          },
+        ],
+        unrankedItemIds: [],
+        sourceTemplateId: 'template-slug',
+        sourceRankingId: 'ranking-slug',
+        sourceTemplateTitle: 'Template title',
+        sourceRankingTitle: 'Ranking title',
+        preferredCriterionExternalId: 'criterion-external-id',
+        sourceTemplateCoverMedia: {
+          externalId: 'media-cover',
+          contentHash: 'cover-hash',
+          url: 'https://example.test/cover.webp',
+          width: 1200,
+          height: 800,
+          mimeType: 'image/webp',
+        },
+        sourceTemplateCoverFraming: {
+          browseHero: null,
+          detailHero: null,
+          card: { x: 0, y: 0, width: 1, height: 1 },
+        },
+      },
+    }
+
+    const result = await parseBoardJson(JSON.stringify(payload))
+
+    expect(result.items['item-1']).toMatchObject({
+      notes: 'Private note',
+      sourceTemplateItemExternalId: 'template-item-1',
+    })
+    expect(result.deletedItems[0]).toMatchObject({
+      notes: 'Deleted note',
+      sourceTemplateItemExternalId: 'template-item-deleted',
+    })
+    expect(result.sourceTemplateId).toBe('template-slug')
+    expect(result.sourceRankingId).toBe('ranking-slug')
+    expect(result.sourceTemplateTitle).toBe('Template title')
+    expect(result.sourceRankingTitle).toBe('Ranking title')
+    expect(result.preferredCriterionExternalId).toBe('criterion-external-id')
+    expect(result.sourceTemplateCoverMedia?.externalId).toBe('media-cover')
+    expect(result.sourceTemplateCoverFraming?.card).toEqual({
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    })
+  })
+
   it('drops image refs & deleted items from share payloads', async () =>
   {
     const board = makeValidBoard({
@@ -403,6 +479,83 @@ describe('parseBoardJson', () =>
     expect(payload.data.items['item-1'].imageUrl).toBe(
       'data:image/webp;base64,dGlsZQ=='
     )
+  })
+
+  it('preserves notes and source metadata through JSON export', async () =>
+  {
+    const board = makeValidBoard({
+      sourceTemplateId: 'template-slug',
+      sourceRankingId: 'ranking-slug',
+      sourceTemplateTitle: 'Template title',
+      sourceRankingTitle: 'Ranking title',
+      preferredCriterionExternalId: 'criterion-external-id',
+      sourceTemplateCoverMedia: {
+        externalId: 'media-cover',
+        contentHash: 'cover-hash',
+        url: 'https://example.test/cover.webp',
+        width: 1200,
+        height: 800,
+        mimeType: 'image/webp',
+      },
+      sourceTemplateCoverFraming: {
+        browseHero: null,
+        detailHero: null,
+        card: { x: 0, y: 0, width: 1, height: 1 },
+      },
+      items: {
+        [asItemId('item-1')]: makeItem({
+          id: asItemId('item-1'),
+          label: 'First',
+          notes: 'Private note',
+          sourceTemplateItemExternalId: 'template-item-1',
+        }),
+        [asItemId('item-2')]: makeItem({
+          id: asItemId('item-2'),
+          label: 'Second',
+        }),
+      },
+      deletedItems: [
+        makeItem({
+          id: asItemId('deleted-1'),
+          label: 'Deleted',
+          notes: 'Deleted note',
+          sourceTemplateItemExternalId: 'template-item-deleted',
+        }),
+      ],
+    })
+    const downloadSpy = vi
+      .spyOn(downloadBlobModule, 'downloadBlob')
+      .mockImplementation(() => undefined)
+
+    await exportBoardAsJson(board, board.title)
+
+    const payload = JSON.parse(await downloadSpy.mock.calls[0][0].text()) as {
+      data: BoardSnapshot
+    }
+    expect(payload.data.items['item-1']).toMatchObject({
+      notes: 'Private note',
+      sourceTemplateItemExternalId: 'template-item-1',
+    })
+    expect(payload.data.deletedItems[0]).toMatchObject({
+      notes: 'Deleted note',
+      sourceTemplateItemExternalId: 'template-item-deleted',
+    })
+    expect(payload.data.sourceTemplateId).toBe('template-slug')
+    expect(payload.data.sourceRankingId).toBe('ranking-slug')
+    expect(payload.data.sourceTemplateTitle).toBe('Template title')
+    expect(payload.data.sourceRankingTitle).toBe('Ranking title')
+    expect(payload.data.preferredCriterionExternalId).toBe(
+      'criterion-external-id'
+    )
+    expect(payload.data.sourceTemplateCoverMedia?.externalId).toBe(
+      'media-cover'
+    )
+    expect(payload.data.sourceTemplateCoverFraming?.card).toEqual({
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    })
   })
 
   it('fails export when a referenced image blob is missing', async () =>

@@ -8,8 +8,8 @@ import type { Tier, TierItem } from '@tierlistbuilder/contracts/workspace/board'
 import { itemHasAspectMismatch } from '~/shared/board-ui/aspectRatio'
 import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
-import type { ImageEditorFilter } from './useImageEditorStore'
-import type { PendingImageEditorPaneEdit } from './pendingImageEdit'
+import type { ImageEditorFilter } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 interface ImageEditorItemsInput
 {
@@ -24,7 +24,7 @@ interface UseImageEditorItemsInput extends ImageEditorItemsInput
   boardAspectRatio: number
 }
 
-export const collectImageEditorItems = ({
+const collectImageEditorItems = ({
   items,
   tiers,
   unrankedItemIds,
@@ -49,11 +49,11 @@ export const collectImageEditorItems = ({
   return result
 }
 
-export const filterImageEditorItems = (
+const filterImageEditorItems = (
   items: readonly TierItem[],
   filter: ImageEditorFilter,
   boardAspectRatio: number
-): TierItem[] =>
+): readonly TierItem[] =>
 {
   if (filter === 'mismatched')
   {
@@ -65,10 +65,10 @@ export const filterImageEditorItems = (
       (it) => !!it.transform && !isIdentityTransform(it.transform)
     )
   }
-  return [...items]
+  return items
 }
 
-export const applyPendingImageEditorEdit = (
+const applyPendingImageEditorEdit = (
   items: readonly TierItem[],
   pendingEdit: PendingImageEditorPaneEdit | null
 ): readonly TierItem[] =>

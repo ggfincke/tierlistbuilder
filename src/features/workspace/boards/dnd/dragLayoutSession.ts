@@ -11,13 +11,13 @@ import {
   tierContainerSelector,
 } from '~/shared/board-ui/boardTestIds'
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { getOrderedContainerIds } from './dragSnapshot'
+import { getOrderedContainerIds } from '~/features/workspace/boards/dnd/dragSnapshot'
 import {
   buildRenderedRowLayout,
   sortByRenderedPosition,
   type RenderedItemPosition,
   type RenderedRowLayout,
-} from './dragLayoutRows'
+} from '~/features/workspace/boards/dnd/dragLayoutRows'
 
 interface RenderedContainerLayout
 {

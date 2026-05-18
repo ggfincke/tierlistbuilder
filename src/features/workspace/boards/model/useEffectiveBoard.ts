@@ -10,7 +10,7 @@ import {
   getEffectiveTiers,
   getEffectiveUnrankedItemIds,
 } from '~/features/workspace/boards/dnd/dragSnapshot'
-import { useActiveBoardStore } from './useActiveBoardStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 
 // narrow subscription — only `tiers` & `dragPreview`, so UnrankedPool edits
 // don't invalidate TierList's render path during drag

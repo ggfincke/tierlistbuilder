@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from 'react'
 
-import { useDismissibleLayer } from './dismissibleLayer'
+import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 
 interface UseAnchoredPopupOptions
 {
@@ -24,6 +24,7 @@ interface UseAnchoredPopupOptions
   closeOnInteractOutside?: boolean
   escapePhase?: 'capture' | 'bubble'
   stopEscapePropagation?: boolean
+  positionUpdateMode?: 'reposition' | 'close'
   computePosition: () => CSSProperties | null
 }
 
@@ -37,6 +38,7 @@ export const useAnchoredPopup = ({
   closeOnInteractOutside = true,
   escapePhase = 'bubble',
   stopEscapePropagation = false,
+  positionUpdateMode = 'reposition',
   computePosition,
 }: UseAnchoredPopupOptions) =>
 {
@@ -68,7 +70,7 @@ export const useAnchoredPopup = ({
     closeOnInteractOutside,
     escapePhase,
     stopEscapePropagation,
-    onPositionUpdate: updatePosition,
+    onPositionUpdate: positionUpdateMode === 'close' ? onClose : updatePosition,
   })
 
   useLayoutEffect(() =>

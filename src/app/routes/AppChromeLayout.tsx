@@ -4,6 +4,7 @@
 import { useCallback, type MouseEvent } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 
+import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
 import { getWorkspacePath } from '~/shared/routes/pathname'
 import { AppTopNav } from '~/app/shells/AppTopNav'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
@@ -43,6 +44,10 @@ const WorkspaceSkipLink = () =>
 export const AppChromeLayout = () =>
 {
   const { pathname } = useLocation()
+  // single bootstrap-owner for the chrome-wrapped routes; child routes
+  // subscribe via useAppReady so each nav doesn't re-register hydration
+  // listeners or run its own bootstrap effect
+  useAppBootstrap()
 
   return (
     <>

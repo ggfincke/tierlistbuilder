@@ -11,13 +11,14 @@ import {
   selectIsDragging,
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { nextToolbarPosition } from '~/shared/layout/toolbarPosition'
+import { nextToolbarPosition } from '~/shared/overlay/toolbarPosition'
 import { announce } from '~/shared/a11y/announce'
 import { hasActiveModalLayer } from '~/shared/overlay/modalLayer'
+import { matchShortcut } from '~/shared/lib/keyboardShortcut'
 import {
   isEditableShortcutTarget,
   runUndoRedoShortcut,
-} from './undoRedoShortcut'
+} from '~/features/workspace/shortcuts/model/undoRedoShortcut'
 
 interface UseGlobalShortcutsOptions
 {
@@ -41,11 +42,6 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (!el || isEditableShortcutTarget(el)) return
       if (hasActiveModalLayer()) return
 
-      const mod = e.ctrlKey || e.metaKey
-      // normalize once — Shift flips printable keys to uppercase, which broke
-      // Ctrl/Cmd+Shift+Z since we compared against lowercase 'z'
-      const key = e.key.toLowerCase()
-
       // drop Ctrl/Cmd+Z/Y mid-drag — dnd-kit still holds its own active state,
       // & undoing out from under it leaves the overlay & refs stranded
       if (
@@ -60,7 +56,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // export — Ctrl/Cmd+S
-      if (mod && key === 's')
+      if (matchShortcut(e, { key: 's', mod: true }))
       {
         e.preventDefault()
         const locked = usePreferencesStore.getState().boardLocked
@@ -69,7 +65,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // cycle toolbar position — Ctrl/Cmd+Shift+T
-      if (mod && e.shiftKey && key === 't')
+      if (matchShortcut(e, { key: 't', mod: true, shift: true }))
       {
         e.preventDefault()
         const { toolbarPosition, setToolbarPosition } =
@@ -81,7 +77,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // select all items — Ctrl/Cmd+A
-      if (mod && key === 'a')
+      if (matchShortcut(e, { key: 'a', mod: true }))
       {
         e.preventDefault()
         const locked = usePreferencesStore.getState().boardLocked
@@ -89,11 +85,8 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
         return
       }
 
-      // skip remaining shortcuts when modifiers are held
-      if (mod || e.altKey) return
-
       // jump back to the board from non-editable UI
-      if (!e.shiftKey && key === 'b')
+      if (matchShortcut(e, { key: 'b' }))
       {
         e.preventDefault()
         handleKeyboardBoardJumpKey()
@@ -103,7 +96,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       // clear bulk selection — Escape
       // skip if already handled by a focused item's keyboard controller or
       // if a pointer drag is active (dnd-kit handles its own Escape)
-      if (key === 'escape')
+      if (matchShortcut(e, { key: 'escape' }))
       {
         if (e.defaultPrevented) return
         const state = useActiveBoardStore.getState()
@@ -117,7 +110,10 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // delete focused item or selected items — Delete or Backspace
-      if (key === 'delete' || key === 'backspace')
+      if (
+        matchShortcut(e, { key: 'delete' }) ||
+        matchShortcut(e, { key: 'backspace' })
+      )
       {
         const state = useActiveBoardStore.getState()
         const locked = usePreferencesStore.getState().boardLocked
@@ -139,8 +135,9 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
         return
       }
 
-      // shortcuts panel — ? key
-      if (key === '?')
+      // shortcuts panel — ? glyph; `?` is shift+/ on US but bare on other
+      // layouts, so match the printed character & guard mod/alt inline
+      if (e.key === '?' && !(e.ctrlKey || e.metaKey) && !e.altKey)
       {
         setShowShortcutsPanel((prev) => !prev)
         return

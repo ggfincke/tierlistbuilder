@@ -13,7 +13,7 @@ import {
   brandItemIds as ids,
   findTierById,
   makeContainerSnapshot,
-} from '../fixtures'
+} from '@tests/fixtures'
 
 const getRowLayout =
   (layouts: Record<string, RenderedRowLayout>) => (containerId: string) =>

@@ -17,12 +17,12 @@ import {
   isIdentityTransform,
   isSameItemTransform,
 } from '~/shared/lib/imageTransform'
-import { withUndo } from '../undoSlice'
+import { withUndo } from '~/features/workspace/boards/model/slices/undoSlice'
 import type {
   ActiveBoardSliceCreator,
   ActiveBoardStore,
   BoardDataSlice,
-} from '../types'
+} from '~/features/workspace/boards/model/slices/types'
 
 type AspectRatioActions = Pick<
   BoardDataSlice,
