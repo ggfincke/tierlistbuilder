@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as dev_reset from "../dev/reset.js";
+import type * as dev_resetLock from "../dev/resetLock.js";
 import type * as http from "../http.js";
 import type * as lib_assertions from "../lib/assertions.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -24,6 +25,7 @@ import type * as lib_limits from "../lib/limits.js";
 import type * as lib_mediaVariants from "../lib/mediaVariants.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_rateLimiter from "../lib/rateLimiter.js";
+import type * as lib_retry from "../lib/retry.js";
 import type * as lib_seedContentHash from "../lib/seedContentHash.js";
 import type * as lib_sha256 from "../lib/sha256.js";
 import type * as lib_storage from "../lib/storage.js";
@@ -102,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
   "dev/reset": typeof dev_reset;
+  "dev/resetLock": typeof dev_resetLock;
   http: typeof http;
   "lib/assertions": typeof lib_assertions;
   "lib/auth": typeof lib_auth;
@@ -115,6 +118,7 @@ declare const fullApi: ApiFromModules<{
   "lib/mediaVariants": typeof lib_mediaVariants;
   "lib/permissions": typeof lib_permissions;
   "lib/rateLimiter": typeof lib_rateLimiter;
+  "lib/retry": typeof lib_retry;
   "lib/seedContentHash": typeof lib_seedContentHash;
   "lib/sha256": typeof lib_sha256;
   "lib/storage": typeof lib_storage;

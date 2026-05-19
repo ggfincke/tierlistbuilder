@@ -10,6 +10,7 @@ import {
   CASCADE_DELETE_PAGE_SIZE,
   runCascadePhaseMachine,
 } from '../../../lib/cascadeDelete'
+import { isDevResetActive } from '../../../dev/resetLock'
 
 export const deleteSeedRankingWithChildren = async (
   ctx: MutationCtx,
@@ -54,6 +55,7 @@ export const cascadeSeedBoardChildren = internalMutation({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
+    if (await isDevResetActive(ctx)) return null
     const phase: CascadePhase = args.phase ?? 'items'
     await runCascadePhaseMachine({
       ctx,

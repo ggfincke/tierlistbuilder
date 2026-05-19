@@ -17,6 +17,7 @@ import type { RankingFeaturedBadge } from '@tierlistbuilder/contracts/marketplac
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { assertCountRange, assertNonemptyString } from '../../../lib/assertions'
 import { SEED_LIMITS } from '../../../lib/limits'
+import { isConvexWriteThrottleError, sleep } from '../../../lib/retry'
 import { seedContentHash } from '../../../lib/seedContentHash'
 import { loadSeedTemplateLookupForRelease } from '../../seedPipeline/templates'
 import {
@@ -86,9 +87,50 @@ const SAMPLE_RANKING_DESCRIPTION =
 // ranking per mutation because each delete can cascade through ranking items,
 // tiers, & a companion board.
 const STALE_RANKING_CLEANUP_SCAN_PAGE_SIZE = 16
-// bound on per-action mutation concurrency. distinct rankingId rows give low
-// OCC contention, but convex per-deployment write-rate caps still apply
-const SEED_RANKING_APPLY_CONCURRENCY = 4
+// Ranking seed writes are document-heavy. Start near the local write ceiling,
+// then back off per batch if Convex reports deployment write-rate pressure.
+const SEED_RANKING_BATCH_DELAY_MS = 750
+const SEED_RANKING_BATCH_MAX_ATTEMPTS = 6
+const SEED_RANKING_BATCH_RETRY_BASE_MS = 1500
+const SEED_RANKING_BATCH_RETRY_MAX_MS = 12000
+
+const seedRankingBatchRetryDelay = (attempt: number): number =>
+  Math.min(
+    SEED_RANKING_BATCH_RETRY_MAX_MS,
+    SEED_RANKING_BATCH_RETRY_BASE_MS * 2 ** Math.max(0, attempt - 1)
+  )
+
+// Wrap a seed-pipeline action call w/ throttle-aware retries. label flows
+// into the safety-net error message so the originating call site is
+// identifiable if the budget ever exhausts.
+const runSeedActionWithThrottleRetries = async <T>(
+  invoke: () => Promise<T>,
+  label: string
+): Promise<T> =>
+{
+  for (let attempt = 1; attempt <= SEED_RANKING_BATCH_MAX_ATTEMPTS; attempt++)
+  {
+    try
+    {
+      return await invoke()
+    }
+    catch (error)
+    {
+      if (
+        !isConvexWriteThrottleError(error) ||
+        attempt >= SEED_RANKING_BATCH_MAX_ATTEMPTS
+      )
+      {
+        throw error
+      }
+      await sleep(seedRankingBatchRetryDelay(attempt))
+    }
+  }
+  throw new ConvexError({
+    code: CONVEX_ERROR_CODES.invalidState,
+    message: `${label} retry loop exited unexpectedly`,
+  })
+}
 
 interface ReplacementResult
 {
@@ -940,10 +982,9 @@ const groupTasksByTemplate = (
   }))
 }
 
-// per-template tasks per mutation. deleteSeedRankingWithChildren schedules
-// child cleanup so each task is ~(items + tiers + 5) writes & ~5 reads; the
-// python pipeline's GENERIC_SAMPLE_ITEM_BUDGET bounds large templates.
-const SEED_RANKING_TASKS_PER_MUTATION = 16
+// Per-template tasks per mutation. Each task writes one ranking plus all of its
+// tiers/items, so keep this low enough for local write-rate ceilings.
+const SEED_RANKING_TASKS_PER_MUTATION = 4
 
 const chunkTaskGroup = (
   group: SerializedTemplateTaskGroup
@@ -1383,29 +1424,29 @@ export const applySeedRankingChunk = internalAction({
       sampleRankingsApplied: 0,
       curatedRankingsApplied: 0,
     }
-    for (let i = 0; i < groups.length; i += SEED_RANKING_APPLY_CONCURRENCY)
+    for (const [index, group] of groups.entries())
     {
-      const slice = groups.slice(i, i + SEED_RANKING_APPLY_CONCURRENCY)
-      const sliceResults = await Promise.all(
-        slice.map((group) =>
+      const result = await runSeedActionWithThrottleRetries(
+        () =>
           runSeedRankingTemplateBatch(
             ctx,
             args.datasetKey,
             args.releaseId,
             args.rankingSeeds,
             group
-          )
-        )
+          ),
+        'ranking seed batch'
       )
-      for (const result of sliceResults)
+      totals.boardsReplaced += result.boardsDeleted
+      totals.rankingsReplaced += result.rankingsDeleted
+      totals.rankingsUnchanged += result.rankingsUnchanged
+      totals.rankingTiersWritten += result.tiersWritten
+      totals.rankingItemsWritten += result.itemsWritten
+      totals.sampleRankingsApplied += result.sampleRankingsApplied
+      totals.curatedRankingsApplied += result.curatedRankingsApplied
+      if (index < groups.length - 1)
       {
-        totals.boardsReplaced += result.boardsDeleted
-        totals.rankingsReplaced += result.rankingsDeleted
-        totals.rankingsUnchanged += result.rankingsUnchanged
-        totals.rankingTiersWritten += result.tiersWritten
-        totals.rankingItemsWritten += result.itemsWritten
-        totals.sampleRankingsApplied += result.sampleRankingsApplied
-        totals.curatedRankingsApplied += result.curatedRankingsApplied
+        await sleep(SEED_RANKING_BATCH_DELAY_MS)
       }
     }
 
@@ -1447,20 +1488,28 @@ export const cleanupStaleSeedRankings = internalAction({
         boardsDeleted: number
         cursor: string | null
         isDone: boolean
-      } = await ctx.runMutation(
-        internal.marketplace.rankings.seed.actions
-          .deleteStaleSeedRankingRowsImpl,
-        {
-          datasetKey: args.datasetKey,
-          releaseId: args.releaseId,
-          plannedSeedExternalIds,
-          cursor,
-        }
+      } = await runSeedActionWithThrottleRetries(
+        () =>
+          ctx.runMutation(
+            internal.marketplace.rankings.seed.actions
+              .deleteStaleSeedRankingRowsImpl,
+            {
+              datasetKey: args.datasetKey,
+              releaseId: args.releaseId,
+              plannedSeedExternalIds,
+              cursor,
+            }
+          ),
+        'ranking stale cleanup'
       )
       rankingsDeleted += result.rankingsDeleted
       boardsDeleted += result.boardsDeleted
       if (result.isDone) break
       cursor = result.cursor
+      if (result.rankingsDeleted > 0 || result.boardsDeleted > 0)
+      {
+        await sleep(SEED_RANKING_BATCH_DELAY_MS)
+      }
     }
     return {
       datasetKey: args.datasetKey,

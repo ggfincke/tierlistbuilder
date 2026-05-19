@@ -10,6 +10,7 @@ from seed_pipeline.convex_client import ConvexClientError, SEED_HTTP_ROUTES
 from seed_pipeline.concurrency import run_in_parallel
 from seed_pipeline.ranking_config import compile_ranking_seeds
 from seed_pipeline.rankings import (
+    RANKING_APPLY_TARGET_COOLDOWN_SECONDS,
     RANKING_APPLY_THROTTLE_BASE_SECONDS,
     SEED_RANKINGS_ACTIVATE_FUNCTION,
     SEED_RANKINGS_APPLY_FUNCTION,
@@ -370,6 +371,81 @@ class RankingSeedCompilationTests(unittest.TestCase):
         sleep.assert_called_once_with(RANKING_APPLY_THROTTLE_BASE_SECONDS)
         self.assertTrue(
             any("throttled by write-rate limit" in msg for msg in context.progress.messages)
+        )
+
+    @patch("seed_pipeline.rankings.time.sleep")
+    def test_apply_runs_targets_sequentially_with_cooldown(self, sleep: object) -> None:
+        ranking_seeds = _manifest(
+            {
+                "profiles": [
+                    {"key": "a", "displayName": "A", "chaos": 0, "contrarian": 0}
+                ],
+                "targets": [
+                    {
+                        "templateExternalId": "one",
+                        "sampleProfileCount": 1,
+                        "lanes": [],
+                    },
+                    {
+                        "templateExternalId": "two",
+                        "sampleProfileCount": 1,
+                        "lanes": [],
+                    },
+                ],
+            }
+        )["rankingSeeds"]
+        context = _FakeRankingApplyContext(
+            [
+                {
+                    "releaseId": "release-a",
+                    "boardsReplaced": 0,
+                    "rankingsReplaced": 1,
+                    "rankingsUnchanged": 0,
+                    "sampleRankingsApplied": 1,
+                    "curatedRankingsApplied": 0,
+                    "rankingTiersWritten": 1,
+                    "rankingItemsWritten": 1,
+                    "aggregateLanes": [],
+                    "diagnostics": [],
+                },
+                {
+                    "releaseId": "release-a",
+                    "boardsReplaced": 0,
+                    "rankingsReplaced": 1,
+                    "rankingsUnchanged": 0,
+                    "sampleRankingsApplied": 1,
+                    "curatedRankingsApplied": 0,
+                    "rankingTiersWritten": 1,
+                    "rankingItemsWritten": 1,
+                    "aggregateLanes": [],
+                    "diagnostics": [],
+                },
+                {
+                    "releaseId": "release-a",
+                    "rankingsDeleted": 0,
+                    "boardsDeleted": 0,
+                },
+            ]
+        )
+
+        _apply_ranking_targets(
+            context,
+            ranking_seeds,
+            {"authorsCreated": 0, "authorsReused": 1, "authorsPatched": 0},
+        )
+
+        self.assertEqual(
+            [function_path for function_path, _payload in context.client.actions],
+            [
+                SEED_RANKINGS_APPLY_FUNCTION,
+                SEED_RANKINGS_APPLY_FUNCTION,
+                SEED_RANKINGS_CLEANUP_STALE_FUNCTION,
+            ],
+        )
+        sleep.assert_called_once_with(RANKING_APPLY_TARGET_COOLDOWN_SECONDS)
+        self.assertEqual(
+            context.progress.messages[:2],
+            ["ranking target 1/2: one", "ranking target 2/2: two"],
         )
 
     def test_run_in_parallel_reports_one_based_completion_counts(self) -> None:

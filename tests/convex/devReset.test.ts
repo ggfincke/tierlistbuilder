@@ -6,6 +6,11 @@ import { describe, expect, it } from 'vitest'
 
 const readWorkspaceFile = (path: string): string => readFileSync(path, 'utf-8')
 
+// devResetLocks is wiped by releaseDevResetLocksForDeployment at the very end
+// of wipeDeployment, not via the RESETTABLE_TABLES loop — including it there
+// would let the wipe release its own lock mid-run & let maintenance jobs race
+const RESET_EXEMPT_TABLES = new Set<string>(['devResetLocks'])
+
 const extractResettableTables = (): Set<string> =>
 {
   const source = readWorkspaceFile('convex/dev/reset.ts')
@@ -31,7 +36,7 @@ describe('dev reset table coverage', () =>
   {
     const resettable = extractResettableTables()
     const missing = extractSchemaTables().filter(
-      (table) => !resettable.has(table)
+      (table) => !resettable.has(table) && !RESET_EXEMPT_TABLES.has(table)
     )
 
     expect(missing).toEqual([])

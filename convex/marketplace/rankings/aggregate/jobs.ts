@@ -10,6 +10,7 @@ import {
   MAX_SYNC_ITEMS,
   MAX_SYNC_TIERS,
 } from '../../../lib/limits'
+import { isDevResetActive } from '../../../dev/resetLock'
 import { isPublicRankingRow } from '../lib'
 import {
   buildAggregateItemMetrics,
@@ -878,6 +879,10 @@ export const admitQueuedTemplateRankingAggregateJobs = internalMutation({
     queuedRemaining: number
   }> =>
   {
+    if (await isDevResetActive(ctx))
+    {
+      return { admitted: 0, running: 0, queuedRemaining: 0 }
+    }
     const now = Date.now()
     await clearTemplateRankingAggregateJobAdmission(ctx)
     const running = await ctx.db
@@ -962,6 +967,7 @@ export const processTemplateRankingAggregateJob = internalMutation({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
+    if (await isDevResetActive(ctx)) return null
     const job = await ctx.db.get(args.jobId)
     if (!job) return null
     if (job.status === 'queued')
@@ -1049,6 +1055,7 @@ export const deleteTemplateRankingAggregateGeneration = internalMutation({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
+    if (await isDevResetActive(ctx)) return null
     const page = await ctx.db
       .query('templateRankingAggregateItems')
       .withIndex('byTemplateIdAndCriterionAndGenerationAndOrder', (q) =>
@@ -1092,6 +1099,7 @@ export const retryStaleTemplateRankingAggregateJobs = internalMutation({
     args
   ): Promise<{ scheduled: number; isDone: boolean }> =>
   {
+    if (await isDevResetActive(ctx)) return { scheduled: 0, isDone: true }
     const status: AggregateRetryStatus = args.status ?? 'queued'
     const now = Date.now()
     const cutoff = now - AGGREGATE_JOB_RETRY_AFTER_MS
@@ -1148,6 +1156,7 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
     args
   ): Promise<{ scheduled: number; isDone: boolean }> =>
   {
+    if (await isDevResetActive(ctx)) return { scheduled: 0, isDone: true }
     const state: AggregateScheduleState = args.state ?? 'stale'
     const page = await ctx.db
       .query('templateRankingAggregates')
@@ -1217,6 +1226,7 @@ export const deleteTemplateRankingAggregateRows = internalMutation({
   returns: v.object({ isDone: v.boolean() }),
   handler: async (ctx, args): Promise<{ isDone: boolean }> =>
   {
+    if (await isDevResetActive(ctx)) return { isDone: true }
     const criterionExternalId = args.criterionExternalId
     const page =
       criterionExternalId === undefined

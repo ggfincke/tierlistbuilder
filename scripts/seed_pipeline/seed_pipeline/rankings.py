@@ -7,7 +7,6 @@ import time
 from pathlib import Path
 
 from .convex_client import ConvexClientError
-from .concurrency import run_in_parallel
 from .manifest import JsonObject, as_list
 from .report_layout import report_header, write_report
 from .run_context import (
@@ -39,15 +38,17 @@ RANKING_ACTIVATION_THROTTLE_SECONDS = 2.0
 MAX_RANKING_APPLY_ATTEMPTS = 6
 RANKING_APPLY_THROTTLE_BASE_SECONDS = 3.0
 RANKING_APPLY_THROTTLE_MAX_SECONDS = 30.0
-# bound concurrent target apply HTTP calls. ranking applies are server-heavy
-# (writes per target) so a small pool stays under per-deployment write caps
-RANKING_APPLY_WORKERS = 4
+# Ranking target applies are server-heavy. Run them sequentially with a short
+# cooldown so retries do not stack more writes onto an already-throttled backend.
+RANKING_APPLY_TARGET_COOLDOWN_SECONDS = 0.25
 
 # substrings convex emits when per-deployment write-rate caps trip. these are
-# matched against ConvexClientError messages — if convex rewords either, this
-# orchestrator silently stops throttling, so keep both in one place
+# matched against ConvexClientError messages — if convex rewords any, this
+# orchestrator silently stops throttling, so keep all in one place. mirror
+# convex/lib/retry.ts isConvexWriteThrottleError when adding/removing markers
 CONVEX_WRITE_RATE_ERROR_MARKERS: tuple[str, ...] = (
     "Too many writes per second",
+    "Too many concurrent commits",
     "bytes written per 1 second",
 )
 
@@ -323,14 +324,12 @@ def _apply_ranking_targets(
             f"ranking target {_label(chunk)}",
         )
 
-    results = run_in_parallel(
-        chunks,
-        _apply_one,
-        max_workers=min(RANKING_APPLY_WORKERS, len(chunks)),
-        on_complete=lambda completed, total, chunk: context.progress.log(
-            f"ranking target {completed}/{total}: {_label(chunk)}"
-        ),
-    )
+    results: list[JsonObject] = []
+    for index, chunk in enumerate(chunks, start=1):
+        results.append(_apply_one(chunk))
+        context.progress.log(f"ranking target {index}/{len(chunks)}: {_label(chunk)}")
+        if index < len(chunks):
+            time.sleep(RANKING_APPLY_TARGET_COOLDOWN_SECONDS)
     merged = _merge_apply_results(context, results, author_result)
     cleanup = _cleanup_stale_ranking_rows(context, ranking_seeds)
     # cleanup deletions are tracked separately from replacement rewrites —

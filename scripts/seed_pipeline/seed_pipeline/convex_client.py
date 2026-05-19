@@ -19,6 +19,7 @@ from .manifest import JsonObject
 RETRYABLE_HTTP_STATUS = {429, 500, 502, 503, 504}
 HTTP_ATTEMPTS = 4
 HTTP_RETRY_BASE_SECONDS = 0.5
+HTTP_TIMEOUT_SECONDS = 600
 CONVEX_CLIENT_HEADER = "python-1.0.0"
 
 SEED_HTTP_ROUTES = {
@@ -177,7 +178,7 @@ class ConvexSeedClient:
         last_error: Exception | None = None
         for attempt in range(HTTP_ATTEMPTS):
             try:
-                with urlopen(request_factory(), timeout=120) as response:
+                with urlopen(request_factory(), timeout=HTTP_TIMEOUT_SECONDS) as response:
                     payload = json.loads(response.read().decode("utf-8"))
                     if isinstance(payload, dict):
                         return payload
@@ -187,7 +188,10 @@ class ConvexSeedClient:
                 last_error = self._error_from_http_detail(detail, error.code)
                 if error.code not in RETRYABLE_HTTP_STATUS or attempt == HTTP_ATTEMPTS - 1:
                     raise last_error from error
-            except (TimeoutError, URLError) as error:
+            except TimeoutError as error:
+                last_error = ConvexClientError(self._scrub_secret(str(error)))
+                raise last_error from error
+            except URLError as error:
                 last_error = ConvexClientError(self._scrub_secret(str(error)))
                 if attempt == HTTP_ATTEMPTS - 1:
                     raise last_error from error

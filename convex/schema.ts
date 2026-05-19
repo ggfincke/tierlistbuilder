@@ -64,6 +64,14 @@ export default defineSchema({
   // authRefreshTokens, authRateLimits. do not rename or move — managed by the lib
   ...authTables,
 
+  // dev-only quiescence marker used by destructive local reset to make
+  // self-rescheduling maintenance jobs exit instead of racing table wipes
+  devResetLocks: defineTable({
+    deploymentMarker: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  }).index('byExpiresAt', ['expiresAt']),
+
   // users table extended w/ app-specific fields alongside auth-managed ones.
   // auth-managed fields remain writable only by the auth library; app-managed
   // fields populated on first sign-in. do not duplicate auth indexes here

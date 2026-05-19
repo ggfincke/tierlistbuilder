@@ -94,7 +94,7 @@ const usage = (): never =>
       '  <templateOrImage>  template externalId, folder slug, or image path.',
       '                     examples: gaming:ssbu-fighters, ssbu-fighters,',
       '                     examples/gaming/ssbu-fighters/_cover.jpg',
-      '  --zoom <n>         override coverZoom; defaults to the template\'s',
+      "  --zoom <n>         override coverZoom; defaults to the template's",
       '                     coverZoom for matched templates, 1.0 for raw paths',
       '  --out <path>       output PNG path; default: cover-previews/<name>-z<n>.png',
       '',
