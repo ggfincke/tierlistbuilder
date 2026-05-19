@@ -2,6 +2,7 @@
 // server-side image sniffing: trusted metadata reads & format rejections
 
 import { describe, expect, it } from 'vitest'
+import { MAX_IMAGE_ASPECT_RATIO } from '@tierlistbuilder/contracts/platform/media'
 import { parseUploadedImageMetadata } from '../../convex/lib/imageValidation'
 
 const buildPngHeader = (width: number, height: number): Uint8Array =>
@@ -157,5 +158,23 @@ describe('parseUploadedImageMetadata', () =>
     expect(() => parseUploadedImageMetadata(badWebp)).toThrow(
       'unsupported or malformed image payload'
     )
+  })
+
+  it('rejects degenerate aspect ratios at the shared media contract limit', () =>
+  {
+    expect(
+      parseUploadedImageMetadata(
+        buildPngHeader(MAX_IMAGE_ASPECT_RATIO * 10, 10)
+      )
+    ).toMatchObject({
+      width: MAX_IMAGE_ASPECT_RATIO * 10,
+      height: 10,
+    })
+
+    expect(() =>
+      parseUploadedImageMetadata(
+        buildPngHeader(MAX_IMAGE_ASPECT_RATIO * 10 + 1, 10)
+      )
+    ).toThrow(/aspect ratio/)
   })
 })

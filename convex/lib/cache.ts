@@ -1,6 +1,6 @@
 // convex/lib/cache.ts
-// small per-function promise memoization helper
-
+// per-function promise memoization. scope `map` to one mutation/query —
+// reusing across invocations leaks promises & captured `ctx` closures
 export const memoizePromise = <TKey, TValue>(
   map: Map<TKey, Promise<TValue>>,
   key: TKey,

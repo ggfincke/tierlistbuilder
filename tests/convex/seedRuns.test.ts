@@ -1750,4 +1750,51 @@ describe('seed run precheck API', () =>
     expect(cleanup.skippedStorageIds).toEqual([badStorageId])
     await expectStorageMissing(t, abandonedStorageId)
   })
+
+  it('marks cleaned seed uploads even when finalize races after cleanup eligibility', async () =>
+  {
+    const t = makeTest()
+    await seedRunRow(t, RELEASE, 'building', 'run-cleanup-race')
+    const storageId = await storeImageBytes(t, buildPngHeader(32, 16))
+
+    await t.mutation(
+      internal.marketplace.seedPipeline.storageUploads
+        .registerSeedUploadedStorageIds,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-cleanup-race',
+        storageIds: [storageId],
+      }
+    )
+    const rowId = await t.run(async (ctx) =>
+    {
+      const row = await ctx.db
+        .query('seedRunStorageUploads')
+        .withIndex('byStorageId', (q) => q.eq('storageId', storageId))
+        .unique()
+      if (!row) throw new Error('seed upload row missing')
+      return row._id
+    })
+
+    await t.mutation(
+      internal.marketplace.seedPipeline.storageUploads
+        .markSeedUploadedStorageIdsResolved,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-cleanup-race',
+        storageIds: [storageId],
+      }
+    )
+    await t.run(async (ctx) => await ctx.storage.delete(storageId))
+    await t.mutation(
+      internal.marketplace.seedPipeline.storageUploads
+        .markSeedUploadedStorageIdsCleaned,
+      { rowIds: [rowId] }
+    )
+
+    const row = await t.run(async (ctx) => await ctx.db.get(rowId))
+    expect(row?.status).toBe('cleaned')
+  })
 })

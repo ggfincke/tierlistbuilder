@@ -21,3 +21,6 @@ export const isConvexOccError = (error: unknown): boolean =>
   const message = error instanceof Error ? error.message : String(error)
   return message.includes('changed while this mutation was being run')
 }
+
+export const isRetryableWriteError = (error: unknown): boolean =>
+  isConvexOccError(error) || isConvexWriteThrottleError(error)

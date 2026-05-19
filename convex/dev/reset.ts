@@ -12,8 +12,8 @@ import type { Id } from '../_generated/dataModel'
 import { internal } from '../_generated/api'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
-  isConvexOccError,
   isConvexWriteThrottleError,
+  isRetryableWriteError,
   sleep,
 } from '../lib/retry'
 import {
@@ -451,8 +451,7 @@ export const wipeDeployment = internalAction({
                 tableName: hotTableName,
                 ids: ids.slice(0, bs),
               }),
-            isRetryable: (error) =>
-              isConvexOccError(error) || isConvexWriteThrottleError(error),
+            isRetryable: isRetryableWriteError,
           })
           batchSize = outcome.batchSize
           total += outcome.deleted
@@ -470,7 +469,7 @@ export const wipeDeployment = internalAction({
               tableName,
               limit: bs,
             }),
-          isRetryable: isConvexOccError,
+          isRetryable: isRetryableWriteError,
         })
         batchSize = outcome.batchSize
         total += outcome.deleted

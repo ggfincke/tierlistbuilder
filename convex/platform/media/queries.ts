@@ -127,6 +127,25 @@ interface ReachabilityBudget
   remaining: number
 }
 
+const reserveBudget = (
+  budget: ReachabilityBudget,
+  requested: number
+): number =>
+{
+  const reserved = Math.min(requested, budget.remaining)
+  budget.remaining -= reserved
+  return reserved
+}
+
+const refundUnusedBudget = (
+  budget: ReachabilityBudget,
+  reserved: number,
+  used: number
+): void =>
+{
+  budget.remaining += Math.max(0, reserved - used)
+}
+
 const isMediaReferencedByUserBoard = async (
   ctx: QueryCtx,
   assetId: Id<'mediaAssets'>,
@@ -138,24 +157,27 @@ const isMediaReferencedByUserBoard = async (
 
   while (budget.remaining > 0)
   {
+    const pageBudget = reserveBudget(budget, MEDIA_REF_PAGE_SIZE)
+    if (pageBudget === 0) return false
     const page = await ctx.db
       .query('boardItems')
       .withIndex('byMedia', (q) => q.eq('mediaAssetId', assetId))
       .paginate({
         cursor,
-        numItems: Math.min(MEDIA_REF_PAGE_SIZE, budget.remaining),
+        numItems: pageBudget,
       })
-    budget.remaining -= page.page.length
+    refundUnusedBudget(budget, pageBudget, page.page.length)
 
     const boardIds = [...new Set(page.page.map((item) => item.boardId))]
+    const boardBudget = reserveBudget(budget, boardIds.length)
     const boards = await Promise.all(
-      boardIds.map((boardId) => ctx.db.get(boardId))
+      boardIds.slice(0, boardBudget).map((boardId) => ctx.db.get(boardId))
     )
-    budget.remaining -= boards.length
     if (boards.some((board) => board?.ownerId === userId))
     {
       return true
     }
+    if (boardBudget < boardIds.length) return false
     if (page.isDone)
     {
       return false
@@ -175,20 +197,24 @@ const isMediaReferencedByTemplate = async (
   let itemCursor: string | null = null
   while (budget.remaining > 0)
   {
+    const pageBudget = reserveBudget(budget, MEDIA_REF_PAGE_SIZE)
+    if (pageBudget === 0) return false
     const page = await ctx.db
       .query('templateItems')
       .withIndex('byMedia', (q) => q.eq('mediaAssetId', assetId))
       .paginate({
         cursor: itemCursor,
-        numItems: Math.min(MEDIA_REF_PAGE_SIZE, budget.remaining),
+        numItems: pageBudget,
       })
-    budget.remaining -= page.page.length
+    refundUnusedBudget(budget, pageBudget, page.page.length)
 
     const templateIds = [...new Set(page.page.map((item) => item.templateId))]
+    const templateBudget = reserveBudget(budget, templateIds.length)
     const templates = await Promise.all(
-      templateIds.map((templateId) => ctx.db.get(templateId))
+      templateIds
+        .slice(0, templateBudget)
+        .map((templateId) => ctx.db.get(templateId))
     )
-    budget.remaining -= templates.length
     if (
       templates.some(
         (template) => template && template.publicationState !== 'unpublished'
@@ -197,6 +223,7 @@ const isMediaReferencedByTemplate = async (
     {
       return true
     }
+    if (templateBudget < templateIds.length) return false
     if (page.isDone)
     {
       break
@@ -207,14 +234,16 @@ const isMediaReferencedByTemplate = async (
   let coverCursor: string | null = null
   while (budget.remaining > 0)
   {
+    const pageBudget = reserveBudget(budget, MEDIA_REF_PAGE_SIZE)
+    if (pageBudget === 0) return false
     const page = await ctx.db
       .query('templates')
       .withIndex('byCoverMedia', (q) => q.eq('coverMediaAssetId', assetId))
       .paginate({
         cursor: coverCursor,
-        numItems: Math.min(MEDIA_REF_PAGE_SIZE, budget.remaining),
+        numItems: pageBudget,
       })
-    budget.remaining -= page.page.length
+    refundUnusedBudget(budget, pageBudget, page.page.length)
 
     if (
       page.page.some((template) => template.publicationState !== 'unpublished')
@@ -270,26 +299,35 @@ export const getMediaAssetsByExternalIds = query({
 
     const userId = await requireCurrentUserId(ctx)
 
-    // single per-call read budget shared across every reachability scan so a
-    // batch of degenerate assets can't blow the per-query read ceiling
+    const uniqueExternalIds = [
+      ...new Set(args.media.map((req) => req.externalId)),
+    ]
+    const loadedAssets = await Promise.all(
+      uniqueExternalIds.map(async (externalId) => ({
+        externalId,
+        asset: await findMediaAssetByExternalId(ctx, externalId),
+      }))
+    )
     const budget: ReachabilityBudget = { remaining: MEDIA_REF_CALL_BUDGET }
 
-    // two-layer cache: requests for the same asset under different variants
-    // share the asset+permission lookup (the expensive part — paginated
-    // reachability scans), & same-storageId URL requests share the getUrl
-    const assetCache = new Map<string, Promise<Doc<'mediaAssets'> | null>>()
-    const urlCache = new Map<Id<'_storage'>, Promise<string | null>>()
-
-    const loadReadableAsset = (
-      externalId: string
-    ): Promise<Doc<'mediaAssets'> | null> =>
-      memoizePromise(assetCache, externalId, async () =>
+    // requests for the same asset under different variants share the
+    // asset+permission lookup, & every reachability scan draws from one cap.
+    const readableAssets = new Map<string, Doc<'mediaAssets'> | null>()
+    for (const { externalId, asset } of loadedAssets)
+    {
+      if (!asset)
       {
-        const asset = await findMediaAssetByExternalId(ctx, externalId)
-        if (!asset) return null
-        if (!(await canReadMediaAsset(ctx, asset, userId, budget))) return null
-        return asset
-      })
+        readableAssets.set(externalId, null)
+        continue
+      }
+      readableAssets.set(
+        externalId,
+        (await canReadMediaAsset(ctx, asset, userId, budget)) ? asset : null
+      )
+    }
+
+    // same-storageId URL requests share the getUrl call
+    const urlCache = new Map<Id<'_storage'>, Promise<string | null>>()
 
     const loadStorageUrl = (
       storageId: Id<'_storage'>
@@ -300,7 +338,7 @@ export const getMediaAssetsByExternalIds = query({
       request: MediaAssetLookupRequest
     ): Promise<MediaAssetLookup | null> =>
     {
-      const asset = await loadReadableAsset(request.externalId)
+      const asset = readableAssets.get(request.externalId) ?? null
       if (!asset) return null
 
       const variant = selectMediaVariantSummary(asset, request.variant)

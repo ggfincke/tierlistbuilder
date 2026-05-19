@@ -90,6 +90,9 @@ export const findOwnedMediaAssetByExternalId = async (
     )
     .unique()
 
+// FOOTGUN: returns the row regardless of owner. callers MUST follow up w/ an
+// ownership/reachability check (canReadMediaAsset, or `asset.ownerId === userId`)
+// — prefer findOwnedMediaAssetByExternalId above when an owner scope is known
 export const findMediaAssetByExternalId = async (
   ctx: Ctx,
   externalId: string

@@ -1,6 +1,8 @@
 // convex/lib/cascadeDelete.ts
 // shared page deletion helpers for scheduled cascade jobs
 
+import { ConvexError } from 'convex/values'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { Id, TableNames } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 import { BATCH_LIMITS } from './limits'
@@ -106,7 +108,10 @@ export const runCascadePhaseMachine = async <
   const phaseIndex = args.phases.findIndex((step) => step.phase === phase)
   if (phaseIndex < 0)
   {
-    throw new Error(`unknown cascade phase: ${phase}`)
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: `unknown cascade phase: ${phase}`,
+    })
   }
 
   const step = args.phases[phaseIndex]

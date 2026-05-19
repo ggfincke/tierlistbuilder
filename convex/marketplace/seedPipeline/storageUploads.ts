@@ -219,9 +219,25 @@ export const markSeedUploadedStorageIdsCleaned = internalMutation({
   {
     const now = Date.now()
     await Promise.all(
-      args.rowIds.map((rowId) =>
-        ctx.db.patch(rowId, { status: 'cleaned', updatedAt: now })
-      )
+      args.rowIds.map(async (rowId) =>
+      {
+        const row = await ctx.db.get(rowId)
+        if (!row)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidState,
+            message: `seed cleanup storage row missing after blob cleanup: ${rowId}`,
+          })
+        }
+        if (row.status === 'cleaned') return
+        if (row.status === 'resolved')
+        {
+          console.warn(
+            `seed cleanup raced finalized storage row=${rowId}; marking cleaned because the blob was consumed`
+          )
+        }
+        await ctx.db.patch(rowId, { status: 'cleaned', updatedAt: now })
+      })
     )
     return null
   },

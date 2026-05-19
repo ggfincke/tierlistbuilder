@@ -553,7 +553,16 @@ const incrementAggregateItem = async (
         .eq('templateItemId', item.templateItemId)
     )
     .unique()
-  if (!row) return null
+  if (!row)
+  {
+    // sample dropped: the aggregate row is missing (templateItem deleted
+    // mid-job, or generation init missed it). log so persistent drops surface
+    // in ops; scan continues so a single miss doesn't fail the recompute
+    console.warn(
+      `aggregate item row missing for job=${job._id} template=${job.templateId} criterion=${job.criterionExternalId} generation=${job.generation} templateItem=${item.templateItemId}`
+    )
+    return null
+  }
 
   const distribution = row.distribution.map((cell) =>
     cell.bucketIndex === bucketIndex ? { ...cell, count: cell.count + 1 } : cell

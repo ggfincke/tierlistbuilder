@@ -1,6 +1,7 @@
 // convex/http.ts
 // * convex HTTP router - registers auth callback & seed-ingest routes
 
+import { ConvexError } from 'convex/values'
 import { httpRouter } from 'convex/server'
 import type { FunctionReference } from 'convex/server'
 import { auth } from './auth'
@@ -23,11 +24,25 @@ const seedJsonResponse = (status: number, body: unknown): Response =>
     headers: { 'Content-Type': 'application/json' },
   })
 
+// per-request cap on seed payload bytes. 4 MiB headroom for SEED_LIMITS.itemUpsertsPerCall
+// (4096 items × ~200B JSON-encoded -> ~1MB realistic peak) while keeping a single
+// malformed body from gobbling the action's memory budget
+const SEED_REQUEST_BODY_BYTE_CAP = 4 * 1024 * 1024
+
 const readSeedJsonBody = async (
   request: Request
 ): Promise<Record<string, unknown>> =>
 {
-  const body = await request.json()
+  const buffer = await request.arrayBuffer()
+  if (buffer.byteLength > SEED_REQUEST_BODY_BYTE_CAP)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.payloadTooLarge,
+      message: `seed request body exceeds ${SEED_REQUEST_BODY_BYTE_CAP} bytes`,
+    })
+  }
+  const text = new TextDecoder().decode(buffer)
+  const body = text.length === 0 ? null : JSON.parse(text)
   if (!body || typeof body !== 'object' || Array.isArray(body))
   {
     throw new Error('seed request body must be a JSON object')

@@ -159,7 +159,15 @@ export const listMyTemplateBookmarks = query({
           ctx,
           bookmark.templateId
         )
-        if (!card || !card.isPubliclyListable) return null
+        // Cross-check publicationState so a card sync gap cannot surface a private row.
+        if (
+          !card ||
+          !card.isPubliclyListable ||
+          !isPublishedTemplateRow(card)
+        )
+        {
+          return null
+        }
         return {
           template: await toTemplateCardSummary(ctx, card, cache),
           savedAt: bookmark.createdAt,

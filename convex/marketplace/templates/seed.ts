@@ -6,9 +6,10 @@ import {
   action,
   internalMutation,
   internalQuery,
+  type MutationCtx,
 } from '../../_generated/server'
 import { internal } from '../../_generated/api'
-import type { Doc, Id } from '../../_generated/dataModel'
+import type { Doc } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
 import { BATCH_LIMITS } from '../../lib/limits'
@@ -25,6 +26,28 @@ import {
   writeTemplateCard,
 } from './lib'
 import { requireSeedAuthorized } from '../seedAuth'
+
+const FEATURED_TEMPLATE_SCAN_CAP = BATCH_LIMITS.featuredTemplateScan
+
+const scanFeaturedCardsOrThrow = async (
+  ctx: MutationCtx
+): Promise<Doc<'templateCards'>[]> =>
+{
+  const cards = await ctx.db
+    .query('templateCards')
+    .withIndex('byIsPubliclyListableFeaturedRank', (q) =>
+      q.eq('isPubliclyListable', true).gt('featuredRank', -1)
+    )
+    .take(FEATURED_TEMPLATE_SCAN_CAP + 1)
+  if (cards.length > FEATURED_TEMPLATE_SCAN_CAP)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: `featured templates exceed scan cap (${FEATURED_TEMPLATE_SCAN_CAP}); clear them manually`,
+    })
+  }
+  return cards
+}
 
 interface SeedUserStatus
 {
@@ -181,29 +204,19 @@ export const clearAllFeaturedRanksImpl = internalMutation({
   returns: v.object({ cleared: v.number(), scanned: v.number() }),
   handler: async (ctx): Promise<{ cleared: number; scanned: number }> =>
   {
-    const rankedTemplateIds: Id<'templates'>[] = []
-    const rankedCards = ctx.db
-      .query('templateCards')
-      .withIndex('byIsPubliclyListableFeaturedRank', (q) =>
-        q.eq('isPubliclyListable', true).gt('featuredRank', -1)
-      )
-
-    for await (const card of rankedCards)
-    {
-      rankedTemplateIds.push(card.templateId)
-    }
+    const rankedCards = await scanFeaturedCardsOrThrow(ctx)
 
     await Promise.all(
-      rankedTemplateIds.map(async (templateId) =>
+      rankedCards.map(async (card) =>
       {
-        await patchTemplateAndSyncCardById(ctx, templateId, {
+        await patchTemplateAndSyncCardById(ctx, card.templateId, {
           featuredRank: null,
         })
       })
     )
     return {
-      cleared: rankedTemplateIds.length,
-      scanned: rankedTemplateIds.length,
+      cleared: rankedCards.length,
+      scanned: rankedCards.length,
     }
   },
 })
@@ -296,6 +309,13 @@ export const setFeaturedTrioByExternalIdsImpl = internalMutation({
     promoted: { externalId: string; slug: string; featuredRank: number }[]
   }> =>
   {
+    if (args.externalIds.length > FEATURED_TEMPLATE_SCAN_CAP)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `cannot promote more than ${FEATURED_TEMPLATE_SCAN_CAP} templates at once`,
+      })
+    }
     // resolve & validate every requested template up-front so a missing one
     // aborts the call before any patches land. seed externalIds are scoped
     // by (datasetKey, releaseId) — composite index keeps this an O(N) walk
@@ -322,19 +342,12 @@ export const setFeaturedTrioByExternalIdsImpl = internalMutation({
     }
 
     // clear all existing featured ranks first so the new trio is the entire
-    // featured set; otherwise stale rank=0 templates would still surface
-    const existingRanked: Id<'templates'>[] = []
-    const rankedRows = ctx.db
-      .query('templateCards')
-      .withIndex('byIsPubliclyListableFeaturedRank', (q) =>
-        q.eq('isPubliclyListable', true).gt('featuredRank', -1)
-      )
-    for await (const card of rankedRows)
-    {
-      existingRanked.push(card.templateId)
-    }
+    // featured set; otherwise stale rank=0 templates would still surface.
+    const rankedRows = await scanFeaturedCardsOrThrow(ctx)
     const requestedIds = new Set(resolved.map((entry) => entry.template._id))
-    const toClear = existingRanked.filter((id) => !requestedIds.has(id))
+    const toClear = rankedRows
+      .map((card) => card.templateId)
+      .filter((id) => !requestedIds.has(id))
     await Promise.all(
       toClear.map(async (templateId) =>
       {

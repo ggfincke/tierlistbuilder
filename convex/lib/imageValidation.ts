@@ -3,6 +3,7 @@
 
 import { ConvexError } from 'convex/values'
 import {
+  MAX_IMAGE_ASPECT_RATIO,
   MAX_IMAGE_DIMENSION,
   type SupportedImageMimeType,
 } from '@tierlistbuilder/contracts/platform/media'
@@ -60,6 +61,15 @@ const assertDimensions = (width: number, height: number) =>
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.payloadTooLarge,
       message: `image dimensions out of range: ${width}x${height} exceeds ${MAX_IMAGE_DIMENSION}`,
+    })
+  }
+
+  const aspectRatio = Math.max(width, height) / Math.min(width, height)
+  if (aspectRatio > MAX_IMAGE_ASPECT_RATIO)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `image aspect ratio ${width}x${height} exceeds ${MAX_IMAGE_ASPECT_RATIO}:1 limit`,
     })
   }
 

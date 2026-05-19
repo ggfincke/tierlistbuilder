@@ -39,6 +39,8 @@ export const BATCH_LIMITS = {
   templateRankingAggregateCleanup: 256,
   // ranking release transitions also touch source boards & aggregate lanes
   rankingSeedLifecycleTransition: 32,
+  // seed-gated homepage curation should stay small & transaction-bounded
+  featuredTemplateScan: 64,
 } as const
 
 // per-op limits for the marketplace seed pipeline. mirror these on the Python
