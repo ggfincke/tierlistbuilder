@@ -34,6 +34,70 @@ export const normalizeBoardTitle = (raw: string): string =>
 // value type used in per-item overrides & the board-wide default
 export type ImageFit = 'cover' | 'contain'
 
+// uniform inset (fraction of each cell edge) that floats a plated logo off the
+// frame so it doesn't kiss the edge; the plate fills the margin. a render-time
+// frame inset, so (unlike auto-crop's bbox padding) not clamped to the source
+export const IMAGE_PADDING_MIN = 0
+export const IMAGE_PADDING_MAX = 0.4
+
+// breathing room applied to a plated item when neither item nor board pins a
+// value — gives imported logos margin on their plate out of the box. an
+// unplated item (no backdrop) resolves to 0 so photos stay full-bleed.
+export const DEFAULT_ITEM_IMAGE_PADDING = 0.06
+
+export const clampImagePadding = (value: number): number =>
+  clamp(value, IMAGE_PADDING_MIN, IMAGE_PADDING_MAX)
+
+// validate untrusted padding input; non-finite/wrong-type -> undefined so a
+// no-override item roundtrips without a phantom value
+export const normalizeImagePadding = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value)
+    ? clampImagePadding(value)
+    : undefined
+
+// transparent logos that would be low-contrast on a solid backdrop get a plate
+// so they stay readable anywhere: 'light' rescues a dark logo, 'dark' a white
+// one; absent -> no plate. resolved to a theme/user color via --t-media-plate-*
+export const MEDIA_PLATES = ['light', 'dark'] as const
+export type MediaPlate = (typeof MEDIA_PLATES)[number]
+
+// per-board backdrop behind transparent logos. 'off' plates nothing; 'auto'
+// plates only low-contrast logos (per-item MediaPlate) w/ a theme shade;
+// 'uniform' fills uniformColor behind every image
+export const AUTO_PLATE_MODES = ['off', 'auto', 'uniform'] as const
+export type AutoPlateMode = (typeof AUTO_PLATE_MODES)[number]
+
+// fallback mode when a board has no stored autoPlate — readable out of the box.
+// a per-item backgroundColor always overrides whatever a mode resolves to
+export const AUTO_PLATE_MODE_DEFAULT: AutoPlateMode = 'auto'
+
+// fallback fill for 'uniform' mode when uniformColor is unset (off-white tiles)
+export const AUTO_PLATE_UNIFORM_DEFAULT = '#f5f5f5'
+
+// dark uniform-mode preset paired w/ the light default above
+export const AUTO_PLATE_UNIFORM_DARK_DEFAULT = '#0a0a0c'
+
+export type BoardAutoPlateSettings =
+  | { mode: 'off' }
+  | { mode: 'auto' }
+  | {
+      mode: 'uniform'
+      // hex backdrop for 'uniform' mode; absent falls back to the light default
+      uniformColor?: string
+    }
+
+export const boardAutoPlateSettingsEqual = (
+  a: BoardAutoPlateSettings | null | undefined,
+  b: BoardAutoPlateSettings | null | undefined
+): boolean =>
+{
+  if (a === b) return true
+  if (!a || !b) return !a && !b
+  if (a.mode !== b.mode) return false
+  if (a.mode !== 'uniform' || b.mode !== 'uniform') return true
+  return a.uniformColor === b.uniformColor
+}
+
 // 'auto' recomputes the board ratio from majority of item ratios on import;
 // 'manual' pins the user-selected value
 export type ItemAspectRatioMode = 'auto' | 'manual'
@@ -293,6 +357,20 @@ export const isEmptyItemLabelOptions = (
     options.textStyleId === undefined &&
     options.textColor === undefined)
 
+// board-level settings that drive how an item's media renders on read-only
+// viewing surfaces (consensus tiers/rail/compare): label chrome + backdrop
+// plate. Bundled so surfaces thread one prop, not N parallel board settings.
+export interface BoardItemDisplaySettings
+{
+  // label chrome (visibility, placement, font); null inherits global defaults
+  labels: BoardLabelSettings | null
+  // backdrop plate behind transparent media; null -> On+Auto default in
+  // resolveItemBackdrop
+  autoPlate: BoardAutoPlateSettings | null
+  // board-wide plate inset; null -> plate-aware fallback
+  defaultItemImagePadding: number | null
+}
+
 // origin of the bytes a TierItemImageRef points at. only 'source' today —
 // source-owned refs point at marketplace assets & must upload a copy pre-sync.
 // authoritative list; never hand-type the literal at a call site
@@ -316,6 +394,8 @@ export interface TierItem
   sourceImageRef?: TierItemImageRef
   label?: string
   backgroundColor?: string
+  // tri-state plate for transparent logos; see MediaPlate
+  mediaPlate?: MediaPlate
   altText?: string
   // private per-item editor notes — "why I ranked this here" scratchpad.
   // travels w/ cloud sync & JSON export, but never out to published rankings
@@ -328,6 +408,9 @@ export interface TierItem
   imageFit?: ImageFit
   // optional per-item manual crop; absent -> imageFit fallback path
   transform?: ItemTransform
+  // per-item uniform plate inset (fraction of cell edge); absent -> board
+  // default, then the plate-aware fallback. see DEFAULT_ITEM_IMAGE_PADDING
+  imagePadding?: number
   // per-tile label rendering override; absent -> inherit from board/global
   labelOptions?: ItemLabelOptions
   // marketplace template item external id captured when a board is forked
@@ -363,6 +446,9 @@ export interface BoardSnapshot
   aspectRatioPromptDismissed?: boolean
   // board-wide fit when item has no override; absent -> 'cover'
   defaultItemImageFit?: ImageFit
+  // board-wide plate inset when item has no override; absent -> the plate-aware
+  // fallback (DEFAULT_ITEM_IMAGE_PADDING for plated items, else 0)
+  defaultItemImagePadding?: number
   // per-board palette override; absent -> falls through to AppPreferences.paletteId
   paletteId?: PaletteId
   // per-board text style override; absent -> falls through to AppPreferences.textStyleId
@@ -372,6 +458,8 @@ export interface BoardSnapshot
   pageBackground?: string
   // per-board label rendering defaults; absent fields fall through to global
   labels?: BoardLabelSettings
+  // per-board logo backdrop; absent -> On+Auto default
+  autoPlate?: BoardAutoPlateSettings
   // source-template/ranking identity captured at fork/remix time. travels w/
   // cloud sync & JSON export so a re-imported board still knows where it came
   // from. titles denormalize so the breadcrumb survives source deletion
@@ -412,11 +500,13 @@ export interface TierItemWire
   imageUrl?: string
   label?: string
   backgroundColor?: string
+  mediaPlate?: MediaPlate
   altText?: string
   notes?: string
   aspectRatio?: number
   imageFit?: ImageFit
   transform?: ItemTransform
+  imagePadding?: number
   labelOptions?: ItemLabelOptions
   sourceTemplateItemExternalId?: string
 }
@@ -434,10 +524,12 @@ export interface BoardSnapshotWire
   itemAspectRatioMode?: ItemAspectRatioMode
   aspectRatioPromptDismissed?: boolean
   defaultItemImageFit?: ImageFit
+  defaultItemImagePadding?: number
   paletteId?: PaletteId
   textStyleId?: TextStyleId
   pageBackground?: string
   labels?: BoardLabelSettings
+  autoPlate?: BoardAutoPlateSettings
   sourceTemplateId?: string
   sourceRankingId?: string
   sourceTemplateTitle?: string

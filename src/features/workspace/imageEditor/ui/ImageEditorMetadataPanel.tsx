@@ -5,6 +5,11 @@
 import { useEffect, useId, useImperativeHandle, useRef, useState } from 'react'
 import type { Ref } from 'react'
 
+import {
+  AUTO_PLATE_UNIFORM_DARK_DEFAULT,
+  AUTO_PLATE_UNIFORM_DEFAULT,
+  type MediaPlate,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { ColorInput } from '~/shared/ui/ColorInput'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextArea } from '~/shared/ui/TextArea'
@@ -23,6 +28,9 @@ interface ImageEditorMetadataPanelProps
   altText: string | undefined
   notes: string | undefined
   backgroundColor: string | undefined
+  // analysis recommendation for transparent logos; drives the Recommended
+  // shortcut. absent -> the image is already readable, so no shortcut shows
+  mediaPlate: MediaPlate | undefined
   hasImage: boolean
   onAltTextChange: (value: string) => void
   onNotesChange: (value: string) => void
@@ -31,6 +39,14 @@ interface ImageEditorMetadataPanelProps
 }
 
 const DEFAULT_BACKGROUND_PICKER_COLOR = '#3b82f6'
+
+// concrete contrasting backdrops the Recommended shortcut writes as a per-item
+// backgroundColor, keyed by the analysis result. fixed hex (not theme tokens)
+// since a stored backgroundColor must be portable across themes & exports
+const RECOMMENDED_PLATE_COLOR: Record<MediaPlate, string> = {
+  light: AUTO_PLATE_UNIFORM_DEFAULT,
+  dark: AUTO_PLATE_UNIFORM_DARK_DEFAULT,
+}
 
 const Eyebrow = ({ children }: { children: React.ReactNode }) => (
   <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
@@ -43,6 +59,7 @@ export const ImageEditorMetadataPanel = ({
   altText,
   notes,
   backgroundColor,
+  mediaPlate,
   hasImage,
   onAltTextChange,
   onNotesChange,
@@ -118,6 +135,15 @@ export const ImageEditorMetadataPanel = ({
 
   const backgroundValue = backgroundColor ?? DEFAULT_BACKGROUND_PICKER_COLOR
   const showClearBackground = Boolean(backgroundColor)
+  // the analysis-suggested backdrop for a transparent logo, if any
+  const suggestedColor =
+    hasImage && mediaPlate ? RECOMMENDED_PLATE_COLOR[mediaPlate] : null
+  // surface the shortcut only when the current background doesn't already match
+  const recommendedColor =
+    suggestedColor !== null &&
+    backgroundColor?.toLowerCase() !== suggestedColor.toLowerCase()
+      ? suggestedColor
+      : null
 
   return (
     <section
@@ -195,6 +221,20 @@ export const ImageEditorMetadataPanel = ({
               {backgroundColor ? backgroundColor.toUpperCase() : 'None'}
             </span>
           </div>
+          {recommendedColor && (
+            <SecondaryButton
+              size="sm"
+              variant="surface"
+              onClick={() => onBackgroundColorChange(recommendedColor)}
+            >
+              <span
+                aria-hidden="true"
+                className="mr-1.5 inline-block h-3 w-3 rounded-sm border border-[var(--t-border)] align-[-1px]"
+                style={{ backgroundColor: recommendedColor }}
+              />
+              Recommended
+            </SecondaryButton>
+          )}
           {showClearBackground && (
             <SecondaryButton
               size="sm"
@@ -206,7 +246,7 @@ export const ImageEditorMetadataPanel = ({
           )}
           <p className="text-[11px] leading-snug text-[var(--t-text-muted)]">
             {hasImage
-              ? 'Falls behind the image — visible when zoom or fit leaves edges.'
+              ? 'Sits behind the image — fills transparent areas & letterbox edges.'
               : 'Tile background for text-only items.'}
           </p>
         </div>

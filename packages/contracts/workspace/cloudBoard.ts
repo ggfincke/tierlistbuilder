@@ -3,11 +3,13 @@
 
 import type { PaletteId, TextStyleId, TierColorSpec } from '../lib/theme'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   ImageFit,
   ItemAspectRatioMode,
   ItemLabelOptions,
   ItemTransform,
+  MediaPlate,
 } from './board'
 
 // cloud board sync caps; server enforces these before writing row diffs.
@@ -32,6 +34,7 @@ export interface CloudBoardItemWire
   tierId: string | null
   label?: string
   backgroundColor?: string
+  mediaPlate?: MediaPlate
   altText?: string
   // private per-item editor notes; synced for cross-device parity, never
   // surfaced on published rankings (publish mappers cherry-pick fields)
@@ -44,6 +47,8 @@ export interface CloudBoardItemWire
   imageFit?: ImageFit
   // per-item manual crop transform
   transform?: ItemTransform
+  // per-item plate inset (fraction of cell edge)
+  imagePadding?: number
   // per-tile label rendering override; absent -> inherit board/global
   labelOptions?: ItemLabelOptions
   // source template item external id carried by local forks until first sync
@@ -59,6 +64,7 @@ interface CloudBoardAspectRatioFields
   itemAspectRatioMode?: ItemAspectRatioMode
   aspectRatioPromptDismissed?: boolean
   defaultItemImageFit?: ImageFit
+  defaultItemImagePadding?: number
 }
 
 // per-board overrides of user-default style — palette/text style/page bg.
@@ -70,6 +76,7 @@ interface CloudBoardStyleOverrideFields
   textStyleId?: TextStyleId
   pageBackground?: string
   labels?: BoardLabelSettings
+  autoPlate?: BoardAutoPlateSettings
 }
 
 // source-fork identity carried on every sync push. server consults these only

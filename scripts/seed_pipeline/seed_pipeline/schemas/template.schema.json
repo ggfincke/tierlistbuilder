@@ -57,6 +57,14 @@
     "labels": {
       "$ref": "#/$defs/boardLabelSettings"
     },
+    "autoPlate": {
+      "$ref": "#/$defs/autoPlate"
+    },
+    "defaultItemImagePadding": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 0.4
+    },
     "coverZoom": {
       "type": "number",
       "minimum": 0.1,
@@ -244,8 +252,41 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 120
+        },
+        "backgroundColor": {
+          "$ref": "#/$defs/hexColor"
+        },
+        "imagePadding": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.4
         }
       }
+    },
+    "autoPlate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "enum": ["off", "auto"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "const": "uniform" },
+            "uniformColor": { "$ref": "#/$defs/hexColor" }
+          }
+        }
+      ]
+    },
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
     },
     "suggestedTier": {
       "type": "object",

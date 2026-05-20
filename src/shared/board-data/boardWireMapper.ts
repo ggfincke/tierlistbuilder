@@ -12,6 +12,10 @@ import {
   PALETTE_IDS,
   TEXT_STYLE_IDS,
 } from '@tierlistbuilder/contracts/lib/theme'
+import {
+  MEDIA_PLATES,
+  normalizeImagePadding,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
 import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
@@ -34,6 +38,7 @@ import { isOptionalString, isRecord } from '~/shared/lib/typeGuards'
 import {
   ASPECT_RATIO_MODES,
   IMAGE_FITS,
+  normalizeBoardAutoPlate,
   normalizeBoardLabelSettings,
   normalizeEnum,
   normalizeItemLabelOptions,
@@ -279,11 +284,14 @@ const wireItemToSnapshotItem = (
   const aspectRatio =
     normalizePositiveFinite(item.aspectRatio) ?? prepared?.aspectRatio
   const imageFit = normalizeEnum(item.imageFit, IMAGE_FITS)
+  const mediaPlate = normalizeEnum(item.mediaPlate, MEDIA_PLATES)
   const transform = normalizeItemTransform(item.transform)
+  const imagePadding = normalizeImagePadding(item.imagePadding)
   const labelOptions = normalizeItemLabelOptions(item.labelOptions)
   const base: TierItem = { id }
   if (label !== undefined) base.label = label
   if (backgroundColor !== undefined) base.backgroundColor = backgroundColor
+  if (mediaPlate !== undefined) base.mediaPlate = mediaPlate
   if (altText !== undefined) base.altText = altText
   if (notes !== undefined) base.notes = notes
   if (sourceTemplateItemExternalId !== undefined)
@@ -293,6 +301,7 @@ const wireItemToSnapshotItem = (
   if (aspectRatio !== undefined) base.aspectRatio = aspectRatio
   if (imageFit !== undefined) base.imageFit = imageFit
   if (transform !== undefined) base.transform = transform
+  if (imagePadding !== undefined) base.imagePadding = imagePadding
   if (labelOptions !== undefined) base.labelOptions = labelOptions
 
   if (prepared)
@@ -376,12 +385,16 @@ export const wireToSnapshot = async (
     aspectRatioPromptDismissed:
       wire.aspectRatioPromptDismissed === true ? true : undefined,
     defaultItemImageFit: normalizeEnum(wire.defaultItemImageFit, IMAGE_FITS),
+    defaultItemImagePadding: normalizeImagePadding(
+      wire.defaultItemImagePadding
+    ),
     paletteId: normalizeEnum(wire.paletteId, PALETTE_IDS),
     textStyleId: normalizeEnum(wire.textStyleId, TEXT_STYLE_IDS),
     pageBackground: isHexColor(wire.pageBackground)
       ? wire.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(wire.labels),
+    autoPlate: normalizeBoardAutoPlate(wire.autoPlate),
     ...normalizeSourceTemplateFields(wire as Record<string, unknown>),
   }
 }

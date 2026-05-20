@@ -27,12 +27,14 @@ INSPECT_CACHE_RELATIVE_PATH = CACHE_ROOT_RELATIVE_PATH / "inspect"
 # keep generated manifests stable across repeated local builds
 VARIANT_SPEC_VERSION = "seed-variants-v1"
 DETERMINISTIC_GENERATED_AT = "1970-01-01T00:00:00.000Z"
-# bump these when sidecar JSON shape changes so stale caches self-invalidate
-INSPECT_CACHE_SCHEMA_VERSION = 1
+# bump when the sidecar JSON shape OR the analysis that fills it changes, so
+# stale caches self-invalidate (v3: media-plate threshold retuned in crop.py)
+INSPECT_CACHE_SCHEMA_VERSION = 3
 VARIANT_META_SCHEMA_VERSION = 1
 # top-level compile cache lets warm runs skip validation + per-source work entirely.
 # bump when the compile pipeline changes shape in ways the per-source caches miss
-COMPILE_FINGERPRINT_SCHEMA_VERSION = 4
+# (v6: imagePadding output + zero source-bbox padding for transform parity)
+COMPILE_FINGERPRINT_SCHEMA_VERSION = 6
 COMPILE_FINGERPRINT_FILENAME = "compile-fingerprint.json"
 
 # gate source files before variant generation does heavier image work

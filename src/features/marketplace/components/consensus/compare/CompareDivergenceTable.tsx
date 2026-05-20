@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react'
 
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
 import {
   AggregateItemThumb,
   type AggregateItemFrame,
@@ -36,7 +36,7 @@ interface CompareDivergenceTableProps
   rows: readonly CompareJoinedRow[]
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   leftShortName: string
   rightShortName: string
   // initial cap on rendered rows; "Show all" toggles to the full list when
@@ -155,7 +155,7 @@ export const CompareDivergenceTable = ({
   rows,
   buckets,
   frame,
-  labelSettings,
+  displaySettings,
   leftShortName,
   rightShortName,
   initialLimit = 12,
@@ -243,7 +243,7 @@ export const CompareDivergenceTable = ({
                 <AggregateItemThumb
                   row={row.left}
                   frame={frame}
-                  labelSettings={labelSettings}
+                  displaySettings={displaySettings}
                   size={32}
                 />
                 <div className="min-w-0">

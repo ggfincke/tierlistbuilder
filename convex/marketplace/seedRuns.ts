@@ -24,13 +24,19 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import {
   assertCountRange,
+  assertFiniteRange,
   assertNonemptyString,
   assertNonnegativeInteger,
   assertPositiveFinite,
   assertPositiveInteger,
   assertUniqueValues,
 } from '../lib/assertions'
+import {
+  IMAGE_PADDING_MAX,
+  IMAGE_PADDING_MIN,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { valuesEqual } from '../lib/equality'
+import { validateHexColor } from '../lib/hexColor'
 import { SEED_LIMITS, SEED_UPLOAD_URL_TTL_MS } from '../lib/limits'
 import {
   adjustPublicTemplateCount,
@@ -477,7 +483,9 @@ export const upsertSeedTemplates = internalMutation({
           itemAspectRatio: patch.itemAspectRatio,
           itemAspectRatioMode: patch.itemAspectRatioMode,
           defaultItemImageFit: patch.defaultItemImageFit,
+          defaultItemImagePadding: patch.defaultItemImagePadding,
           labels: patch.labels,
+          autoPlate: patch.autoPlate,
           seedDatasetKey: args.datasetKey,
           seedExternalId: template.externalId,
           seedReleaseId: args.releaseId,
@@ -631,6 +639,19 @@ export const syncSeedTemplateItems = internalMutation({
       {
         assertPositiveFinite('aspectRatio', item.aspectRatio)
       }
+      if (item.backgroundColor !== null)
+      {
+        validateHexColor(item.backgroundColor, 'item.backgroundColor')
+      }
+      if (item.imagePadding !== null)
+      {
+        assertFiniteRange(
+          'item.imagePadding',
+          item.imagePadding,
+          IMAGE_PADDING_MIN,
+          IMAGE_PADDING_MAX
+        )
+      }
       seen.add(item.itemExternalId)
       const key = toSeedItemKey({
         templateExternalId: args.templateExternalId,
@@ -643,13 +664,15 @@ export const syncSeedTemplateItems = internalMutation({
       const existing = existingByExternalId.get(item.itemExternalId) ?? null
       const fields = {
         label: item.label,
-        backgroundColor: null,
+        backgroundColor: item.backgroundColor ?? null,
+        mediaPlate: item.mediaPlate ?? null,
         altText: item.label,
         mediaAssetId,
         order: item.order,
         aspectRatio: item.aspectRatio,
         imageFit: null,
         transform: item.transform,
+        imagePadding: item.imagePadding,
       }
       if (!existing)
       {
@@ -668,6 +691,9 @@ export const syncSeedTemplateItems = internalMutation({
         existing.mediaAssetId !== fields.mediaAssetId ||
         existing.aspectRatio !== fields.aspectRatio ||
         existing.imageFit !== fields.imageFit ||
+        (existing.backgroundColor ?? null) !== fields.backgroundColor ||
+        (existing.mediaPlate ?? null) !== fields.mediaPlate ||
+        existing.imagePadding !== fields.imagePadding ||
         !valuesEqual(existing.transform, fields.transform)
       if (!orderChanged && !contentChanged)
       {

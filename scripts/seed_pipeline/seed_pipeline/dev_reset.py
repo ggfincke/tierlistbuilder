@@ -22,11 +22,11 @@ import sys
 from pathlib import Path
 
 from .convex_client import (
-    ConvexClientError,
-    ConvexSeedClient,
-    ConvexSeedSettings,
-    load_dotenv,
-    normalize_convex_site_url,
+	ConvexClientError,
+	ConvexSeedClient,
+	ConvexSeedSettings,
+	load_dotenv,
+	normalize_convex_site_url,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -36,130 +36,126 @@ PROD_DEPLOYMENT_PREFIXES = ("prod:",)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="wipe all data + storage blobs on a dev convex deployment"
-    )
-    parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="required confirmation flag - without it the script aborts before sending anything",
-    )
-    parser.add_argument(
-        "--convex-url",
-        default=None,
-        help="override CONVEX_SITE_URL / VITE_CONVEX_SITE_URL (the HTTP-actions URL - :3211 locally, *.convex.site on cloud)",
-    )
-    parser.add_argument(
-        "--seed-secret",
-        default=None,
-        help="override CONVEX_SEED_SECRET",
-    )
-    return parser.parse_args()
+	parser = argparse.ArgumentParser(
+		description="wipe all data + storage blobs on a dev convex deployment"
+	)
+	parser.add_argument(
+		"--yes",
+		action="store_true",
+		help="required confirmation flag - without it the script aborts before sending anything",
+	)
+	parser.add_argument(
+		"--convex-url",
+		default=None,
+		help="override CONVEX_SITE_URL / VITE_CONVEX_SITE_URL (the HTTP-actions URL - :3211 locally, *.convex.site on cloud)",
+	)
+	parser.add_argument(
+		"--seed-secret",
+		default=None,
+		help="override CONVEX_SEED_SECRET",
+	)
+	return parser.parse_args()
 
 
 def derive_marker(convex_url: str) -> str:
-    # mirrors convex/dev/reset.ts -> resolveDeploymentMarker()
-    marker = convex_url
-    for scheme in ("https://", "http://"):
-        if marker.startswith(scheme):
-            marker = marker[len(scheme):]
-            break
-    return marker.rstrip("/")
+	# mirrors convex/dev/reset.ts -> resolveDeploymentMarker()
+	marker = convex_url
+	for scheme in ("https://", "http://"):
+		if marker.startswith(scheme):
+			marker = marker[len(scheme) :]
+			break
+	return marker.rstrip("/")
 
 
-def resolve_site_url(
-    cli_override: str | None, env_file: dict[str, str]
-) -> str | None:
-    # http actions live behind the SITE url, not the regular convex url.
-    # convert fallback client URLs so local & cloud deployments hit the
-    # configured HTTP action host without ceremony
-    sources = (
-        cli_override,
-        os.environ.get("CONVEX_SITE_URL"),
-        os.environ.get("VITE_CONVEX_SITE_URL"),
-        env_file.get("CONVEX_SITE_URL"),
-        env_file.get("VITE_CONVEX_SITE_URL"),
-        os.environ.get("CONVEX_URL"),
-        os.environ.get("VITE_CONVEX_URL"),
-        env_file.get("CONVEX_URL"),
-        env_file.get("VITE_CONVEX_URL"),
-    )
-    value = next((value for value in sources if value), None)
-    if not value:
-        return None
-    return normalize_convex_site_url(value)
+def resolve_site_url(cli_override: str | None, env_file: dict[str, str]) -> str | None:
+	# http actions live behind the SITE url, not the regular convex url.
+	# convert fallback client URLs so local & cloud deployments hit the
+	# configured HTTP action host without ceremony
+	sources = (
+		cli_override,
+		os.environ.get("CONVEX_SITE_URL"),
+		os.environ.get("VITE_CONVEX_SITE_URL"),
+		env_file.get("CONVEX_SITE_URL"),
+		env_file.get("VITE_CONVEX_SITE_URL"),
+		os.environ.get("CONVEX_URL"),
+		os.environ.get("VITE_CONVEX_URL"),
+		env_file.get("CONVEX_URL"),
+		env_file.get("VITE_CONVEX_URL"),
+	)
+	value = next((value for value in sources if value), None)
+	if not value:
+		return None
+	return normalize_convex_site_url(value)
 
 
 def main() -> int:
-    args = parse_args()
-    env = load_dotenv(DOTENV_PATH)
-    deployment = os.environ.get("CONVEX_DEPLOYMENT") or env.get("CONVEX_DEPLOYMENT", "")
-    if deployment.startswith(PROD_DEPLOYMENT_PREFIXES):
-        print(
-            f"refusing to reset: CONVEX_DEPLOYMENT='{deployment}' looks like prod",
-            file=sys.stderr,
-        )
-        return 2
+	args = parse_args()
+	env = load_dotenv(DOTENV_PATH)
+	deployment = os.environ.get("CONVEX_DEPLOYMENT") or env.get("CONVEX_DEPLOYMENT", "")
+	if deployment.startswith(PROD_DEPLOYMENT_PREFIXES):
+		print(
+			f"refusing to reset: CONVEX_DEPLOYMENT='{deployment}' looks like prod",
+			file=sys.stderr,
+		)
+		return 2
 
-    convex_url = resolve_site_url(args.convex_url, env)
-    seed_secret = (
-        args.seed_secret
-        or os.environ.get("CONVEX_SEED_SECRET")
-        or env.get("CONVEX_SEED_SECRET")
-    )
-    if not convex_url:
-        print(
-            "CONVEX_SITE_URL / VITE_CONVEX_SITE_URL is not set",
-            file=sys.stderr,
-        )
-        return 2
-    if not seed_secret:
-        print("CONVEX_SEED_SECRET is not set", file=sys.stderr)
-        return 2
+	convex_url = resolve_site_url(args.convex_url, env)
+	seed_secret = (
+		args.seed_secret or os.environ.get("CONVEX_SEED_SECRET") or env.get("CONVEX_SEED_SECRET")
+	)
+	if not convex_url:
+		print(
+			"CONVEX_SITE_URL / VITE_CONVEX_SITE_URL is not set",
+			file=sys.stderr,
+		)
+		return 2
+	if not seed_secret:
+		print("CONVEX_SEED_SECRET is not set", file=sys.stderr)
+		return 2
 
-    marker = derive_marker(convex_url)
-    confirm = f"RESET-{marker}"
+	marker = derive_marker(convex_url)
+	confirm = f"RESET-{marker}"
 
-    print("about to wipe ALL data on this deployment:")
-    print(f"  CONVEX_DEPLOYMENT = {deployment or '<unset>'}")
-    print(f"  site url          = {convex_url}")
-    print(f"  confirm token     = {confirm}")
+	print("about to wipe ALL data on this deployment:")
+	print(f"  CONVEX_DEPLOYMENT = {deployment or '<unset>'}")
+	print(f"  site url          = {convex_url}")
+	print(f"  confirm token     = {confirm}")
 
-    if not args.yes:
-        print(
-            "\nrefusing to run without --yes. re-run as: npm run db:reset -- --yes",
-            file=sys.stderr,
-        )
-        return 2
+	if not args.yes:
+		print(
+			"\nrefusing to run without --yes. re-run as: npm run db:reset -- --yes",
+			file=sys.stderr,
+		)
+		return 2
 
-    client = ConvexSeedClient(
-        ConvexSeedSettings(
-            site_url=convex_url,
-            seed_secret=seed_secret,
-            env_name=deployment or "dev-reset",
-        )
-    )
-    try:
-        value = client.action(RESET_FUNCTION, {"confirm": confirm})
-    except ConvexClientError as error:
-        print(f"\nreset failed: {error}", file=sys.stderr)
-        return 1
+	client = ConvexSeedClient(
+		ConvexSeedSettings(
+			site_url=convex_url,
+			seed_secret=seed_secret,
+			env_name=deployment or "dev-reset",
+		)
+	)
+	try:
+		value = client.action(RESET_FUNCTION, {"confirm": confirm})
+	except ConvexClientError as error:
+		print(f"\nreset failed: {error}", file=sys.stderr)
+		return 1
 
-    deleted_counts = value.get("deletedCounts", {})
-    deleted_blobs = value.get("deletedStorageBlobs", 0)
-    canceled_scheduled = value.get("canceledScheduledFunctions", 0)
-    total_rows = sum(int(count) for count in deleted_counts.values())
+	deleted_counts = value.get("deletedCounts", {})
+	deleted_blobs = value.get("deletedStorageBlobs", 0)
+	canceled_scheduled = value.get("canceledScheduledFunctions", 0)
+	total_rows = sum(int(count) for count in deleted_counts.values())
 
-    print(f"\nreset complete on {value.get('deploymentMarker', marker)}:")
-    print(f"  scheduled fns canceled: {canceled_scheduled}")
-    print(f"  storage blobs deleted:  {deleted_blobs}")
-    print(f"  table rows deleted:     {total_rows}")
-    for table_name in sorted(deleted_counts):
-        count = int(deleted_counts[table_name])
-        if count:
-            print(f"    {table_name}: {count}")
-    return 0
+	print(f"\nreset complete on {value.get('deploymentMarker', marker)}:")
+	print(f"  scheduled fns canceled: {canceled_scheduled}")
+	print(f"  storage blobs deleted:  {deleted_blobs}")
+	print(f"  table rows deleted:     {total_rows}")
+	for table_name in sorted(deleted_counts):
+		count = int(deleted_counts[table_name])
+		if count:
+			print(f"    {table_name}: {count}")
+	return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+	sys.exit(main())

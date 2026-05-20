@@ -17,9 +17,12 @@ import {
   boardPausedReasonValidator,
 } from './lib/validators/workspace'
 import {
+  boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
+  mediaPlateNullableValidator,
+  mediaPlateValidator,
   paletteIdValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
@@ -134,6 +137,10 @@ export default defineSchema({
       v.literal('contain'),
       v.null()
     ),
+    // board-wide plate inset when an item has no override; null/absent ->
+    // plate-aware fallback (DEFAULT_ITEM_IMAGE_PADDING for plated items, else 0).
+    // optional so boards predating this field stay valid on schema push
+    defaultItemImagePadding: v.optional(v.union(v.number(), v.null())),
     // Source attribution captured at fork/remix time. Leaf fields are nullable
     // so the no-source case stays indexable; writers update the object as a
     // unit so id/category/title cannot drift independently.
@@ -167,6 +174,8 @@ export default defineSchema({
     // per-board label rendering defaults; null -> inherit AppPreferences.showLabels
     // & built-in defaults
     labels: v.union(boardLabelSettingsValidator, v.null()),
+    // per-board logo backdrop; absent -> On+Auto default
+    autoPlate: v.optional(boardAutoPlateSettingsValidator),
     seedDatasetKey: v.union(v.string(), v.null()),
     seedReleaseId: v.union(v.string(), v.null()),
     seedExternalId: v.union(v.string(), v.null()),
@@ -215,6 +224,7 @@ export default defineSchema({
     externalId: v.string(),
     label: v.optional(v.string()),
     backgroundColor: v.optional(v.string()),
+    mediaPlate: v.optional(mediaPlateValidator),
     altText: v.optional(v.string()),
     // private per-item editor notes; synced across devices, never read by
     // marketplace publish mappers (publish cherry-picks fields explicitly)
@@ -228,6 +238,8 @@ export default defineSchema({
     imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
     // per-item manual crop transform — when set, overrides imageFit at render
     transform: v.optional(itemTransformValidator),
+    // per-item plate inset (fraction of cell edge); absent -> board default
+    imagePadding: v.optional(v.number()),
     // per-tile label rendering override; absent -> inherit board/global defaults
     labelOptions: v.optional(itemLabelOptionsValidator),
     // source marketplace item for future aggregate-ranking features
@@ -301,9 +313,11 @@ export default defineSchema({
         mediaAssetId: v.id('mediaAssets'),
         label: v.union(v.string(), v.null()),
         backgroundColor: v.union(v.string(), v.null()),
+        mediaPlate: v.optional(mediaPlateNullableValidator),
         aspectRatio: v.union(v.number(), v.null()),
         imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
         transform: v.union(itemTransformValidator, v.null()),
+        imagePadding: v.union(v.number(), v.null()),
       })
     ),
     suggestedTiers: tierPresetTiersValidator,
@@ -332,9 +346,12 @@ export default defineSchema({
       v.literal('contain'),
       v.null()
     ),
+    defaultItemImagePadding: v.union(v.number(), v.null()),
     // pre-baked label rendering defaults — forked boards inherit these so the
     // publisher's caption styling shows up without each user toggling labels
     labels: v.union(boardLabelSettingsValidator, v.null()),
+    // per-board logo backdrop pinned at publish; absent -> On+Auto default
+    autoPlate: v.optional(boardAutoPlateSettingsValidator),
     // seed identity fields let Python diff/upsert by stable external IDs
     // while user-published templates continue to omit them
     seedDatasetKey: v.optional(v.string()),
@@ -389,6 +406,9 @@ export default defineSchema({
       v.literal('contain'),
       v.null()
     ),
+    defaultItemImagePadding: v.union(v.number(), v.null()),
+    // mirror of templates.autoPlate; absent -> On+Auto default
+    autoPlate: v.optional(boardAutoPlateSettingsValidator),
     featuredRank: v.union(v.number(), v.null()),
     forkCount: v.number(),
     viewCount: v.number(),
@@ -576,12 +596,14 @@ export default defineSchema({
     externalId: v.string(),
     label: v.union(v.string(), v.null()),
     backgroundColor: v.union(v.string(), v.null()),
+    mediaPlate: v.optional(mediaPlateNullableValidator),
     altText: v.union(v.string(), v.null()),
     mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
     aspectRatio: v.union(v.number(), v.null()),
     imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
     transform: v.union(itemTransformValidator, v.null()),
+    imagePadding: v.union(v.number(), v.null()),
   })
     .index('byTemplate', ['templateId', 'order'])
     .index('byTemplateAndExternalId', ['templateId', 'externalId'])
@@ -726,12 +748,14 @@ export default defineSchema({
     tierExternalId: v.union(v.string(), v.null()),
     label: v.union(v.string(), v.null()),
     backgroundColor: v.union(v.string(), v.null()),
+    mediaPlate: v.optional(mediaPlateNullableValidator),
     altText: v.union(v.string(), v.null()),
     mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
     aspectRatio: v.union(v.number(), v.null()),
     imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
     transform: v.union(itemTransformValidator, v.null()),
+    imagePadding: v.union(v.number(), v.null()),
   })
     .index('byRanking', ['rankingId', 'order'])
     .index('byMedia', ['mediaAssetId']),
@@ -765,12 +789,14 @@ export default defineSchema({
     templateItemExternalId: v.string(),
     label: v.union(v.string(), v.null()),
     backgroundColor: v.union(v.string(), v.null()),
+    mediaPlate: v.optional(mediaPlateNullableValidator),
     altText: v.union(v.string(), v.null()),
     mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
     aspectRatio: v.union(v.number(), v.null()),
     imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
     transform: v.union(itemTransformValidator, v.null()),
+    imagePadding: v.union(v.number(), v.null()),
     sampleCount: v.number(),
     bucketWeightSum: v.number(),
     bucketSquareSum: v.number(),

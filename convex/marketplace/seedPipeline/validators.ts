@@ -3,8 +3,10 @@
 
 import { v } from 'convex/values'
 import {
+  boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
   itemTransformValidator,
+  mediaPlateNullableValidator,
   tierPresetTiersValidator,
 } from '../../lib/validators/common'
 import {
@@ -76,6 +78,9 @@ export const seedResolvedItemValidator = v.object({
   mediaDedupeHash: v.union(v.string(), v.null()),
   aspectRatio: v.union(v.number(), v.null()),
   transform: v.union(itemTransformValidator, v.null()),
+  mediaPlate: mediaPlateNullableValidator,
+  imagePadding: v.union(v.number(), v.null()),
+  backgroundColor: v.union(v.string(), v.null()),
 })
 
 export const seedResolvedCriterionValidator = v.object({
@@ -140,9 +145,12 @@ export const seedTemplateUpsertValidator = v.object({
   suggestedTiers: tierPresetTiersValidator,
   itemAspectRatio: v.number(),
   itemCount: v.number(),
+  defaultItemImagePadding: v.union(v.number(), v.null()),
   // optional per-template override for cloned-board label visibility. when
   // unset, forked boards inherit the user's global showLabels preference
   labels: v.optional(boardLabelSettingsValidator),
+  // per-template logo backdrop pinned at publish; absent -> On+Auto default
+  autoPlate: v.optional(boardAutoPlateSettingsValidator),
 })
 
 export const seedItemUpsertValidator = v.object({
@@ -152,6 +160,9 @@ export const seedItemUpsertValidator = v.object({
   mediaDedupeHash: v.string(),
   aspectRatio: v.union(v.number(), v.null()),
   transform: v.union(itemTransformValidator, v.null()),
+  mediaPlate: mediaPlateNullableValidator,
+  imagePadding: v.union(v.number(), v.null()),
+  backgroundColor: v.union(v.string(), v.null()),
 })
 
 export const seedCriterionUpsertValidator = v.object({

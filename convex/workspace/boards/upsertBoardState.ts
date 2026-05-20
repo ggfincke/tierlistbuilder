@@ -5,7 +5,10 @@ import { ConvexError, v, type Infer } from 'convex/values'
 import { mutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
+  boardAutoPlateSettingsEqual,
   boardLabelSettingsEqual,
+  IMAGE_PADDING_MAX,
+  IMAGE_PADDING_MIN,
   isValidLabelFontSizePx,
   ITEM_TRANSFORM_LIMITS,
   LABEL_FONT_SIZE_PX_MAX,
@@ -30,17 +33,23 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
 import { assertStringLength, failInput } from '../../lib/text'
-import { assertExternalIdShape } from '../../lib/assertions'
+import {
+  assertExternalIdShape,
+  assertFiniteRange,
+} from '../../lib/assertions'
 import { memoizePromise } from '../../lib/cache'
 import {
+  boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
+  mediaPlateValidator,
   paletteIdValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
 } from '../../lib/validators/common'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   LabelPlacement,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -98,6 +107,7 @@ const wireItemValidator = v.object({
   tierId: v.union(v.string(), v.null()),
   label: v.optional(v.string()),
   backgroundColor: v.optional(v.string()),
+  mediaPlate: v.optional(mediaPlateValidator),
   altText: v.optional(v.string()),
   notes: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
@@ -105,6 +115,7 @@ const wireItemValidator = v.object({
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
   transform: v.optional(itemTransformValidator),
+  imagePadding: v.optional(v.number()),
   labelOptions: v.optional(itemLabelOptionsValidator),
   sourceTemplateItemExternalId: v.optional(v.string()),
 })
@@ -119,6 +130,7 @@ const boardAspectRatioValidators = {
   defaultItemImageFit: v.optional(
     v.union(v.literal('cover'), v.literal('contain'))
   ),
+  defaultItemImagePadding: v.optional(v.number()),
 }
 
 // per-board style override args — validators match CloudBoardStyleOverrideFields.
@@ -128,6 +140,7 @@ const boardStyleOverrideValidators = {
   textStyleId: v.optional(textStyleIdValidator),
   pageBackground: v.optional(v.string()),
   labels: v.optional(boardLabelSettingsValidator),
+  autoPlate: v.optional(boardAutoPlateSettingsValidator),
 }
 
 // source-fork identity carried by locally-created forks/remixes — only
@@ -153,10 +166,12 @@ interface UpsertArgs
   itemAspectRatioMode?: 'auto' | 'manual'
   aspectRatioPromptDismissed?: boolean
   defaultItemImageFit?: 'cover' | 'contain'
+  defaultItemImagePadding?: number
   paletteId?: PaletteId
   textStyleId?: TextStyleId
   pageBackground?: string
   labels?: BoardLabelSettings
+  autoPlate?: BoardAutoPlateSettings
   sourceTemplateId?: string
   sourceRankingId?: string
   sourceTemplateTitle?: string
@@ -176,10 +191,12 @@ interface NormalizedBoardWriteFields
   itemAspectRatioMode: 'auto' | 'manual' | null
   aspectRatioPromptDismissed: boolean
   defaultItemImageFit: 'cover' | 'contain' | null
+  defaultItemImagePadding: number | null
   paletteId: PaletteId | null
   textStyleId: TextStyleId | null
   pageBackground: string | null
   labels: BoardLabelSettings | null
+  autoPlate?: BoardAutoPlateSettings
 }
 
 const normalizeBoardWriteFields = (
@@ -189,10 +206,12 @@ const normalizeBoardWriteFields = (
   itemAspectRatioMode: args.itemAspectRatioMode ?? null,
   aspectRatioPromptDismissed: args.aspectRatioPromptDismissed ?? false,
   defaultItemImageFit: args.defaultItemImageFit ?? null,
+  defaultItemImagePadding: args.defaultItemImagePadding ?? null,
   paletteId: args.paletteId ?? null,
   textStyleId: args.textStyleId ?? null,
   pageBackground: args.pageBackground ?? null,
   labels: args.labels ?? null,
+  autoPlate: args.autoPlate,
 })
 
 const validateLabelPlacement = (
@@ -223,6 +242,26 @@ const validateLabelFontSize = (
       `invalid ${field}: must be within [${LABEL_FONT_SIZE_PX_MIN}, ${LABEL_FONT_SIZE_PX_MAX}]`
     )
   }
+}
+
+const validateBoardAutoPlate = (
+  autoPlate: BoardAutoPlateSettings | undefined
+): void =>
+{
+  if (autoPlate?.mode !== 'uniform' || autoPlate.uniformColor === undefined)
+  {
+    return
+  }
+  validateHexColor(autoPlate.uniformColor, 'autoPlate.uniformColor')
+}
+
+const validateImagePadding = (
+  padding: number | undefined,
+  field: string
+): void =>
+{
+  if (padding === undefined) return
+  assertFiniteRange(field, padding, IMAGE_PADDING_MIN, IMAGE_PADDING_MAX)
 }
 
 type UpsertResult =
@@ -371,6 +410,7 @@ const validateInputs = (args: UpsertArgs): void =>
         )
       }
     }
+    validateImagePadding(item.imagePadding, 'item.imagePadding')
     validateLabelPlacement(
       item.labelOptions?.placement,
       'item.labelOptions.placement'
@@ -393,8 +433,10 @@ const validateInputs = (args: UpsertArgs): void =>
   {
     validateHexColor(args.pageBackground, 'pageBackground')
   }
+  validateImagePadding(args.defaultItemImagePadding, 'defaultItemImagePadding')
   validateLabelPlacement(args.labels?.placement, 'labels.placement')
   validateLabelFontSize(args.labels?.fontSizePx, 'labels.fontSizePx')
+  validateBoardAutoPlate(args.autoPlate)
 }
 
 // --- phase 2: ensure board + early revision check ----------------------------
@@ -844,12 +886,15 @@ const applyBoardState = async (
     board.itemAspectRatioMode !== writeFields.itemAspectRatioMode ||
     board.aspectRatioPromptDismissed !==
       writeFields.aspectRatioPromptDismissed ||
-    board.defaultItemImageFit !== writeFields.defaultItemImageFit
+    board.defaultItemImageFit !== writeFields.defaultItemImageFit ||
+    (board.defaultItemImagePadding ?? null) !==
+      writeFields.defaultItemImagePadding
   const styleOverrideChanged =
     board.paletteId !== writeFields.paletteId ||
     board.textStyleId !== writeFields.textStyleId ||
     board.pageBackground !== writeFields.pageBackground ||
-    !boardLabelSettingsEqual(board.labels, args.labels)
+    !boardLabelSettingsEqual(board.labels, args.labels) ||
+    !boardAutoPlateSettingsEqual(board.autoPlate, args.autoPlate)
   const templateProgressState = resolveTemplateProgressState(
     getBoardSourceTemplateId(board),
     progressCounts

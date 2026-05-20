@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sync Status Indicator**: Per-board badge & global indicator surfacing localOnly / cloudBacked / syncPausedForPlan + clone progress
 - **Marketplace (Backend)**: `marketplace/{templates,rankings}` Convex namespaces — gallery query, paginated items, draft rail, publish from board, clone-to-board w/ media re-upload, ranking publish/remix, rolling trending metrics, owner management reads, and seed script
 - **Marketplace (Frontend)**: Routed `/templates` and `/rankings/:slug` surfaces w/ gallery rails, template detail community rankings, ranking publish gating, ranking detail, remix CTA, account template management, and workspace gallery entry points
+- **Media Plates**: Transparent-logo backdrop system — per-board `autoPlate` (off / auto / uniform w/ custom color), a per-item `backgroundColor` that always wins, and a per-item/board `imagePadding` plate inset that floats logos off the plate edge. Seed pipeline auto-detects per-logo plates via WCAG ink contrast + a new `audit` command for choosing per-board policy from data; threaded through board, cover/Mosaic, consensus, and ranking surfaces, with consensus & ranking views pulling the source template's display policy live
 
 ## [0.9.0] - 2026-05-18
 

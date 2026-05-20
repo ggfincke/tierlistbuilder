@@ -10,26 +10,27 @@ import traceback
 from pathlib import Path
 from typing import Callable
 
+from .audit import run_plate_audit
 from .build import build_compiled_manifest
 from .diff import write_diff_report_for_manifest
 from .manifest import find_repo_root
 from .run_context import SeedRunOptions
 from .runs import (
-    activate_seed_manifest,
-    apply_seed_manifest,
-    cleanup_seed_manifest,
-    rollback_seed_manifest,
-    run_seed_manifest,
-    upload_seed_manifest,
-    verify_seed_manifest,
+	activate_seed_manifest,
+	apply_seed_manifest,
+	cleanup_seed_manifest,
+	rollback_seed_manifest,
+	run_seed_manifest,
+	upload_seed_manifest,
+	verify_seed_manifest,
 )
 from .rankings import (
-    activate_rankings_manifest,
-    apply_rankings_manifest,
-    preflight_rankings_manifest,
-    rollback_rankings_manifest,
-    run_rankings_manifest,
-    verify_rankings_manifest,
+	activate_rankings_manifest,
+	apply_rankings_manifest,
+	preflight_rankings_manifest,
+	rollback_rankings_manifest,
+	run_rankings_manifest,
+	verify_rankings_manifest,
 )
 from .validate import ManifestValidationError, validate_source_manifest
 
@@ -37,212 +38,206 @@ ReportCommand = Callable[[Path, Path, SeedRunOptions], Path]
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = _parser()
-    args = parser.parse_args(argv)
-    repo_root = find_repo_root()
-    manifest_path = (repo_root / args.manifest).resolve()
-    try:
-        return args.handler(manifest_path, repo_root, args)
-    except ManifestValidationError as error:
-        _print_diagnostics(error.errors)
-        return 1
-    except Exception as error:
-        # surface full trace so flaky deploys & checkpoint corruption are
-        # diagnosable from CI logs without a rerun
-        print(f"seed pipeline failed: {error}", file=sys.stderr)
-        traceback.print_exc()
-        return 1
+	parser = _parser()
+	args = parser.parse_args(argv)
+	repo_root = find_repo_root()
+	manifest_path = (repo_root / args.manifest).resolve()
+	try:
+		return args.handler(manifest_path, repo_root, args)
+	except ManifestValidationError as error:
+		_print_diagnostics(error.errors)
+		return 1
+	except Exception as error:
+		# surface full trace so flaky deploys & checkpoint corruption are
+		# diagnosable from CI logs without a rerun
+		print(f"seed pipeline failed: {error}", file=sys.stderr)
+		traceback.print_exc()
+		return 1
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="python -m seed_pipeline")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+	parser = argparse.ArgumentParser(prog="python -m seed_pipeline")
+	subparsers = parser.add_subparsers(dest="command", required=True)
 
-    validate_parser = subparsers.add_parser("validate")
-    validate_parser.add_argument("manifest", type=Path)
-    validate_parser.add_argument("--fail-on-warning", action="store_true")
-    validate_parser.set_defaults(handler=_validate)
+	validate_parser = subparsers.add_parser("validate")
+	validate_parser.add_argument("manifest", type=Path)
+	validate_parser.add_argument("--fail-on-warning", action="store_true")
+	validate_parser.set_defaults(handler=_validate)
 
-    build_parser = subparsers.add_parser("build")
-    build_parser.add_argument("manifest", type=Path)
-    build_parser.add_argument("--fail-on-warning", action="store_true")
-    build_parser.set_defaults(handler=_build)
+	build_parser = subparsers.add_parser("build")
+	build_parser.add_argument("manifest", type=Path)
+	build_parser.add_argument("--fail-on-warning", action="store_true")
+	build_parser.set_defaults(handler=_build)
 
-    for command in ("diff", "preflight"):
-        command_parser = subparsers.add_parser(command)
-        command_parser.add_argument("manifest", type=Path)
-        command_parser.add_argument("--env", default="local")
-        command_parser.add_argument("--convex-url")
-        command_parser.add_argument("--seed-secret")
-        command_parser.add_argument("--state-json", type=Path)
-        command_parser.add_argument("--fail-on-warning", action="store_true")
-        command_parser.set_defaults(handler=_diff)
+	audit_parser = subparsers.add_parser("audit")
+	audit_parser.add_argument("manifest", type=Path)
+	audit_parser.add_argument(
+		"--template", help="audit a single template externalId instead of all"
+	)
+	audit_parser.set_defaults(handler=_audit)
 
-    _add_report_command(
-        subparsers, "upload", "seed upload report", upload_seed_manifest
-    )
-    _add_report_command(subparsers, "apply", "seed apply report", apply_seed_manifest)
-    _add_report_command(
-        subparsers, "verify", "seed verify report", verify_seed_manifest
-    )
-    _add_report_command(
-        subparsers, "cleanup", "seed cleanup report", cleanup_seed_manifest
-    )
-    _add_report_command(
-        subparsers, "activate", "seed activation report", activate_seed_manifest
-    )
-    _add_report_command(
-        subparsers,
-        "rollback",
-        "seed rollback report",
-        rollback_seed_manifest,
-        target_release=True,
-    )
-    _add_report_command(subparsers, "run", "seed run report", run_seed_manifest)
+	for command in ("diff", "preflight"):
+		command_parser = subparsers.add_parser(command)
+		command_parser.add_argument("manifest", type=Path)
+		command_parser.add_argument("--env", default="local")
+		command_parser.add_argument("--convex-url")
+		command_parser.add_argument("--seed-secret")
+		command_parser.add_argument("--state-json", type=Path)
+		command_parser.add_argument("--fail-on-warning", action="store_true")
+		command_parser.set_defaults(handler=_diff)
 
-    _add_report_command(
-        subparsers,
-        "rankings:preflight",
-        "ranking seed preflight report",
-        preflight_rankings_manifest,
-    )
-    _add_report_command(
-        subparsers,
-        "rankings:apply",
-        "ranking seed apply report",
-        apply_rankings_manifest,
-    )
-    _add_report_command(
-        subparsers,
-        "rankings:verify",
-        "ranking seed verify report",
-        verify_rankings_manifest,
-    )
-    _add_report_command(
-        subparsers,
-        "rankings:activate",
-        "ranking seed activation report",
-        activate_rankings_manifest,
-    )
-    _add_report_command(
-        subparsers,
-        "rankings:rollback",
-        "ranking seed rollback report",
-        rollback_rankings_manifest,
-        target_release=True,
-    )
-    _add_report_command(
-        subparsers,
-        "rankings:run",
-        "ranking seed run report",
-        run_rankings_manifest,
-    )
-    return parser
+	_add_report_command(subparsers, "upload", "seed upload report", upload_seed_manifest)
+	_add_report_command(subparsers, "apply", "seed apply report", apply_seed_manifest)
+	_add_report_command(subparsers, "verify", "seed verify report", verify_seed_manifest)
+	_add_report_command(subparsers, "cleanup", "seed cleanup report", cleanup_seed_manifest)
+	_add_report_command(subparsers, "activate", "seed activation report", activate_seed_manifest)
+	_add_report_command(
+		subparsers,
+		"rollback",
+		"seed rollback report",
+		rollback_seed_manifest,
+		target_release=True,
+	)
+	_add_report_command(subparsers, "run", "seed run report", run_seed_manifest)
 
-
-def _validate(
-    manifest_path: Path, repo_root: Path, args: argparse.Namespace
-) -> int:
-    result = validate_source_manifest(manifest_path, repo_root)
-    _print_diagnostics((*result.errors, *result.warnings))
-    if result.errors or (args.fail_on_warning and result.warnings):
-        return 1
-    print(f"valid source manifest: {manifest_path}")
-    return 0
+	_add_report_command(
+		subparsers,
+		"rankings:preflight",
+		"ranking seed preflight report",
+		preflight_rankings_manifest,
+	)
+	_add_report_command(
+		subparsers,
+		"rankings:apply",
+		"ranking seed apply report",
+		apply_rankings_manifest,
+	)
+	_add_report_command(
+		subparsers,
+		"rankings:verify",
+		"ranking seed verify report",
+		verify_rankings_manifest,
+	)
+	_add_report_command(
+		subparsers,
+		"rankings:activate",
+		"ranking seed activation report",
+		activate_rankings_manifest,
+	)
+	_add_report_command(
+		subparsers,
+		"rankings:rollback",
+		"ranking seed rollback report",
+		rollback_rankings_manifest,
+		target_release=True,
+	)
+	_add_report_command(
+		subparsers,
+		"rankings:run",
+		"ranking seed run report",
+		run_rankings_manifest,
+	)
+	return parser
 
 
-def _build(
-    manifest_path: Path, repo_root: Path, args: argparse.Namespace
-) -> int:
-    compiled_path = build_compiled_manifest(
-        manifest_path, repo_root, args.fail_on_warning
-    )
-    print(f"wrote compiled manifest: {compiled_path}")
-    return 0
+def _validate(manifest_path: Path, repo_root: Path, args: argparse.Namespace) -> int:
+	result = validate_source_manifest(manifest_path, repo_root)
+	_print_diagnostics((*result.errors, *result.warnings))
+	if result.errors or (args.fail_on_warning and result.warnings):
+		return 1
+	print(f"valid source manifest: {manifest_path}")
+	return 0
 
 
-def _diff(
-    manifest_path: Path, repo_root: Path, args: argparse.Namespace
-) -> int:
-    report_path = write_diff_report_for_manifest(
-        manifest_path,
-        repo_root,
-        env_name=args.env,
-        fail_on_warning=args.fail_on_warning,
-        convex_url=args.convex_url,
-        seed_secret=args.seed_secret,
-        state_json=args.state_json,
-    )
-    print(f"wrote seed diff report: {report_path}")
-    return 0
+def _build(manifest_path: Path, repo_root: Path, args: argparse.Namespace) -> int:
+	compiled_path = build_compiled_manifest(manifest_path, repo_root, args.fail_on_warning)
+	print(f"wrote compiled manifest: {compiled_path}")
+	return 0
+
+
+def _audit(manifest_path: Path, repo_root: Path, args: argparse.Namespace) -> int:
+	run_plate_audit(manifest_path, repo_root, template_filter=args.template)
+	return 0
+
+
+def _diff(manifest_path: Path, repo_root: Path, args: argparse.Namespace) -> int:
+	report_path = write_diff_report_for_manifest(
+		manifest_path,
+		repo_root,
+		env_name=args.env,
+		fail_on_warning=args.fail_on_warning,
+		convex_url=args.convex_url,
+		seed_secret=args.seed_secret,
+		state_json=args.state_json,
+	)
+	print(f"wrote seed diff report: {report_path}")
+	return 0
 
 
 def _write_command(
-    label: str,
-    command: ReportCommand,
-    manifest_path: Path,
-    repo_root: Path,
-    args: argparse.Namespace,
+	label: str,
+	command: ReportCommand,
+	manifest_path: Path,
+	repo_root: Path,
+	args: argparse.Namespace,
 ) -> int:
-    options = _seed_run_options(args)
-    report_path = command(manifest_path, repo_root, options)
-    print(f"wrote {label}: {report_path}")
-    return 0
+	options = _seed_run_options(args)
+	report_path = command(manifest_path, repo_root, options)
+	print(f"wrote {label}: {report_path}")
+	return 0
 
 
 def _add_report_command(
-    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
-    name: str,
-    label: str,
-    command: ReportCommand,
-    *,
-    target_release: bool = False,
+	subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+	name: str,
+	label: str,
+	command: ReportCommand,
+	*,
+	target_release: bool = False,
 ) -> None:
-    command_parser = subparsers.add_parser(name)
-    command_parser.add_argument("manifest", type=Path)
-    _add_seed_run_args(command_parser)
-    if target_release:
-        command_parser.add_argument("--target-release-id", required=True)
-    command_parser.set_defaults(
-        handler=functools.partial(_write_command, label, command)
-    )
+	command_parser = subparsers.add_parser(name)
+	command_parser.add_argument("manifest", type=Path)
+	_add_seed_run_args(command_parser)
+	if target_release:
+		command_parser.add_argument("--target-release-id", required=True)
+	command_parser.set_defaults(handler=functools.partial(_write_command, label, command))
 
 
 def _add_seed_run_args(parser: argparse.ArgumentParser) -> None:
-    # server-write commands share run identity, safety, & checkpoint settings
-    parser.add_argument("--env", default="local")
-    parser.add_argument("--convex-url")
-    parser.add_argument("--seed-secret")
-    parser.add_argument("--run-id")
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--yes", action="store_true")
-    parser.add_argument("--fail-on-warning", action="store_true")
-    parser.add_argument("--state-json", type=Path)
-    parser.add_argument("--max-upload-bytes", type=int)
-    parser.add_argument("--confirm-activation", action="store_true")
-    parser.add_argument("--previous-release-id")
+	# server-write commands share run identity, safety, & checkpoint settings
+	parser.add_argument("--env", default="local")
+	parser.add_argument("--convex-url")
+	parser.add_argument("--seed-secret")
+	parser.add_argument("--run-id")
+	parser.add_argument("--dry-run", action="store_true")
+	parser.add_argument("--yes", action="store_true")
+	parser.add_argument("--fail-on-warning", action="store_true")
+	parser.add_argument("--state-json", type=Path)
+	parser.add_argument("--max-upload-bytes", type=int)
+	parser.add_argument("--confirm-activation", action="store_true")
+	parser.add_argument("--previous-release-id")
 
 
 def _seed_run_options(args: argparse.Namespace) -> SeedRunOptions:
-    return SeedRunOptions(
-        env_name=args.env,
-        convex_url=args.convex_url,
-        seed_secret=args.seed_secret,
-        run_id=args.run_id,
-        dry_run=args.dry_run,
-        yes=args.yes,
-        fail_on_warning=args.fail_on_warning,
-        max_upload_bytes=args.max_upload_bytes,
-        confirm_activation=args.confirm_activation,
-        previous_release_id=args.previous_release_id,
-        target_release_id=getattr(args, "target_release_id", None),
-        state_json=args.state_json,
-    )
+	return SeedRunOptions(
+		env_name=args.env,
+		convex_url=args.convex_url,
+		seed_secret=args.seed_secret,
+		run_id=args.run_id,
+		dry_run=args.dry_run,
+		yes=args.yes,
+		fail_on_warning=args.fail_on_warning,
+		max_upload_bytes=args.max_upload_bytes,
+		confirm_activation=args.confirm_activation,
+		previous_release_id=args.previous_release_id,
+		target_release_id=getattr(args, "target_release_id", None),
+		state_json=args.state_json,
+	)
 
 
 def _print_diagnostics(diagnostics: tuple[object, ...]) -> None:
-    for diagnostic in diagnostics:
-        code = getattr(diagnostic, "code")
-        path = getattr(diagnostic, "path")
-        message = getattr(diagnostic, "message")
-        print(f"{code} {path}: {message}", file=sys.stderr)
+	for diagnostic in diagnostics:
+		code = getattr(diagnostic, "code")
+		path = getattr(diagnostic, "path")
+		message = getattr(diagnostic, "message")
+		print(f"{code} {path}: {message}", file=sys.stderr)

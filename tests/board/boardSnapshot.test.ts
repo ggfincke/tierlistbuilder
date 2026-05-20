@@ -13,7 +13,11 @@ import {
   normalizeCanonicalTierColorSpec,
 } from '~/shared/theme/tierColors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  boardAutoPlateSettingsEqual,
+  type BoardAutoPlateSettings,
+  type BoardSnapshot,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
 import { asInvalid } from '@tests/typeHelpers'
 
@@ -113,6 +117,84 @@ describe('normalizeBoardSnapshot', () =>
     expect(result.items[id].tileImageRef).toEqual({ hash: 'tile-hash' })
     expect(result.items[id].sourceImageRef).toEqual({ hash: 'source-hash' })
     expect(result.items[id].transform).toBeUndefined()
+  })
+
+  it('normalizes item media plates through the shared enum helper', () =>
+  {
+    const id = asItemId('media-plate-item')
+    const invalidId = asItemId('invalid-media-plate-item')
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        items: {
+          [id]: makeItem({ id, mediaPlate: 'light' }),
+          [invalidId]: {
+            ...makeItem({ id: invalidId }),
+            mediaPlate: asInvalid('blue'),
+          },
+        },
+      }),
+      'classic'
+    )
+
+    expect(result.items[id].mediaPlate).toBe('light')
+    expect(result.items[invalidId].mediaPlate).toBeUndefined()
+  })
+
+  it('canonicalizes board auto-plate settings by mode', () =>
+  {
+    const auto = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        autoPlate: asInvalid({ mode: 'auto', uniformColor: '#ffffff' }),
+      }),
+      'classic'
+    )
+    const uniform = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        autoPlate: { mode: 'uniform', uniformColor: '#ABCDEF' },
+      }),
+      'classic'
+    )
+    const invalidUniform = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        autoPlate: asInvalid({ mode: 'uniform', uniformColor: 'not-a-color' }),
+      }),
+      'classic'
+    )
+
+    expect(auto.autoPlate).toEqual({ mode: 'auto' })
+    expect(uniform.autoPlate).toEqual({
+      mode: 'uniform',
+      uniformColor: '#ABCDEF',
+    })
+    expect(invalidUniform.autoPlate).toEqual({ mode: 'uniform' })
+  })
+
+  it('compares non-uniform auto-plate settings by mode only', () =>
+  {
+    expect(
+      boardAutoPlateSettingsEqual(
+        asInvalid<BoardAutoPlateSettings>({
+          mode: 'auto',
+          uniformColor: '#ffffff',
+        }),
+        { mode: 'auto' }
+      )
+    ).toBe(true)
+    expect(
+      boardAutoPlateSettingsEqual(
+        asInvalid<BoardAutoPlateSettings>({
+          mode: 'off',
+          uniformColor: '#ffffff',
+        }),
+        { mode: 'off' }
+      )
+    ).toBe(true)
+    expect(
+      boardAutoPlateSettingsEqual(
+        { mode: 'uniform', uniformColor: '#ffffff' },
+        { mode: 'uniform' }
+      )
+    ).toBe(false)
   })
 
   it('preserves source metadata, private notes, and cloud media refs', () =>

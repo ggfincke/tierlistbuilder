@@ -42,11 +42,14 @@ import {
 } from '~/shared/lib/typeGuards'
 import {
   CLOUD_MEDIA_OWNERSHIPS,
+  MEDIA_PLATES,
+  normalizeImagePadding,
   type CloudMediaOwnership,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   ASPECT_RATIO_MODES,
   IMAGE_FITS,
+  normalizeBoardAutoPlate,
   normalizeBoardLabelSettings,
   normalizeEnum,
   normalizeItemLabelOptions,
@@ -216,7 +219,9 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   const sourceImageRef = normalizeImageRef(raw.sourceImageRef)
   const aspectRatio = normalizePositiveFinite(raw.aspectRatio)
   const imageFit = normalizeEnum(raw.imageFit, IMAGE_FITS)
+  const mediaPlate = normalizeEnum(raw.mediaPlate, MEDIA_PLATES)
   const transform = normalizeItemTransform(raw.transform)
+  const imagePadding = normalizeImagePadding(raw.imagePadding)
   const labelOptions = normalizeItemLabelOptions(raw.labelOptions)
 
   const sourceTemplateItemExternalId = asNonEmptyString(
@@ -230,11 +235,13 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   if (typeof raw.label === 'string') item.label = raw.label
   if (typeof raw.backgroundColor === 'string')
     item.backgroundColor = raw.backgroundColor
+  if (mediaPlate !== undefined) item.mediaPlate = mediaPlate
   if (typeof raw.altText === 'string') item.altText = raw.altText
   if (typeof raw.notes === 'string') item.notes = raw.notes
   if (aspectRatio !== undefined) item.aspectRatio = aspectRatio
   if (imageFit !== undefined) item.imageFit = imageFit
   if (transform !== undefined) item.transform = transform
+  if (imagePadding !== undefined) item.imagePadding = imagePadding
   if (labelOptions !== undefined) item.labelOptions = labelOptions
   if (sourceTemplateItemExternalId !== undefined)
   {
@@ -329,10 +336,12 @@ const BOARD_DATA_SELECTION_KEYS = [
   'itemAspectRatioMode',
   'aspectRatioPromptDismissed',
   'defaultItemImageFit',
+  'defaultItemImagePadding',
   'paletteId',
   'textStyleId',
   'pageBackground',
   'labels',
+  'autoPlate',
   'sourceTemplateId',
   'sourceRankingId',
   'sourceTemplateTitle',
@@ -421,12 +430,16 @@ export const normalizeBoardSnapshot = (
     aspectRatioPromptDismissed:
       value?.aspectRatioPromptDismissed === true ? true : undefined,
     defaultItemImageFit: normalizeEnum(value?.defaultItemImageFit, IMAGE_FITS),
+    defaultItemImagePadding: normalizeImagePadding(
+      value?.defaultItemImagePadding
+    ),
     paletteId: normalizeEnum(value?.paletteId, PALETTE_IDS),
     textStyleId: normalizeEnum(value?.textStyleId, TEXT_STYLE_IDS),
     pageBackground: isHexColor(value?.pageBackground)
       ? value.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(value?.labels),
+    autoPlate: normalizeBoardAutoPlate(value?.autoPlate),
     sourceTemplateId: asNonEmptyString(value?.sourceTemplateId),
     sourceRankingId: asNonEmptyString(value?.sourceRankingId),
     sourceTemplateTitle: asNonEmptyString(value?.sourceTemplateTitle),

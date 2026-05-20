@@ -450,12 +450,14 @@ export const publishRankingFromBoard = mutation({
             tierExternalId,
             label: boardItem.label ?? null,
             backgroundColor: boardItem.backgroundColor ?? null,
+            mediaPlate: boardItem.mediaPlate ?? null,
             altText: boardItem.altText ?? null,
             mediaAssetId: boardItem.mediaAssetId,
             order,
             aspectRatio: boardItem.aspectRatio ?? null,
             imageFit: boardItem.imageFit ?? null,
             transform: boardItem.transform ?? null,
+            imagePadding: boardItem.imagePadding ?? null,
           })
       ),
     ])
@@ -620,10 +622,12 @@ export const remixTemplateConsensus = mutation({
       itemAspectRatioMode: template.itemAspectRatioMode ?? null,
       aspectRatioPromptDismissed: false,
       defaultItemImageFit: template.defaultItemImageFit ?? null,
+      defaultItemImagePadding: template.defaultItemImagePadding ?? null,
       paletteId: null,
       textStyleId: null,
       pageBackground: null,
       labels: template.labels ?? null,
+      autoPlate: template.autoPlate,
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(
         template._id,
@@ -683,6 +687,7 @@ export const remixTemplateConsensus = mutation({
           externalId,
           label: item.label ?? undefined,
           backgroundColor: item.backgroundColor ?? undefined,
+          mediaPlate: item.mediaPlate ?? undefined,
           altText: item.altText ?? undefined,
           mediaAssetId: item.mediaAssetId,
           order: item.order,
@@ -690,6 +695,7 @@ export const remixTemplateConsensus = mutation({
           aspectRatio: item.aspectRatio ?? undefined,
           imageFit: item.imageFit ?? undefined,
           transform: item.transform ?? undefined,
+          imagePadding: item.imagePadding ?? undefined,
           templateItemId: item._id,
         })
         return {

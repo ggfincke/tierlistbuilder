@@ -7,7 +7,11 @@ import type {
   MarketplaceTemplateItem,
   TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { createLocalBoardFromTemplate } from '~/features/workspace/boards/model/localBoardFork'
+import type { MarketplaceRankingDetail } from '@tierlistbuilder/contracts/marketplace/ranking'
+import {
+  createLocalBoardFromRanking,
+  createLocalBoardFromTemplate,
+} from '~/features/workspace/boards/model/localBoardFork'
 import { loadBoardFromStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
@@ -65,6 +69,8 @@ const template: MarketplaceTemplateDetail = {
   coverItems: [],
   itemAspectRatio: null,
   defaultItemImageFit: null,
+  defaultItemImagePadding: 0.08,
+  autoPlate: null,
   itemCount: 1,
   forkCount: 0,
   viewCount: 0,
@@ -88,12 +94,45 @@ const item: MarketplaceTemplateItem = {
   externalId: 'template-item-1',
   label: 'Template item',
   backgroundColor: null,
+  mediaPlate: null,
   altText: 'Template item alt',
   media,
   order: 0,
   aspectRatio: 1,
   imageFit: 'cover',
   transform: null,
+  imagePadding: 0.18,
+}
+
+const ranking: MarketplaceRankingDetail = {
+  slug: 'RankingSlug1',
+  title: 'Ranking',
+  description: null,
+  visibility: 'public',
+  publicationState: 'published',
+  author: { id: 'author-1', displayName: 'Author', avatarUrl: null },
+  template: {
+    slug: template.slug,
+    title: template.title,
+    category: template.category,
+  },
+  criterion: {
+    externalId: 'default',
+    name: 'Overall',
+    prompt: 'Rank these items.',
+  },
+  itemCount: 0,
+  tierCount: 0,
+  remixCount: 0,
+  viewCount: 0,
+  featuredRank: null,
+  featuredBadge: null,
+  createdAt: 1,
+  updatedAt: 1,
+  autoPlate: { mode: 'uniform', uniformColor: '#101010' },
+  defaultItemImagePadding: 0.12,
+  tiers: [],
+  items: [],
 }
 
 const resetStores = (): void =>
@@ -175,6 +214,41 @@ describe('createLocalBoardFromTemplate', () =>
         cloudMediaExternalId: media.externalId,
         cloudMediaOwnership: 'source',
       },
+      imagePadding: item.imagePadding,
     })
+    expect(
+      stored.status === 'ok' ? stored.data.defaultItemImagePadding : undefined
+    ).toBe(template.defaultItemImagePadding)
+  })
+})
+
+describe('createLocalBoardFromRanking', () =>
+{
+  beforeEach(() =>
+  {
+    resetStores()
+  })
+
+  afterEach(() =>
+  {
+    resetStores()
+  })
+
+  it('preserves the ranking source template backdrop policy', async () =>
+  {
+    const boardId = await createLocalBoardFromRanking({
+      ranking,
+      templateItems: [],
+      markPendingSync: false,
+    })
+
+    const stored = loadBoardFromStorage(boardId)
+    expect(stored.status).toBe('ok')
+    expect(stored.status === 'ok' ? stored.data.autoPlate : undefined).toEqual(
+      ranking.autoPlate
+    )
+    expect(
+      stored.status === 'ok' ? stored.data.defaultItemImagePadding : undefined
+    ).toBe(ranking.defaultItemImagePadding)
   })
 })

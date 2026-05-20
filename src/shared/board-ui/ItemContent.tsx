@@ -3,8 +3,10 @@
 
 import { useImageUrlChain } from '~/shared/hooks/useImageUrl'
 import type {
+  BoardAutoPlateSettings,
   ImageFit,
   ItemTransform,
+  MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   getRenderImageRefs,
@@ -13,7 +15,9 @@ import {
   type ItemImageBundle,
 } from '~/shared/lib/imageRefs'
 import { getTextColor } from '~/shared/lib/color'
+import { getEffectiveImagePadding } from '~/shared/board-ui/aspectRatio'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
+import { resolveItemBackdrop } from '~/shared/board-ui/mediaPlate'
 import { OverlayLabelBlock } from '~/shared/board-ui/labelBlocks'
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { TileLayoutShell } from '~/shared/board-ui/TileLayoutShell'
@@ -24,10 +28,18 @@ interface ItemContentProps
     imageUrl?: string
     label?: string
     backgroundColor?: string
+    mediaPlate?: MediaPlate
     altText?: string
     aspectRatio?: number
     transform?: ItemTransform
+    imagePadding?: number
   }
+  // board-level auto-plate setting; absent -> On+Auto. a per-item
+  // backgroundColor on the item still wins over whatever this resolves to
+  autoPlate?: BoardAutoPlateSettings | null
+  // board-wide plate inset default; per-item imagePadding overrides it. absent
+  // -> the plate-aware fallback in getEffectiveImagePadding
+  defaultItemImagePadding?: number
   variant?: 'default' | 'compact'
   // null hides the label entirely; resolve via resolveLabelDisplay before passing
   label?: ResolvedLabelDisplay | null
@@ -41,6 +53,8 @@ interface ItemContentProps
 
 export const ItemContent = ({
   item,
+  autoPlate,
+  defaultItemImagePadding,
   variant = 'default',
   label = null,
   frameAspectRatio = 1,
@@ -79,6 +93,12 @@ export const ItemContent = ({
     const isCaptioned =
       label &&
       (placementMode === 'captionAbove' || placementMode === 'captionBelow')
+    const backdrop = resolveItemBackdrop(item, autoPlate)
+    const padding = getEffectiveImagePadding(
+      item,
+      defaultItemImagePadding,
+      backdrop != null
+    )
     const imageArea = (
       <FramedItemMedia
         imageUrl={imageUrl}
@@ -87,6 +107,8 @@ export const ItemContent = ({
         transform={transform ?? null}
         aspectRatio={item.aspectRatio ?? null}
         frameAspectRatio={frameAspectRatio}
+        padding={padding}
+        backgroundColor={backdrop}
         loading={imageLoading}
       >
         {!isCaptioned && label && label.placement.mode === 'overlay' && (

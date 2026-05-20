@@ -21,6 +21,7 @@ import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPr
 import type {
   ImageFit,
   ItemTransform,
+  MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   MarketplaceTemplateDetail,
@@ -130,10 +131,12 @@ interface ForkableMarketplaceItem
   media: TemplateMediaRef | null
   label: string | null
   backgroundColor: string | null
+  mediaPlate: MediaPlate | null
   altText: string | null
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
+  imagePadding: number | null
 }
 
 // build a local TierItem from a marketplace template or ranking item. fields
@@ -156,6 +159,9 @@ const toTierItemFromMarketplaceItem = (
     ...(item.backgroundColor !== null && item.backgroundColor !== undefined
       ? { backgroundColor: item.backgroundColor }
       : {}),
+    ...(item.mediaPlate !== null && item.mediaPlate !== undefined
+      ? { mediaPlate: item.mediaPlate }
+      : {}),
     ...(item.altText !== null && item.altText !== undefined
       ? { altText: item.altText }
       : {}),
@@ -167,6 +173,9 @@ const toTierItemFromMarketplaceItem = (
       : {}),
     ...(item.transform !== null && item.transform !== undefined
       ? { transform: item.transform }
+      : {}),
+    ...(item.imagePadding !== null && item.imagePadding !== undefined
+      ? { imagePadding: item.imagePadding }
       : {}),
   }
   return { id, tierItem }
@@ -306,7 +315,11 @@ export const createLocalBoardFromTemplate = async (
     ...(template.defaultItemImageFit !== null
       ? { defaultItemImageFit: template.defaultItemImageFit }
       : {}),
+    ...(template.defaultItemImagePadding !== null
+      ? { defaultItemImagePadding: template.defaultItemImagePadding }
+      : {}),
     ...(template.labels !== null ? { labels: template.labels } : {}),
+    ...(template.autoPlate !== null ? { autoPlate: template.autoPlate } : {}),
     sourceTemplateId: template.slug,
     sourceTemplateTitle: template.title,
     ...(template.coverMedia
@@ -444,6 +457,10 @@ export const createLocalBoardFromRanking = async (
     sourceRankingId: ranking.slug,
     sourceTemplateTitle: ranking.template.title,
     sourceRankingTitle: ranking.title,
+    ...(ranking.autoPlate !== null ? { autoPlate: ranking.autoPlate } : {}),
+    ...(ranking.defaultItemImagePadding !== null
+      ? { defaultItemImagePadding: ranking.defaultItemImagePadding }
+      : {}),
     preferredCriterionExternalId: ranking.criterion.externalId,
   }
 

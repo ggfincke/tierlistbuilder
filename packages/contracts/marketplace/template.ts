@@ -3,9 +3,11 @@
 
 import type { TierPresetTier } from '../workspace/tierPreset'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   ImageFit,
   ItemTransform,
+  MediaPlate,
 } from '../workspace/board'
 import type { PaginationResult } from '../lib/pagination'
 import type { TemplateCategory } from './category'
@@ -191,9 +193,11 @@ export interface TemplateCoverItem
   media: TemplateMediaRef
   label: string | null
   backgroundColor: string | null
+  mediaPlate: MediaPlate | null
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
+  imagePadding: number | null
 }
 
 export interface MarketplaceTemplateBase
@@ -237,6 +241,11 @@ export interface MarketplaceTemplateSummary extends MarketplaceTemplateBase
   itemAspectRatio: number | null
   // board-wide fit pinned by the publisher; null falls back to 'cover'
   defaultItemImageFit: ImageFit | null
+  // board-wide plate inset pinned by the publisher; null falls back to the
+  // plate-aware default
+  defaultItemImagePadding: number | null
+  // per-board logo backdrop pinned by the publisher; null -> On+Auto default
+  autoPlate: BoardAutoPlateSettings | null
 }
 
 export interface MarketplaceTemplateGalleryCard extends MarketplaceTemplateSummary
@@ -305,12 +314,14 @@ export interface MarketplaceTemplateItem
   externalId: string
   label: string | null
   backgroundColor: string | null
+  mediaPlate: MediaPlate | null
   altText: string | null
   media: TemplateMediaRef | null
   order: number
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
+  imagePadding: number | null
 }
 
 export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary

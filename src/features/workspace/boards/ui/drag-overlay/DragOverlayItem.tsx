@@ -65,14 +65,21 @@ const DragOverlayItem = memo(
         defaultLabelFontSizePx: state.defaultLabelFontSizePx,
       }))
     )
-    const { boardAspectRatio, boardDefaultFit, boardLabels } =
-      useActiveBoardStore(
-        useShallow((state) => ({
-          boardAspectRatio: getBoardItemAspectRatio(state),
-          boardDefaultFit: state.defaultItemImageFit,
-          boardLabels: state.labels,
-        }))
-      )
+    const {
+      boardAspectRatio,
+      boardDefaultFit,
+      boardDefaultPadding,
+      boardLabels,
+      boardAutoPlate,
+    } = useActiveBoardStore(
+      useShallow((state) => ({
+        boardAspectRatio: getBoardItemAspectRatio(state),
+        boardDefaultFit: state.defaultItemImageFit,
+        boardDefaultPadding: state.defaultItemImagePadding,
+        boardLabels: state.labels,
+        boardAutoPlate: state.autoPlate,
+      }))
+    )
     const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
       itemSize,
       boardAspectRatio
@@ -114,6 +121,8 @@ const DragOverlayItem = memo(
         >
           <ItemContent
             item={item}
+            autoPlate={boardAutoPlate}
+            defaultItemImagePadding={boardDefaultPadding}
             label={resolveLabelDisplay({
               itemLabel: item.label,
               itemOptions: item.labelOptions,

@@ -193,6 +193,7 @@
         "visibility",
         "labelPolicy",
         "itemAspectRatio",
+        "defaultItemImagePadding",
         "ratioSource",
         "criteria",
         "items"
@@ -235,9 +236,17 @@
         "labels": {
           "$ref": "#/$defs/boardLabelSettings"
         },
+        "autoPlate": {
+          "$ref": "#/$defs/autoPlate"
+        },
         "itemAspectRatio": {
           "type": "number",
           "exclusiveMinimum": 0
+        },
+        "defaultItemImagePadding": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 0.4
         },
         "ratioSource": {
           "enum": ["consistent", "mixed-dominant", "mixed-square"]
@@ -392,6 +401,8 @@
         "label",
         "aspectRatio",
         "transform",
+        "mediaPlate",
+        "imagePadding",
         "asset"
       ],
       "properties": {
@@ -425,10 +436,46 @@
             }
           ]
         },
+        "mediaPlate": {
+          "enum": ["light", "dark", null]
+        },
+        "imagePadding": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 0.4
+        },
+        "backgroundColor": {
+          "$ref": "#/$defs/hexColor"
+        },
         "asset": {
           "$ref": "#/$defs/compiledAsset"
         }
       }
+    },
+    "autoPlate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "enum": ["off", "auto"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "const": "uniform" },
+            "uniformColor": { "$ref": "#/$defs/hexColor" }
+          }
+        }
+      ]
+    },
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
     },
     "rankingSeeds": {
       "type": "object",

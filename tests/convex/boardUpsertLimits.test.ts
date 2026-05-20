@@ -13,6 +13,10 @@ import {
   MAX_STANDARD_CLOUD_BOARD_ITEMS,
   type CloudBoardPayload,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import {
+  IMAGE_PADDING_MAX,
+  IMAGE_PADDING_MIN,
+} from '@tierlistbuilder/contracts/workspace/board'
 import schema from '../../convex/schema'
 import { modules } from './convexTestHelpers'
 
@@ -371,6 +375,80 @@ describe('upsertBoardState', () =>
       }),
       CONVEX_ERROR_CODES.invalidInput
     )
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-auto-plate-color',
+        baseRevision: null,
+        ...boardPayload,
+        autoPlate: { mode: 'uniform', uniformColor: 'not-a-color' },
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+  })
+
+  it('rejects non-finite or out-of-range image padding before writing rows', async () =>
+  {
+    const t = convexTest({ schema, modules, transactionLimits: true })
+    const userId = await seedUser(t)
+    const caller = asUser(t, userId)
+    const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-item-padding-nan',
+        baseRevision: null,
+        ...payload,
+        items: [
+          {
+            ...payload.items[0]!,
+            imagePadding: Number.NaN,
+          },
+        ],
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-item-padding-high',
+        baseRevision: null,
+        ...payload,
+        items: [
+          {
+            ...payload.items[0]!,
+            imagePadding: IMAGE_PADDING_MAX + 0.01,
+          },
+        ],
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-default-padding-infinity',
+        baseRevision: null,
+        ...payload,
+        defaultItemImagePadding: Number.POSITIVE_INFINITY,
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-default-padding-low',
+        baseRevision: null,
+        ...payload,
+        defaultItemImagePadding: IMAGE_PADDING_MIN - 0.01,
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+
+    const boards = await caller.query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(boards).toEqual([])
   })
 
   it('rejects oversized board text fields before writing rows', async () =>

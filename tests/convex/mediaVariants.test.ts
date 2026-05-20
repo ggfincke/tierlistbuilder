@@ -422,6 +422,7 @@ describe('media variants', () =>
         aspectRatio: null,
         imageFit: null,
         transform: null,
+        imagePadding: null,
       })
       return { mediaAssetId, boardItemId, templateId }
     })

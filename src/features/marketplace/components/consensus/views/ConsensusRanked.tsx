@@ -8,7 +8,7 @@ import type {
   MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
 import {
@@ -27,7 +27,7 @@ interface ConsensusRankedProps
   rows: readonly MarketplaceTemplateRankingAggregateItem[]
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   onOpenItem: (
     row: MarketplaceTemplateRankingAggregateItem,
     target: Element
@@ -49,7 +49,7 @@ export const ConsensusRanked = ({
   rows,
   buckets,
   frame,
-  labelSettings,
+  displaySettings,
   onOpenItem,
 }: ConsensusRankedProps) =>
 {
@@ -74,7 +74,7 @@ export const ConsensusRanked = ({
               <AggregateItemThumb
                 row={row}
                 frame={frame}
-                labelSettings={labelSettings}
+                displaySettings={displaySettings}
                 size={32}
               />
               <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--t-text)]">

@@ -297,10 +297,10 @@ const COLOR_CONTENT_DISTANCE_SQ = 32 * 32
 // blow up zoom on a near-empty image
 const MIN_BBOX_AREA_FRACTION = 0.01
 
-// fraction of image dimensions added on each side as breathing room.
-// applied AFTER content detection but BEFORE the transform math so the
-// resulting zoom naturally leaves a small margin around the content
-const DEFAULT_PADDING_FRACTION = 0.01
+// auto-crop now fits detected content tight to the cell; breathing room is
+// owned by the orthogonal per-item/board `imagePadding` frame inset. kept as a
+// tunable param on bboxToItemTransform but defaulted off
+const DEFAULT_PADDING_FRACTION = 0
 
 export interface AutoCropBBox
 {

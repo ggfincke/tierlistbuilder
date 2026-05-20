@@ -12,6 +12,7 @@ import {
   getBoardAspectRatioMode,
 } from '~/shared/board-ui/aspectRatio'
 import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { clampImagePadding } from '@tierlistbuilder/contracts/workspace/board'
 import {
   clampItemTransform,
   isIdentityTransform,
@@ -32,6 +33,8 @@ type AspectRatioActions = Pick<
   | 'setItemsImageFit'
   | 'setAspectRatioPromptDismissed'
   | 'setDefaultItemImageFit'
+  | 'setItemImagePadding'
+  | 'setDefaultItemImagePadding'
   | 'setItemTransform'
   | 'setItemsTransform'
 >
@@ -145,6 +148,37 @@ export const createAspectRatioActions = (
         state,
         { defaultItemImageFit: nextFit },
         'Set default fit'
+      )
+    }),
+
+  // padding is orthogonal to imageFit/transform, so this leaves both untouched
+  // (unlike the fit setter, which clears a stale manual transform)
+  setItemImagePadding: (itemId, padding) =>
+    set((state) =>
+    {
+      const item = state.items[itemId]
+      if (!item) return state
+      const next = padding == null ? undefined : clampImagePadding(padding)
+      if ((item.imagePadding ?? undefined) === next) return state
+      const { imagePadding: _imagePadding, ...rest } = item
+      const nextItem =
+        next === undefined ? rest : { ...rest, imagePadding: next }
+      return withUndo(
+        state,
+        { items: { ...state.items, [itemId]: nextItem } },
+        next === undefined ? 'Reset image padding' : 'Adjust image padding'
+      )
+    }),
+
+  setDefaultItemImagePadding: (padding) =>
+    set((state) =>
+    {
+      const next = padding == null ? undefined : clampImagePadding(padding)
+      if (next === state.defaultItemImagePadding) return state
+      return withUndo(
+        state,
+        { defaultItemImagePadding: next },
+        'Set default padding'
       )
     }),
 

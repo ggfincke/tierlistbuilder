@@ -94,6 +94,7 @@ const toCloudItemWire = (
     tierId,
     label: item.label,
     backgroundColor: item.backgroundColor,
+    mediaPlate: item.mediaPlate,
     altText: item.altText,
     notes: item.notes,
     ...media,
@@ -101,6 +102,7 @@ const toCloudItemWire = (
     aspectRatio: item.aspectRatio,
     imageFit: item.imageFit,
     transform: item.transform,
+    imagePadding: item.imagePadding,
     labelOptions: item.labelOptions,
     sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
   }
@@ -162,10 +164,12 @@ export const snapshotToCloudPayload = (
     itemAspectRatioMode: snapshot.itemAspectRatioMode,
     aspectRatioPromptDismissed: snapshot.aspectRatioPromptDismissed,
     defaultItemImageFit: snapshot.defaultItemImageFit,
+    defaultItemImagePadding: snapshot.defaultItemImagePadding,
     paletteId: snapshot.paletteId,
     textStyleId: snapshot.textStyleId,
     pageBackground: snapshot.pageBackground,
     labels: snapshot.labels,
+    autoPlate: snapshot.autoPlate,
     // source-fork identity travels on every push — server consults it only on
     // first INSERT (subsequent syncs ignore the wire fields)
     sourceTemplateId: snapshot.sourceTemplateId,
@@ -215,11 +219,13 @@ export const serverStateToSnapshot = (
       ),
       label: item.label,
       backgroundColor: item.backgroundColor,
+      mediaPlate: item.mediaPlate,
       altText: item.altText,
       notes: item.notes,
       aspectRatio: item.aspectRatio,
       imageFit: item.imageFit,
       transform: item.transform,
+      imagePadding: item.imagePadding,
       labelOptions: item.labelOptions,
       sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
     }
@@ -256,10 +262,12 @@ export const serverStateToSnapshot = (
     itemAspectRatioMode: serverState.itemAspectRatioMode,
     aspectRatioPromptDismissed: serverState.aspectRatioPromptDismissed,
     defaultItemImageFit: serverState.defaultItemImageFit,
+    defaultItemImagePadding: serverState.defaultItemImagePadding,
     paletteId: serverState.paletteId,
     textStyleId: serverState.textStyleId,
     pageBackground: serverState.pageBackground,
     labels: serverState.labels,
+    autoPlate: serverState.autoPlate,
     // server-side board carries source identity; lift to the snapshot so the
     // BoardHeader breadcrumb renders immediately on cloud-board activation
     sourceTemplateId: serverState.sourceTemplateId ?? undefined,

@@ -1,9 +1,10 @@
 // src/features/workspace/imageEditor/model/transform/useWheelZoom.ts
 // cursor-centered wheel zoom for the image editor preview
 
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 
 import type { ItemRotation } from '@tierlistbuilder/contracts/workspace/board'
+import { getPaddingFrameScale } from '~/shared/board-ui/aspectRatio'
 import {
   getDisplayZoomBounds,
   WHEEL_ZOOM_SENSITIVITY,
@@ -16,16 +17,36 @@ interface UseWheelZoomInput
   canvasRef: RefObject<HTMLDivElement | null>
   enabled: boolean
   getFitBaselineZoom: (rotation: ItemRotation) => number
+  padding: number
   setWorkingDraft: ImageEditorTransformDraftSetter
+}
+
+const normalizeCursorFraction = (
+  cursorPos: number,
+  frameStart: number,
+  frameSize: number
+): number =>
+{
+  const raw = (cursorPos - frameStart) / frameSize - 0.5
+  return Math.max(-0.5, Math.min(0.5, raw))
 }
 
 export const useWheelZoom = ({
   canvasRef,
   enabled,
   getFitBaselineZoom,
+  padding,
   setWorkingDraft,
 }: UseWheelZoomInput): void =>
 {
+  // read live padding inside the listener so a padding-slider drag doesn't
+  // tear down & re-add the wheel handler on every tick
+  const paddingRef = useRef(padding)
+  useLayoutEffect(() =>
+  {
+    paddingRef.current = padding
+  }, [padding])
+
   useEffect(() =>
   {
     const canvas = canvasRef.current
@@ -35,8 +56,23 @@ export const useWheelZoom = ({
       event.preventDefault()
       const rect = canvas.getBoundingClientRect()
       if (rect.width === 0 || rect.height === 0) return
-      const cursorFracX = (event.clientX - rect.left) / rect.width - 0.5
-      const cursorFracY = (event.clientY - rect.top) / rect.height - 0.5
+      const pad = paddingRef.current
+      const paddingScale = getPaddingFrameScale(pad)
+      const frameWidth = rect.width * paddingScale
+      const frameHeight = rect.height * paddingScale
+      if (frameWidth === 0 || frameHeight === 0) return
+      const frameLeft = rect.left + rect.width * pad
+      const frameTop = rect.top + rect.height * pad
+      const cursorFracX = normalizeCursorFraction(
+        event.clientX,
+        frameLeft,
+        frameWidth
+      )
+      const cursorFracY = normalizeCursorFraction(
+        event.clientY,
+        frameTop,
+        frameHeight
+      )
       const factor = Math.exp(-event.deltaY * WHEEL_ZOOM_SENSITIVITY)
       setWorkingDraft((working) =>
       {

@@ -8,7 +8,12 @@ import type {
   MediaVariantKind,
   SupportedImageMimeType,
 } from '../platform/media'
-import type { BoardLabelSettings, ItemTransform } from '../workspace/board'
+import type {
+  BoardAutoPlateSettings,
+  BoardLabelSettings,
+  ItemTransform,
+  MediaPlate,
+} from '../workspace/board'
 import type { TierPresetTier } from '../workspace/tierPreset'
 
 export const SEED_MANIFEST_SCHEMA_VERSION = 1
@@ -162,6 +167,10 @@ export interface SeedCompiledItem
   label: string | null
   aspectRatio: number
   transform: ItemTransform | null
+  mediaPlate: MediaPlate | null
+  imagePadding: number | null
+  // curated per-item backdrop; present only when authored (mirrors compiled output)
+  backgroundColor?: string
   asset: SeedCompiledAsset
 }
 
@@ -284,6 +293,9 @@ export interface SeedResolvedItem
   mediaDedupeHash: string | null
   aspectRatio: number | null
   transform: ItemTransform | null
+  mediaPlate: MediaPlate | null
+  imagePadding: number | null
+  backgroundColor: string | null
 }
 
 export interface SeedResolvedCriterion
@@ -451,7 +463,10 @@ export interface SeedTemplateUpsert
   suggestedTiers: readonly TierPresetTier[]
   itemAspectRatio: number
   itemCount: number
+  defaultItemImagePadding: number | null
   labels?: BoardLabelSettings
+  // per-template logo backdrop pinned at publish; absent -> On+Auto default
+  autoPlate?: BoardAutoPlateSettings
 }
 
 export interface SeedTemplateUpsertOutput
@@ -483,6 +498,11 @@ export interface SeedItemUpsert
   mediaDedupeHash: string
   aspectRatio: number | null
   transform: ItemTransform | null
+  mediaPlate: MediaPlate | null
+  imagePadding: number | null
+  // curated per-item backdrop (e.g. a dark card for a white logo on a uniform
+  // white wall); null -> none. always wins over board autoPlate at render time
+  backgroundColor: string | null
 }
 
 export interface SeedSyncTemplateItemsOutput

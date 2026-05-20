@@ -193,6 +193,7 @@ const toRankingItem = async (
   tierExternalId: item.tierExternalId,
   label: item.label,
   backgroundColor: item.backgroundColor,
+  mediaPlate: item.mediaPlate ?? null,
   altText: item.altText,
   media: item.mediaAssetId
     ? await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache)
@@ -201,6 +202,7 @@ const toRankingItem = async (
   aspectRatio: item.aspectRatio,
   imageFit: item.imageFit,
   transform: item.transform,
+  imagePadding: item.imagePadding ?? null,
 })
 
 export const toRankingDetail = async (
@@ -209,14 +211,19 @@ export const toRankingDetail = async (
 ): Promise<MarketplaceRankingDetail> =>
 {
   const cache = createTemplateProjectionCache()
-  const [summary, tiers, items] = await Promise.all([
+  const [summary, tiers, items, sourceTemplate] = await Promise.all([
     toRankingSummary(ctx, ranking, cache),
     loadRankingTiers(ctx, ranking._id),
     loadRankingItems(ctx, ranking._id),
+    ctx.db.get(ranking.sourceTemplateId),
   ])
 
   return {
     ...summary,
+    // pull display policy (backdrop + plate inset) from the live source template
+    // so legibility/layout fixes reach every published ranking without re-publish
+    autoPlate: sourceTemplate?.autoPlate ?? null,
+    defaultItemImagePadding: sourceTemplate?.defaultItemImagePadding ?? null,
     tiers: tiers.map(toRankingTier),
     items: await Promise.all(
       items.map((item) => toRankingItem(ctx, item, cache))

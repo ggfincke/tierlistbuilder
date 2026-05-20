@@ -10,8 +10,18 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { PlateInsetFrame } from '~/shared/board-ui/PlateInsetFrame'
 import { CaptionStrip as SharedCaptionStrip } from '~/shared/board-ui/labelBlocks'
 import { DraggableLabelOverlay } from '~/features/workspace/imageEditor/ui/DraggableLabelOverlay'
+
+// neutral checker shown behind a transparent image when no per-item background
+// is set, so a cut-out logo stays visible while the user picks a backdrop
+const CHECKER_STYLE: CSSProperties = {
+  backgroundColor: '#9aa0a6',
+  backgroundImage:
+    'repeating-conic-gradient(rgba(0,0,0,0.18) 0% 25%, transparent 0% 50%)',
+  backgroundSize: '16px 16px',
+}
 
 interface ImageEditorPreviewCanvasProps
 {
@@ -26,6 +36,9 @@ interface ImageEditorPreviewCanvasProps
   previewLabelDisplay: ResolvedLabelDisplay
   imgClass: string
   imgStyle: CSSProperties
+  // plate inset (fraction of canvas edge) — floats the image so the backdrop
+  // shows in the margin, matching the live board's FramedItemMedia render
+  padding: number
   isDragging: boolean
   snap: { x: boolean; y: boolean }
   placementDraft: LabelOverlayPlacement | null
@@ -54,6 +67,7 @@ export const ImageEditorPreviewCanvas = ({
   previewLabelDisplay,
   imgClass,
   imgStyle,
+  padding,
   isDragging,
   snap,
   placementDraft,
@@ -67,6 +81,13 @@ export const ImageEditorPreviewCanvas = ({
 }: ImageEditorPreviewCanvasProps) =>
 {
   const showCaptionFrame = hasImage && captionPreviewMode
+  // live background preview: the manual color if set, else a checker so a
+  // transparent logo never vanishes against the dark canvas
+  const backdropStyle: CSSProperties = hasImage
+    ? item.backgroundColor
+      ? { backgroundColor: item.backgroundColor }
+      : CHECKER_STYLE
+    : {}
 
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--t-bg-sunken)] p-6">
@@ -88,6 +109,7 @@ export const ImageEditorPreviewCanvas = ({
             showCaptionFrame ? 'min-h-0 flex-1' : 'h-full w-full'
           }`}
           style={{
+            ...backdropStyle,
             cursor: isDragging
               ? 'grabbing'
               : hasImage && url
@@ -102,13 +124,17 @@ export const ImageEditorPreviewCanvas = ({
           role="presentation"
         >
           {url ? (
-            <img
-              src={url}
-              alt={item.altText ?? item.label ?? 'Tier item'}
-              className={imgClass}
-              style={imgStyle}
-              draggable={false}
-            />
+            // inset frame floats the image so the canvas backdrop shows in the
+            // margin, matching the live board's FramedItemMedia render
+            <PlateInsetFrame padding={padding}>
+              <img
+                src={url}
+                alt={item.altText ?? item.label ?? 'Tier item'}
+                className={imgClass}
+                style={imgStyle}
+                draggable={false}
+              />
+            </PlateInsetFrame>
           ) : !hasImage ? (
             <ItemContent item={item} variant="default" label={null} />
           ) : (

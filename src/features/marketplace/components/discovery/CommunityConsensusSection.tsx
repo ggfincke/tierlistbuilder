@@ -326,6 +326,7 @@ const VizSwitch = ({
 }: VizSwitchProps) =>
 {
   const frame = templateFrame(template)
+  const displaySettings = template
   switch (mode)
   {
     case 'tiers':
@@ -334,7 +335,7 @@ const VizSwitch = ({
           rows={rows}
           buckets={buckets}
           frame={frame}
-          labelSettings={template.labels}
+          displaySettings={displaySettings}
           onOpenItem={onOpenItem}
           yourPlacements={yourPlacements}
         />
@@ -345,7 +346,7 @@ const VizSwitch = ({
           rows={rows}
           buckets={buckets}
           frame={frame}
-          labelSettings={template.labels}
+          displaySettings={displaySettings}
           showControversy={showControversy}
           onOpenItem={onOpenItem}
         />
@@ -356,7 +357,7 @@ const VizSwitch = ({
           rows={rows}
           buckets={buckets}
           frame={frame}
-          labelSettings={template.labels}
+          displaySettings={displaySettings}
           onOpenItem={onOpenItem}
         />
       )
@@ -374,7 +375,7 @@ const VizSwitch = ({
           rows={rows}
           buckets={buckets}
           frame={frame}
-          labelSettings={template.labels}
+          displaySettings={displaySettings}
           onOpenItem={onOpenItem}
         />
       )
@@ -525,6 +526,7 @@ export const CommunityConsensusSection = ({
   const renderBody = (): ReactNode =>
   {
     const frame = templateFrame(template)
+    const displaySettings = template
 
     if (isPinFailed)
     {
@@ -599,7 +601,7 @@ export const CommunityConsensusSection = ({
             anchorRect={popover.state.anchorRect}
             onClose={popover.close}
             frame={frame}
-            labelSettings={template.labels}
+            displaySettings={displaySettings}
           />
         )}
       </div>

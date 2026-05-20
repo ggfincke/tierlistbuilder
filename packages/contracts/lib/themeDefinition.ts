@@ -37,6 +37,11 @@ export interface ThemeDefinition
   warning: string
   overlay: string
   'export-bg': string
+  // per-theme defaults for the transparent-logo plates, fed into the composed
+  // --t-media-plate-light / --t-media-plate-dark tokens used by auto-mode plates.
+  // light plate ~ theme's light ink, dark plate ~ its sunken surface
+  'media-plate-light-default': string
+  'media-plate-dark-default': string
 }
 
 // ordered tier color swatches for a palette

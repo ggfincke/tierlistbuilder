@@ -86,14 +86,21 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
       recolorTier: state.recolorTier,
     }))
   )
-  const { boardAspectRatio, boardDefaultFit, boardLabels } =
-    useActiveBoardStore(
-      useShallow((state) => ({
-        boardAspectRatio: getBoardItemAspectRatio(state),
-        boardDefaultFit: state.defaultItemImageFit,
-        boardLabels: state.labels,
-      }))
-    )
+  const {
+    boardAspectRatio,
+    boardDefaultFit,
+    boardDefaultPadding,
+    boardLabels,
+    boardAutoPlate,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      boardAspectRatio: getBoardItemAspectRatio(state),
+      boardDefaultFit: state.defaultItemImageFit,
+      boardDefaultPadding: state.defaultItemImagePadding,
+      boardLabels: state.labels,
+      boardAutoPlate: state.autoPlate,
+    }))
+  )
 
   const { itemSize, compactMode, boardLocked, hideRowControls } =
     usePreferencesStore(
@@ -321,7 +328,9 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
                   slotWidth={slotWidth}
                   slotHeight={slotHeight}
                   boardDefaultFit={boardDefaultFit}
+                  boardDefaultPadding={boardDefaultPadding}
                   boardLabels={boardLabels}
+                  boardAutoPlate={boardAutoPlate}
                 />
               ))}
             </BoardItemsGrid>

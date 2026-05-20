@@ -138,6 +138,7 @@ const seedTemplate = async (
         aspectRatio: null,
         imageFit: null,
         transform: null,
+        imagePadding: null,
       })
     }
     for (const tag of ['cleanup', 'cascade'])
@@ -220,6 +221,7 @@ const seedRanking = async (
         aspectRatio: null,
         imageFit: null,
         transform: null,
+        imagePadding: null,
       })
     }
     return rankingId

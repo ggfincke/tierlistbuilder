@@ -6,7 +6,7 @@ import { useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemSize } from '@tierlistbuilder/contracts/platform/preferences'
 import {
   BoardItemsGrid,
@@ -37,7 +37,7 @@ interface CompareSideBySideTiersProps
   rows: readonly CompareJoinedRow[]
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   leftShortName: string
   rightShortName: string
   itemSize?: ItemSize
@@ -68,7 +68,7 @@ interface CompareThumbProps
   side: CompareLaneSide
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   thumbWidth: number
 }
 
@@ -77,7 +77,7 @@ const CompareThumb = ({
   side,
   buckets,
   frame,
-  labelSettings,
+  displaySettings,
   thumbWidth,
 }: CompareThumbProps) =>
 {
@@ -98,7 +98,7 @@ const CompareThumb = ({
       <AggregateItemThumb
         row={row}
         frame={frame}
-        labelSettings={labelSettings}
+        displaySettings={displaySettings}
         size={thumbWidth}
         bare
       />
@@ -113,7 +113,7 @@ export const CompareSideBySideTiers = ({
   rows,
   buckets,
   frame,
-  labelSettings,
+  displaySettings,
   leftShortName,
   rightShortName,
   itemSize = COMPARE_ITEM_SIZE,
@@ -251,7 +251,7 @@ export const CompareSideBySideTiers = ({
                           side={side}
                           buckets={buckets}
                           frame={frame}
-                          labelSettings={labelSettings}
+                          displaySettings={displaySettings}
                           thumbWidth={slotWidth}
                         />
                       ))

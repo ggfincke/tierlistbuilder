@@ -199,9 +199,11 @@ const toTemplateCoverItem = (
   mediaAssetId: item.mediaAssetId,
   label: item.label ?? null,
   backgroundColor: item.backgroundColor ?? null,
+  mediaPlate: item.mediaPlate ?? null,
   aspectRatio: item.aspectRatio ?? null,
   imageFit: item.imageFit ?? null,
   transform: item.transform ?? null,
+  imagePadding: item.imagePadding ?? null,
 })
 
 const resolveTemplateTiers = async (
@@ -386,7 +388,9 @@ const queueLargeTemplatePublish = async (
     itemAspectRatio: board.itemAspectRatio,
     itemAspectRatioMode: board.itemAspectRatioMode,
     defaultItemImageFit: board.defaultItemImageFit,
+    defaultItemImagePadding: board.defaultItemImagePadding ?? null,
     labels: board.labels,
+    autoPlate: board.autoPlate,
     createdAt: now,
     updatedAt: now,
   } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
@@ -462,10 +466,12 @@ const queueLargeTemplateClone = async (
     itemAspectRatioMode: template.itemAspectRatioMode ?? null,
     aspectRatioPromptDismissed: false,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
+    defaultItemImagePadding: template.defaultItemImagePadding ?? null,
     paletteId: null,
     textStyleId: null,
     pageBackground: null,
     labels: template.labels ?? null,
+    autoPlate: template.autoPlate,
     activeItemCount: template.itemCount,
     unrankedItemCount: template.itemCount,
     templateProgressState: resolveTemplateProgressState(template._id, {
@@ -624,7 +630,9 @@ export const publishFromBoard = mutation({
       itemAspectRatio: board.itemAspectRatio,
       itemAspectRatioMode: board.itemAspectRatioMode,
       defaultItemImageFit: board.defaultItemImageFit,
+      defaultItemImagePadding: board.defaultItemImagePadding ?? null,
       labels: board.labels,
+      autoPlate: board.autoPlate,
       createdAt: now,
       updatedAt: now,
     } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
@@ -638,12 +646,14 @@ export const publishFromBoard = mutation({
           externalId: item.externalId,
           label: item.label ?? null,
           backgroundColor: item.backgroundColor ?? null,
+          mediaPlate: item.mediaPlate ?? null,
           altText: item.altText ?? null,
           mediaAssetId: item.mediaAssetId,
           order,
           aspectRatio: item.aspectRatio ?? null,
           imageFit: item.imageFit ?? null,
           transform: item.transform ?? null,
+          imagePadding: item.imagePadding ?? null,
         })
       )
     )
@@ -1020,10 +1030,12 @@ export const useTemplate = mutation({
       itemAspectRatioMode: template.itemAspectRatioMode ?? null,
       aspectRatioPromptDismissed: false,
       defaultItemImageFit: template.defaultItemImageFit ?? null,
+      defaultItemImagePadding: template.defaultItemImagePadding ?? null,
       paletteId: null,
       textStyleId: null,
       pageBackground: null,
       labels: template.labels ?? null,
+      autoPlate: template.autoPlate,
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(
         template._id,

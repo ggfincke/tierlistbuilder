@@ -267,7 +267,7 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
             templateSlug={detail.slug}
             aggregate={heroAggregate}
             frame={frame}
-            labelSettings={detail.labels}
+            displaySettings={detail}
           />
         ) : (
           <HeroRailCardsLoading rankingCount={rankingCount} />

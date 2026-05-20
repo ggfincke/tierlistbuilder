@@ -81,6 +81,8 @@ type TemplateCardSource = Pick<
   | 'creditLine'
   | 'itemAspectRatio'
   | 'defaultItemImageFit'
+  | 'defaultItemImagePadding'
+  | 'autoPlate'
   | 'createdAt'
   | 'updatedAt'
 >
@@ -957,9 +959,11 @@ export const loadCoverItems = async (
             media,
             label: item.label,
             backgroundColor: item.backgroundColor,
+            mediaPlate: item.mediaPlate ?? null,
             aspectRatio: item.aspectRatio,
             imageFit: item.imageFit,
             transform: item.transform,
+            imagePadding: item.imagePadding ?? null,
           }
         : null
     })
@@ -1065,9 +1069,11 @@ const toTemplateCardCoverItems = async (
             media,
             label: item.label,
             backgroundColor: item.backgroundColor,
+            mediaPlate: item.mediaPlate ?? null,
             aspectRatio: item.aspectRatio,
             imageFit: item.imageFit,
             transform: item.transform,
+            imagePadding: item.imagePadding ?? null,
           }
         : null
     })
@@ -1140,6 +1146,8 @@ const buildTemplateCardFields = async (
     coverItems,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
+    defaultItemImagePadding: template.defaultItemImagePadding ?? null,
+    autoPlate: template.autoPlate,
     featuredRank: template.featuredRank,
     forkCount: metrics.forkCount,
     viewCount: metrics.viewCount,
@@ -1329,9 +1337,11 @@ const toTemplateCardCoverItem = async (
         media,
         label: item.label,
         backgroundColor: item.backgroundColor,
+        mediaPlate: item.mediaPlate ?? null,
         aspectRatio: item.aspectRatio,
         imageFit: item.imageFit,
         transform: item.transform,
+        imagePadding: item.imagePadding ?? null,
       }
     : null
 }
@@ -1374,6 +1384,8 @@ export const toTemplateCardSummary = async (
     coverItems,
     itemAspectRatio: card.itemAspectRatio,
     defaultItemImageFit: card.defaultItemImageFit,
+    defaultItemImagePadding: card.defaultItemImagePadding,
+    autoPlate: card.autoPlate ?? null,
     itemCount: card.itemCount,
     forkCount: counters.forkCount,
     viewCount: counters.viewCount,
@@ -1466,6 +1478,8 @@ export const toTemplateDetail = async (
     coverItems,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
+    defaultItemImagePadding: template.defaultItemImagePadding ?? null,
+    autoPlate: template.autoPlate ?? null,
     access: getTemplateAccessState(template, viewerPlan),
     criteria,
     rankingCountByCriterion,
@@ -1517,6 +1531,7 @@ export const toTemplateItem = async (
   externalId: item.externalId,
   label: item.label,
   backgroundColor: item.backgroundColor,
+  mediaPlate: item.mediaPlate ?? null,
   altText: item.altText,
   media: item.mediaAssetId
     ? await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache)
@@ -1525,6 +1540,7 @@ export const toTemplateItem = async (
   aspectRatio: item.aspectRatio,
   imageFit: item.imageFit,
   transform: item.transform,
+  imagePadding: item.imagePadding ?? null,
 })
 
 export const toTemplateDraft = async (
@@ -1668,6 +1684,7 @@ export const buildBoardItemInsertFromTemplateItem = (
   externalId,
   label: item.label ?? undefined,
   backgroundColor: item.backgroundColor ?? undefined,
+  mediaPlate: item.mediaPlate ?? undefined,
   altText: item.altText ?? undefined,
   mediaAssetId: item.mediaAssetId,
   order: item.order,
@@ -1675,6 +1692,7 @@ export const buildBoardItemInsertFromTemplateItem = (
   aspectRatio: item.aspectRatio ?? undefined,
   imageFit: item.imageFit ?? undefined,
   transform: item.transform ?? undefined,
+  imagePadding: item.imagePadding ?? undefined,
   templateItemId: item._id,
 })
 

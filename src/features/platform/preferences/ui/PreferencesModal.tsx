@@ -3,7 +3,6 @@
 // management lives in its own AccountModal opened from the avatar dropdown
 
 import { useId, useState } from 'react'
-import { RotateCcw } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { PalettePicker } from '~/shared/ui/settings/PalettePicker'
@@ -11,11 +10,11 @@ import { SettingRow } from '~/shared/ui/settings/SettingRow'
 import { TextStylePicker } from '~/shared/ui/settings/TextStylePicker'
 import { ThemePicker } from '~/shared/ui/settings/ThemePicker'
 import { Toggle } from '~/shared/ui/settings/Toggle'
+import { OverrideColorRow } from '~/shared/ui/settings/OverrideColorRow'
 import {
   HIGH_CONTRAST_THEME_ID,
   usePreferencesStore,
 } from '~/features/platform/preferences/model/usePreferencesStore'
-import { ColorInput } from '~/shared/ui/ColorInput'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { TabbedSettingsModal } from '~/shared/ui/TabbedSettingsModal'
 import { THEMES } from '~/shared/theme/tokens'
@@ -59,28 +58,15 @@ const AppearancePane = () =>
       <SettingsSection title="App Theme">
         <ThemePicker value={themeId} onChange={setThemeId} />
 
-        <SettingRow label="Page Background">
-          {(labelId) => (
-            <div className="flex items-center gap-2">
-              {boardBackgroundOverride !== null && (
-                <button
-                  type="button"
-                  onClick={() => setBoardBackgroundOverride(null)}
-                  aria-label="Reset page background to theme default"
-                  className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
-                  title="Reset to theme default"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <ColorInput
-                value={boardBackgroundOverride ?? THEMES[themeId]['bg-page']}
-                onChange={(e) => setBoardBackgroundOverride(e.target.value)}
-                aria-labelledby={labelId}
-              />
-            </div>
-          )}
-        </SettingRow>
+        <OverrideColorRow
+          label="Page Background"
+          value={boardBackgroundOverride}
+          defaultColor={THEMES[themeId]['bg-page']}
+          onChange={setBoardBackgroundOverride}
+          onReset={() => setBoardBackgroundOverride(null)}
+          resetLabel="Reset page background to theme default"
+          resetTitle="Reset to theme default"
+        />
       </SettingsSection>
 
       <SettingsSection title="Default Tier Color Palette">

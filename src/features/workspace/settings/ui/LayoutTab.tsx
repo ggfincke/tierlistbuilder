@@ -23,10 +23,15 @@ import type {
   ToolbarPosition,
 } from '@tierlistbuilder/contracts/platform/preferences'
 import {
+  AUTO_PLATE_MODE_DEFAULT,
+  AUTO_PLATE_UNIFORM_DARK_DEFAULT,
+  AUTO_PLATE_UNIFORM_DEFAULT,
   LABEL_FONT_SIZE_PX_MAX,
   LABEL_FONT_SIZE_PX_MIN,
+  type BoardAutoPlateSettings,
   type LabelPlacementMode,
 } from '@tierlistbuilder/contracts/workspace/board'
+import { ColorInput } from '~/shared/ui/ColorInput'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { AspectRatioSection } from '~/features/workspace/settings/ui/aspect-ratio/AspectRatioSection'
 import { NumberStepper } from '~/shared/ui/NumberStepper'
@@ -43,6 +48,37 @@ const LABEL_PLACEMENT_MODE_LABEL: Record<LabelPlacementMode, string> = {
 const CAPTION_PLACEMENT_OPTIONS = (
   Object.keys(LABEL_PLACEMENT_MODE_LABEL) as LabelPlacementMode[]
 ).map((value) => ({ value, label: LABEL_PLACEMENT_MODE_LABEL[value] }))
+
+type AutoPlateStyle = 'auto' | 'white' | 'black' | 'custom'
+
+const AUTO_PLATE_STYLE_OPTIONS: { value: AutoPlateStyle; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'white', label: 'White' },
+  { value: 'black', label: 'Black' },
+  { value: 'custom', label: 'Custom' },
+]
+
+const deriveAutoPlateStyle = (
+  settings: BoardAutoPlateSettings
+): AutoPlateStyle =>
+{
+  if (settings.mode !== 'uniform') return 'auto'
+
+  const uniformColor = settings.uniformColor?.toLowerCase()
+  if (uniformColor === AUTO_PLATE_UNIFORM_DEFAULT.toLowerCase()) return 'white'
+  if (uniformColor === AUTO_PLATE_UNIFORM_DARK_DEFAULT.toLowerCase())
+  {
+    return 'black'
+  }
+  return 'custom'
+}
+
+const deriveAutoPlateCustomColor = (
+  settings: BoardAutoPlateSettings
+): string =>
+  settings.mode === 'uniform' && settings.uniformColor
+    ? settings.uniformColor
+    : AUTO_PLATE_UNIFORM_DEFAULT
 
 const formatOverrideStatus = (
   boardOverridden: boolean,
@@ -119,14 +155,21 @@ export const LayoutTab = () =>
   // selector returns a stable reference when the override set is unchanged,
   // so unrelated board mutations (drags, transforms, etc.) don't re-render
   const overrideStatus = useActiveBoardStore(selectLabelOverrideStatus)
-  const { setBoardAndItemsLabelOptions, setBoardLabelSettings, boardLabels } =
-    useActiveBoardStore(
-      useShallow((state) => ({
-        setBoardAndItemsLabelOptions: state.setBoardAndItemsLabelOptions,
-        setBoardLabelSettings: state.setBoardLabelSettings,
-        boardLabels: state.labels,
-      }))
-    )
+  const {
+    setBoardAndItemsLabelOptions,
+    setBoardLabelSettings,
+    boardLabels,
+    autoPlate,
+    setBoardAutoPlate,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      setBoardAndItemsLabelOptions: state.setBoardAndItemsLabelOptions,
+      setBoardLabelSettings: state.setBoardLabelSettings,
+      boardLabels: state.labels,
+      autoPlate: state.autoPlate,
+      setBoardAutoPlate: state.setBoardAutoPlate,
+    }))
+  )
 
   const canEditCaptionPlacement =
     showLabels || overrideStatus.hasVisibleOverride
@@ -160,6 +203,58 @@ export const LayoutTab = () =>
       announce(`Caption size set to ${px} pixels`)
     },
     [boardLabels, setBoardLabelSettings, setDefaultLabelFontSizePx]
+  )
+
+  // absent autoPlate resolves to the On+Auto default so a fresh board reads as
+  // enabled+Auto without storing anything until the user changes it
+  const resolvedAutoPlate: BoardAutoPlateSettings = autoPlate ?? {
+    mode: AUTO_PLATE_MODE_DEFAULT,
+  }
+  const autoPlateEnabled = resolvedAutoPlate.mode !== 'off'
+  const autoPlateCustomColor = deriveAutoPlateCustomColor(resolvedAutoPlate)
+  const autoPlateStyle = deriveAutoPlateStyle(resolvedAutoPlate)
+
+  const handleAutoPlateToggle = useCallback(
+    (enabled: boolean) =>
+      setBoardAutoPlate(
+        enabled ? { mode: AUTO_PLATE_MODE_DEFAULT } : { mode: 'off' }
+      ),
+    [setBoardAutoPlate]
+  )
+
+  const handleAutoPlateStyle = useCallback(
+    (style: AutoPlateStyle) =>
+    {
+      if (style === 'auto')
+      {
+        setBoardAutoPlate({ mode: AUTO_PLATE_MODE_DEFAULT })
+        return
+      }
+      if (style === 'white')
+      {
+        setBoardAutoPlate({
+          mode: 'uniform',
+          uniformColor: AUTO_PLATE_UNIFORM_DEFAULT,
+        })
+        return
+      }
+      if (style === 'black')
+      {
+        setBoardAutoPlate({
+          mode: 'uniform',
+          uniformColor: AUTO_PLATE_UNIFORM_DARK_DEFAULT,
+        })
+        return
+      }
+      setBoardAutoPlate({ mode: 'uniform', uniformColor: autoPlateCustomColor })
+    },
+    [autoPlateCustomColor, setBoardAutoPlate]
+  )
+
+  const handleAutoPlateCustomColor = useCallback(
+    (color: string) =>
+      setBoardAutoPlate({ mode: 'uniform', uniformColor: color }),
+    [setBoardAutoPlate]
   )
 
   return (
@@ -288,6 +383,42 @@ export const LayoutTab = () =>
             </SettingRow>
             <p className="-mt-1 mb-1 text-xs text-[var(--t-text-faint)]">
               This board overrides the defaults above. Reset to use them.
+            </p>
+          </>
+        )}
+      </SettingsSection>
+
+      <SettingsSection title="Logo Backdrop">
+        <SettingRow label="Plate Transparent Logos">
+          <Toggle checked={autoPlateEnabled} onChange={handleAutoPlateToggle} />
+        </SettingRow>
+        {autoPlateEnabled && (
+          <>
+            <SettingRow label="Backdrop">
+              <SegmentedControl<AutoPlateStyle>
+                options={AUTO_PLATE_STYLE_OPTIONS}
+                value={autoPlateStyle}
+                onChange={handleAutoPlateStyle}
+              />
+            </SettingRow>
+            {autoPlateStyle === 'custom' && (
+              <SettingRow label="Custom Color">
+                <div className="flex items-center gap-2">
+                  <ColorInput
+                    value={autoPlateCustomColor}
+                    onChange={(e) => handleAutoPlateCustomColor(e.target.value)}
+                    size="md"
+                    aria-label="Custom logo backdrop color"
+                  />
+                  <span className="font-mono text-xs tabular-nums text-[var(--t-text-secondary)]">
+                    {autoPlateCustomColor.toUpperCase()}
+                  </span>
+                </div>
+              </SettingRow>
+            )}
+            <p className="-mt-1 mb-1 text-xs text-[var(--t-text-faint)]">
+              Auto plates only low-contrast logos; a uniform color sits behind
+              every transparent image. A per-item background always wins.
             </p>
           </>
         )}

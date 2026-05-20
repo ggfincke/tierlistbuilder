@@ -13,6 +13,7 @@ import {
   type MarketplaceRankingTier,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardAutoPlateSettings } from '@tierlistbuilder/contracts/workspace/board'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
@@ -47,9 +48,16 @@ interface ItemTileProps
 {
   item: MarketplaceRankingItem
   frameAspectRatio: number
+  autoPlate: BoardAutoPlateSettings | null
+  defaultItemImagePadding: number | null
 }
 
-const ItemTile = ({ item, frameAspectRatio }: ItemTileProps) =>
+const ItemTile = ({
+  item,
+  frameAspectRatio,
+  autoPlate,
+  defaultItemImagePadding,
+}: ItemTileProps) =>
 {
   const labelDisplay = resolveLabelDisplay({
     itemLabel: item.label ?? undefined,
@@ -74,10 +82,14 @@ const ItemTile = ({ item, frameAspectRatio }: ItemTileProps) =>
           imageUrl: item.media?.url,
           label: item.label ?? undefined,
           backgroundColor: item.backgroundColor ?? undefined,
+          mediaPlate: item.mediaPlate ?? undefined,
           altText: item.altText ?? undefined,
           aspectRatio: item.aspectRatio ?? undefined,
           transform: item.transform ?? undefined,
+          imagePadding: item.imagePadding ?? undefined,
         }}
+        autoPlate={autoPlate}
+        defaultItemImagePadding={defaultItemImagePadding ?? undefined}
         label={labelDisplay}
         fit={item.imageFit ?? 'cover'}
         frameAspectRatio={frameAspectRatio}
@@ -91,10 +103,19 @@ interface TierRowProps
   tier: MarketplaceRankingTier
   items: MarketplaceRankingItem[]
   frameAspectRatio: number
+  autoPlate: BoardAutoPlateSettings | null
+  defaultItemImagePadding: number | null
   isFirst: boolean
 }
 
-const TierRow = ({ tier, items, frameAspectRatio, isFirst }: TierRowProps) =>
+const TierRow = ({
+  tier,
+  items,
+  frameAspectRatio,
+  autoPlate,
+  defaultItemImagePadding,
+  isFirst,
+}: TierRowProps) =>
 {
   const tierColor = resolveTierColorSpec(RANKING_PALETTE_ID, tier.colorSpec)
   const rowBg = tier.rowColorSpec
@@ -139,6 +160,8 @@ const TierRow = ({ tier, items, frameAspectRatio, isFirst }: TierRowProps) =>
               key={item.externalId}
               item={item}
               frameAspectRatio={frameAspectRatio}
+              autoPlate={autoPlate}
+              defaultItemImagePadding={defaultItemImagePadding}
             />
           ))}
         </div>
@@ -260,6 +283,8 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
           tier={tier}
           items={itemsByTier.get(tier.externalId) ?? []}
           frameAspectRatio={frameAspectRatio}
+          autoPlate={detail.autoPlate}
+          defaultItemImagePadding={detail.defaultItemImagePadding}
           isFirst={index === 0}
         />
       ))}

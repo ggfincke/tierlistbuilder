@@ -12,6 +12,7 @@ import {
   formatRankingSeedId,
 } from '@convex/marketplace/rankings/seed/naming'
 import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
+import type { MediaPlate } from '@tierlistbuilder/contracts/workspace/board'
 import schema from '../../convex/schema'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
 import {
@@ -484,10 +485,11 @@ describe('ranking seed pipeline', () =>
   it('skips unchanged sample rankings without resetting active seed rows', async () =>
   {
     const t = makeTest()
-    await seedSeedTemplate(t, {
+    const templateSeed = await seedSeedTemplate(t, {
       releaseId: RELEASE,
       templateExternalId: 'test:unchanged-sample',
       labels: ['Mario', 'Luigi'],
+      mediaPlates: ['light', null],
     })
     await seedUser(t, 'seed+rankings-ava@tierlistbuilder.local')
     const manifest = rankingManifest({
@@ -565,6 +567,14 @@ describe('ranking seed pipeline', () =>
       'Mario',
     ])
     expect(storedItems.every((item) => item.mediaAssetId === null)).toBe(true)
+    expect(
+      storedItems
+        .map((item) => [item.label, item.mediaPlate] as const)
+        .sort(([a], [b]) => (a ?? '').localeCompare(b ?? ''))
+    ).toEqual([
+      ['Luigi', null],
+      ['Mario', 'light'],
+    ])
     const detail = activeRows.ranking
       ? await t.query(
           api.marketplace.rankings.public.queries.getRankingBySlug,
@@ -580,6 +590,14 @@ describe('ranking seed pipeline', () =>
     expect(
       detail?.items.map((item) => item.templateItemExternalId).sort()
     ).toEqual(['item-0', 'item-1'])
+    expect(
+      detail?.items
+        .map((item) => [item.label, item.mediaPlate] as const)
+        .sort(([a], [b]) => (a ?? '').localeCompare(b ?? ''))
+    ).toEqual([
+      ['Luigi', null],
+      ['Mario', 'light'],
+    ])
 
     const second = await callUpsert(manifest, sampleTask)
     expect(second.rankingsDeleted).toBe(0)
@@ -596,6 +614,48 @@ describe('ranking seed pipeline', () =>
     expect(unchangedRows.ranking?._id).toBe(activeRows.ranking?._id)
     expect(unchangedRows.board).toBeNull()
     expect(unchangedRows.ranking?.seedReleaseStatus).toBe('active')
+
+    await t.run(async (ctx) =>
+    {
+      const luigi = await ctx.db
+        .query('templateItems')
+        .withIndex('byTemplateAndExternalId', (q) =>
+          q.eq('templateId', templateSeed.templateId).eq('externalId', 'item-1')
+        )
+        .unique()
+      if (!luigi) throw new Error('missing Luigi template item')
+      await ctx.db.patch(luigi._id, { mediaPlate: 'dark' })
+    })
+    const plateChanged = await callUpsert(manifest, sampleTask)
+    expect(plateChanged.rankingsDeleted).toBe(1)
+    expect(plateChanged.boardsDeleted).toBe(0)
+    expect(plateChanged.rankingsUnchanged).toBe(0)
+    expect(plateChanged.itemsWritten).toBe(2)
+    const plateChangedRows = await loadSampleSeedRows(t, {
+      templateExternalId: 'test:unchanged-sample',
+      criterionExternalId: 'competitive',
+      profileKey: 'ava',
+    })
+    expect(plateChangedRows.ranking?._id).not.toBe(activeRows.ranking?._id)
+    expect(plateChangedRows.ranking?.seedReleaseStatus).toBe('applied_hidden')
+    const plateChangedItems = await t.run(async (ctx) =>
+    {
+      if (!plateChangedRows.ranking) return []
+      return await ctx.db
+        .query('publishedRankingItems')
+        .withIndex('byRanking', (q) =>
+          q.eq('rankingId', plateChangedRows.ranking!._id)
+        )
+        .collect()
+    })
+    expect(
+      plateChangedItems
+        .map((item) => [item.label, item.mediaPlate] as const)
+        .sort(([a], [b]) => (a ?? '').localeCompare(b ?? ''))
+    ).toEqual([
+      ['Luigi', 'dark'],
+      ['Mario', 'light'],
+    ])
 
     const changedManifest: typeof manifest = {
       ...manifest,
@@ -756,6 +816,7 @@ const seedSeedTemplate = async (
     releaseId: string
     templateExternalId: string
     labels: readonly string[]
+    mediaPlates?: readonly (MediaPlate | null)[]
   }
 ): Promise<{ authorId: Id<'users'>; templateId: Id<'templates'> }> =>
 {
@@ -784,12 +845,14 @@ const seedSeedTemplate = async (
           externalId: `item-${index}`,
           label,
           backgroundColor: null,
+          mediaPlate: args.mediaPlates?.[index] ?? null,
           altText: label,
           mediaAssetId: null,
           order: index,
           aspectRatio: 1,
           imageFit: null,
           transform: null,
+          imagePadding: null,
         })
       )
     )

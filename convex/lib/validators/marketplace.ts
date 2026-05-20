@@ -93,10 +93,12 @@ import {
 import {
   type _Assert,
   type _Exact,
+  boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
   imageFitNullableValidator,
   itemTransformValidator,
   literalUnion,
+  mediaPlateNullableValidator,
   tierColorSpecValidator,
   tierPresetTiersValidator,
 } from './common'
@@ -181,9 +183,11 @@ export const templateCardCoverItemValidator = v.object({
   media: templateCardMediaValidator,
   label: v.union(v.string(), v.null()),
   backgroundColor: v.union(v.string(), v.null()),
+  mediaPlate: mediaPlateNullableValidator,
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
 })
 
 export const templateAuthorValidator = v.object({
@@ -196,9 +200,11 @@ export const templateCoverItemValidator = v.object({
   media: templateMediaRefValidator,
   label: v.union(v.string(), v.null()),
   backgroundColor: v.union(v.string(), v.null()),
+  mediaPlate: mediaPlateNullableValidator,
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
 })
 
 export const templateCriterionValidator = v.object({
@@ -252,6 +258,8 @@ const marketplaceTemplateSummaryFields = {
   coverItems: v.array(templateCoverItemValidator),
   itemAspectRatio: v.union(v.number(), v.null()),
   defaultItemImageFit: imageFitNullableValidator,
+  defaultItemImagePadding: v.union(v.number(), v.null()),
+  autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
 }
 
 export const marketplaceTemplateSummaryValidator = v.object(
@@ -308,12 +316,14 @@ export const marketplaceTemplateItemValidator = v.object({
   externalId: v.string(),
   label: v.union(v.string(), v.null()),
   backgroundColor: v.union(v.string(), v.null()),
+  mediaPlate: mediaPlateNullableValidator,
   altText: v.union(v.string(), v.null()),
   media: v.union(templateMediaRefValidator, v.null()),
   order: v.number(),
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
 })
 
 export const marketplaceTemplateDetailValidator = v.object({
@@ -404,16 +414,20 @@ export const marketplaceRankingItemValidator = v.object({
   tierExternalId: v.union(v.string(), v.null()),
   label: v.union(v.string(), v.null()),
   backgroundColor: v.union(v.string(), v.null()),
+  mediaPlate: mediaPlateNullableValidator,
   altText: v.union(v.string(), v.null()),
   media: v.union(templateMediaRefValidator, v.null()),
   order: v.number(),
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
 })
 
 export const marketplaceRankingDetailValidator = v.object({
   ...marketplaceRankingSummaryFields,
+  autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
+  defaultItemImagePadding: v.union(v.number(), v.null()),
   tiers: v.array(marketplaceRankingTierValidator),
   items: v.array(marketplaceRankingItemValidator),
 })
@@ -504,12 +518,14 @@ export const marketplaceTemplateRankingAggregateItemValidator = v.object({
   templateItemExternalId: v.string(),
   label: v.union(v.string(), v.null()),
   backgroundColor: v.union(v.string(), v.null()),
+  mediaPlate: mediaPlateNullableValidator,
   altText: v.union(v.string(), v.null()),
   media: v.union(templateMediaRefValidator, v.null()),
   order: v.number(),
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
   sampleCount: v.number(),
   averageBucket: v.union(v.number(), v.null()),
   topBucketIndex: v.union(v.number(), v.null()),

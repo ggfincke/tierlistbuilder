@@ -14,6 +14,11 @@ import { appPreferencesValidator } from '../../lib/validators/platform'
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput } from '../../lib/text'
 
+const HEX_COLOR_PREFERENCE_KEYS = [
+  'exportBackgroundOverride',
+  'boardBackgroundOverride',
+] as const
+
 // upsert the authenticated caller's AppPreferences — replaces any existing row.
 // returns the wall-clock updatedAt the row landed at so the client can stamp
 // its lastSyncedAt sidecar
@@ -24,22 +29,12 @@ export const upsertMyPreferences = mutation({
   {
     const userId = await requireCurrentUserId(ctx)
 
-    // v.string() accepts arbitrary length & format — enforce hex shape here
-    // so a client can't smuggle a multi-KB payload or a malformed color
-    // into the background-override columns
-    if (args.preferences.exportBackgroundOverride !== null)
+    // v.string() accepts arbitrary length & format; enforce hex shape on
+    // nullable color override columns before persisting.
+    for (const key of HEX_COLOR_PREFERENCE_KEYS)
     {
-      validateHexColor(
-        args.preferences.exportBackgroundOverride,
-        'exportBackgroundOverride'
-      )
-    }
-    if (args.preferences.boardBackgroundOverride !== null)
-    {
-      validateHexColor(
-        args.preferences.boardBackgroundOverride,
-        'boardBackgroundOverride'
-      )
+      const value = args.preferences[key]
+      if (value !== null) validateHexColor(value, key)
     }
     if (!isValidLabelFontSizePx(args.preferences.defaultLabelFontSizePx))
     {

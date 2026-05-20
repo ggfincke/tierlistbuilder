@@ -3,7 +3,7 @@
 // popover) — frames published media via ItemContent for grid parity
 
 import type {
-  BoardLabelSettings,
+  BoardItemDisplaySettings,
   ImageFit,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
@@ -21,7 +21,7 @@ interface AggregateItemThumbProps
 {
   row: MarketplaceTemplateRankingAggregateItem
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   size: number
   // tier-row context drops the card chrome (border/bg/rounded) so items sit
   // flush on the tier color, matching the editor board surface
@@ -33,7 +33,7 @@ interface AggregateItemThumbProps
 export const AggregateItemThumb = ({
   row,
   frame,
-  labelSettings,
+  displaySettings,
   size,
   bare = false,
 }: AggregateItemThumbProps) =>
@@ -41,7 +41,7 @@ export const AggregateItemThumb = ({
   const labelDisplay = resolveLabelDisplay({
     itemLabel: row.label ?? undefined,
     itemOptions: undefined,
-    boardSettings: labelSettings ?? undefined,
+    boardSettings: displaySettings.labels ?? undefined,
     globalLabelDefaults: {
       showLabels: false,
       placementMode: 'overlay',
@@ -65,10 +65,16 @@ export const AggregateItemThumb = ({
           imageUrl: row.media?.url,
           label: row.label ?? undefined,
           backgroundColor: row.backgroundColor ?? undefined,
+          mediaPlate: row.mediaPlate ?? undefined,
           altText: row.altText ?? undefined,
           aspectRatio: row.aspectRatio ?? undefined,
           transform: row.transform ?? undefined,
+          imagePadding: row.imagePadding ?? undefined,
         }}
+        autoPlate={displaySettings.autoPlate}
+        defaultItemImagePadding={
+          displaySettings.defaultItemImagePadding ?? undefined
+        }
         label={labelDisplay}
         fit={row.imageFit ?? frame.defaultFit}
         frameAspectRatio={frame.aspectRatio}

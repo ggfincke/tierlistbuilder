@@ -139,6 +139,7 @@ interface SeedCloudBoardArgs
   itemAspectRatio?: number
   itemAspectRatioMode?: Doc<'boards'>['itemAspectRatioMode']
   defaultItemImageFit?: Doc<'boards'>['defaultItemImageFit']
+  defaultItemImagePadding?: Doc<'boards'>['defaultItemImagePadding']
   labels?: Doc<'boards'>['labels']
 }
 
@@ -214,6 +215,7 @@ export const seedPublishedTemplate = async (
     itemAspectRatio: null,
     itemAspectRatioMode: null,
     defaultItemImageFit: null,
+    defaultItemImagePadding: null,
     labels: null,
     createdAt: now,
     updatedAt: now,
@@ -246,6 +248,7 @@ export const seedPublishedTemplate = async (
     coverItems: [],
     itemAspectRatio: null,
     defaultItemImageFit: null,
+    defaultItemImagePadding: null,
     featuredRank: null,
     forkCount: 0,
     viewCount: 0,
@@ -286,6 +289,7 @@ export const seedCloudBoard = async (
     itemAspectRatioMode: args.itemAspectRatioMode ?? null,
     aspectRatioPromptDismissed: false,
     defaultItemImageFit: args.defaultItemImageFit ?? null,
+    defaultItemImagePadding: args.defaultItemImagePadding ?? null,
     sourceTemplate: args.sourceTemplateId
       ? boardSourceTemplateFromTemplate({
           _id: args.sourceTemplateId,
