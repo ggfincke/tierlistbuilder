@@ -3,6 +3,7 @@
 
 import { v } from 'convex/values'
 import {
+  boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
   itemTransformValidator,
   mediaPlateNullableValidator,
@@ -78,6 +79,7 @@ export const seedResolvedItemValidator = v.object({
   aspectRatio: v.union(v.number(), v.null()),
   transform: v.union(itemTransformValidator, v.null()),
   mediaPlate: mediaPlateNullableValidator,
+  backgroundColor: v.union(v.string(), v.null()),
 })
 
 export const seedResolvedCriterionValidator = v.object({
@@ -145,6 +147,8 @@ export const seedTemplateUpsertValidator = v.object({
   // optional per-template override for cloned-board label visibility. when
   // unset, forked boards inherit the user's global showLabels preference
   labels: v.optional(boardLabelSettingsValidator),
+  // per-template logo backdrop pinned at publish; absent -> On+Auto default
+  autoPlate: v.optional(boardAutoPlateSettingsValidator),
 })
 
 export const seedItemUpsertValidator = v.object({
@@ -155,6 +159,7 @@ export const seedItemUpsertValidator = v.object({
   aspectRatio: v.union(v.number(), v.null()),
   transform: v.union(itemTransformValidator, v.null()),
   mediaPlate: mediaPlateNullableValidator,
+  backgroundColor: v.union(v.string(), v.null()),
 })
 
 export const seedCriterionUpsertValidator = v.object({

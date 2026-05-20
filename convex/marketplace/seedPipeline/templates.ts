@@ -31,6 +31,7 @@ import {
   validateTemplateTiers,
 } from '../templates/lib'
 import { valuesEqual } from '../../lib/equality'
+import { validateHexColor } from '../../lib/hexColor'
 import { resolveSeedMediaAssetIdByDedupeHash } from './media'
 import type { SeedTemplateApplyPatch, SeedTemplateUpsertArg } from './types'
 
@@ -164,6 +165,13 @@ export const normalizeSeedTemplateUpsert = (
   assertPositiveInteger('itemCount', template.itemCount)
   assertCountRange('suggestedTiers', template.suggestedTiers.length, 1, 16)
   validateTemplateTiers(template.suggestedTiers)
+  if (
+    template.autoPlate?.mode === 'uniform' &&
+    template.autoPlate.uniformColor !== undefined
+  )
+  {
+    validateHexColor(template.autoPlate.uniformColor, 'autoPlate.uniformColor')
+  }
   const coverMediaAssetId = template.coverMediaDedupeHash
     ? resolveSeedMediaAssetIdByDedupeHash(
         mediaAssetCache,
@@ -184,6 +192,7 @@ export const normalizeSeedTemplateUpsert = (
     defaultItemImageFit: 'cover',
     itemCount: template.itemCount,
     labels: template.labels ?? null,
+    autoPlate: template.autoPlate,
     ...buildSeedTemplateLifecycleFields(
       template.itemCount,
       template.visibility,

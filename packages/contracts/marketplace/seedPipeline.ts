@@ -9,6 +9,7 @@ import type {
   SupportedImageMimeType,
 } from '../platform/media'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   ItemTransform,
   MediaPlate,
@@ -167,6 +168,8 @@ export interface SeedCompiledItem
   aspectRatio: number
   transform: ItemTransform | null
   mediaPlate: MediaPlate | null
+  // curated per-item backdrop; present only when authored (mirrors compiled output)
+  backgroundColor?: string
   asset: SeedCompiledAsset
 }
 
@@ -290,6 +293,7 @@ export interface SeedResolvedItem
   aspectRatio: number | null
   transform: ItemTransform | null
   mediaPlate: MediaPlate | null
+  backgroundColor: string | null
 }
 
 export interface SeedResolvedCriterion
@@ -458,6 +462,8 @@ export interface SeedTemplateUpsert
   itemAspectRatio: number
   itemCount: number
   labels?: BoardLabelSettings
+  // per-template logo backdrop pinned at publish; absent -> On+Auto default
+  autoPlate?: BoardAutoPlateSettings
 }
 
 export interface SeedTemplateUpsertOutput
@@ -490,6 +496,9 @@ export interface SeedItemUpsert
   aspectRatio: number | null
   transform: ItemTransform | null
   mediaPlate: MediaPlate | null
+  // curated per-item backdrop (e.g. a dark card for a white logo on a uniform
+  // white wall); null -> none. always wins over board autoPlate at render time
+  backgroundColor: string | null
 }
 
 export interface SeedSyncTemplateItemsOutput

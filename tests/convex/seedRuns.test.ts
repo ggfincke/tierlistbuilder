@@ -579,6 +579,74 @@ describe('seed run precheck API', () =>
     expect(template?.seedMetadataContentHash).toBe('meta-labels-visible')
   })
 
+  it('rejects malformed seed color values at the apply boundary', async () =>
+  {
+    const t = makeTest()
+    await seedUser(t, AUTHOR_EMAIL)
+    const templateInput = {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-colors',
+      authorEmail: AUTHOR_EMAIL,
+      templates: [
+        {
+          externalId: 'gaming:color-template',
+          metadataContentHash: 'meta-color-template',
+          title: 'Color template',
+          category: 'gaming' as const,
+          description: 'Color validation coverage.',
+          tags: ['colors'],
+          visibility: 'public' as const,
+          coverMediaDedupeHash: null,
+          coverFraming: null,
+          suggestedTiers: [
+            { name: 'S', colorSpec: { kind: 'palette' as const, index: 0 } },
+          ],
+          itemAspectRatio: 1,
+          itemCount: 1,
+        },
+      ],
+    }
+
+    await expect(
+      t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
+        ...templateInput,
+        templates: [
+          {
+            ...templateInput.templates[0],
+            autoPlate: { mode: 'uniform' as const, uniformColor: 'white' },
+          },
+        ],
+      })
+    ).rejects.toThrow(/autoPlate\.uniformColor must be a #rrggbb hex color/)
+
+    await t.mutation(
+      internal.marketplace.seedRuns.upsertSeedTemplates,
+      templateInput
+    )
+    await expect(
+      t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-colors',
+        templateExternalId: 'gaming:color-template',
+        itemsContentHash: 'items-color-template',
+        items: [
+          {
+            itemExternalId: 'mario',
+            order: 0,
+            label: 'Mario',
+            mediaDedupeHash: 'tile:hash-mario',
+            aspectRatio: 1,
+            transform: null,
+            mediaPlate: null,
+            backgroundColor: 'white',
+          },
+        ],
+      })
+    ).rejects.toThrow(/item\.backgroundColor must be a #rrggbb hex color/)
+  })
+
   it('upserts release-scoped templates, criteria, and items idempotently', async () =>
   {
     const t = makeTest()
@@ -726,6 +794,7 @@ describe('seed run precheck API', () =>
             aspectRatio: 1,
             transform: null,
             mediaPlate: null,
+            backgroundColor: null,
           },
           {
             itemExternalId: 'link',
@@ -735,6 +804,7 @@ describe('seed run precheck API', () =>
             aspectRatio: 1,
             transform: null,
             mediaPlate: null,
+            backgroundColor: null,
           },
         ],
       }
@@ -771,6 +841,7 @@ describe('seed run precheck API', () =>
             aspectRatio: 1,
             transform: null,
             mediaPlate: null,
+            backgroundColor: null,
           },
           {
             itemExternalId: 'link',
@@ -780,6 +851,7 @@ describe('seed run precheck API', () =>
             aspectRatio: 1,
             transform: null,
             mediaPlate: null,
+            backgroundColor: null,
           },
         ],
       }
@@ -835,6 +907,7 @@ describe('seed run precheck API', () =>
             aspectRatio: 1,
             transform: null,
             mediaPlate: null,
+            backgroundColor: null,
           },
           {
             itemExternalId: 'link',
@@ -844,6 +917,7 @@ describe('seed run precheck API', () =>
             aspectRatio: 1,
             transform: null,
             mediaPlate: null,
+            backgroundColor: null,
           },
         ],
       }
@@ -864,6 +938,7 @@ describe('seed run precheck API', () =>
             aspectRatio: 1,
             transform: null,
             mediaPlate: null,
+            backgroundColor: null,
           },
           {
             itemExternalId: 'mario',
@@ -873,6 +948,7 @@ describe('seed run precheck API', () =>
             aspectRatio: 1,
             transform: null,
             mediaPlate: null,
+            backgroundColor: null,
           },
         ],
       })
@@ -893,6 +969,7 @@ describe('seed run precheck API', () =>
             aspectRatio: 1,
             transform: null,
             mediaPlate: null,
+            backgroundColor: null,
           },
         ],
       })
@@ -925,6 +1002,7 @@ describe('seed run precheck API', () =>
             aspectRatio: 1,
             transform: null,
             mediaPlate: null,
+            backgroundColor: null,
           },
         ],
       }
@@ -1038,6 +1116,7 @@ describe('seed run precheck API', () =>
           aspectRatio: 1,
           transform: null,
           mediaPlate: null,
+          backgroundColor: null,
         },
       ],
     })
@@ -1224,6 +1303,7 @@ describe('seed run precheck API', () =>
           aspectRatio: 1,
           transform: null,
           mediaPlate: null,
+          backgroundColor: null,
         },
         {
           itemExternalId: 'link',
@@ -1233,6 +1313,7 @@ describe('seed run precheck API', () =>
           aspectRatio: 1,
           transform: null,
           mediaPlate: null,
+          backgroundColor: null,
         },
       ],
     })
@@ -1382,6 +1463,7 @@ describe('seed run precheck API', () =>
           aspectRatio: 1,
           transform: null,
           mediaPlate: null,
+          backgroundColor: null,
         },
         {
           itemExternalId: 'link',
@@ -1391,6 +1473,7 @@ describe('seed run precheck API', () =>
           aspectRatio: 1,
           transform: null,
           mediaPlate: null,
+          backgroundColor: null,
         },
       ],
     })

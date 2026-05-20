@@ -235,6 +235,9 @@
         "labels": {
           "$ref": "#/$defs/boardLabelSettings"
         },
+        "autoPlate": {
+          "$ref": "#/$defs/autoPlate"
+        },
         "itemAspectRatio": {
           "type": "number",
           "exclusiveMinimum": 0
@@ -429,10 +432,38 @@
         "mediaPlate": {
           "enum": ["light", "dark", null]
         },
+        "backgroundColor": {
+          "$ref": "#/$defs/hexColor"
+        },
         "asset": {
           "$ref": "#/$defs/compiledAsset"
         }
       }
+    },
+    "autoPlate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "enum": ["off", "auto"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "const": "uniform" },
+            "uniformColor": { "$ref": "#/$defs/hexColor" }
+          }
+        }
+      ]
+    },
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
     },
     "rankingSeeds": {
       "type": "object",

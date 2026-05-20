@@ -120,6 +120,7 @@ export type SeedTemplateApplyPatch = Pick<
   | 'defaultItemImageFit'
   | 'itemCount'
   | 'labels'
+  | 'autoPlate'
   | 'sizeClass'
   | 'publicationState'
   | 'isPubliclyListable'

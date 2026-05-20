@@ -31,6 +31,7 @@ import {
   assertUniqueValues,
 } from '../lib/assertions'
 import { valuesEqual } from '../lib/equality'
+import { validateHexColor } from '../lib/hexColor'
 import { SEED_LIMITS, SEED_UPLOAD_URL_TTL_MS } from '../lib/limits'
 import {
   adjustPublicTemplateCount,
@@ -478,6 +479,7 @@ export const upsertSeedTemplates = internalMutation({
           itemAspectRatioMode: patch.itemAspectRatioMode,
           defaultItemImageFit: patch.defaultItemImageFit,
           labels: patch.labels,
+          autoPlate: patch.autoPlate,
           seedDatasetKey: args.datasetKey,
           seedExternalId: template.externalId,
           seedReleaseId: args.releaseId,
@@ -631,6 +633,10 @@ export const syncSeedTemplateItems = internalMutation({
       {
         assertPositiveFinite('aspectRatio', item.aspectRatio)
       }
+      if (item.backgroundColor !== null)
+      {
+        validateHexColor(item.backgroundColor, 'item.backgroundColor')
+      }
       seen.add(item.itemExternalId)
       const key = toSeedItemKey({
         templateExternalId: args.templateExternalId,
@@ -643,7 +649,7 @@ export const syncSeedTemplateItems = internalMutation({
       const existing = existingByExternalId.get(item.itemExternalId) ?? null
       const fields = {
         label: item.label,
-        backgroundColor: null,
+        backgroundColor: item.backgroundColor ?? null,
         mediaPlate: item.mediaPlate ?? null,
         altText: item.label,
         mediaAssetId,
@@ -669,6 +675,7 @@ export const syncSeedTemplateItems = internalMutation({
         existing.mediaAssetId !== fields.mediaAssetId ||
         existing.aspectRatio !== fields.aspectRatio ||
         existing.imageFit !== fields.imageFit ||
+        (existing.backgroundColor ?? null) !== fields.backgroundColor ||
         (existing.mediaPlate ?? null) !== fields.mediaPlate ||
         !valuesEqual(existing.transform, fields.transform)
       if (!orderChanged && !contentChanged)
