@@ -3,6 +3,7 @@
 
 import type { PaletteId, TextStyleId, TierColorSpec } from '../lib/theme'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   ImageFit,
   ItemAspectRatioMode,
@@ -72,6 +73,7 @@ interface CloudBoardStyleOverrideFields
   textStyleId?: TextStyleId
   pageBackground?: string
   labels?: BoardLabelSettings
+  autoPlate?: BoardAutoPlateSettings
 }
 
 // source-fork identity carried on every sync push. server consults these only

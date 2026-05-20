@@ -625,6 +625,7 @@ export const remixTemplateConsensus = mutation({
       textStyleId: null,
       pageBackground: null,
       labels: template.labels ?? null,
+      autoPlate: template.autoPlate,
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(
         template._id,

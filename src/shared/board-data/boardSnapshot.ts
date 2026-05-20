@@ -48,6 +48,7 @@ import {
 import {
   ASPECT_RATIO_MODES,
   IMAGE_FITS,
+  normalizeBoardAutoPlate,
   normalizeBoardLabelSettings,
   normalizeEnum,
   normalizeItemLabelOptions,
@@ -336,6 +337,7 @@ const BOARD_DATA_SELECTION_KEYS = [
   'textStyleId',
   'pageBackground',
   'labels',
+  'autoPlate',
   'sourceTemplateId',
   'sourceRankingId',
   'sourceTemplateTitle',
@@ -430,6 +432,7 @@ export const normalizeBoardSnapshot = (
       ? value.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(value?.labels),
+    autoPlate: normalizeBoardAutoPlate(value?.autoPlate),
     sourceTemplateId: asNonEmptyString(value?.sourceTemplateId),
     sourceRankingId: asNonEmptyString(value?.sourceRankingId),
     sourceTemplateTitle: asNonEmptyString(value?.sourceTemplateTitle),

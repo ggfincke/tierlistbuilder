@@ -167,6 +167,7 @@ export const snapshotToCloudPayload = (
     textStyleId: snapshot.textStyleId,
     pageBackground: snapshot.pageBackground,
     labels: snapshot.labels,
+    autoPlate: snapshot.autoPlate,
     // source-fork identity travels on every push — server consults it only on
     // first INSERT (subsequent syncs ignore the wire fields)
     sourceTemplateId: snapshot.sourceTemplateId,
@@ -262,6 +263,7 @@ export const serverStateToSnapshot = (
     textStyleId: serverState.textStyleId,
     pageBackground: serverState.pageBackground,
     labels: serverState.labels,
+    autoPlate: serverState.autoPlate,
     // server-side board carries source identity; lift to the snapshot so the
     // BoardHeader breadcrumb renders immediately on cloud-board activation
     sourceTemplateId: serverState.sourceTemplateId ?? undefined,

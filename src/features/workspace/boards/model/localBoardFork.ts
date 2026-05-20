@@ -312,6 +312,7 @@ export const createLocalBoardFromTemplate = async (
       ? { defaultItemImageFit: template.defaultItemImageFit }
       : {}),
     ...(template.labels !== null ? { labels: template.labels } : {}),
+    ...(template.autoPlate !== null ? { autoPlate: template.autoPlate } : {}),
     sourceTemplateId: template.slug,
     sourceTemplateTitle: template.title,
     ...(template.coverMedia

@@ -371,6 +371,16 @@ describe('upsertBoardState', () =>
       }),
       CONVEX_ERROR_CODES.invalidInput
     )
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-auto-plate-color',
+        baseRevision: null,
+        ...boardPayload,
+        autoPlate: { mode: 'uniform', uniformColor: 'not-a-color' },
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
   })
 
   it('rejects oversized board text fields before writing rows', async () =>

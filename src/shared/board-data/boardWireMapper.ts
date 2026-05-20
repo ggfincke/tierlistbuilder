@@ -35,6 +35,7 @@ import { isOptionalString, isRecord } from '~/shared/lib/typeGuards'
 import {
   ASPECT_RATIO_MODES,
   IMAGE_FITS,
+  normalizeBoardAutoPlate,
   normalizeBoardLabelSettings,
   normalizeEnum,
   normalizeItemLabelOptions,
@@ -385,6 +386,7 @@ export const wireToSnapshot = async (
       ? wire.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(wire.labels),
+    autoPlate: normalizeBoardAutoPlate(wire.autoPlate),
     ...normalizeSourceTemplateFields(wire as Record<string, unknown>),
   }
 }

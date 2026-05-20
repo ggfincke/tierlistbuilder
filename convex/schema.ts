@@ -17,6 +17,7 @@ import {
   boardPausedReasonValidator,
 } from './lib/validators/workspace'
 import {
+  boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
@@ -169,6 +170,8 @@ export default defineSchema({
     // per-board label rendering defaults; null -> inherit AppPreferences.showLabels
     // & built-in defaults
     labels: v.union(boardLabelSettingsValidator, v.null()),
+    // per-board logo backdrop; absent -> On+Auto default
+    autoPlate: v.optional(boardAutoPlateSettingsValidator),
     seedDatasetKey: v.union(v.string(), v.null()),
     seedReleaseId: v.union(v.string(), v.null()),
     seedExternalId: v.union(v.string(), v.null()),
@@ -339,6 +342,8 @@ export default defineSchema({
     // pre-baked label rendering defaults — forked boards inherit these so the
     // publisher's caption styling shows up without each user toggling labels
     labels: v.union(boardLabelSettingsValidator, v.null()),
+    // per-board logo backdrop pinned at publish; absent -> On+Auto default
+    autoPlate: v.optional(boardAutoPlateSettingsValidator),
     // seed identity fields let Python diff/upsert by stable external IDs
     // while user-published templates continue to omit them
     seedDatasetKey: v.optional(v.string()),
@@ -393,6 +398,8 @@ export default defineSchema({
       v.literal('contain'),
       v.null()
     ),
+    // mirror of templates.autoPlate; absent -> On+Auto default
+    autoPlate: v.optional(boardAutoPlateSettingsValidator),
     featuredRank: v.union(v.number(), v.null()),
     forkCount: v.number(),
     viewCount: v.number(),

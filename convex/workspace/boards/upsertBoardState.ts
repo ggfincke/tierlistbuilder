@@ -5,6 +5,7 @@ import { ConvexError, v, type Infer } from 'convex/values'
 import { mutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
+  boardAutoPlateSettingsEqual,
   boardLabelSettingsEqual,
   isValidLabelFontSizePx,
   ITEM_TRANSFORM_LIMITS,
@@ -33,6 +34,7 @@ import { assertStringLength, failInput } from '../../lib/text'
 import { assertExternalIdShape } from '../../lib/assertions'
 import { memoizePromise } from '../../lib/cache'
 import {
+  boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
@@ -42,6 +44,7 @@ import {
   tierColorSpecValidator,
 } from '../../lib/validators/common'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   LabelPlacement,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -130,6 +133,7 @@ const boardStyleOverrideValidators = {
   textStyleId: v.optional(textStyleIdValidator),
   pageBackground: v.optional(v.string()),
   labels: v.optional(boardLabelSettingsValidator),
+  autoPlate: v.optional(boardAutoPlateSettingsValidator),
 }
 
 // source-fork identity carried by locally-created forks/remixes — only
@@ -159,6 +163,7 @@ interface UpsertArgs
   textStyleId?: TextStyleId
   pageBackground?: string
   labels?: BoardLabelSettings
+  autoPlate?: BoardAutoPlateSettings
   sourceTemplateId?: string
   sourceRankingId?: string
   sourceTemplateTitle?: string
@@ -182,6 +187,7 @@ interface NormalizedBoardWriteFields
   textStyleId: TextStyleId | null
   pageBackground: string | null
   labels: BoardLabelSettings | null
+  autoPlate?: BoardAutoPlateSettings
 }
 
 const normalizeBoardWriteFields = (
@@ -195,6 +201,7 @@ const normalizeBoardWriteFields = (
   textStyleId: args.textStyleId ?? null,
   pageBackground: args.pageBackground ?? null,
   labels: args.labels ?? null,
+  autoPlate: args.autoPlate,
 })
 
 const validateLabelPlacement = (
@@ -225,6 +232,17 @@ const validateLabelFontSize = (
       `invalid ${field}: must be within [${LABEL_FONT_SIZE_PX_MIN}, ${LABEL_FONT_SIZE_PX_MAX}]`
     )
   }
+}
+
+const validateBoardAutoPlate = (
+  autoPlate: BoardAutoPlateSettings | undefined
+): void =>
+{
+  if (autoPlate?.mode !== 'uniform' || autoPlate.uniformColor === undefined)
+  {
+    return
+  }
+  validateHexColor(autoPlate.uniformColor, 'autoPlate.uniformColor')
 }
 
 type UpsertResult =
@@ -397,6 +415,7 @@ const validateInputs = (args: UpsertArgs): void =>
   }
   validateLabelPlacement(args.labels?.placement, 'labels.placement')
   validateLabelFontSize(args.labels?.fontSizePx, 'labels.fontSizePx')
+  validateBoardAutoPlate(args.autoPlate)
 }
 
 // --- phase 2: ensure board + early revision check ----------------------------
@@ -851,7 +870,8 @@ const applyBoardState = async (
     board.paletteId !== writeFields.paletteId ||
     board.textStyleId !== writeFields.textStyleId ||
     board.pageBackground !== writeFields.pageBackground ||
-    !boardLabelSettingsEqual(board.labels, args.labels)
+    !boardLabelSettingsEqual(board.labels, args.labels) ||
+    !boardAutoPlateSettingsEqual(board.autoPlate, args.autoPlate)
   const templateProgressState = resolveTemplateProgressState(
     getBoardSourceTemplateId(board),
     progressCounts

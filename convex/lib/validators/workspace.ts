@@ -27,6 +27,7 @@ import type { BoardLibrarySummary } from '../../workspace/boards/librarySummary'
 import {
   type _Assert,
   type _Exact,
+  boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
   imageFitValidator,
   itemLabelOptionsValidator,
@@ -167,6 +168,7 @@ export const cloudBoardStateValidator = v.object({
   textStyleId: v.optional(textStyleIdValidator),
   pageBackground: v.optional(v.string()),
   labels: v.optional(boardLabelSettingsValidator),
+  autoPlate: v.optional(boardAutoPlateSettingsValidator),
   sourceTemplateId: v.optional(v.union(v.string(), v.null())),
   sourceRankingId: v.optional(v.union(v.string(), v.null())),
   sourceTemplateTitle: v.optional(v.union(v.string(), v.null())),

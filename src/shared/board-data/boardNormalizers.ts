@@ -2,6 +2,8 @@
 // shared validation helpers for snapshot & wire payload paths
 
 import type {
+  AutoPlateMode,
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   ImageFit,
   ItemAspectRatioMode,
@@ -13,6 +15,7 @@ import type {
   LabelTextColor,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  AUTO_PLATE_MODES,
   ITEM_TRANSFORM_IDENTITY,
   ITEM_TRANSFORM_LIMITS,
   LABEL_SCRIMS,
@@ -20,6 +23,7 @@ import {
   normalizeLabelFontSizePx,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { TEXT_STYLE_IDS } from '@tierlistbuilder/contracts/lib/theme'
+import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
 import { isRecord } from '~/shared/lib/typeGuards'
 
 export const ASPECT_RATIO_MODES: readonly ItemAspectRatioMode[] = [
@@ -113,6 +117,25 @@ export const normalizeBoardLabelSettings = (
   )
   if (textColor && textColor !== 'auto') result.textColor = textColor
   return Object.keys(result).length > 0 ? result : undefined
+}
+
+// validate untrusted auto-plate settings — an unknown mode drops the whole
+// object (absent -> On+Auto default); uniformColor only survives uniform mode
+// & must be a hex string
+export const normalizeBoardAutoPlate = (
+  raw: unknown
+): BoardAutoPlateSettings | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  const mode = normalizeEnum<AutoPlateMode>(raw.mode, AUTO_PLATE_MODES)
+  if (!mode) return undefined
+  const uniformColor =
+    mode === 'uniform' &&
+    typeof raw.uniformColor === 'string' &&
+    isHexColor(raw.uniformColor)
+      ? raw.uniformColor
+      : undefined
+  return uniformColor ? { mode, uniformColor } : { mode }
 }
 
 // validate & clamp untrusted transform input. returns undefined for missing

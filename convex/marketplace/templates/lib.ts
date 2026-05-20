@@ -81,6 +81,7 @@ type TemplateCardSource = Pick<
   | 'creditLine'
   | 'itemAspectRatio'
   | 'defaultItemImageFit'
+  | 'autoPlate'
   | 'createdAt'
   | 'updatedAt'
 >
@@ -1142,6 +1143,7 @@ const buildTemplateCardFields = async (
     coverItems,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
+    autoPlate: template.autoPlate,
     featuredRank: template.featuredRank,
     forkCount: metrics.forkCount,
     viewCount: metrics.viewCount,
@@ -1377,6 +1379,7 @@ export const toTemplateCardSummary = async (
     coverItems,
     itemAspectRatio: card.itemAspectRatio,
     defaultItemImageFit: card.defaultItemImageFit,
+    autoPlate: card.autoPlate ?? null,
     itemCount: card.itemCount,
     forkCount: counters.forkCount,
     viewCount: counters.viewCount,
@@ -1469,6 +1472,7 @@ export const toTemplateDetail = async (
     coverItems,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
+    autoPlate: template.autoPlate ?? null,
     access: getTemplateAccessState(template, viewerPlan),
     criteria,
     rankingCountByCriterion,

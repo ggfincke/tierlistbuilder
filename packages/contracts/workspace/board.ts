@@ -40,6 +40,43 @@ export type ImageFit = 'cover' | 'contain'
 export const MEDIA_PLATES = ['light', 'dark'] as const
 export type MediaPlate = (typeof MEDIA_PLATES)[number]
 
+// per-board backdrop behind transparent logos. 'off' plates nothing; 'auto'
+// plates only low-contrast logos (per-item MediaPlate) w/ a theme shade;
+// 'uniform' fills uniformColor behind every image
+export const AUTO_PLATE_MODES = ['off', 'auto', 'uniform'] as const
+export type AutoPlateMode = (typeof AUTO_PLATE_MODES)[number]
+
+// fallback mode when a board has no stored autoPlate — readable out of the box.
+// a per-item backgroundColor always overrides whatever a mode resolves to
+export const AUTO_PLATE_MODE_DEFAULT: AutoPlateMode = 'auto'
+
+// fallback fill for 'uniform' mode when uniformColor is unset (off-white tiles)
+export const AUTO_PLATE_UNIFORM_DEFAULT = '#f5f5f5'
+
+// dark uniform-mode preset paired w/ the light default above
+export const AUTO_PLATE_UNIFORM_DARK_DEFAULT = '#0a0a0c'
+
+export type BoardAutoPlateSettings =
+  | { mode: 'off' }
+  | { mode: 'auto' }
+  | {
+      mode: 'uniform'
+      // hex backdrop for 'uniform' mode; absent falls back to the light default
+      uniformColor?: string
+    }
+
+export const boardAutoPlateSettingsEqual = (
+  a: BoardAutoPlateSettings | null | undefined,
+  b: BoardAutoPlateSettings | null | undefined
+): boolean =>
+{
+  if (a === b) return true
+  if (!a || !b) return !a && !b
+  if (a.mode !== b.mode) return false
+  if (a.mode !== 'uniform' || b.mode !== 'uniform') return true
+  return a.uniformColor === b.uniformColor
+}
+
 // 'auto' recomputes the board ratio from majority of item ratios on import;
 // 'manual' pins the user-selected value
 export type ItemAspectRatioMode = 'auto' | 'manual'
@@ -380,6 +417,8 @@ export interface BoardSnapshot
   pageBackground?: string
   // per-board label rendering defaults; absent fields fall through to global
   labels?: BoardLabelSettings
+  // per-board logo backdrop; absent -> On+Auto default
+  autoPlate?: BoardAutoPlateSettings
   // source-template/ranking identity captured at fork/remix time. travels w/
   // cloud sync & JSON export so a re-imported board still knows where it came
   // from. titles denormalize so the breadcrumb survives source deletion
@@ -447,6 +486,7 @@ export interface BoardSnapshotWire
   textStyleId?: TextStyleId
   pageBackground?: string
   labels?: BoardLabelSettings
+  autoPlate?: BoardAutoPlateSettings
   sourceTemplateId?: string
   sourceRankingId?: string
   sourceTemplateTitle?: string

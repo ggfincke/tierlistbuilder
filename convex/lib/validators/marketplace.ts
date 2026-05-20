@@ -93,6 +93,7 @@ import {
 import {
   type _Assert,
   type _Exact,
+  boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
   imageFitNullableValidator,
   itemTransformValidator,
@@ -255,6 +256,7 @@ const marketplaceTemplateSummaryFields = {
   coverItems: v.array(templateCoverItemValidator),
   itemAspectRatio: v.union(v.number(), v.null()),
   defaultItemImageFit: imageFitNullableValidator,
+  autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
 }
 
 export const marketplaceTemplateSummaryValidator = v.object(

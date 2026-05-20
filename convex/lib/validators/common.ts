@@ -14,6 +14,7 @@ import {
   LABEL_SCRIMS,
   LABEL_TEXT_COLORS,
   MEDIA_PLATES,
+  type BoardAutoPlateSettings,
   type BoardLabelSettings,
   type ImageFit,
   type ItemLabelOptions,
@@ -128,6 +129,15 @@ export const boardLabelSettingsValidator = v.object({
   textColor: v.optional(labelTextColorValidator),
 })
 
+export const boardAutoPlateSettingsValidator = v.union(
+  v.object({ mode: v.literal('off') }),
+  v.object({ mode: v.literal('auto') }),
+  v.object({
+    mode: v.literal('uniform'),
+    uniformColor: v.optional(v.string()),
+  })
+)
+
 export type _ImageFitExact = _Assert<
   _Exact<ImageFit, Infer<typeof imageFitValidator>>
 >
@@ -163,4 +173,7 @@ export type _ItemLabelOptionsExact = _Assert<
 >
 export type _BoardLabelSettingsExact = _Assert<
   _Exact<BoardLabelSettings, Infer<typeof boardLabelSettingsValidator>>
+>
+export type _BoardAutoPlateSettingsExact = _Assert<
+  _Exact<BoardAutoPlateSettings, Infer<typeof boardAutoPlateSettingsValidator>>
 >

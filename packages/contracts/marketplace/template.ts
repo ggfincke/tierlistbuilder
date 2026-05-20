@@ -3,6 +3,7 @@
 
 import type { TierPresetTier } from '../workspace/tierPreset'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   ImageFit,
   ItemTransform,
@@ -239,6 +240,8 @@ export interface MarketplaceTemplateSummary extends MarketplaceTemplateBase
   itemAspectRatio: number | null
   // board-wide fit pinned by the publisher; null falls back to 'cover'
   defaultItemImageFit: ImageFit | null
+  // per-board logo backdrop pinned by the publisher; null -> On+Auto default
+  autoPlate: BoardAutoPlateSettings | null
 }
 
 export interface MarketplaceTemplateGalleryCard extends MarketplaceTemplateSummary

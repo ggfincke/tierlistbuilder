@@ -388,6 +388,7 @@ const queueLargeTemplatePublish = async (
     itemAspectRatioMode: board.itemAspectRatioMode,
     defaultItemImageFit: board.defaultItemImageFit,
     labels: board.labels,
+    autoPlate: board.autoPlate,
     createdAt: now,
     updatedAt: now,
   } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
@@ -467,6 +468,7 @@ const queueLargeTemplateClone = async (
     textStyleId: null,
     pageBackground: null,
     labels: template.labels ?? null,
+    autoPlate: template.autoPlate,
     activeItemCount: template.itemCount,
     unrankedItemCount: template.itemCount,
     templateProgressState: resolveTemplateProgressState(template._id, {
@@ -626,6 +628,7 @@ export const publishFromBoard = mutation({
       itemAspectRatioMode: board.itemAspectRatioMode,
       defaultItemImageFit: board.defaultItemImageFit,
       labels: board.labels,
+      autoPlate: board.autoPlate,
       createdAt: now,
       updatedAt: now,
     } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
@@ -1026,6 +1029,7 @@ export const useTemplate = mutation({
       textStyleId: null,
       pageBackground: null,
       labels: template.labels ?? null,
+      autoPlate: template.autoPlate,
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(
         template._id,
