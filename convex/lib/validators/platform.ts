@@ -70,6 +70,8 @@ export const appPreferencesValidator = v.object({
   exportBackgroundOverride: v.union(v.string(), v.null()),
   exportItemsPerRow: v.number(),
   boardBackgroundOverride: v.union(v.string(), v.null()),
+  mediaPlateLightOverride: v.union(v.string(), v.null()),
+  mediaPlateDarkOverride: v.union(v.string(), v.null()),
   labelWidth: labelWidthValidator,
   hideRowControls: v.boolean(),
   confirmBeforeDelete: v.boolean(),

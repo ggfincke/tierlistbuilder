@@ -5,7 +5,11 @@ import { useEffect } from 'react'
 
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import type { ThemeId, TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
-import { applyTextStyle, applyThemeTokens } from '~/shared/theme/runtime'
+import {
+  applyMediaPlateOverride,
+  applyTextStyle,
+  applyThemeTokens,
+} from '~/shared/theme/runtime'
 
 // keep DOM theme runtime in sync w/ preferences — call once in each app shell.
 // reads only user-default preferences so non-workspace surfaces (e.g. Marketplace)
@@ -22,11 +26,27 @@ export function useThemeSync({
   const themeId = usePreferencesStore((s) => s.themeId)
   const textStyleId = usePreferencesStore((s) => s.textStyleId)
   const reducedMotion = usePreferencesStore((s) => s.reducedMotion)
+  const mediaPlateLightOverride = usePreferencesStore(
+    (s) => s.mediaPlateLightOverride
+  )
+  const mediaPlateDarkOverride = usePreferencesStore(
+    (s) => s.mediaPlateDarkOverride
+  )
 
   useEffect(() =>
   {
     applyThemeTokens(themeId)
   }, [themeId])
+
+  useEffect(() =>
+  {
+    applyMediaPlateOverride('light', mediaPlateLightOverride)
+  }, [mediaPlateLightOverride])
+
+  useEffect(() =>
+  {
+    applyMediaPlateOverride('dark', mediaPlateDarkOverride)
+  }, [mediaPlateDarkOverride])
 
   useEffect(() =>
   {

@@ -44,6 +44,8 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   exportBackgroundOverride: null,
   exportItemsPerRow: EXPORT_ITEMS_PER_ROW_DEFAULT,
   boardBackgroundOverride: null,
+  mediaPlateLightOverride: null,
+  mediaPlateDarkOverride: null,
   labelWidth: 'default',
   hideRowControls: false,
   confirmBeforeDelete: false,
@@ -86,6 +88,8 @@ interface PreferencesStore extends AppPreferences, HighContrastTransitionState
   setExportBackgroundOverride: (color: string | null) => void
   setExportItemsPerRow: (count: number) => void
   setBoardBackgroundOverride: (color: string | null) => void
+  setMediaPlateLightOverride: (color: string | null) => void
+  setMediaPlateDarkOverride: (color: string | null) => void
   setLabelWidth: (width: LabelWidth) => void
   setHideRowControls: (hide: boolean) => void
   setConfirmBeforeDelete: (confirm: boolean) => void
@@ -158,6 +162,16 @@ export const usePreferencesStore = create<PreferencesStore>()(
           set,
           get,
           'boardBackgroundOverride'
+        ),
+        setMediaPlateLightOverride: createPreferenceSetter(
+          set,
+          get,
+          'mediaPlateLightOverride'
+        ),
+        setMediaPlateDarkOverride: createPreferenceSetter(
+          set,
+          get,
+          'mediaPlateDarkOverride'
         ),
         setLabelWidth: createPreferenceSetter(set, get, 'labelWidth'),
         setHideRowControls: createPreferenceSetter(set, get, 'hideRowControls'),
