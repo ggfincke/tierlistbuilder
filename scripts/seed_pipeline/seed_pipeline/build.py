@@ -304,6 +304,7 @@ def _compile_item(
         "label": _resolve_item_label(item, source, label_policy),
         "aspectRatio": source.aspect_ratio,
         "transform": transform,
+        "mediaPlate": source.media_plate,
         "asset": compile_asset(source.path, repo_root, variants_dir, source),
     }
 

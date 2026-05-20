@@ -392,6 +392,7 @@
         "label",
         "aspectRatio",
         "transform",
+        "mediaPlate",
         "asset"
       ],
       "properties": {
@@ -424,6 +425,9 @@
               "$ref": "#/$defs/itemTransform"
             }
           ]
+        },
+        "mediaPlate": {
+          "enum": ["light", "dark", null]
         },
         "asset": {
           "$ref": "#/$defs/compiledAsset"

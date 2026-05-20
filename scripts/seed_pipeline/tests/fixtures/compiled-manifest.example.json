@@ -138,6 +138,7 @@
           "label": "Mario",
           "aspectRatio": 1,
           "transform": null,
+          "mediaPlate": null,
           "asset": {
             "sourcePath": "/workspace/examples/gaming/ssbu-fighters/01-mario.png",
             "sourcePathRelative": "examples/gaming/ssbu-fighters/01-mario.png",
@@ -207,6 +208,7 @@
           "label": "The Legend of Zelda",
           "aspectRatio": 1,
           "transform": null,
+          "mediaPlate": null,
           "asset": {
             "sourcePath": "/workspace/examples/gaming/zelda-games/01-the-legend-of-zelda.png",
             "sourcePathRelative": "examples/gaming/zelda-games/01-the-legend-of-zelda.png",

@@ -28,7 +28,7 @@ INSPECT_CACHE_RELATIVE_PATH = CACHE_ROOT_RELATIVE_PATH / "inspect"
 VARIANT_SPEC_VERSION = "seed-variants-v1"
 DETERMINISTIC_GENERATED_AT = "1970-01-01T00:00:00.000Z"
 # bump these when sidecar JSON shape changes so stale caches self-invalidate
-INSPECT_CACHE_SCHEMA_VERSION = 1
+INSPECT_CACHE_SCHEMA_VERSION = 2
 VARIANT_META_SCHEMA_VERSION = 1
 # top-level compile cache lets warm runs skip validation + per-source work entirely.
 # bump when the compile pipeline changes shape in ways the per-source caches miss

@@ -395,6 +395,7 @@ def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
                     "mediaDedupeHash": asset_dedupe_hash(item["asset"]),
                     "aspectRatio": item.get("aspectRatio"),
                     "transform": item.get("transform"),
+                    "mediaPlate": item.get("mediaPlate"),
                 }
             )
     return upserts

@@ -8,11 +8,11 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
-from typing import Iterable, Literal
+from typing import Iterable, Literal, get_args
 
 from PIL import Image
 
-from .crop import CropBBox, detect_content_bbox
+from .crop import CropBBox, MediaPlate, analyze_image
 from .manifest import JsonObject
 from .sidecars import read_sidecar_json, write_sidecar_json
 from .settings import (
@@ -32,6 +32,7 @@ from .settings import (
 
 # mirror Extract<MediaVariantKind, 'tile' | 'preview'> in seed contract
 VariantKind = Literal["tile", "preview"]
+MEDIA_PLATE_VALUES = get_args(MediaPlate)
 _VARIANT_LOCKS: dict[str, Lock] = {}
 _VARIANT_LOCKS_GUARD = Lock()
 
@@ -47,6 +48,8 @@ class SourceAsset:
     width: int
     height: int
     content_bbox: CropBBox | None
+    # tri-state plate decision for transparent logos (None = opaque or balanced)
+    media_plate: MediaPlate | None
 
     @property
     def aspect_ratio(self) -> float:
@@ -102,7 +105,7 @@ def inspect_source(source_path: Path, repo_root: Path) -> SourceAsset:
         if width > MAX_SOURCE_IMAGE_DIMENSION or height > MAX_SOURCE_IMAGE_DIMENSION:
             msg = f"source image exceeds dimension limit: {resolved}"
             raise ValueError(msg)
-        content_bbox = detect_content_bbox(image)
+        analysis = analyze_image(image)
     asset = SourceAsset(
         path=resolved,
         repo_relative_path=repo_relative_path,
@@ -111,7 +114,8 @@ def inspect_source(source_path: Path, repo_root: Path) -> SourceAsset:
         byte_size=byte_size,
         width=width,
         height=height,
-        content_bbox=content_bbox,
+        content_bbox=analysis.content_bbox,
+        media_plate=analysis.media_plate,
     )
     _save_inspect_cache(cache_path, asset, stat.st_mtime_ns)
     return asset
@@ -473,6 +477,9 @@ def _load_inspect_cache(
         if payload.get("contentBbox") is not None
         else None
     )
+    media_plate = payload.get("mediaPlate")
+    if media_plate is not None and media_plate not in MEDIA_PLATE_VALUES:
+        return None
     return SourceAsset(
         path=source_path,
         repo_relative_path=repo_relative_path,
@@ -482,6 +489,7 @@ def _load_inspect_cache(
         width=width,
         height=height,
         content_bbox=content_bbox,
+        media_plate=media_plate,
     )
 
 
@@ -500,6 +508,7 @@ def _save_inspect_cache(
         "width": asset.width,
         "height": asset.height,
         "contentBbox": asset.content_bbox.to_json() if asset.content_bbox else None,
+        "mediaPlate": asset.media_plate,
     }
     write_sidecar_json(cache_path, payload)
 

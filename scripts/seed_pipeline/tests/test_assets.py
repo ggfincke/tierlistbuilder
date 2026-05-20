@@ -129,11 +129,11 @@ class InspectCacheTests(unittest.TestCase):
             os.utime(source_path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000))
             with mock.patch.object(
                 assets_module,
-                "detect_content_bbox",
-                wraps=assets_module.detect_content_bbox,
-            ) as bbox_spy:
+                "analyze_image",
+                wraps=assets_module.analyze_image,
+            ) as inspect_spy:
                 inspect_source(source_path, root)
-        self.assertEqual(bbox_spy.call_count, 1)
+        self.assertEqual(inspect_spy.call_count, 1)
 
     def test_cache_invalidates_when_source_byte_size_changes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -149,11 +149,11 @@ class InspectCacheTests(unittest.TestCase):
             cache_path.write_text(json.dumps(payload))
             with mock.patch.object(
                 assets_module,
-                "detect_content_bbox",
-                wraps=assets_module.detect_content_bbox,
-            ) as bbox_spy:
+                "analyze_image",
+                wraps=assets_module.analyze_image,
+            ) as inspect_spy:
                 inspect_source(source_path, root)
-        self.assertEqual(bbox_spy.call_count, 1)
+        self.assertEqual(inspect_spy.call_count, 1)
 
     def test_corrupt_inspect_sidecar_falls_back_to_fresh_inspect(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -185,11 +185,11 @@ class InspectCacheTests(unittest.TestCase):
             cache_path.write_text(json.dumps(payload))
             with mock.patch.object(
                 assets_module,
-                "detect_content_bbox",
-                wraps=assets_module.detect_content_bbox,
-            ) as bbox_spy:
+                "analyze_image",
+                wraps=assets_module.analyze_image,
+            ) as inspect_spy:
                 inspect_source(source_path, root)
-        self.assertEqual(bbox_spy.call_count, 1)
+        self.assertEqual(inspect_spy.call_count, 1)
 
 
 class VariantMetaCacheTests(unittest.TestCase):

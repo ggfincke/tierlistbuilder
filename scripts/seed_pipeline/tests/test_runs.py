@@ -382,6 +382,7 @@ def _state_matching_compiled(compiled: dict[str, object]) -> dict[str, object]:
                 "mediaDedupeHash": item["asset"]["dedupeHash"],
                 "aspectRatio": item.get("aspectRatio"),
                 "transform": item.get("transform"),
+                "mediaPlate": item.get("mediaPlate"),
             }
             for item in template["items"]
             if isinstance(item, dict)
@@ -426,6 +427,7 @@ def _state_matching_compiled(compiled: dict[str, object]) -> dict[str, object]:
                 "mediaDedupeHash": item["asset"]["dedupeHash"],
                 "aspectRatio": item.get("aspectRatio"),
                 "transform": item.get("transform"),
+                "mediaPlate": item.get("mediaPlate"),
             }
             for template in compiled["templates"]
             if isinstance(template, dict)

@@ -16,6 +16,11 @@ from .settings import MIXED_TEMPLATE_ITEM_ASPECT_RATIO
 # mirror SEED_RATIO_SOURCES in packages/contracts/marketplace/seedPipeline.ts
 RatioSource = Literal["consistent", "mixed-dominant", "mixed-square"]
 
+# mirror MediaPlate in packages/contracts/workspace/board.ts — a transparent
+# logo that would be low-contrast on a solid backdrop gets a per-image plate so
+# it stays readable on any surface (dark gallery matte or any tier color)
+MediaPlate = Literal["light", "dark"]
+
 # keep these constants aligned w/ packages/contracts/workspace/imageMath.ts
 ASPECT_RATIO_TOLERANCE = 0.02
 AUTO_CROP_ANALYSIS_MAX_SIZE = 256
@@ -31,6 +36,18 @@ ALPHA_PRESENCE_FRACTION = 0.005
 CORNER_PATCH_SIZE = 5
 COLOR_CONTENT_DISTANCE_SQ = 32 * 32
 MIN_BBOX_AREA_FRACTION = 0.01
+
+# media plate decision: flag a transparent logo when a meaningful share of its
+# ink would be low-contrast against one extreme. representative plate colors
+# mirror src/app/index.css --t-media-matte and the light-plate fallback; per-theme
+# shades only nudge these, so the tri-state stays render-invariant
+PLATE_MATTE_RGB = (0x0A, 0x0A, 0x0C)
+PLATE_LIGHT_RGB = (0xF5, 0xF5, 0xF5)
+PLATE_INK_ALPHA_THRESHOLD = ALPHA_CONTENT_THRESHOLD
+PLATE_MIN_CONTRAST = 3.0
+PLATE_INK_LOW_FRACTION = 0.35
+# sample every 4th pixel (RGBA stride 16) — plenty for a fraction estimate
+PLATE_SAMPLE_STRIDE = 16
 
 # transform output mirrors the TypeScript ItemTransform contract
 DEFAULT_PADDING_FRACTION = 0.01
@@ -94,6 +111,12 @@ class RatioDecision:
     ratio_source: RatioSource
 
 
+@dataclass(frozen=True)
+class ImageAnalysis:
+    content_bbox: CropBBox | None
+    media_plate: MediaPlate | None
+
+
 def ratios_match(a: float, b: float, tolerance: float = ASPECT_RATIO_TOLERANCE) -> bool:
     # reject bools/NaN/inf before ratio math; Python bool is an int subclass
     if not _is_positive_finite(a) or not _is_positive_finite(b):
@@ -138,17 +161,64 @@ def resolve_item_transform(
     return bbox_to_item_transform(content_bbox, image_aspect_ratio, board_aspect_ratio)
 
 
-def detect_content_bbox(image: Image.Image) -> CropBBox | None:
-    # decode once into the same bounded RGBA analysis canvas used by TypeScript
+def _analysis_canvas(image: Image.Image) -> tuple[bytes, int, int]:
+    # decode once into the same bounded RGBA analysis canvas used by TypeScript;
+    # shared by the crop bbox scan & the media-plate decision
     target_width, target_height = get_auto_crop_analysis_dimensions(
         image.width, image.height
     )
     analysis = image.convert("RGBA").resize(
         (target_width, target_height), Image.Resampling.LANCZOS
     )
-    data = analysis.tobytes()
-    scan = scan_auto_crop_pixels(data, target_width, target_height)
+    return analysis.tobytes(), target_width, target_height
+
+
+def detect_content_bbox(image: Image.Image) -> CropBBox | None:
+    data, width, height = _analysis_canvas(image)
+    scan = scan_auto_crop_pixels(data, width, height)
     return pick_auto_crop_bbox(scan, True) if scan else None
+
+
+def analyze_image(image: Image.Image) -> ImageAnalysis:
+    data, width, height = _analysis_canvas(image)
+    has_alpha = _has_meaningful_alpha(data, width, height)
+    scan = scan_auto_crop_pixels(data, width, height, has_alpha)
+    content_bbox = pick_auto_crop_bbox(scan, True) if scan else None
+    return ImageAnalysis(
+        content_bbox=content_bbox,
+        media_plate=_scan_media_plate(data, width, height, has_alpha),
+    )
+
+
+def _scan_media_plate(
+    data: bytes, width: int, height: int, has_meaningful_alpha: bool
+) -> MediaPlate | None:
+    # opaque assets fill their frame, so only transparent logos need a plate
+    if not has_meaningful_alpha:
+        return None
+    total = 0.0
+    low_on_dark = 0.0
+    low_on_light = 0.0
+    for index in range(0, len(data), PLATE_SAMPLE_STRIDE):
+        alpha = data[index + 3]
+        if alpha < PLATE_INK_ALPHA_THRESHOLD:
+            continue
+        weight = alpha / 255
+        lum = _relative_luminance(data[index], data[index + 1], data[index + 2])
+        total += weight
+        if _contrast_ratio(lum, _PLATE_MATTE_LUM) < PLATE_MIN_CONTRAST:
+            low_on_dark += weight
+        if _contrast_ratio(lum, _PLATE_LIGHT_LUM) < PLATE_MIN_CONTRAST:
+            low_on_light += weight
+    if total <= 0:
+        return None
+    # dark ink (vanishes on dark) -> light plate; light ink -> dark plate. check
+    # dark first so a rare mid-gray that trips both prefers the light plate
+    if low_on_dark / total >= PLATE_INK_LOW_FRACTION:
+        return "light"
+    if low_on_light / total >= PLATE_INK_LOW_FRACTION:
+        return "dark"
+    return None
 
 
 def get_auto_crop_analysis_dimensions(
@@ -162,11 +232,18 @@ def get_auto_crop_analysis_dimensions(
     return max(1, round((width / height) * max_size)), max_size
 
 
-def scan_auto_crop_pixels(data: bytes, width: int, height: int) -> CropScan | None:
+def scan_auto_crop_pixels(
+    data: bytes, width: int, height: int, has_meaningful_alpha: bool | None = None
+) -> CropScan | None:
     # transparent assets use alpha; opaque assets fall back to corner-matte color
+    has_alpha = (
+        _has_meaningful_alpha(data, width, height)
+        if has_meaningful_alpha is None
+        else has_meaningful_alpha
+    )
     return (
         _scan_alpha(data, width, height)
-        if _has_meaningful_alpha(data, width, height)
+        if has_alpha
         else _scan_corner_color(data, width, height)
     )
 
@@ -425,3 +502,35 @@ def _is_positive_finite(value: float) -> bool:
         and math.isfinite(value)
         and value > 0
     )
+
+
+def _srgb_channel_to_linear(value: int) -> float:
+    # mirror src/shared/lib/color.ts:getRelativeLuminance
+    channel = value / 255
+    return (
+        channel / 12.92
+        if channel <= 0.03928
+        else ((channel + 0.055) / 1.055) ** 2.4
+    )
+
+
+# sRGB->linear lookup so the per-pixel plate scan stays cheap
+_SRGB_TO_LINEAR = tuple(_srgb_channel_to_linear(value) for value in range(256))
+
+
+def _relative_luminance(red: int, green: int, blue: int) -> float:
+    return (
+        0.2126 * _SRGB_TO_LINEAR[red]
+        + 0.7152 * _SRGB_TO_LINEAR[green]
+        + 0.0722 * _SRGB_TO_LINEAR[blue]
+    )
+
+
+def _contrast_ratio(a: float, b: float) -> float:
+    # WCAG relative-luminance contrast; inputs are already-linear luminances
+    lighter, darker = (a, b) if a >= b else (b, a)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+_PLATE_MATTE_LUM = _relative_luminance(*PLATE_MATTE_RGB)
+_PLATE_LIGHT_LUM = _relative_luminance(*PLATE_LIGHT_RGB)
