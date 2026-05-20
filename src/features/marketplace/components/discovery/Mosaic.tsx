@@ -11,12 +11,13 @@ import {
 } from 'react'
 
 import type {
+  BoardAutoPlateSettings,
   ImageFit,
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
-import { mediaPlateColor } from '~/shared/board-ui/mediaPlate'
+import { resolveItemBackdrop } from '~/shared/board-ui/mediaPlate'
 import type {
   MediaDecoding,
   MediaLoading,
@@ -33,6 +34,7 @@ interface MosaicProps
   density: MosaicDensity
   defaultImageFit?: ImageFit | null
   templateAspectRatio?: number | null
+  autoPlate?: BoardAutoPlateSettings | null
   loading?: MediaLoading
   decoding?: MediaDecoding
 }
@@ -104,6 +106,7 @@ export const Mosaic = ({
   density,
   defaultImageFit,
   templateAspectRatio,
+  autoPlate,
   loading = 'lazy',
   decoding = 'async',
 }: MosaicProps) =>
@@ -149,6 +152,7 @@ export const Mosaic = ({
               key={`${item.media.externalId}-${i}`}
               item={item}
               defaultImageFit={defaultImageFit}
+              autoPlate={autoPlate}
               loading={loading}
               decoding={decoding}
             />
@@ -163,6 +167,7 @@ interface CoverTileProps
 {
   item: TemplateCoverItem
   defaultImageFit: ImageFit | null | undefined
+  autoPlate: BoardAutoPlateSettings | null | undefined
   loading: MediaLoading
   decoding: MediaDecoding
 }
@@ -170,6 +175,7 @@ interface CoverTileProps
 const CoverTile = ({
   item,
   defaultImageFit,
+  autoPlate,
   loading,
   decoding,
 }: CoverTileProps) =>
@@ -184,9 +190,7 @@ const CoverTile = ({
         fit={fit}
         transform={transform}
         aspectRatio={item.aspectRatio}
-        backgroundColor={
-          mediaPlateColor(item.mediaPlate) ?? item.backgroundColor
-        }
+        backgroundColor={resolveItemBackdrop(item, autoPlate)}
         loading={loading}
         decoding={decoding}
       />

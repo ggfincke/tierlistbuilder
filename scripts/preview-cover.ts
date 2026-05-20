@@ -23,6 +23,7 @@ import {
   type CoverSurface,
   type TemplateCoverFraming,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import { AUTO_PLATE_UNIFORM_DARK_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 
 import { computeFramedPlacement } from '../src/shared/board-ui/coverFramingPlacement'
 
@@ -62,7 +63,7 @@ interface SurfacePreview
   height: number
 }
 
-const MATTE_HEX = '#0a0a0c'
+const MATTE_HEX = AUTO_PLATE_UNIFORM_DARK_DEFAULT
 const CANVAS_HEX = '#ffffff'
 const LABEL_TEXT_HEX = '#1f2937'
 const SUBTLE_TEXT_HEX = '#6b7280'

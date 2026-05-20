@@ -59,12 +59,13 @@ export const UnrankedPool = () =>
     }))
   )
   const itemCount = useActiveBoardStore(selectActiveItemCount)
-  const { boardAspectRatio, boardDefaultFit, boardLabels } =
+  const { boardAspectRatio, boardDefaultFit, boardLabels, boardAutoPlate } =
     useActiveBoardStore(
       useShallow((state) => ({
         boardAspectRatio: getBoardItemAspectRatio(state),
         boardDefaultFit: state.defaultItemImageFit,
         boardLabels: state.labels,
+        boardAutoPlate: state.autoPlate,
       }))
     )
   const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
@@ -195,6 +196,7 @@ export const UnrankedPool = () =>
                 slotHeight={slotHeight}
                 boardDefaultFit={boardDefaultFit}
                 boardLabels={boardLabels}
+                boardAutoPlate={boardAutoPlate}
               />
             ))
           )}

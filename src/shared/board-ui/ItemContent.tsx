@@ -3,6 +3,7 @@
 
 import { useImageUrlChain } from '~/shared/hooks/useImageUrl'
 import type {
+  BoardAutoPlateSettings,
   ImageFit,
   ItemTransform,
   MediaPlate,
@@ -15,7 +16,7 @@ import {
 } from '~/shared/lib/imageRefs'
 import { getTextColor } from '~/shared/lib/color'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
-import { mediaPlateColor } from '~/shared/board-ui/mediaPlate'
+import { resolveItemBackdrop } from '~/shared/board-ui/mediaPlate'
 import { OverlayLabelBlock } from '~/shared/board-ui/labelBlocks'
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { TileLayoutShell } from '~/shared/board-ui/TileLayoutShell'
@@ -31,6 +32,9 @@ interface ItemContentProps
     aspectRatio?: number
     transform?: ItemTransform
   }
+  // board-level auto-plate setting; absent -> On+Auto. a per-item
+  // backgroundColor on the item still wins over whatever this resolves to
+  autoPlate?: BoardAutoPlateSettings | null
   variant?: 'default' | 'compact'
   // null hides the label entirely; resolve via resolveLabelDisplay before passing
   label?: ResolvedLabelDisplay | null
@@ -44,6 +48,7 @@ interface ItemContentProps
 
 export const ItemContent = ({
   item,
+  autoPlate,
   variant = 'default',
   label = null,
   frameAspectRatio = 1,
@@ -90,7 +95,7 @@ export const ItemContent = ({
         transform={transform ?? null}
         aspectRatio={item.aspectRatio ?? null}
         frameAspectRatio={frameAspectRatio}
-        backgroundColor={mediaPlateColor(item.mediaPlate)}
+        backgroundColor={resolveItemBackdrop(item, autoPlate)}
         loading={imageLoading}
       >
         {!isCaptioned && label && label.placement.mode === 'overlay' && (

@@ -27,6 +27,7 @@ interface CoverProps
     coverItems?: readonly TemplateCoverItem[]
     defaultItemImageFit?: MarketplaceTemplateSummary['defaultItemImageFit']
     itemAspectRatio?: MarketplaceTemplateSummary['itemAspectRatio']
+    autoPlate?: MarketplaceTemplateSummary['autoPlate']
   }
   density: MosaicDensity
   style?: CoverStyle
@@ -83,6 +84,7 @@ export const Cover = ({
       density={density}
       defaultImageFit={template.defaultItemImageFit ?? null}
       templateAspectRatio={template.itemAspectRatio ?? null}
+      autoPlate={template.autoPlate ?? null}
       loading={loading}
       decoding={decoding}
     />

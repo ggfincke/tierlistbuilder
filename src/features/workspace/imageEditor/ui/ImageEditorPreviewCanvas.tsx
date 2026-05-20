@@ -13,6 +13,15 @@ import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { CaptionStrip as SharedCaptionStrip } from '~/shared/board-ui/labelBlocks'
 import { DraggableLabelOverlay } from '~/features/workspace/imageEditor/ui/DraggableLabelOverlay'
 
+// neutral checker shown behind a transparent image when no per-item background
+// is set, so a cut-out logo stays visible while the user picks a backdrop
+const CHECKER_STYLE: CSSProperties = {
+  backgroundColor: '#9aa0a6',
+  backgroundImage:
+    'repeating-conic-gradient(rgba(0,0,0,0.18) 0% 25%, transparent 0% 50%)',
+  backgroundSize: '16px 16px',
+}
+
 interface ImageEditorPreviewCanvasProps
 {
   item: TierItem
@@ -67,6 +76,13 @@ export const ImageEditorPreviewCanvas = ({
 }: ImageEditorPreviewCanvasProps) =>
 {
   const showCaptionFrame = hasImage && captionPreviewMode
+  // live background preview: the manual color if set, else a checker so a
+  // transparent logo never vanishes against the dark canvas
+  const backdropStyle: CSSProperties = hasImage
+    ? item.backgroundColor
+      ? { backgroundColor: item.backgroundColor }
+      : CHECKER_STYLE
+    : {}
 
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--t-bg-sunken)] p-6">
@@ -88,6 +104,7 @@ export const ImageEditorPreviewCanvas = ({
             showCaptionFrame ? 'min-h-0 flex-1' : 'h-full w-full'
           }`}
           style={{
+            ...backdropStyle,
             cursor: isDragging
               ? 'grabbing'
               : hasImage && url

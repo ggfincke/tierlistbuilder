@@ -351,6 +351,7 @@ export const ImageEditorPane = forwardRef<
           altText={item.altText}
           notes={item.notes}
           backgroundColor={item.backgroundColor}
+          mediaPlate={item.mediaPlate}
           hasImage={hasImage}
           onAltTextChange={onAltTextChange}
           onNotesChange={onNotesChange}

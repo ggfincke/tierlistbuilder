@@ -142,6 +142,7 @@ export const StaticBoard = memo(
                       >
                         <ItemContent
                           item={item}
+                          autoPlate={data.autoPlate}
                           label={resolveLabelDisplay({
                             itemLabel: item.label,
                             itemOptions: item.labelOptions,

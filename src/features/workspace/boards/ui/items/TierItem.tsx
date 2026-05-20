@@ -28,6 +28,7 @@ import { ItemContextMenu } from '~/features/workspace/boards/ui/items/ItemContex
 import { resolveItemVisualState } from '~/features/workspace/boards/ui/tier-list/itemVisualState'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   ImageFit,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -43,6 +44,7 @@ interface TierItemProps
   // board-wide image fit default — per-item override still wins
   boardDefaultFit: ImageFit | undefined
   boardLabels: BoardLabelSettings | undefined
+  boardAutoPlate: BoardAutoPlateSettings | undefined
 }
 
 export const TierItem = memo(
@@ -53,6 +55,7 @@ export const TierItem = memo(
     slotHeight,
     boardDefaultFit,
     boardLabels,
+    boardAutoPlate,
   }: TierItemProps) =>
   {
     const { item, isSelected } = useActiveBoardStore(
@@ -361,6 +364,7 @@ export const TierItem = memo(
         >
           <ItemContent
             item={item}
+            autoPlate={boardAutoPlate}
             label={resolveLabelDisplay({
               itemLabel: item.label,
               itemOptions: item.labelOptions,
