@@ -9,7 +9,7 @@ import type {
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
-import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   BoardItemsGrid,
@@ -41,7 +41,7 @@ interface ConsensusTierRowsProps
   rows: readonly MarketplaceTemplateRankingAggregateItem[]
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   onOpenItem: (
     row: MarketplaceTemplateRankingAggregateItem,
     target: Element
@@ -82,7 +82,7 @@ interface TierItemButtonProps
   row: MarketplaceTemplateRankingAggregateItem
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   thumbWidth: number
   paletteId: PaletteId
   onOpen: (
@@ -96,7 +96,7 @@ const TierItemButton = ({
   row,
   buckets,
   frame,
-  labelSettings,
+  displaySettings,
   thumbWidth,
   paletteId,
   onOpen,
@@ -123,7 +123,7 @@ const TierItemButton = ({
       <AggregateItemThumb
         row={row}
         frame={frame}
-        labelSettings={labelSettings}
+        displaySettings={displaySettings}
         size={thumbWidth}
         bare
       />
@@ -164,7 +164,7 @@ export const ConsensusTierRows = ({
   rows,
   buckets,
   frame,
-  labelSettings,
+  displaySettings,
   onOpenItem,
   yourPlacements,
 }: ConsensusTierRowsProps) =>
@@ -251,7 +251,7 @@ export const ConsensusTierRows = ({
                     row={row}
                     buckets={buckets}
                     frame={frame}
-                    labelSettings={labelSettings}
+                    displaySettings={displaySettings}
                     thumbWidth={slotWidth}
                     paletteId={paletteId}
                     onOpen={onOpenItem}

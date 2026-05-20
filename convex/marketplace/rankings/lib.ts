@@ -210,14 +210,18 @@ export const toRankingDetail = async (
 ): Promise<MarketplaceRankingDetail> =>
 {
   const cache = createTemplateProjectionCache()
-  const [summary, tiers, items] = await Promise.all([
+  const [summary, tiers, items, sourceTemplate] = await Promise.all([
     toRankingSummary(ctx, ranking, cache),
     loadRankingTiers(ctx, ranking._id),
     loadRankingItems(ctx, ranking._id),
+    ctx.db.get(ranking.sourceTemplateId),
   ])
 
   return {
     ...summary,
+    // pull the backdrop policy from the live template so legibility fixes reach
+    // every published ranking without a re-publish
+    autoPlate: sourceTemplate?.autoPlate ?? null,
     tiers: tiers.map(toRankingTier),
     items: await Promise.all(
       items.map((item) => toRankingItem(ctx, item, cache))

@@ -450,6 +450,7 @@ export const createLocalBoardFromRanking = async (
     sourceRankingId: ranking.slug,
     sourceTemplateTitle: ranking.template.title,
     sourceRankingTitle: ranking.title,
+    ...(ranking.autoPlate !== null ? { autoPlate: ranking.autoPlate } : {}),
     preferredCriterionExternalId: ranking.criterion.externalId,
   }
 

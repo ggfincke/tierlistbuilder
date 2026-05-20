@@ -13,6 +13,7 @@ import {
   type MarketplaceRankingTier,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardAutoPlateSettings } from '@tierlistbuilder/contracts/workspace/board'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
@@ -47,9 +48,10 @@ interface ItemTileProps
 {
   item: MarketplaceRankingItem
   frameAspectRatio: number
+  autoPlate: BoardAutoPlateSettings | null
 }
 
-const ItemTile = ({ item, frameAspectRatio }: ItemTileProps) =>
+const ItemTile = ({ item, frameAspectRatio, autoPlate }: ItemTileProps) =>
 {
   const labelDisplay = resolveLabelDisplay({
     itemLabel: item.label ?? undefined,
@@ -79,6 +81,7 @@ const ItemTile = ({ item, frameAspectRatio }: ItemTileProps) =>
           aspectRatio: item.aspectRatio ?? undefined,
           transform: item.transform ?? undefined,
         }}
+        autoPlate={autoPlate}
         label={labelDisplay}
         fit={item.imageFit ?? 'cover'}
         frameAspectRatio={frameAspectRatio}
@@ -92,10 +95,17 @@ interface TierRowProps
   tier: MarketplaceRankingTier
   items: MarketplaceRankingItem[]
   frameAspectRatio: number
+  autoPlate: BoardAutoPlateSettings | null
   isFirst: boolean
 }
 
-const TierRow = ({ tier, items, frameAspectRatio, isFirst }: TierRowProps) =>
+const TierRow = ({
+  tier,
+  items,
+  frameAspectRatio,
+  autoPlate,
+  isFirst,
+}: TierRowProps) =>
 {
   const tierColor = resolveTierColorSpec(RANKING_PALETTE_ID, tier.colorSpec)
   const rowBg = tier.rowColorSpec
@@ -140,6 +150,7 @@ const TierRow = ({ tier, items, frameAspectRatio, isFirst }: TierRowProps) =>
               key={item.externalId}
               item={item}
               frameAspectRatio={frameAspectRatio}
+              autoPlate={autoPlate}
             />
           ))}
         </div>
@@ -261,6 +272,7 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
           tier={tier}
           items={itemsByTier.get(tier.externalId) ?? []}
           frameAspectRatio={frameAspectRatio}
+          autoPlate={detail.autoPlate}
           isFirst={index === 0}
         />
       ))}

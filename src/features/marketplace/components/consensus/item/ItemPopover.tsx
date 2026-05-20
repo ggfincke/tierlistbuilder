@@ -9,7 +9,7 @@ import type {
   MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useAnchoredPopup } from '~/shared/overlay/anchoredPopup'
 import { OverlayPanelSurface } from '~/shared/overlay/OverlaySurface'
@@ -36,7 +36,7 @@ interface ItemPopoverProps
   anchorRect: PopoverAnchorRect
   onClose: () => void
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
 }
 
 const PANEL_W = 280
@@ -49,7 +49,7 @@ export const ItemPopover = ({
   anchorRect,
   onClose,
   frame,
-  labelSettings,
+  displaySettings,
 }: ItemPopoverProps) =>
 {
   const paletteId = usePreferencesStore((state) => state.paletteId)
@@ -98,7 +98,7 @@ export const ItemPopover = ({
         <AggregateItemThumb
           row={row}
           frame={frame}
-          labelSettings={labelSettings}
+          displaySettings={displaySettings}
           size={36}
         />
         <div className="min-w-0 flex-1">

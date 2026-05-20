@@ -421,6 +421,7 @@ export const marketplaceRankingItemValidator = v.object({
 
 export const marketplaceRankingDetailValidator = v.object({
   ...marketplaceRankingSummaryFields,
+  autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
   tiers: v.array(marketplaceRankingTierValidator),
   items: v.array(marketplaceRankingItemValidator),
 })

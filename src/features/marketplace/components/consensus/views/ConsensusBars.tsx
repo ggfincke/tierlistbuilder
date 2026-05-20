@@ -6,7 +6,7 @@ import type {
   MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { formatCount } from '~/shared/catalog/formatters'
 import { pluralizeWord } from '~/shared/lib/pluralize'
@@ -29,7 +29,7 @@ interface ConsensusBarsProps
   rows: readonly MarketplaceTemplateRankingAggregateItem[]
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   showControversy: boolean
   onOpenItem: (
     row: MarketplaceTemplateRankingAggregateItem,
@@ -41,7 +41,7 @@ export const ConsensusBars = ({
   rows,
   buckets,
   frame,
-  labelSettings,
+  displaySettings,
   showControversy,
   onOpenItem,
 }: ConsensusBarsProps) =>
@@ -68,7 +68,7 @@ export const ConsensusBars = ({
               <AggregateItemThumb
                 row={row}
                 frame={frame}
-                labelSettings={labelSettings}
+                displaySettings={displaySettings}
                 size={56}
               />
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">

@@ -2,7 +2,12 @@
 // public ranking contracts shared by Convex & future marketplace UI
 
 import type { TierColorSpec } from '../lib/theme'
-import type { ImageFit, ItemTransform, MediaPlate } from '../workspace/board'
+import type {
+  BoardAutoPlateSettings,
+  ImageFit,
+  ItemTransform,
+  MediaPlate,
+} from '../workspace/board'
 import type { TemplateAuthor, TemplateMediaRef } from './template'
 import type { TemplateCategory } from './category'
 import type { PaginationResult } from '../lib/pagination'
@@ -147,6 +152,8 @@ export interface MarketplaceRankingItem
 
 export interface MarketplaceRankingDetail extends MarketplaceRankingSummary
 {
+  // source-template backdrop policy used by the ranking snapshot view
+  autoPlate: BoardAutoPlateSettings | null
   tiers: MarketplaceRankingTier[]
   items: MarketplaceRankingItem[]
 }

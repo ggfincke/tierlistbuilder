@@ -8,7 +8,7 @@ import type {
   MarketplaceTemplateRankingAggregate,
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
 import { useTemplateRankingAggregateItems } from '~/features/marketplace/model/detail/useRankingDetail'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
@@ -34,7 +34,7 @@ interface HeroRailCardsProps
   templateSlug: string
   aggregate: MarketplaceTemplateRankingAggregate
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
 }
 
 interface HeroRailCardsLoadingProps
@@ -47,7 +47,7 @@ interface RailRowProps
   row: MarketplaceTemplateRankingAggregateItem
   aggregate: MarketplaceTemplateRankingAggregate
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   detail: string
   badge: ReactNode
 }
@@ -56,7 +56,7 @@ const RailRow = ({
   row,
   aggregate,
   frame,
-  labelSettings,
+  displaySettings,
   detail,
   badge,
 }: RailRowProps) => (
@@ -64,7 +64,7 @@ const RailRow = ({
     <AggregateItemThumb
       row={row}
       frame={frame}
-      labelSettings={labelSettings}
+      displaySettings={displaySettings}
       size={36}
     />
     <div className="min-w-0 flex-1">
@@ -139,7 +139,7 @@ export const HeroRailCards = ({
   templateSlug,
   aggregate,
   frame,
-  labelSettings,
+  displaySettings,
 }: HeroRailCardsProps) =>
 {
   const paletteId = usePreferencesStore((state) => state.paletteId)
@@ -210,7 +210,7 @@ export const HeroRailCards = ({
                     row={row}
                     aggregate={aggregate}
                     frame={frame}
-                    labelSettings={labelSettings}
+                    displaySettings={displaySettings}
                     detail={
                       top
                         ? `Split — only ${formatPercent(row.topBucketShare)} agree on ${top.label}`
@@ -257,7 +257,7 @@ export const HeroRailCards = ({
                     row={row}
                     aggregate={aggregate}
                     frame={frame}
-                    labelSettings={labelSettings}
+                    displaySettings={displaySettings}
                     detail={
                       top
                         ? `${formatPercent(row.topBucketShare)} agree on ${top.label}`

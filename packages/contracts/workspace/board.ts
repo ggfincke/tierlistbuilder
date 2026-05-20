@@ -336,6 +336,18 @@ export const isEmptyItemLabelOptions = (
     options.textStyleId === undefined &&
     options.textColor === undefined)
 
+// board-level settings that drive how an item's media renders on read-only
+// viewing surfaces (consensus tiers/rail/compare): label chrome + backdrop
+// plate. Bundled so surfaces thread one prop, not N parallel board settings.
+export interface BoardItemDisplaySettings
+{
+  // label chrome (visibility, placement, font); null inherits global defaults
+  labels: BoardLabelSettings | null
+  // backdrop plate behind transparent media; null -> On+Auto default in
+  // resolveItemBackdrop
+  autoPlate: BoardAutoPlateSettings | null
+}
+
 // origin of the bytes a TierItemImageRef points at. only 'source' today —
 // source-owned refs point at marketplace assets & must upload a copy pre-sync.
 // authoritative list; never hand-type the literal at a call site

@@ -6,7 +6,7 @@ import { Flame, Sparkles } from 'lucide-react'
 
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
 import {
   AggregateItemThumb,
   type AggregateItemFrame,
@@ -34,7 +34,7 @@ interface CompareNarrativeCardsProps
   mostDivergent: CompareJoinedRow | null
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   leftShortName: string
   rightShortName: string
 }
@@ -47,7 +47,7 @@ interface NarrativeCardProps
   row: CompareJoinedRow
   line: string
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
 }
 
 interface MiniDistProps
@@ -111,7 +111,7 @@ const NarrativeCard = ({
   row,
   line,
   frame,
-  labelSettings,
+  displaySettings,
 }: NarrativeCardProps) => (
   <CompareCard>
     <div className="flex items-center gap-1.5">
@@ -127,7 +127,7 @@ const NarrativeCard = ({
       <AggregateItemThumb
         row={row.left}
         frame={frame}
-        labelSettings={labelSettings}
+        displaySettings={displaySettings}
         size={64}
       />
       <div className="min-w-0 flex-1">
@@ -172,7 +172,7 @@ export const CompareNarrativeCards = ({
   mostDivergent,
   buckets,
   frame,
-  labelSettings,
+  displaySettings,
   leftShortName,
   rightShortName,
 }: CompareNarrativeCardsProps) =>
@@ -206,7 +206,7 @@ export const CompareNarrativeCards = ({
                   )} / ${formatPercent(mostStable.right.topBucketShare)}).`
             }
             frame={frame}
-            labelSettings={labelSettings}
+            displaySettings={displaySettings}
           />
           <div className="grid grid-cols-2 gap-2">
             <MiniDist
@@ -251,7 +251,7 @@ export const CompareNarrativeCards = ({
               'tier'
             )}.`}
             frame={frame}
-            labelSettings={labelSettings}
+            displaySettings={displaySettings}
           />
           <div className="grid grid-cols-2 gap-2">
             <MiniDist

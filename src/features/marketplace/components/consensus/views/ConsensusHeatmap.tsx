@@ -6,7 +6,7 @@ import type {
   MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
 import { Fragment } from 'react'
 
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
@@ -26,7 +26,7 @@ interface ConsensusHeatmapProps
   rows: readonly MarketplaceTemplateRankingAggregateItem[]
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
-  labelSettings: BoardLabelSettings | null
+  displaySettings: BoardItemDisplaySettings
   onOpenItem: (
     row: MarketplaceTemplateRankingAggregateItem,
     target: Element
@@ -53,7 +53,7 @@ export const ConsensusHeatmap = ({
   rows,
   buckets,
   frame,
-  labelSettings,
+  displaySettings,
   onOpenItem,
 }: ConsensusHeatmapProps) =>
 {
@@ -104,7 +104,7 @@ export const ConsensusHeatmap = ({
                 <AggregateItemThumb
                   row={row}
                   frame={frame}
-                  labelSettings={labelSettings}
+                  displaySettings={displaySettings}
                   size={28}
                 />
                 <span className="truncate text-[13px] text-[var(--t-text)]">

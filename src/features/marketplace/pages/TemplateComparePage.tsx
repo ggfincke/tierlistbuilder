@@ -273,7 +273,7 @@ const CompareBody = ({
   )
 
   const frame = templateFrame(detail)
-  const labelSettings = detail.labels
+  const displaySettings = detail
   const leftShortName = leftCriterion.shortName ?? leftCriterion.name
   const rightShortName = rightCriterion.shortName ?? rightCriterion.name
 
@@ -398,7 +398,7 @@ const CompareBody = ({
               mostDivergent={insights.mostDivergent}
               buckets={buckets}
               frame={frame}
-              labelSettings={labelSettings}
+              displaySettings={displaySettings}
               leftShortName={leftShortName}
               rightShortName={rightShortName}
             />
@@ -421,7 +421,7 @@ const CompareBody = ({
               rows={joinedRows}
               buckets={buckets}
               frame={frame}
-              labelSettings={labelSettings}
+              displaySettings={displaySettings}
               leftShortName={leftShortName}
               rightShortName={rightShortName}
             />
@@ -444,7 +444,7 @@ const CompareBody = ({
               rows={joinedRows}
               buckets={buckets}
               frame={frame}
-              labelSettings={labelSettings}
+              displaySettings={displaySettings}
               leftShortName={leftShortName}
               rightShortName={rightShortName}
             />
