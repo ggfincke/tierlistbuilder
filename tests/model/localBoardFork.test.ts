@@ -69,6 +69,7 @@ const template: MarketplaceTemplateDetail = {
   coverItems: [],
   itemAspectRatio: null,
   defaultItemImageFit: null,
+  defaultItemImagePadding: 0.08,
   autoPlate: null,
   itemCount: 1,
   forkCount: 0,
@@ -100,6 +101,7 @@ const item: MarketplaceTemplateItem = {
   aspectRatio: 1,
   imageFit: 'cover',
   transform: null,
+  imagePadding: 0.18,
 }
 
 const ranking: MarketplaceRankingDetail = {
@@ -128,6 +130,7 @@ const ranking: MarketplaceRankingDetail = {
   createdAt: 1,
   updatedAt: 1,
   autoPlate: { mode: 'uniform', uniformColor: '#101010' },
+  defaultItemImagePadding: 0.12,
   tiers: [],
   items: [],
 }
@@ -211,7 +214,11 @@ describe('createLocalBoardFromTemplate', () =>
         cloudMediaExternalId: media.externalId,
         cloudMediaOwnership: 'source',
       },
+      imagePadding: item.imagePadding,
     })
+    expect(
+      stored.status === 'ok' ? stored.data.defaultItemImagePadding : undefined
+    ).toBe(template.defaultItemImagePadding)
   })
 })
 
@@ -240,5 +247,8 @@ describe('createLocalBoardFromRanking', () =>
     expect(stored.status === 'ok' ? stored.data.autoPlate : undefined).toEqual(
       ranking.autoPlate
     )
+    expect(
+      stored.status === 'ok' ? stored.data.defaultItemImagePadding : undefined
+    ).toBe(ranking.defaultItemImagePadding)
   })
 })

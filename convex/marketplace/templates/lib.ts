@@ -81,6 +81,7 @@ type TemplateCardSource = Pick<
   | 'creditLine'
   | 'itemAspectRatio'
   | 'defaultItemImageFit'
+  | 'defaultItemImagePadding'
   | 'autoPlate'
   | 'createdAt'
   | 'updatedAt'
@@ -962,6 +963,7 @@ export const loadCoverItems = async (
             aspectRatio: item.aspectRatio,
             imageFit: item.imageFit,
             transform: item.transform,
+            imagePadding: item.imagePadding ?? null,
           }
         : null
     })
@@ -1071,6 +1073,7 @@ const toTemplateCardCoverItems = async (
             aspectRatio: item.aspectRatio,
             imageFit: item.imageFit,
             transform: item.transform,
+            imagePadding: item.imagePadding ?? null,
           }
         : null
     })
@@ -1143,6 +1146,7 @@ const buildTemplateCardFields = async (
     coverItems,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
+    defaultItemImagePadding: template.defaultItemImagePadding ?? null,
     autoPlate: template.autoPlate,
     featuredRank: template.featuredRank,
     forkCount: metrics.forkCount,
@@ -1337,6 +1341,7 @@ const toTemplateCardCoverItem = async (
         aspectRatio: item.aspectRatio,
         imageFit: item.imageFit,
         transform: item.transform,
+        imagePadding: item.imagePadding ?? null,
       }
     : null
 }
@@ -1379,6 +1384,7 @@ export const toTemplateCardSummary = async (
     coverItems,
     itemAspectRatio: card.itemAspectRatio,
     defaultItemImageFit: card.defaultItemImageFit,
+    defaultItemImagePadding: card.defaultItemImagePadding,
     autoPlate: card.autoPlate ?? null,
     itemCount: card.itemCount,
     forkCount: counters.forkCount,
@@ -1472,6 +1478,7 @@ export const toTemplateDetail = async (
     coverItems,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
+    defaultItemImagePadding: template.defaultItemImagePadding ?? null,
     autoPlate: template.autoPlate ?? null,
     access: getTemplateAccessState(template, viewerPlan),
     criteria,
@@ -1533,6 +1540,7 @@ export const toTemplateItem = async (
   aspectRatio: item.aspectRatio,
   imageFit: item.imageFit,
   transform: item.transform,
+  imagePadding: item.imagePadding ?? null,
 })
 
 export const toTemplateDraft = async (
@@ -1684,6 +1692,7 @@ export const buildBoardItemInsertFromTemplateItem = (
   aspectRatio: item.aspectRatio ?? undefined,
   imageFit: item.imageFit ?? undefined,
   transform: item.transform ?? undefined,
+  imagePadding: item.imagePadding ?? undefined,
   templateItemId: item._id,
 })
 

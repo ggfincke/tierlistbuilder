@@ -194,7 +194,9 @@ interface SeedSourceBoardOptions
   itemAspectRatio?: number
   itemAspectRatioMode?: ItemAspectRatioMode
   defaultItemImageFit?: ImageFit
+  defaultItemImagePadding?: number
   imageItemFit?: ImageFit | null
+  imageItemPadding?: number
   imageItemTransform?: ItemTransform
   imageItemMediaPlate?: MediaPlate
   labels?: BoardLabelSettings
@@ -244,6 +246,7 @@ const seedSourceBoard = async (
       itemAspectRatio: options.itemAspectRatio,
       itemAspectRatioMode: options.itemAspectRatioMode,
       defaultItemImageFit: options.defaultItemImageFit,
+      defaultItemImagePadding: options.defaultItemImagePadding,
       labels: options.labels,
       activeItemCount: 2,
       unrankedItemCount: 1,
@@ -296,6 +299,9 @@ const seedSourceBoard = async (
         : { imageFit: options.imageItemFit ?? 'cover' }),
       ...(options.imageItemTransform
         ? { transform: options.imageItemTransform }
+        : {}),
+      ...(options.imageItemPadding !== undefined
+        ? { imagePadding: options.imageItemPadding }
         : {}),
     })
     await ctx.db.insert('boardItems', {
@@ -463,6 +469,7 @@ const seedAggregateRanking = async (
           aspectRatio: null,
           imageFit: null,
           transform: null,
+          imagePadding: null,
         })
       )
     )
@@ -512,6 +519,7 @@ const seedAggregateTemplate = async (
           aspectRatio: null,
           imageFit: null,
           transform: null,
+          imagePadding: null,
         })
       )
     }
@@ -576,6 +584,7 @@ const seedLargeTemplate = async (
         aspectRatio: null,
         imageFit: null,
         transform: null,
+        imagePadding: null,
       })
     }
     return 'LargeTpl01'
@@ -665,6 +674,7 @@ const seedRankingMediaSnapshot = async (
       aspectRatio: null,
       imageFit: null,
       transform: null,
+      imagePadding: null,
     })
     const boardId = await seedCloudBoard(ctx, {
       externalId: 'media-ranking-board',
@@ -703,6 +713,7 @@ const seedRankingMediaSnapshot = async (
       aspectRatio: null,
       imageFit: null,
       transform: null,
+      imagePadding: null,
     })
     return mediaAssetId
   })
@@ -1818,6 +1829,7 @@ describe('marketplace template Convex functions', () =>
               aspectRatio: null,
               imageFit: null,
               transform: null,
+              imagePadding: null,
             })
         ),
         ...Array.from(
@@ -1977,7 +1989,9 @@ describe('marketplace template Convex functions', () =>
       itemAspectRatio: 16 / 9,
       itemAspectRatioMode: 'manual',
       defaultItemImageFit: 'contain',
+      defaultItemImagePadding: 0.08,
       imageItemFit: null,
+      imageItemPadding: 0.18,
       imageItemTransform: transform,
       imageItemMediaPlate: 'dark',
       labels,
@@ -2016,6 +2030,7 @@ describe('marketplace template Convex functions', () =>
       itemAspectRatio: 16 / 9,
       itemAspectRatioMode: 'manual',
       defaultItemImageFit: 'contain',
+      defaultItemImagePadding: 0.08,
     })
     expect(board?.labels).toEqual(labels)
     expect(board?.items[0]).toMatchObject({
@@ -2023,6 +2038,7 @@ describe('marketplace template Convex functions', () =>
       mediaContentHash: 'hash-source',
       mediaPlate: 'dark',
       transform,
+      imagePadding: 0.18,
       sourceTemplateItemExternalId: 'source-item-1',
     })
     const libraryRows = await asUser(t, consumerId).query(
@@ -3398,6 +3414,7 @@ describe('marketplace template Convex functions', () =>
             aspectRatio: null,
             imageFit: null,
             transform: null,
+            imagePadding: null,
           })
       )
       const tiers = [

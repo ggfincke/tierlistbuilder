@@ -14,6 +14,7 @@ import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import type { AutoCropStatus } from '~/features/workspace/imageEditor/model/auto-crop/useImageEditorAutoCropItem'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { AutoCropButton } from '~/features/workspace/imageEditor/ui/AutoCropButton'
+import { PaddingSlider } from '~/features/workspace/imageEditor/ui/PaddingSlider'
 import { ZoomSlider } from '~/features/workspace/imageEditor/ui/ZoomSlider'
 
 interface PaneFooterTransformProps
@@ -23,6 +24,8 @@ interface PaneFooterTransformProps
   displayZoomMin: number
   displaySliderZoomMax: number
   onZoomLiveChange: (zoom: number) => void
+  displayPadding: number
+  onPaddingLiveChange: (padding: number) => void
   centerOffsets: () => void
   working: ItemTransform
   autoCrop: () => void
@@ -132,6 +135,10 @@ export const ImageEditorPaneFooter = ({
           sliderMax={transform.displaySliderZoomMax}
           onLiveChange={transform.onZoomLiveChange}
         />
+        <PaddingSlider
+          value={transform.displayPadding}
+          onLiveChange={transform.onPaddingLiveChange}
+        />
         <button
           type="button"
           onClick={transform.centerOffsets}
@@ -183,8 +190,8 @@ export const ImageEditorPaneFooter = ({
           onClick={transform.reset}
           disabled={!transform.hasChanges && !transform.isDirty}
           className="focus-custom inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-          title="Reset rotation, zoom, and pan to the default fit"
-          aria-label="Reset image transforms (rotation, zoom, pan)"
+          title="Reset rotation, zoom, pan, and padding to the default fit"
+          aria-label="Reset image adjustments (rotation, zoom, pan, padding)"
         >
           <RefreshCw className="h-3 w-3" />
           Reset image

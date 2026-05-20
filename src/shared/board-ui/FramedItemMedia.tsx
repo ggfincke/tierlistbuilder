@@ -16,6 +16,7 @@ import type {
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
+import { PlateInsetFrame } from '~/shared/board-ui/PlateInsetFrame'
 import {
   buildManualCropImgStyle,
   isIdentityTransform,
@@ -33,6 +34,10 @@ interface FramedItemMediaProps
   // initial slot aspect ratio (w/h) before the frame is measured. the
   // measured ratio takes over once layout settles
   frameAspectRatio?: number
+  // uniform inset (fraction of each cell edge) that floats the image off the
+  // frame; the backgroundColor plate fills the margin (0 -> full-bleed). a
+  // uniform per-axis inset preserves AR, so manual-crop math is unaffected
+  padding?: number
   backgroundColor?: string | null
   loading?: 'eager' | 'lazy'
   decoding?: 'async' | 'auto' | 'sync'
@@ -96,6 +101,7 @@ export const FramedItemMedia = ({
   transform: rawTransform,
   aspectRatio,
   frameAspectRatio = 1,
+  padding = 0,
   backgroundColor,
   loading = 'lazy',
   decoding = 'async',
@@ -132,15 +138,17 @@ export const FramedItemMedia = ({
       className={className ? `${baseClass} ${className}` : baseClass}
       style={backgroundColor ? { backgroundColor } : undefined}
     >
-      <img
-        src={imageUrl}
-        alt={alt}
-        className={imgClassName}
-        style={imgStyle}
-        loading={loading}
-        decoding={decoding}
-        draggable={false}
-      />
+      <PlateInsetFrame padding={padding}>
+        <img
+          src={imageUrl}
+          alt={alt}
+          className={imgClassName}
+          style={imgStyle}
+          loading={loading}
+          decoding={decoding}
+          draggable={false}
+        />
+      </PlateInsetFrame>
       {children}
     </div>
   )

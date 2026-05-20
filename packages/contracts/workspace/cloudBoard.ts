@@ -47,6 +47,8 @@ export interface CloudBoardItemWire
   imageFit?: ImageFit
   // per-item manual crop transform
   transform?: ItemTransform
+  // per-item plate inset (fraction of cell edge)
+  imagePadding?: number
   // per-tile label rendering override; absent -> inherit board/global
   labelOptions?: ItemLabelOptions
   // source template item external id carried by local forks until first sync
@@ -62,6 +64,7 @@ interface CloudBoardAspectRatioFields
   itemAspectRatioMode?: ItemAspectRatioMode
   aspectRatioPromptDismissed?: boolean
   defaultItemImageFit?: ImageFit
+  defaultItemImagePadding?: number
 }
 
 // per-board overrides of user-default style — palette/text style/page bg.

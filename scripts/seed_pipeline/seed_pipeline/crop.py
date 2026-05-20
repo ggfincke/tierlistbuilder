@@ -54,8 +54,9 @@ PLATE_INK_VANISH_FRACTION = 0.80
 # sample every 4th pixel (RGBA stride 16) — plenty for a fraction estimate
 PLATE_SAMPLE_STRIDE = 16
 
-# transform output mirrors the TypeScript ItemTransform contract
-DEFAULT_PADDING_FRACTION = 0.01
+# transform output mirrors the TypeScript ItemTransform contract. Keep bbox
+# padding at zero; visible breathing room is the separate imagePadding inset.
+DEFAULT_PADDING_FRACTION = 0
 ITEM_TRANSFORM_ZOOM_MIN = 0.01
 ITEM_TRANSFORM_ZOOM_MAX = 10
 ITEM_TRANSFORM_OFFSET_MIN = -2

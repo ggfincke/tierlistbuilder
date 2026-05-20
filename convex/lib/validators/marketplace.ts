@@ -187,6 +187,7 @@ export const templateCardCoverItemValidator = v.object({
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
 })
 
 export const templateAuthorValidator = v.object({
@@ -203,6 +204,7 @@ export const templateCoverItemValidator = v.object({
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
 })
 
 export const templateCriterionValidator = v.object({
@@ -256,6 +258,7 @@ const marketplaceTemplateSummaryFields = {
   coverItems: v.array(templateCoverItemValidator),
   itemAspectRatio: v.union(v.number(), v.null()),
   defaultItemImageFit: imageFitNullableValidator,
+  defaultItemImagePadding: v.union(v.number(), v.null()),
   autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
 }
 
@@ -320,6 +323,7 @@ export const marketplaceTemplateItemValidator = v.object({
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
 })
 
 export const marketplaceTemplateDetailValidator = v.object({
@@ -417,11 +421,13 @@ export const marketplaceRankingItemValidator = v.object({
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
 })
 
 export const marketplaceRankingDetailValidator = v.object({
   ...marketplaceRankingSummaryFields,
   autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
+  defaultItemImagePadding: v.union(v.number(), v.null()),
   tiers: v.array(marketplaceRankingTierValidator),
   items: v.array(marketplaceRankingItemValidator),
 })
@@ -519,6 +525,7 @@ export const marketplaceTemplateRankingAggregateItemValidator = v.object({
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
   sampleCount: v.number(),
   averageBucket: v.union(v.number(), v.null()),
   topBucketIndex: v.union(v.number(), v.null()),

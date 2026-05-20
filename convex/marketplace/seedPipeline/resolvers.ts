@@ -138,6 +138,7 @@ export const resolveItems = async (
       aspectRatio: item.aspectRatio,
       transform: item.transform ?? null,
       mediaPlate: item.mediaPlate ?? null,
+      imagePadding: item.imagePadding ?? null,
       backgroundColor: item.backgroundColor ?? null,
     })
   }

@@ -136,6 +136,7 @@ interface ForkableMarketplaceItem
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
+  imagePadding: number | null
 }
 
 // build a local TierItem from a marketplace template or ranking item. fields
@@ -172,6 +173,9 @@ const toTierItemFromMarketplaceItem = (
       : {}),
     ...(item.transform !== null && item.transform !== undefined
       ? { transform: item.transform }
+      : {}),
+    ...(item.imagePadding !== null && item.imagePadding !== undefined
+      ? { imagePadding: item.imagePadding }
       : {}),
   }
   return { id, tierItem }
@@ -310,6 +314,9 @@ export const createLocalBoardFromTemplate = async (
       : {}),
     ...(template.defaultItemImageFit !== null
       ? { defaultItemImageFit: template.defaultItemImageFit }
+      : {}),
+    ...(template.defaultItemImagePadding !== null
+      ? { defaultItemImagePadding: template.defaultItemImagePadding }
       : {}),
     ...(template.labels !== null ? { labels: template.labels } : {}),
     ...(template.autoPlate !== null ? { autoPlate: template.autoPlate } : {}),
@@ -451,6 +458,9 @@ export const createLocalBoardFromRanking = async (
     sourceTemplateTitle: ranking.template.title,
     sourceRankingTitle: ranking.title,
     ...(ranking.autoPlate !== null ? { autoPlate: ranking.autoPlate } : {}),
+    ...(ranking.defaultItemImagePadding !== null
+      ? { defaultItemImagePadding: ranking.defaultItemImagePadding }
+      : {}),
     preferredCriterionExternalId: ranking.criterion.externalId,
   }
 

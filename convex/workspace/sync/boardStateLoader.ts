@@ -155,6 +155,7 @@ export const loadBoardCloudState = async (
       ? true
       : undefined,
     defaultItemImageFit: board.defaultItemImageFit ?? undefined,
+    defaultItemImagePadding: board.defaultItemImagePadding ?? undefined,
     paletteId: board.paletteId ?? undefined,
     textStyleId: board.textStyleId ?? undefined,
     pageBackground: board.pageBackground ?? undefined,
@@ -202,6 +203,7 @@ export const loadBoardCloudState = async (
         aspectRatio: item.aspectRatio,
         imageFit: item.imageFit,
         transform: item.transform,
+        imagePadding: item.imagePadding,
         labelOptions: item.labelOptions,
         sourceTemplateItemExternalId: item.templateItemId
           ? templateItemIdToExternalId.get(item.templateItemId)

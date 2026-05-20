@@ -49,9 +49,15 @@ interface ItemTileProps
   item: MarketplaceRankingItem
   frameAspectRatio: number
   autoPlate: BoardAutoPlateSettings | null
+  defaultItemImagePadding: number | null
 }
 
-const ItemTile = ({ item, frameAspectRatio, autoPlate }: ItemTileProps) =>
+const ItemTile = ({
+  item,
+  frameAspectRatio,
+  autoPlate,
+  defaultItemImagePadding,
+}: ItemTileProps) =>
 {
   const labelDisplay = resolveLabelDisplay({
     itemLabel: item.label ?? undefined,
@@ -80,8 +86,10 @@ const ItemTile = ({ item, frameAspectRatio, autoPlate }: ItemTileProps) =>
           altText: item.altText ?? undefined,
           aspectRatio: item.aspectRatio ?? undefined,
           transform: item.transform ?? undefined,
+          imagePadding: item.imagePadding ?? undefined,
         }}
         autoPlate={autoPlate}
+        defaultItemImagePadding={defaultItemImagePadding ?? undefined}
         label={labelDisplay}
         fit={item.imageFit ?? 'cover'}
         frameAspectRatio={frameAspectRatio}
@@ -96,6 +104,7 @@ interface TierRowProps
   items: MarketplaceRankingItem[]
   frameAspectRatio: number
   autoPlate: BoardAutoPlateSettings | null
+  defaultItemImagePadding: number | null
   isFirst: boolean
 }
 
@@ -104,6 +113,7 @@ const TierRow = ({
   items,
   frameAspectRatio,
   autoPlate,
+  defaultItemImagePadding,
   isFirst,
 }: TierRowProps) =>
 {
@@ -151,6 +161,7 @@ const TierRow = ({
               item={item}
               frameAspectRatio={frameAspectRatio}
               autoPlate={autoPlate}
+              defaultItemImagePadding={defaultItemImagePadding}
             />
           ))}
         </div>
@@ -273,6 +284,7 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
           items={itemsByTier.get(tier.externalId) ?? []}
           frameAspectRatio={frameAspectRatio}
           autoPlate={detail.autoPlate}
+          defaultItemImagePadding={detail.defaultItemImagePadding}
           isFirst={index === 0}
         />
       ))}

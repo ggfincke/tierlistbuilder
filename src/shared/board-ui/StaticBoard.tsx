@@ -143,6 +143,7 @@ export const StaticBoard = memo(
                         <ItemContent
                           item={item}
                           autoPlate={data.autoPlate}
+                          defaultItemImagePadding={data.defaultItemImagePadding}
                           label={resolveLabelDisplay({
                             itemLabel: item.label,
                             itemOptions: item.labelOptions,

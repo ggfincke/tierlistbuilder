@@ -331,7 +331,15 @@ def _diff_items(compiled: JsonObject, state: JsonObject) -> JsonObject:
 			reasons = _changed_fields(
 				item_for_diff,
 				current,
-				["label", "aspectRatio", "transform", "mediaDedupeHash", "mediaPlate", "backgroundColor"],
+				[
+					"label",
+					"aspectRatio",
+					"transform",
+					"mediaDedupeHash",
+					"mediaPlate",
+					"imagePadding",
+					"backgroundColor",
+				],
 			)
 			changed = False
 			if reasons:

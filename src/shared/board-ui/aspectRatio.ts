@@ -8,6 +8,10 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  clampImagePadding,
+  DEFAULT_ITEM_IMAGE_PADDING,
+} from '@tierlistbuilder/contracts/workspace/board'
+import {
   ASPECT_RATIO_PRESETS,
   ASPECT_RATIO_TOLERANCE,
   bucketValuesByAspectRatio,
@@ -85,6 +89,26 @@ export const getEffectiveImageFit = (
   item: Pick<TierItem, 'imageFit'>,
   boardDefault: ImageFit | undefined
 ): ImageFit => item.imageFit ?? boardDefault ?? 'cover'
+
+// resolve the rendered plate inset for an item. item override wins, then the
+// board default; w/ neither set a plated item gets DEFAULT_ITEM_IMAGE_PADDING
+// while an unplated item stays full-bleed (0). hasPlate = a backdrop is applied
+export const getEffectiveImagePadding = (
+  item: Pick<TierItem, 'imagePadding'>,
+  boardDefault: number | undefined,
+  hasPlate: boolean
+): number =>
+{
+  const explicit = item.imagePadding ?? boardDefault
+  if (explicit != null) return clampImagePadding(explicit)
+  return hasPlate ? DEFAULT_ITEM_IMAGE_PADDING : 0
+}
+
+// padding insets each edge, so the image frame spans (1 - 2*padding) of the
+// cell on each axis. floored at 0 so an over-large padding can't invert the
+// scale. shared by the inset-frame render & the editor's gesture normalization
+export const getPaddingFrameScale = (padding: number): number =>
+  Math.max(0, 1 - 2 * padding)
 
 // gather aspect ratios of every image item whose natural dimensions have
 // been captured; text items are skipped

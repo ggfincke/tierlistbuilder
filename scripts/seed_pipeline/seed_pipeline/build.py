@@ -219,6 +219,7 @@ def _compile_template(
 		"visibility": template["visibility"],
 		"labelPolicy": template["labelPolicy"],
 		"itemAspectRatio": ratio_decision.item_aspect_ratio,
+		"defaultItemImagePadding": template.get("defaultItemImagePadding"),
 		"ratioSource": ratio_decision.ratio_source,
 		"criteria": template["criteria"],
 		"items": [],
@@ -301,6 +302,7 @@ def _compile_item(
 		"aspectRatio": source.aspect_ratio,
 		"transform": transform,
 		"mediaPlate": media_plate,
+		"imagePadding": item.get("imagePadding"),
 		"asset": compile_asset(source.path, repo_root, variants_dir, source),
 	}
 	# curated per-item backdrop (e.g. a dark card for a white logo on a uniform

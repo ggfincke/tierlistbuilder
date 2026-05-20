@@ -29,6 +29,8 @@ const card = (
   coverItems: [],
   itemAspectRatio: null,
   defaultItemImageFit: null,
+  defaultItemImagePadding: null,
+  autoPlate: null,
   itemCount: 1,
   forkCount: 0,
   viewCount: 0,

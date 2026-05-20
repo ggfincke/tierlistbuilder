@@ -197,6 +197,7 @@ export interface TemplateCoverItem
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
+  imagePadding: number | null
 }
 
 export interface MarketplaceTemplateBase
@@ -240,6 +241,9 @@ export interface MarketplaceTemplateSummary extends MarketplaceTemplateBase
   itemAspectRatio: number | null
   // board-wide fit pinned by the publisher; null falls back to 'cover'
   defaultItemImageFit: ImageFit | null
+  // board-wide plate inset pinned by the publisher; null falls back to the
+  // plate-aware default
+  defaultItemImagePadding: number | null
   // per-board logo backdrop pinned by the publisher; null -> On+Auto default
   autoPlate: BoardAutoPlateSettings | null
 }
@@ -317,6 +321,7 @@ export interface MarketplaceTemplateItem
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
+  imagePadding: number | null
 }
 
 export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary

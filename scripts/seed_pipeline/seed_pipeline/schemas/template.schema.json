@@ -60,6 +60,11 @@
     "autoPlate": {
       "$ref": "#/$defs/autoPlate"
     },
+    "defaultItemImagePadding": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 0.4
+    },
     "coverZoom": {
       "type": "number",
       "minimum": 0.1,
@@ -250,6 +255,11 @@
         },
         "backgroundColor": {
           "$ref": "#/$defs/hexColor"
+        },
+        "imagePadding": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.4
         }
       }
     },

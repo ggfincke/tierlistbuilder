@@ -588,6 +588,7 @@ export const toTemplateRankingAggregateItem = async (
     aspectRatio: row.aspectRatio,
     imageFit: row.imageFit,
     transform: row.transform,
+    imagePadding: row.imagePadding ?? null,
     sampleCount: row.sampleCount,
     averageBucket: row.averageBucket,
     topBucketIndex: row.topBucketIndex,

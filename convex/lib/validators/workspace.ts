@@ -151,6 +151,7 @@ const cloudBoardStateItemValidator = v.object({
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(imageFitValidator),
   transform: v.optional(itemTransformValidator),
+  imagePadding: v.optional(v.number()),
   labelOptions: v.optional(itemLabelOptionsValidator),
   sourceTemplateItemExternalId: v.optional(v.string()),
 })
@@ -164,6 +165,7 @@ export const cloudBoardStateValidator = v.object({
   ),
   aspectRatioPromptDismissed: v.optional(v.boolean()),
   defaultItemImageFit: v.optional(imageFitValidator),
+  defaultItemImagePadding: v.optional(v.number()),
   paletteId: v.optional(paletteIdValidator),
   textStyleId: v.optional(textStyleIdValidator),
   pageBackground: v.optional(v.string()),

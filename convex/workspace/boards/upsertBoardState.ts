@@ -110,6 +110,7 @@ const wireItemValidator = v.object({
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
   transform: v.optional(itemTransformValidator),
+  imagePadding: v.optional(v.number()),
   labelOptions: v.optional(itemLabelOptionsValidator),
   sourceTemplateItemExternalId: v.optional(v.string()),
 })
@@ -124,6 +125,7 @@ const boardAspectRatioValidators = {
   defaultItemImageFit: v.optional(
     v.union(v.literal('cover'), v.literal('contain'))
   ),
+  defaultItemImagePadding: v.optional(v.number()),
 }
 
 // per-board style override args — validators match CloudBoardStyleOverrideFields.
@@ -159,6 +161,7 @@ interface UpsertArgs
   itemAspectRatioMode?: 'auto' | 'manual'
   aspectRatioPromptDismissed?: boolean
   defaultItemImageFit?: 'cover' | 'contain'
+  defaultItemImagePadding?: number
   paletteId?: PaletteId
   textStyleId?: TextStyleId
   pageBackground?: string
@@ -183,6 +186,7 @@ interface NormalizedBoardWriteFields
   itemAspectRatioMode: 'auto' | 'manual' | null
   aspectRatioPromptDismissed: boolean
   defaultItemImageFit: 'cover' | 'contain' | null
+  defaultItemImagePadding: number | null
   paletteId: PaletteId | null
   textStyleId: TextStyleId | null
   pageBackground: string | null
@@ -197,6 +201,7 @@ const normalizeBoardWriteFields = (
   itemAspectRatioMode: args.itemAspectRatioMode ?? null,
   aspectRatioPromptDismissed: args.aspectRatioPromptDismissed ?? false,
   defaultItemImageFit: args.defaultItemImageFit ?? null,
+  defaultItemImagePadding: args.defaultItemImagePadding ?? null,
   paletteId: args.paletteId ?? null,
   textStyleId: args.textStyleId ?? null,
   pageBackground: args.pageBackground ?? null,
@@ -865,7 +870,9 @@ const applyBoardState = async (
     board.itemAspectRatioMode !== writeFields.itemAspectRatioMode ||
     board.aspectRatioPromptDismissed !==
       writeFields.aspectRatioPromptDismissed ||
-    board.defaultItemImageFit !== writeFields.defaultItemImageFit
+    board.defaultItemImageFit !== writeFields.defaultItemImageFit ||
+    (board.defaultItemImagePadding ?? null) !==
+      writeFields.defaultItemImagePadding
   const styleOverrideChanged =
     board.paletteId !== writeFields.paletteId ||
     board.textStyleId !== writeFields.textStyleId ||

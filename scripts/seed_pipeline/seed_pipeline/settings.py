@@ -33,8 +33,8 @@ INSPECT_CACHE_SCHEMA_VERSION = 3
 VARIANT_META_SCHEMA_VERSION = 1
 # top-level compile cache lets warm runs skip validation + per-source work entirely.
 # bump when the compile pipeline changes shape in ways the per-source caches miss
-# (v5: board autoPlate + per-item backgroundColor + off/uniform mediaPlate suppression)
-COMPILE_FINGERPRINT_SCHEMA_VERSION = 5
+# (v6: imagePadding output + zero source-bbox padding for transform parity)
+COMPILE_FINGERPRINT_SCHEMA_VERSION = 6
 COMPILE_FINGERPRINT_FILENAME = "compile-fingerprint.json"
 
 # gate source files before variant generation does heavier image work

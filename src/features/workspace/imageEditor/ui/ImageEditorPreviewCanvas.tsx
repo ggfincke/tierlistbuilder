@@ -10,6 +10,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { PlateInsetFrame } from '~/shared/board-ui/PlateInsetFrame'
 import { CaptionStrip as SharedCaptionStrip } from '~/shared/board-ui/labelBlocks'
 import { DraggableLabelOverlay } from '~/features/workspace/imageEditor/ui/DraggableLabelOverlay'
 
@@ -35,6 +36,9 @@ interface ImageEditorPreviewCanvasProps
   previewLabelDisplay: ResolvedLabelDisplay
   imgClass: string
   imgStyle: CSSProperties
+  // plate inset (fraction of canvas edge) — floats the image so the backdrop
+  // shows in the margin, matching the live board's FramedItemMedia render
+  padding: number
   isDragging: boolean
   snap: { x: boolean; y: boolean }
   placementDraft: LabelOverlayPlacement | null
@@ -63,6 +67,7 @@ export const ImageEditorPreviewCanvas = ({
   previewLabelDisplay,
   imgClass,
   imgStyle,
+  padding,
   isDragging,
   snap,
   placementDraft,
@@ -119,13 +124,17 @@ export const ImageEditorPreviewCanvas = ({
           role="presentation"
         >
           {url ? (
-            <img
-              src={url}
-              alt={item.altText ?? item.label ?? 'Tier item'}
-              className={imgClass}
-              style={imgStyle}
-              draggable={false}
-            />
+            // inset frame floats the image so the canvas backdrop shows in the
+            // margin, matching the live board's FramedItemMedia render
+            <PlateInsetFrame padding={padding}>
+              <img
+                src={url}
+                alt={item.altText ?? item.label ?? 'Tier item'}
+                className={imgClass}
+                style={imgStyle}
+                draggable={false}
+              />
+            </PlateInsetFrame>
           ) : !hasImage ? (
             <ItemContent item={item} variant="default" label={null} />
           ) : (

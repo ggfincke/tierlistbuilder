@@ -37,6 +37,7 @@ _TEMPLATE_PASSTHROUGH_FIELDS = (
 	"labelPolicy",
 	"labels",
 	"autoPlate",
+	"defaultItemImagePadding",
 	"coverZoom",
 	"suggestedTiers",
 	"criteria",

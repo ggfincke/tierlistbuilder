@@ -172,6 +172,7 @@ const seedAggregateItemRows = async (
         aspectRatio: item.aspectRatio,
         imageFit: item.imageFit,
         transform: item.transform,
+        imagePadding: item.imagePadding ?? null,
         sampleCount: 0,
         bucketWeightSum: 0,
         bucketSquareSum: 0,

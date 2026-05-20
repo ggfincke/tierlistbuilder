@@ -24,12 +24,17 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import {
   assertCountRange,
+  assertFiniteRange,
   assertNonemptyString,
   assertNonnegativeInteger,
   assertPositiveFinite,
   assertPositiveInteger,
   assertUniqueValues,
 } from '../lib/assertions'
+import {
+  IMAGE_PADDING_MAX,
+  IMAGE_PADDING_MIN,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { valuesEqual } from '../lib/equality'
 import { validateHexColor } from '../lib/hexColor'
 import { SEED_LIMITS, SEED_UPLOAD_URL_TTL_MS } from '../lib/limits'
@@ -478,6 +483,7 @@ export const upsertSeedTemplates = internalMutation({
           itemAspectRatio: patch.itemAspectRatio,
           itemAspectRatioMode: patch.itemAspectRatioMode,
           defaultItemImageFit: patch.defaultItemImageFit,
+          defaultItemImagePadding: patch.defaultItemImagePadding,
           labels: patch.labels,
           autoPlate: patch.autoPlate,
           seedDatasetKey: args.datasetKey,
@@ -637,6 +643,15 @@ export const syncSeedTemplateItems = internalMutation({
       {
         validateHexColor(item.backgroundColor, 'item.backgroundColor')
       }
+      if (item.imagePadding !== null)
+      {
+        assertFiniteRange(
+          'item.imagePadding',
+          item.imagePadding,
+          IMAGE_PADDING_MIN,
+          IMAGE_PADDING_MAX
+        )
+      }
       seen.add(item.itemExternalId)
       const key = toSeedItemKey({
         templateExternalId: args.templateExternalId,
@@ -657,6 +672,7 @@ export const syncSeedTemplateItems = internalMutation({
         aspectRatio: item.aspectRatio,
         imageFit: null,
         transform: item.transform,
+        imagePadding: item.imagePadding,
       }
       if (!existing)
       {
@@ -677,6 +693,7 @@ export const syncSeedTemplateItems = internalMutation({
         existing.imageFit !== fields.imageFit ||
         (existing.backgroundColor ?? null) !== fields.backgroundColor ||
         (existing.mediaPlate ?? null) !== fields.mediaPlate ||
+        existing.imagePadding !== fields.imagePadding ||
         !valuesEqual(existing.transform, fields.transform)
       if (!orderChanged && !contentChanged)
       {

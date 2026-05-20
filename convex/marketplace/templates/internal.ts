@@ -215,6 +215,7 @@ export const processTemplatePublishJob = internalMutation({
             aspectRatio: item.aspectRatio ?? null,
             imageFit: item.imageFit ?? null,
             transform: item.transform ?? null,
+            imagePadding: item.imagePadding ?? null,
           })
         )
     )

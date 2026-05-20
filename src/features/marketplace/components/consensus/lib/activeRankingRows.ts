@@ -65,6 +65,7 @@ export const buildRowsForActiveRanking = (
         aspectRatio: item.aspectRatio,
         imageFit: item.imageFit,
         transform: item.transform,
+        imagePadding: item.imagePadding,
         sampleCount: isRanked ? 1 : 0,
         averageBucket: bucketIndex,
         topBucketIndex: bucketIndex,

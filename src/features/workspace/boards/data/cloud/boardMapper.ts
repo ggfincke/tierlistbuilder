@@ -102,6 +102,7 @@ const toCloudItemWire = (
     aspectRatio: item.aspectRatio,
     imageFit: item.imageFit,
     transform: item.transform,
+    imagePadding: item.imagePadding,
     labelOptions: item.labelOptions,
     sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
   }
@@ -163,6 +164,7 @@ export const snapshotToCloudPayload = (
     itemAspectRatioMode: snapshot.itemAspectRatioMode,
     aspectRatioPromptDismissed: snapshot.aspectRatioPromptDismissed,
     defaultItemImageFit: snapshot.defaultItemImageFit,
+    defaultItemImagePadding: snapshot.defaultItemImagePadding,
     paletteId: snapshot.paletteId,
     textStyleId: snapshot.textStyleId,
     pageBackground: snapshot.pageBackground,
@@ -223,6 +225,7 @@ export const serverStateToSnapshot = (
       aspectRatio: item.aspectRatio,
       imageFit: item.imageFit,
       transform: item.transform,
+      imagePadding: item.imagePadding,
       labelOptions: item.labelOptions,
       sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
     }
@@ -259,6 +262,7 @@ export const serverStateToSnapshot = (
     itemAspectRatioMode: serverState.itemAspectRatioMode,
     aspectRatioPromptDismissed: serverState.aspectRatioPromptDismissed,
     defaultItemImageFit: serverState.defaultItemImageFit,
+    defaultItemImagePadding: serverState.defaultItemImagePadding,
     paletteId: serverState.paletteId,
     textStyleId: serverState.textStyleId,
     pageBackground: serverState.pageBackground,

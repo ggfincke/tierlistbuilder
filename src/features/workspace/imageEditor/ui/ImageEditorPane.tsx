@@ -12,6 +12,7 @@ import {
 
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   GlobalLabelDefaults,
   ImageFit,
@@ -20,7 +21,11 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemSize } from '@tierlistbuilder/contracts/platform/preferences'
-import { getEffectiveImageFit } from '~/shared/board-ui/aspectRatio'
+import {
+  getEffectiveImageFit,
+  getPaddingFrameScale,
+} from '~/shared/board-ui/aspectRatio'
+import { resolveItemBackdrop } from '~/shared/board-ui/mediaPlate'
 import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
 import { useImageUrlChain } from '~/shared/hooks/useImageUrl'
 import { getImageRenditionRefs } from '~/shared/lib/imageRefs'
@@ -30,6 +35,7 @@ import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEdito
 import type { ImageEditorMode } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { useArrowKeyNudge } from '~/features/workspace/imageEditor/model/transform/useArrowKeyNudge'
 import { useImageEditorAutoCropItem } from '~/features/workspace/imageEditor/model/auto-crop/useImageEditorAutoCropItem'
+import { useImageEditorPaddingDraft } from '~/features/workspace/imageEditor/model/transform/useImageEditorPaddingDraft'
 import { useImageEditorTransformDraft } from '~/features/workspace/imageEditor/model/transform/useImageEditorTransformDraft'
 import { usePanGesture } from '~/features/workspace/imageEditor/model/transform/usePanGesture'
 import { usePaneLabelEditor } from '~/features/workspace/imageEditor/model/labels/usePaneLabelEditor'
@@ -56,6 +62,8 @@ interface ImageEditorPaneProps
   mode: ImageEditorMode
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
+  boardDefaultPadding: number | undefined
+  boardAutoPlate: BoardAutoPlateSettings | undefined
   trimSoftShadows: boolean
   boardLabels: BoardLabelSettings | undefined
   globalLabelDefaults: GlobalLabelDefaults
@@ -63,6 +71,7 @@ interface ImageEditorPaneProps
   boardItemSize: ItemSize
   getBoardAspectRatioForItem: (item: TierItem) => number
   onCommit: (transform: ItemTransform | null) => void
+  onPaddingCommit: (padding: number | null) => void
   onLabelChange: (label: string) => void
   onLabelOptionsChange: (options: ItemLabelOptions | null) => void
   onApplyLabelToAll: () => void
@@ -96,6 +105,8 @@ export const ImageEditorPane = forwardRef<
     mode,
     boardAspectRatio,
     boardDefaultFit,
+    boardDefaultPadding,
+    boardAutoPlate,
     trimSoftShadows,
     boardLabels,
     globalLabelDefaults,
@@ -103,6 +114,7 @@ export const ImageEditorPane = forwardRef<
     boardItemSize,
     getBoardAspectRatioForItem,
     onCommit,
+    onPaddingCommit,
     onLabelChange,
     onLabelOptionsChange,
     onApplyLabelToAll,
@@ -205,6 +217,24 @@ export const ImageEditorPane = forwardRef<
     effectiveFit,
     onCommit,
   })
+  const hasPlate = resolveItemBackdrop(item, boardAutoPlate) != null
+  const {
+    workingPadding,
+    setPaddingLive,
+    resetPadding,
+    hasPaddingChanges,
+    flushPendingPadding,
+  } = useImageEditorPaddingDraft({
+    item,
+    boardDefaultPadding,
+    hasPlate,
+    onCommit: onPaddingCommit,
+  })
+  // gestures normalize pointer deltas by the image frame — which is inset by
+  // the padding — so pan/nudge stay 1:1 w/ the cursor at any padding
+  const paddingScale = getPaddingFrameScale(workingPadding)
+  const innerCanvasW = canvasW * paddingScale
+  const innerCanvasH = canvasH * paddingScale
   const { status: autoCropStatus, autoCrop } = useImageEditorAutoCropItem({
     item,
     trimSoftShadows,
@@ -214,8 +244,8 @@ export const ImageEditorPane = forwardRef<
   })
   const { isDragging, onPointerDown, onPointerEnd, onPointerMove, snap } =
     usePanGesture({
-      canvasHeight: canvasH,
-      canvasWidth: canvasW,
+      canvasHeight: innerCanvasH,
+      canvasWidth: innerCanvasW,
       enabled: !!url,
       frameAspectRatio,
       intrinsicAspectRatio: item.aspectRatio,
@@ -223,8 +253,8 @@ export const ImageEditorPane = forwardRef<
       working,
     })
   useArrowKeyNudge({
-    canvasHeight: canvasH,
-    canvasWidth: canvasW,
+    canvasHeight: innerCanvasH,
+    canvasWidth: innerCanvasW,
     enabled: !!url,
     setWorkingDraft,
   })
@@ -232,6 +262,7 @@ export const ImageEditorPane = forwardRef<
     canvasRef,
     enabled: !!url,
     getFitBaselineZoom,
+    padding: workingPadding,
     setWorkingDraft,
   })
   const commitLabelRef = useRef(commitLabel)
@@ -251,9 +282,10 @@ export const ImageEditorPane = forwardRef<
         commitLabelRef.current()
         metadataPanelRef.current?.flushDrafts()
         flushPendingTransform()
+        flushPendingPadding()
       },
     }),
-    [flushPendingTransform, getPendingTransformEdit]
+    [flushPendingPadding, flushPendingTransform, getPendingTransformEdit]
   )
 
   useEffect(
@@ -308,6 +340,7 @@ export const ImageEditorPane = forwardRef<
         previewLabelDisplay={previewLabelDisplay}
         imgClass={imgClass}
         imgStyle={imgStyle}
+        padding={workingPadding}
         isDragging={isDragging}
         snap={snap}
         placementDraft={placementDraft}
@@ -371,12 +404,18 @@ export const ImageEditorPane = forwardRef<
             displayZoomMin,
             displaySliderZoomMax,
             onZoomLiveChange: setZoomLive,
+            displayPadding: workingPadding,
+            onPaddingLiveChange: setPaddingLive,
             centerOffsets,
             working,
             autoCrop,
             autoCropStatus,
-            reset,
-            hasChanges,
+            reset: () =>
+            {
+              reset()
+              resetPadding()
+            },
+            hasChanges: hasChanges || hasPaddingChanges,
             isDirty,
           }}
           navigation={{

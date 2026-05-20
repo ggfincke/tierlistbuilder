@@ -203,6 +203,7 @@ const toTemplateCoverItem = (
   aspectRatio: item.aspectRatio ?? null,
   imageFit: item.imageFit ?? null,
   transform: item.transform ?? null,
+  imagePadding: item.imagePadding ?? null,
 })
 
 const resolveTemplateTiers = async (
@@ -387,6 +388,7 @@ const queueLargeTemplatePublish = async (
     itemAspectRatio: board.itemAspectRatio,
     itemAspectRatioMode: board.itemAspectRatioMode,
     defaultItemImageFit: board.defaultItemImageFit,
+    defaultItemImagePadding: board.defaultItemImagePadding ?? null,
     labels: board.labels,
     autoPlate: board.autoPlate,
     createdAt: now,
@@ -464,6 +466,7 @@ const queueLargeTemplateClone = async (
     itemAspectRatioMode: template.itemAspectRatioMode ?? null,
     aspectRatioPromptDismissed: false,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
+    defaultItemImagePadding: template.defaultItemImagePadding ?? null,
     paletteId: null,
     textStyleId: null,
     pageBackground: null,
@@ -627,6 +630,7 @@ export const publishFromBoard = mutation({
       itemAspectRatio: board.itemAspectRatio,
       itemAspectRatioMode: board.itemAspectRatioMode,
       defaultItemImageFit: board.defaultItemImageFit,
+      defaultItemImagePadding: board.defaultItemImagePadding ?? null,
       labels: board.labels,
       autoPlate: board.autoPlate,
       createdAt: now,
@@ -649,6 +653,7 @@ export const publishFromBoard = mutation({
           aspectRatio: item.aspectRatio ?? null,
           imageFit: item.imageFit ?? null,
           transform: item.transform ?? null,
+          imagePadding: item.imagePadding ?? null,
         })
       )
     )
@@ -1025,6 +1030,7 @@ export const useTemplate = mutation({
       itemAspectRatioMode: template.itemAspectRatioMode ?? null,
       aspectRatioPromptDismissed: false,
       defaultItemImageFit: template.defaultItemImageFit ?? null,
+      defaultItemImagePadding: template.defaultItemImagePadding ?? null,
       paletteId: null,
       textStyleId: null,
       pageBackground: null,

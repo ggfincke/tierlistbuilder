@@ -418,6 +418,7 @@ const buildSeedRankingContentHash = (
       viewCount: normalized.viewCount,
       featuredRank: args.featuredRank,
       featuredBadge: args.featuredBadge,
+      defaultItemImagePadding: args.template.defaultItemImagePadding ?? null,
     },
     tiers: args.tiers.map((tier, order) => ({
       externalId: formatTierSeedId(args.seedExternalId, order),
@@ -437,6 +438,7 @@ const buildSeedRankingContentHash = (
       aspectRatio: ranked.item.aspectRatio,
       imageFit: ranked.item.imageFit,
       transform: ranked.item.transform,
+      imagePadding: ranked.item.imagePadding,
       order: ranked.item.order,
       tierIndex: ranked.tierIndex,
       orderInTier: ranked.orderInTier,
@@ -749,6 +751,7 @@ const insertSeedRanking = async (
     isFeatured: false,
     featuredRank: args.featuredRank,
     featuredBadge: args.featuredBadge,
+    defaultItemImagePadding: args.template.defaultItemImagePadding ?? null,
     seedDatasetKey: args.datasetKey,
     seedReleaseId: args.releaseId,
     seedExternalId: args.seedExternalId,
@@ -793,6 +796,7 @@ const insertSeedRanking = async (
         aspectRatio: ranked.item.aspectRatio,
         imageFit: ranked.item.imageFit,
         transform: ranked.item.transform,
+        imagePadding: ranked.item.imagePadding,
         order: ranked.globalOrder,
       })
     }),

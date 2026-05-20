@@ -13,10 +13,15 @@ import type {
 import { MAX_TEMPLATE_COVER_ITEMS } from '@tierlistbuilder/contracts/marketplace/template'
 import {
   assertCountRange,
+  assertFiniteRange,
   assertNonemptyString,
   assertPositiveFinite,
   assertPositiveInteger,
 } from '../../lib/assertions'
+import {
+  IMAGE_PADDING_MAX,
+  IMAGE_PADDING_MIN,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { SEED_LIMITS } from '../../lib/limits'
 import {
   adjustPublicTemplateCount,
@@ -89,6 +94,7 @@ export const buildSeedTemplateCoverItems = async (
       aspectRatio: item.aspectRatio,
       imageFit: item.imageFit,
       transform: item.transform,
+      imagePadding: item.imagePadding ?? null,
     }))
 }
 
@@ -162,6 +168,15 @@ export const normalizeSeedTemplateUpsert = (
   assertNonemptyString('templateExternalId', template.externalId)
   assertNonemptyString('metadataContentHash', template.metadataContentHash)
   assertPositiveFinite('itemAspectRatio', template.itemAspectRatio)
+  if (template.defaultItemImagePadding !== null)
+  {
+    assertFiniteRange(
+      'defaultItemImagePadding',
+      template.defaultItemImagePadding,
+      IMAGE_PADDING_MIN,
+      IMAGE_PADDING_MAX
+    )
+  }
   assertPositiveInteger('itemCount', template.itemCount)
   assertCountRange('suggestedTiers', template.suggestedTiers.length, 1, 16)
   validateTemplateTiers(template.suggestedTiers)
@@ -190,6 +205,7 @@ export const normalizeSeedTemplateUpsert = (
     itemAspectRatio: template.itemAspectRatio,
     itemAspectRatioMode: 'manual',
     defaultItemImageFit: 'cover',
+    defaultItemImagePadding: template.defaultItemImagePadding,
     itemCount: template.itemCount,
     labels: template.labels ?? null,
     autoPlate: template.autoPlate,

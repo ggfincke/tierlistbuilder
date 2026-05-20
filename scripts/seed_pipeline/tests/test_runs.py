@@ -368,6 +368,7 @@ def _state_matching_compiled(compiled: dict[str, object]) -> dict[str, object]:
 				"aspectRatio": item.get("aspectRatio"),
 				"transform": item.get("transform"),
 				"mediaPlate": item.get("mediaPlate"),
+				"imagePadding": item.get("imagePadding"),
 				"backgroundColor": item.get("backgroundColor"),
 			}
 			for item in template["items"]
@@ -414,6 +415,7 @@ def _state_matching_compiled(compiled: dict[str, object]) -> dict[str, object]:
 				"aspectRatio": item.get("aspectRatio"),
 				"transform": item.get("transform"),
 				"mediaPlate": item.get("mediaPlate"),
+				"imagePadding": item.get("imagePadding"),
 				"backgroundColor": item.get("backgroundColor"),
 			}
 			for template in compiled["templates"]

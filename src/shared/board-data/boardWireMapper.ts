@@ -12,7 +12,10 @@ import {
   PALETTE_IDS,
   TEXT_STYLE_IDS,
 } from '@tierlistbuilder/contracts/lib/theme'
-import { MEDIA_PLATES } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  MEDIA_PLATES,
+  normalizeImagePadding,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
 import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
@@ -283,6 +286,7 @@ const wireItemToSnapshotItem = (
   const imageFit = normalizeEnum(item.imageFit, IMAGE_FITS)
   const mediaPlate = normalizeEnum(item.mediaPlate, MEDIA_PLATES)
   const transform = normalizeItemTransform(item.transform)
+  const imagePadding = normalizeImagePadding(item.imagePadding)
   const labelOptions = normalizeItemLabelOptions(item.labelOptions)
   const base: TierItem = { id }
   if (label !== undefined) base.label = label
@@ -297,6 +301,7 @@ const wireItemToSnapshotItem = (
   if (aspectRatio !== undefined) base.aspectRatio = aspectRatio
   if (imageFit !== undefined) base.imageFit = imageFit
   if (transform !== undefined) base.transform = transform
+  if (imagePadding !== undefined) base.imagePadding = imagePadding
   if (labelOptions !== undefined) base.labelOptions = labelOptions
 
   if (prepared)
@@ -380,6 +385,9 @@ export const wireToSnapshot = async (
     aspectRatioPromptDismissed:
       wire.aspectRatioPromptDismissed === true ? true : undefined,
     defaultItemImageFit: normalizeEnum(wire.defaultItemImageFit, IMAGE_FITS),
+    defaultItemImagePadding: normalizeImagePadding(
+      wire.defaultItemImagePadding
+    ),
     paletteId: normalizeEnum(wire.paletteId, PALETTE_IDS),
     textStyleId: normalizeEnum(wire.textStyleId, TEXT_STYLE_IDS),
     pageBackground: isHexColor(wire.pageBackground)

@@ -810,6 +810,7 @@ const seedSeedTemplate = async (
           aspectRatio: 1,
           imageFit: null,
           transform: null,
+          imagePadding: null,
         })
       )
     )

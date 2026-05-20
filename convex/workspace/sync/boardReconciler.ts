@@ -48,6 +48,7 @@ export interface ItemDiff
     aspectRatio?: number
     imageFit?: 'cover' | 'contain'
     transform?: ItemTransform
+    imagePadding?: number
     labelOptions?: ItemLabelOptions
     templateItemId?: Id<'templateItems'>
   }>
@@ -162,6 +163,10 @@ const buildItemPatchFields = (
   if (!transformsEqual(server.transform, wire.transform))
   {
     fields.transform = wire.transform
+  }
+  if ((server.imagePadding ?? undefined) !== wire.imagePadding)
+  {
+    fields.imagePadding = wire.imagePadding
   }
   if (!itemLabelOptionsEqual(server.labelOptions, wire.labelOptions))
   {
@@ -292,6 +297,7 @@ export const diffItems = (
         aspectRatio: wire.aspectRatio,
         imageFit: wire.imageFit,
         transform: wire.transform,
+        imagePadding: wire.imagePadding,
         labelOptions: wire.labelOptions,
         ...(resolvedTemplateItemId
           ? { templateItemId: resolvedTemplateItemId }
@@ -333,6 +339,7 @@ export const diffItems = (
           aspectRatio: wire.aspectRatio,
           imageFit: wire.imageFit,
           transform: wire.transform,
+          imagePadding: wire.imagePadding,
           labelOptions: wire.labelOptions,
           ...(resolvedTemplateItemId
             ? { templateItemId: resolvedTemplateItemId }

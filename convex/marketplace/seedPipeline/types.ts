@@ -118,6 +118,7 @@ export type SeedTemplateApplyPatch = Pick<
   | 'itemAspectRatio'
   | 'itemAspectRatioMode'
   | 'defaultItemImageFit'
+  | 'defaultItemImagePadding'
   | 'itemCount'
   | 'labels'
   | 'autoPlate'

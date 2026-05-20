@@ -17,6 +17,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
+import { getEffectiveImagePadding } from '~/shared/board-ui/aspectRatio'
 import { resolveItemBackdrop } from '~/shared/board-ui/mediaPlate'
 import type {
   MediaDecoding,
@@ -33,6 +34,7 @@ interface MosaicProps
   items: readonly TemplateCoverItem[]
   density: MosaicDensity
   defaultImageFit?: ImageFit | null
+  defaultImagePadding?: number | null
   templateAspectRatio?: number | null
   autoPlate?: BoardAutoPlateSettings | null
   loading?: MediaLoading
@@ -105,6 +107,7 @@ export const Mosaic = ({
   items,
   density,
   defaultImageFit,
+  defaultImagePadding,
   templateAspectRatio,
   autoPlate,
   loading = 'lazy',
@@ -152,6 +155,7 @@ export const Mosaic = ({
               key={`${item.media.externalId}-${i}`}
               item={item}
               defaultImageFit={defaultImageFit}
+              defaultImagePadding={defaultImagePadding}
               autoPlate={autoPlate}
               loading={loading}
               decoding={decoding}
@@ -167,6 +171,7 @@ interface CoverTileProps
 {
   item: TemplateCoverItem
   defaultImageFit: ImageFit | null | undefined
+  defaultImagePadding: number | null | undefined
   autoPlate: BoardAutoPlateSettings | null | undefined
   loading: MediaLoading
   decoding: MediaDecoding
@@ -175,6 +180,7 @@ interface CoverTileProps
 const CoverTile = ({
   item,
   defaultImageFit,
+  defaultImagePadding,
   autoPlate,
   loading,
   decoding,
@@ -182,6 +188,12 @@ const CoverTile = ({
 {
   const transform: ItemTransform | null = item.transform
   const fit = resolveFit(item.imageFit, defaultImageFit)
+  const backgroundColor = resolveItemBackdrop(item, autoPlate)
+  const padding = getEffectiveImagePadding(
+    { imagePadding: item.imagePadding ?? undefined },
+    defaultImagePadding ?? undefined,
+    backgroundColor != null
+  )
   return (
     <div className="relative h-full w-full overflow-hidden bg-[var(--t-media-matte)]">
       <FramedItemMedia
@@ -190,7 +202,8 @@ const CoverTile = ({
         fit={fit}
         transform={transform}
         aspectRatio={item.aspectRatio}
-        backgroundColor={resolveItemBackdrop(item, autoPlate)}
+        padding={padding}
+        backgroundColor={backgroundColor}
         loading={loading}
         decoding={decoding}
       />

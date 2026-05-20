@@ -34,6 +34,27 @@ export const normalizeBoardTitle = (raw: string): string =>
 // value type used in per-item overrides & the board-wide default
 export type ImageFit = 'cover' | 'contain'
 
+// uniform inset (fraction of each cell edge) that floats a plated logo off the
+// frame so it doesn't kiss the edge; the plate fills the margin. a render-time
+// frame inset, so (unlike auto-crop's bbox padding) not clamped to the source
+export const IMAGE_PADDING_MIN = 0
+export const IMAGE_PADDING_MAX = 0.4
+
+// breathing room applied to a plated item when neither item nor board pins a
+// value — gives imported logos margin on their plate out of the box. an
+// unplated item (no backdrop) resolves to 0 so photos stay full-bleed.
+export const DEFAULT_ITEM_IMAGE_PADDING = 0.06
+
+export const clampImagePadding = (value: number): number =>
+  clamp(value, IMAGE_PADDING_MIN, IMAGE_PADDING_MAX)
+
+// validate untrusted padding input; non-finite/wrong-type -> undefined so a
+// no-override item roundtrips without a phantom value
+export const normalizeImagePadding = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value)
+    ? clampImagePadding(value)
+    : undefined
+
 // transparent logos that would be low-contrast on a solid backdrop get a plate
 // so they stay readable anywhere: 'light' rescues a dark logo, 'dark' a white
 // one; absent -> no plate. resolved to a theme/user color via --t-media-plate-*
@@ -346,6 +367,8 @@ export interface BoardItemDisplaySettings
   // backdrop plate behind transparent media; null -> On+Auto default in
   // resolveItemBackdrop
   autoPlate: BoardAutoPlateSettings | null
+  // board-wide plate inset; null -> plate-aware fallback
+  defaultItemImagePadding: number | null
 }
 
 // origin of the bytes a TierItemImageRef points at. only 'source' today —
@@ -385,6 +408,9 @@ export interface TierItem
   imageFit?: ImageFit
   // optional per-item manual crop; absent -> imageFit fallback path
   transform?: ItemTransform
+  // per-item uniform plate inset (fraction of cell edge); absent -> board
+  // default, then the plate-aware fallback. see DEFAULT_ITEM_IMAGE_PADDING
+  imagePadding?: number
   // per-tile label rendering override; absent -> inherit from board/global
   labelOptions?: ItemLabelOptions
   // marketplace template item external id captured when a board is forked
@@ -420,6 +446,9 @@ export interface BoardSnapshot
   aspectRatioPromptDismissed?: boolean
   // board-wide fit when item has no override; absent -> 'cover'
   defaultItemImageFit?: ImageFit
+  // board-wide plate inset when item has no override; absent -> the plate-aware
+  // fallback (DEFAULT_ITEM_IMAGE_PADDING for plated items, else 0)
+  defaultItemImagePadding?: number
   // per-board palette override; absent -> falls through to AppPreferences.paletteId
   paletteId?: PaletteId
   // per-board text style override; absent -> falls through to AppPreferences.textStyleId
@@ -477,6 +506,7 @@ export interface TierItemWire
   aspectRatio?: number
   imageFit?: ImageFit
   transform?: ItemTransform
+  imagePadding?: number
   labelOptions?: ItemLabelOptions
   sourceTemplateItemExternalId?: string
 }
@@ -494,6 +524,7 @@ export interface BoardSnapshotWire
   itemAspectRatioMode?: ItemAspectRatioMode
   aspectRatioPromptDismissed?: boolean
   defaultItemImageFit?: ImageFit
+  defaultItemImagePadding?: number
   paletteId?: PaletteId
   textStyleId?: TextStyleId
   pageBackground?: string

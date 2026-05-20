@@ -120,6 +120,7 @@ export interface MarketplaceTemplateRankingAggregateItem
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
+  imagePadding: number | null
   sampleCount: number
   averageBucket: number | null
   topBucketIndex: number | null

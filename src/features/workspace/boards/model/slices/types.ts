@@ -74,6 +74,11 @@ export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
   setItemsImageFit: (itemIds: ItemId[], fit: ImageFit | null) => void
   setAspectRatioPromptDismissed: (dismissed: boolean) => void
   setDefaultItemImageFit: (fit: ImageFit | null) => void
+  // per-item plate inset (fraction of cell edge); null clears the override so
+  // the item falls back to the board default, then the plate-aware fallback
+  setItemImagePadding: (itemId: ItemId, padding: number | null) => void
+  // board-wide plate inset default; null clears -> plate-aware fallback
+  setDefaultItemImagePadding: (padding: number | null) => void
   // per-item manual crop transform — pass `null` to clear the override &
   // fall back to the imageFit-driven object-fit path
   setItemTransform: (itemId: ItemId, transform: ItemTransform | null) => void

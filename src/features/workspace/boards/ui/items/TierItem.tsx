@@ -43,6 +43,8 @@ interface TierItemProps
   slotHeight: number
   // board-wide image fit default — per-item override still wins
   boardDefaultFit: ImageFit | undefined
+  // board-wide plate inset default — per-item imagePadding still wins
+  boardDefaultPadding: number | undefined
   boardLabels: BoardLabelSettings | undefined
   boardAutoPlate: BoardAutoPlateSettings | undefined
 }
@@ -54,6 +56,7 @@ export const TierItem = memo(
     slotWidth,
     slotHeight,
     boardDefaultFit,
+    boardDefaultPadding,
     boardLabels,
     boardAutoPlate,
   }: TierItemProps) =>
@@ -365,6 +368,7 @@ export const TierItem = memo(
           <ItemContent
             item={item}
             autoPlate={boardAutoPlate}
+            defaultItemImagePadding={boardDefaultPadding}
             label={resolveLabelDisplay({
               itemLabel: item.label,
               itemOptions: item.labelOptions,

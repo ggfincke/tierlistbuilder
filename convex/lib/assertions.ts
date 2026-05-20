@@ -32,6 +32,19 @@ export const assertPositiveFinite = (name: string, value: number): void =>
   }
 }
 
+export const assertFiniteRange = (
+  name: string,
+  value: number,
+  min: number,
+  max: number
+): void =>
+{
+  if (!Number.isFinite(value) || value < min || value > max)
+  {
+    failInput(`${name} must be a finite number from ${min} to ${max}`)
+  }
+}
+
 export const assertCountRange = (
   name: string,
   count: number,

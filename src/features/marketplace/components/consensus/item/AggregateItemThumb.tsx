@@ -69,8 +69,12 @@ export const AggregateItemThumb = ({
           altText: row.altText ?? undefined,
           aspectRatio: row.aspectRatio ?? undefined,
           transform: row.transform ?? undefined,
+          imagePadding: row.imagePadding ?? undefined,
         }}
         autoPlate={displaySettings.autoPlate}
+        defaultItemImagePadding={
+          displaySettings.defaultItemImagePadding ?? undefined
+        }
         label={labelDisplay}
         fit={row.imageFit ?? frame.defaultFit}
         frameAspectRatio={frame.aspectRatio}

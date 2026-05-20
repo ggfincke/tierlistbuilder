@@ -148,12 +148,15 @@ export interface MarketplaceRankingItem
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
+  imagePadding: number | null
 }
 
 export interface MarketplaceRankingDetail extends MarketplaceRankingSummary
 {
   // source-template backdrop policy used by the ranking snapshot view
   autoPlate: BoardAutoPlateSettings | null
+  // board-wide plate inset captured when the ranking was published
+  defaultItemImagePadding: number | null
   tiers: MarketplaceRankingTier[]
   items: MarketplaceRankingItem[]
 }

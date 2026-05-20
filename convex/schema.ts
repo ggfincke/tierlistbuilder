@@ -137,6 +137,10 @@ export default defineSchema({
       v.literal('contain'),
       v.null()
     ),
+    // board-wide plate inset when an item has no override; null/absent ->
+    // plate-aware fallback (DEFAULT_ITEM_IMAGE_PADDING for plated items, else 0).
+    // optional so boards predating this field stay valid on schema push
+    defaultItemImagePadding: v.optional(v.union(v.number(), v.null())),
     // Source attribution captured at fork/remix time. Leaf fields are nullable
     // so the no-source case stays indexable; writers update the object as a
     // unit so id/category/title cannot drift independently.
@@ -234,6 +238,8 @@ export default defineSchema({
     imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
     // per-item manual crop transform — when set, overrides imageFit at render
     transform: v.optional(itemTransformValidator),
+    // per-item plate inset (fraction of cell edge); absent -> board default
+    imagePadding: v.optional(v.number()),
     // per-tile label rendering override; absent -> inherit board/global defaults
     labelOptions: v.optional(itemLabelOptionsValidator),
     // source marketplace item for future aggregate-ranking features
@@ -311,6 +317,7 @@ export default defineSchema({
         aspectRatio: v.union(v.number(), v.null()),
         imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
         transform: v.union(itemTransformValidator, v.null()),
+        imagePadding: v.union(v.number(), v.null()),
       })
     ),
     suggestedTiers: tierPresetTiersValidator,
@@ -339,6 +346,7 @@ export default defineSchema({
       v.literal('contain'),
       v.null()
     ),
+    defaultItemImagePadding: v.union(v.number(), v.null()),
     // pre-baked label rendering defaults — forked boards inherit these so the
     // publisher's caption styling shows up without each user toggling labels
     labels: v.union(boardLabelSettingsValidator, v.null()),
@@ -398,6 +406,7 @@ export default defineSchema({
       v.literal('contain'),
       v.null()
     ),
+    defaultItemImagePadding: v.union(v.number(), v.null()),
     // mirror of templates.autoPlate; absent -> On+Auto default
     autoPlate: v.optional(boardAutoPlateSettingsValidator),
     featuredRank: v.union(v.number(), v.null()),
@@ -594,6 +603,7 @@ export default defineSchema({
     aspectRatio: v.union(v.number(), v.null()),
     imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
     transform: v.union(itemTransformValidator, v.null()),
+    imagePadding: v.union(v.number(), v.null()),
   })
     .index('byTemplate', ['templateId', 'order'])
     .index('byTemplateAndExternalId', ['templateId', 'externalId'])
@@ -639,6 +649,7 @@ export default defineSchema({
     seedCuratedExternalId: v.union(v.string(), v.null()),
     seedReleaseStatus: v.union(seedRankingReleaseStatusValidator, v.null()),
     seedContentHash: v.optional(v.string()),
+    defaultItemImagePadding: v.union(v.number(), v.null()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -745,6 +756,7 @@ export default defineSchema({
     aspectRatio: v.union(v.number(), v.null()),
     imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
     transform: v.union(itemTransformValidator, v.null()),
+    imagePadding: v.union(v.number(), v.null()),
   })
     .index('byRanking', ['rankingId', 'order'])
     .index('byMedia', ['mediaAssetId']),
@@ -785,6 +797,7 @@ export default defineSchema({
     aspectRatio: v.union(v.number(), v.null()),
     imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
     transform: v.union(itemTransformValidator, v.null()),
+    imagePadding: v.union(v.number(), v.null()),
     sampleCount: v.number(),
     bucketWeightSum: v.number(),
     bucketSquareSum: v.number(),

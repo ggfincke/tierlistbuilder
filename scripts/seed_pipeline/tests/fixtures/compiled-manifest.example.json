@@ -26,6 +26,7 @@
       "visibility": "public",
       "labelPolicy": "explicit-required",
       "itemAspectRatio": 1,
+      "defaultItemImagePadding": null,
       "ratioSource": "consistent",
       "coverImage": {
         "sourcePath": "/workspace/examples/gaming/ssbu-fighters/_cover.jpg",
@@ -139,6 +140,7 @@
           "aspectRatio": 1,
           "transform": null,
           "mediaPlate": null,
+          "imagePadding": null,
           "asset": {
             "sourcePath": "/workspace/examples/gaming/ssbu-fighters/01-mario.png",
             "sourcePathRelative": "examples/gaming/ssbu-fighters/01-mario.png",
@@ -186,6 +188,7 @@
       "visibility": "public",
       "labelPolicy": "explicit-required",
       "itemAspectRatio": 1,
+      "defaultItemImagePadding": null,
       "ratioSource": "consistent",
       "criteria": [
         {
@@ -209,6 +212,7 @@
           "aspectRatio": 1,
           "transform": null,
           "mediaPlate": null,
+          "imagePadding": null,
           "asset": {
             "sourcePath": "/workspace/examples/gaming/zelda-games/01-the-legend-of-zelda.png",
             "sourcePathRelative": "examples/gaming/zelda-games/01-the-legend-of-zelda.png",

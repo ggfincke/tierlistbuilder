@@ -94,12 +94,15 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
     }))
   )
   const boardAspectRatio = useActiveBoardStore(getBoardItemAspectRatio)
-  const { boardDefaultFit, boardLabels } = useActiveBoardStore(
-    useShallow((s) => ({
-      boardDefaultFit: s.defaultItemImageFit,
-      boardLabels: s.labels,
-    }))
-  )
+  const { boardDefaultFit, boardDefaultPadding, boardAutoPlate, boardLabels } =
+    useActiveBoardStore(
+      useShallow((s) => ({
+        boardDefaultFit: s.defaultItemImageFit,
+        boardDefaultPadding: s.defaultItemImagePadding,
+        boardAutoPlate: s.autoPlate,
+        boardLabels: s.labels,
+      }))
+    )
   const {
     setItemTransform,
     setItemsTransform,
@@ -314,6 +317,7 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
     handleSelectedApplyLabelToAll,
     handleSelectedBackgroundColorChange,
     handleSelectedCommit,
+    handleSelectedImagePaddingChange,
     handleSelectedLabelChange,
     handleSelectedLabelOptionsChange,
     handleSelectedNotesChange,
@@ -453,6 +457,8 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
               mode={mode}
               boardAspectRatio={boardAspectRatio}
               boardDefaultFit={boardDefaultFit}
+              boardDefaultPadding={boardDefaultPadding}
+              boardAutoPlate={boardAutoPlate}
               trimSoftShadows={trimSoftShadows}
               boardLabels={boardLabels}
               globalLabelDefaults={globalLabelDefaults}
@@ -460,6 +466,7 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
               boardItemSize={boardItemSize}
               getBoardAspectRatioForItem={getBoardAspectRatioForItem}
               onCommit={handleSelectedCommit}
+              onPaddingCommit={handleSelectedImagePaddingChange}
               onLabelChange={handleSelectedLabelChange}
               onLabelOptionsChange={handleSelectedLabelOptionsChange}
               onApplyLabelToAll={onApplyLabelToAll}

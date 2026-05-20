@@ -27,6 +27,20 @@ class CropParityTests(unittest.TestCase):
 		self.assertAlmostEqual(transform["offsetX"], 0, places=6)
 		self.assertAlmostEqual(transform["offsetY"], 0, places=6)
 
+	def test_bbox_transform_default_has_no_source_padding(self) -> None:
+		default_transform = bbox_to_item_transform(
+			CropBBox(left=0.1, top=0, right=0.9, bottom=1),
+			image_aspect_ratio=8 / 9,
+			board_aspect_ratio=1,
+		)
+		explicit_transform = bbox_to_item_transform(
+			CropBBox(left=0.1, top=0, right=0.9, bottom=1),
+			image_aspect_ratio=8 / 9,
+			board_aspect_ratio=1,
+			padding_fraction=0,
+		)
+		self.assertEqual(default_transform, explicit_transform)
+
 	def test_alpha_tail_trimming_matches_typescript_fixture(self) -> None:
 		data = bytearray(100 * 100 * 4)
 		_paint_alpha_rect(data, 100, left=20, top=10, right=80, bottom=71, alpha=255)

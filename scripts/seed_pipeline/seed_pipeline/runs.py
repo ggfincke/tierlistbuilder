@@ -354,6 +354,7 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
 			"coverFraming": _cover_framing(template),
 			"suggestedTiers": template.get("suggestedTiers") or DEFAULT_SUGGESTED_TIERS,
 			"itemAspectRatio": template["itemAspectRatio"],
+			"defaultItemImagePadding": template.get("defaultItemImagePadding"),
 			"itemCount": len(as_list(template.get("items"))),
 		}
 		if "labels" in template:
@@ -386,6 +387,7 @@ def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
 					"aspectRatio": item.get("aspectRatio"),
 					"transform": item.get("transform"),
 					"mediaPlate": item.get("mediaPlate"),
+					"imagePadding": item.get("imagePadding"),
 					"backgroundColor": item.get("backgroundColor"),
 				}
 			)

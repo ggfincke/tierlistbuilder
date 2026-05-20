@@ -193,6 +193,7 @@
         "visibility",
         "labelPolicy",
         "itemAspectRatio",
+        "defaultItemImagePadding",
         "ratioSource",
         "criteria",
         "items"
@@ -241,6 +242,11 @@
         "itemAspectRatio": {
           "type": "number",
           "exclusiveMinimum": 0
+        },
+        "defaultItemImagePadding": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 0.4
         },
         "ratioSource": {
           "enum": ["consistent", "mixed-dominant", "mixed-square"]
@@ -396,6 +402,7 @@
         "aspectRatio",
         "transform",
         "mediaPlate",
+        "imagePadding",
         "asset"
       ],
       "properties": {
@@ -431,6 +438,11 @@
         },
         "mediaPlate": {
           "enum": ["light", "dark", null]
+        },
+        "imagePadding": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 0.4
         },
         "backgroundColor": {
           "$ref": "#/$defs/hexColor"
