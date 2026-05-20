@@ -32,16 +32,12 @@
     --t-export-bg: #050505;
     --t-media-matte: #0a0a0c;
     /* per-image plate for transparent logos — a dark logo sits on the light
-       plate, a white logo on the dark plate. per-theme defaults are set in the
-       [data-theme] blocks below; a user override (--t-media-plate-*-user) wins
-       regardless of the active theme via this fallback chain */
-    --t-media-plate-light: var(
-      --t-media-plate-light-user,
-      var(--t-media-plate-light-default, #f5f5f5)
-    );
+       plate, a white logo on the dark plate. per-theme defaults come from
+       tokens.ts via applyThemeTokens; these are the base fallbacks */
+    --t-media-plate-light: var(--t-media-plate-light-default, #f5f5f5);
     --t-media-plate-dark: var(
-      --t-media-plate-dark-user,
-      var(--t-media-plate-dark-default, var(--t-media-matte))
+      --t-media-plate-dark-default,
+      var(--t-media-matte)
     );
 
     /* typography tokens — Default body style (user-selectable in preferences) */

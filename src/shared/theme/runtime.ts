@@ -2,7 +2,6 @@
 // theme runtime service — sync theme tokens & font loading to the DOM
 
 import type { TextStyleId, ThemeId } from '@tierlistbuilder/contracts/lib/theme'
-import type { MediaPlate } from '@tierlistbuilder/contracts/workspace/board'
 import { getTextColor } from '~/shared/lib/color'
 import { TEXT_STYLES } from '~/shared/theme/textStyles'
 import { THEMES } from '~/shared/theme/tokens'
@@ -27,26 +26,6 @@ export const applyThemeTokens = (themeId: ThemeId): void =>
     getTextColor(theme.destructive)
   )
   root.setAttribute('data-theme', themeId)
-}
-
-// write (or clear) a user override for a transparent-logo plate. set inline on
-// <html> so it wins over the per-theme default & survives theme swaps — those
-// only rewrite --t-media-plate-*-default, never the -user var
-export const applyMediaPlateOverride = (
-  variant: MediaPlate,
-  color: string | null
-): void =>
-{
-  const property = `--t-media-plate-${variant}-user`
-  const root = document.documentElement
-  if (color)
-  {
-    root.style.setProperty(property, color)
-  }
-  else
-  {
-    root.style.removeProperty(property)
-  }
 }
 
 export const applyTextStyle = (styleId: TextStyleId): void =>

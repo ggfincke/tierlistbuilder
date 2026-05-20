@@ -63,10 +63,6 @@ export interface AppPreferences
   exportBackgroundOverride: string | null
   exportItemsPerRow: number
   boardBackgroundOverride: string | null
-  // user overrides for the transparent-logo plates; null -> theme default.
-  // applied as --t-media-plate-*-user so they win regardless of active theme
-  mediaPlateLightOverride: string | null
-  mediaPlateDarkOverride: string | null
   labelWidth: LabelWidth
   hideRowControls: boolean
   confirmBeforeDelete: boolean

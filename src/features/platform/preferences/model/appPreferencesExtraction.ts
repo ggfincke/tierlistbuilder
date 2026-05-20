@@ -13,8 +13,6 @@ const APP_PREFERENCES_KEYS = [
   'exportBackgroundOverride',
   'exportItemsPerRow',
   'boardBackgroundOverride',
-  'mediaPlateLightOverride',
-  'mediaPlateDarkOverride',
   'labelWidth',
   'hideRowControls',
   'confirmBeforeDelete',

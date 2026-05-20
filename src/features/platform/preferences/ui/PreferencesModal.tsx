@@ -40,10 +40,6 @@ const AppearancePane = () =>
     setTextStyleId,
     boardBackgroundOverride,
     setBoardBackgroundOverride,
-    mediaPlateLightOverride,
-    setMediaPlateLightOverride,
-    mediaPlateDarkOverride,
-    setMediaPlateDarkOverride,
   } = usePreferencesStore(
     useShallow((s) => ({
       themeId: s.themeId,
@@ -54,10 +50,6 @@ const AppearancePane = () =>
       setTextStyleId: s.setTextStyleId,
       boardBackgroundOverride: s.boardBackgroundOverride,
       setBoardBackgroundOverride: s.setBoardBackgroundOverride,
-      mediaPlateLightOverride: s.mediaPlateLightOverride,
-      setMediaPlateLightOverride: s.setMediaPlateLightOverride,
-      mediaPlateDarkOverride: s.mediaPlateDarkOverride,
-      setMediaPlateDarkOverride: s.setMediaPlateDarkOverride,
     }))
   )
 
@@ -73,34 +65,6 @@ const AppearancePane = () =>
           onChange={setBoardBackgroundOverride}
           onReset={() => setBoardBackgroundOverride(null)}
           resetLabel="Reset page background to theme default"
-          resetTitle="Reset to theme default"
-        />
-      </SettingsSection>
-
-      <SettingsSection title="Transparent Logo Plates">
-        <p className="mb-2 text-xs text-[var(--t-text-muted)]">
-          Backdrops behind cut-out logos so they stay readable on any tier
-          color. Dark logos sit on the light plate, white logos on the dark
-          plate.
-        </p>
-
-        <OverrideColorRow
-          label="Light plate"
-          value={mediaPlateLightOverride}
-          defaultColor={THEMES[themeId]['media-plate-light-default']}
-          onChange={setMediaPlateLightOverride}
-          onReset={() => setMediaPlateLightOverride(null)}
-          resetLabel="Reset light plate to theme default"
-          resetTitle="Reset to theme default"
-        />
-
-        <OverrideColorRow
-          label="Dark plate"
-          value={mediaPlateDarkOverride}
-          defaultColor={THEMES[themeId]['media-plate-dark-default']}
-          onChange={setMediaPlateDarkOverride}
-          onReset={() => setMediaPlateDarkOverride(null)}
-          resetLabel="Reset dark plate to theme default"
           resetTitle="Reset to theme default"
         />
       </SettingsSection>

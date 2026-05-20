@@ -17,8 +17,6 @@ import { failInput } from '../../lib/text'
 const HEX_COLOR_PREFERENCE_KEYS = [
   'exportBackgroundOverride',
   'boardBackgroundOverride',
-  'mediaPlateLightOverride',
-  'mediaPlateDarkOverride',
 ] as const
 
 // upsert the authenticated caller's AppPreferences — replaces any existing row.

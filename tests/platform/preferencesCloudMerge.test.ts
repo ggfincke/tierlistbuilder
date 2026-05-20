@@ -68,21 +68,6 @@ describe('preferencesCloudMerge', () =>
     usePreferencesStore.setState(DEFAULT_APP_PREFERENCES)
   })
 
-  it('extracts media plate overrides for cloud sync payloads', () =>
-  {
-    usePreferencesStore.setState({
-      mediaPlateLightOverride: '#f8fafc',
-      mediaPlateDarkOverride: '#020617',
-    })
-
-    expect(extractAppPreferences(usePreferencesStore.getState())).toMatchObject(
-      {
-        mediaPlateLightOverride: '#f8fafc',
-        mediaPlateDarkOverride: '#020617',
-      }
-    )
-  })
-
   it('pushes local preferences when the pending sidecar belongs to the signed-in user', async () =>
   {
     usePreferencesStore.setState({
