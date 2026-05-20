@@ -16,6 +16,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
+import { mediaPlateColor } from '~/shared/board-ui/mediaPlate'
 import type {
   MediaDecoding,
   MediaLoading,
@@ -183,7 +184,9 @@ const CoverTile = ({
         fit={fit}
         transform={transform}
         aspectRatio={item.aspectRatio}
-        backgroundColor={item.backgroundColor}
+        backgroundColor={
+          mediaPlateColor(item.mediaPlate) ?? item.backgroundColor
+        }
         loading={loading}
         decoding={decoding}
       />

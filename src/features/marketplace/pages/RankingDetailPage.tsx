@@ -74,6 +74,7 @@ const ItemTile = ({ item, frameAspectRatio }: ItemTileProps) =>
           imageUrl: item.media?.url,
           label: item.label ?? undefined,
           backgroundColor: item.backgroundColor ?? undefined,
+          mediaPlate: item.mediaPlate ?? undefined,
           altText: item.altText ?? undefined,
           aspectRatio: item.aspectRatio ?? undefined,
           transform: item.transform ?? undefined,

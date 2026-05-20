@@ -58,6 +58,7 @@ export const buildRowsForActiveRanking = (
         templateItemExternalId: item.templateItemExternalId,
         label: item.label,
         backgroundColor: item.backgroundColor,
+        mediaPlate: item.mediaPlate,
         altText: item.altText,
         media: item.media,
         order: item.order,

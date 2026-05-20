@@ -65,6 +65,7 @@ export const AggregateItemThumb = ({
           imageUrl: row.media?.url,
           label: row.label ?? undefined,
           backgroundColor: row.backgroundColor ?? undefined,
+          mediaPlate: row.mediaPlate ?? undefined,
           altText: row.altText ?? undefined,
           aspectRatio: row.aspectRatio ?? undefined,
           transform: row.transform ?? undefined,

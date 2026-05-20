@@ -5,6 +5,7 @@ import { useImageUrlChain } from '~/shared/hooks/useImageUrl'
 import type {
   ImageFit,
   ItemTransform,
+  MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   getRenderImageRefs,
@@ -14,6 +15,7 @@ import {
 } from '~/shared/lib/imageRefs'
 import { getTextColor } from '~/shared/lib/color'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
+import { mediaPlateColor } from '~/shared/board-ui/mediaPlate'
 import { OverlayLabelBlock } from '~/shared/board-ui/labelBlocks'
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { TileLayoutShell } from '~/shared/board-ui/TileLayoutShell'
@@ -24,6 +26,7 @@ interface ItemContentProps
     imageUrl?: string
     label?: string
     backgroundColor?: string
+    mediaPlate?: MediaPlate
     altText?: string
     aspectRatio?: number
     transform?: ItemTransform
@@ -87,6 +90,7 @@ export const ItemContent = ({
         transform={transform ?? null}
         aspectRatio={item.aspectRatio ?? null}
         frameAspectRatio={frameAspectRatio}
+        backgroundColor={mediaPlateColor(item.mediaPlate)}
         loading={imageLoading}
       >
         {!isCaptioned && label && label.placement.mode === 'overlay' && (
