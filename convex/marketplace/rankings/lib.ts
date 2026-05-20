@@ -220,10 +220,10 @@ export const toRankingDetail = async (
 
   return {
     ...summary,
-    // pull the backdrop policy from the live template so legibility fixes reach
-    // every published ranking without a re-publish
+    // pull display policy (backdrop + plate inset) from the live source template
+    // so legibility/layout fixes reach every published ranking without re-publish
     autoPlate: sourceTemplate?.autoPlate ?? null,
-    defaultItemImagePadding: ranking.defaultItemImagePadding ?? null,
+    defaultItemImagePadding: sourceTemplate?.defaultItemImagePadding ?? null,
     tiers: tiers.map(toRankingTier),
     items: await Promise.all(
       items.map((item) => toRankingItem(ctx, item, cache))

@@ -354,7 +354,6 @@ export const seedPublishedRanking = async (
     isFeatured: args.isFeatured ?? false,
     featuredRank: args.featuredRank ?? null,
     featuredBadge: args.featuredBadge ?? null,
-    defaultItemImagePadding: null,
     seedDatasetKey: null,
     seedReleaseId: null,
     seedExternalId: null,

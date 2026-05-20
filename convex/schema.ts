@@ -649,7 +649,6 @@ export default defineSchema({
     seedCuratedExternalId: v.union(v.string(), v.null()),
     seedReleaseStatus: v.union(seedRankingReleaseStatusValidator, v.null()),
     seedContentHash: v.optional(v.string()),
-    defaultItemImagePadding: v.union(v.number(), v.null()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -7,6 +7,8 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import {
   boardAutoPlateSettingsEqual,
   boardLabelSettingsEqual,
+  IMAGE_PADDING_MAX,
+  IMAGE_PADDING_MIN,
   isValidLabelFontSizePx,
   ITEM_TRANSFORM_LIMITS,
   LABEL_FONT_SIZE_PX_MAX,
@@ -31,7 +33,10 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
 import { assertStringLength, failInput } from '../../lib/text'
-import { assertExternalIdShape } from '../../lib/assertions'
+import {
+  assertExternalIdShape,
+  assertFiniteRange,
+} from '../../lib/assertions'
 import { memoizePromise } from '../../lib/cache'
 import {
   boardAutoPlateSettingsValidator,
@@ -250,6 +255,15 @@ const validateBoardAutoPlate = (
   validateHexColor(autoPlate.uniformColor, 'autoPlate.uniformColor')
 }
 
+const validateImagePadding = (
+  padding: number | undefined,
+  field: string
+): void =>
+{
+  if (padding === undefined) return
+  assertFiniteRange(field, padding, IMAGE_PADDING_MIN, IMAGE_PADDING_MAX)
+}
+
 type UpsertResult =
   | { conflict: null; newRevision: number }
   | { conflict: { serverRevision: number }; newRevision: null }
@@ -396,6 +410,7 @@ const validateInputs = (args: UpsertArgs): void =>
         )
       }
     }
+    validateImagePadding(item.imagePadding, 'item.imagePadding')
     validateLabelPlacement(
       item.labelOptions?.placement,
       'item.labelOptions.placement'
@@ -418,6 +433,7 @@ const validateInputs = (args: UpsertArgs): void =>
   {
     validateHexColor(args.pageBackground, 'pageBackground')
   }
+  validateImagePadding(args.defaultItemImagePadding, 'defaultItemImagePadding')
   validateLabelPlacement(args.labels?.placement, 'labels.placement')
   validateLabelFontSize(args.labels?.fontSizePx, 'labels.fontSizePx')
   validateBoardAutoPlate(args.autoPlate)

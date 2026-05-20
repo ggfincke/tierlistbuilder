@@ -153,9 +153,9 @@ export interface MarketplaceRankingItem
 
 export interface MarketplaceRankingDetail extends MarketplaceRankingSummary
 {
-  // source-template backdrop policy used by the ranking snapshot view
+  // display policy joined live from the source template (not snapshotted) so
+  // legibility/layout fixes reach published rankings without a re-publish
   autoPlate: BoardAutoPlateSettings | null
-  // board-wide plate inset captured when the ranking was published
   defaultItemImagePadding: number | null
   tiers: MarketplaceRankingTier[]
   items: MarketplaceRankingItem[]

@@ -414,7 +414,6 @@ export const publishRankingFromBoard = mutation({
       isFeatured: false,
       featuredRank: null,
       featuredBadge: null,
-      defaultItemImagePadding: board.defaultItemImagePadding ?? null,
       seedDatasetKey: null,
       seedReleaseId: null,
       seedExternalId: null,
