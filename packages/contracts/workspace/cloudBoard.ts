@@ -8,6 +8,7 @@ import type {
   ItemAspectRatioMode,
   ItemLabelOptions,
   ItemTransform,
+  MediaPlate,
 } from './board'
 
 // cloud board sync caps; server enforces these before writing row diffs.
@@ -32,6 +33,7 @@ export interface CloudBoardItemWire
   tierId: string | null
   label?: string
   backgroundColor?: string
+  mediaPlate?: MediaPlate
   altText?: string
   // private per-item editor notes; synced for cross-device parity, never
   // surfaced on published rankings (publish mappers cherry-pick fields)

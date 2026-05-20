@@ -115,6 +115,27 @@ describe('normalizeBoardSnapshot', () =>
     expect(result.items[id].transform).toBeUndefined()
   })
 
+  it('normalizes item media plates through the shared enum helper', () =>
+  {
+    const id = asItemId('media-plate-item')
+    const invalidId = asItemId('invalid-media-plate-item')
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        items: {
+          [id]: makeItem({ id, mediaPlate: 'light' }),
+          [invalidId]: {
+            ...makeItem({ id: invalidId }),
+            mediaPlate: asInvalid('blue'),
+          },
+        },
+      }),
+      'classic'
+    )
+
+    expect(result.items[id].mediaPlate).toBe('light')
+    expect(result.items[invalidId].mediaPlate).toBeUndefined()
+  })
+
   it('preserves source metadata, private notes, and cloud media refs', () =>
   {
     const id = asItemId('source-item')

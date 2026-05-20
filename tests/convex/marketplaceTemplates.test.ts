@@ -29,6 +29,7 @@ import type {
   ImageFit,
   ItemAspectRatioMode,
   ItemTransform,
+  MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   CloudBoardItemWire,
@@ -195,6 +196,7 @@ interface SeedSourceBoardOptions
   defaultItemImageFit?: ImageFit
   imageItemFit?: ImageFit | null
   imageItemTransform?: ItemTransform
+  imageItemMediaPlate?: MediaPlate
   labels?: BoardLabelSettings
 }
 
@@ -282,6 +284,9 @@ const seedSourceBoard = async (
       externalId: 'source-item-1',
       label: 'Image item',
       altText: 'Image item alt',
+      ...(options.imageItemMediaPlate
+        ? { mediaPlate: options.imageItemMediaPlate }
+        : {}),
       mediaAssetId,
       order: 0,
       deletedAt: null,
@@ -500,6 +505,7 @@ const seedAggregateTemplate = async (
           externalId: `aggregate-item-${i}`,
           label: `Aggregate Item ${i}`,
           backgroundColor: null,
+          mediaPlate: i === 1 ? 'light' : null,
           altText: null,
           mediaAssetId: null,
           order: i,
@@ -741,6 +747,7 @@ const toWireItem = (
   ...(item.backgroundColor !== undefined
     ? { backgroundColor: item.backgroundColor }
     : {}),
+  ...(item.mediaPlate !== undefined ? { mediaPlate: item.mediaPlate } : {}),
   ...(item.altText !== undefined ? { altText: item.altText } : {}),
   ...(item.mediaExternalId !== undefined
     ? { mediaExternalId: item.mediaExternalId }
@@ -1972,6 +1979,7 @@ describe('marketplace template Convex functions', () =>
       defaultItemImageFit: 'contain',
       imageItemFit: null,
       imageItemTransform: transform,
+      imageItemMediaPlate: 'dark',
       labels,
     })
     const presetExternalId = await seedTierPreset(t, consumerId)
@@ -2013,6 +2021,7 @@ describe('marketplace template Convex functions', () =>
     expect(board?.items[0]).toMatchObject({
       label: 'Image item',
       mediaContentHash: 'hash-source',
+      mediaPlate: 'dark',
       transform,
       sourceTemplateItemExternalId: 'source-item-1',
     })
@@ -2062,7 +2071,7 @@ describe('marketplace template Convex functions', () =>
     const t = makeTest()
     const authorId = await seedUser(t, 'Template Author', 'author@example.com')
     const rankerId = await seedUser(t, 'Ranker', 'ranker@example.com')
-    await seedSourceBoard(t, authorId)
+    await seedSourceBoard(t, authorId, { imageItemMediaPlate: 'light' })
 
     const { slug: templateSlug } = await asUser(t, authorId).mutation(
       api.marketplace.templates.mutations.publishFromBoard,
@@ -2147,6 +2156,11 @@ describe('marketplace template Convex functions', () =>
     expect(detail?.items.every((item) => item.tierExternalId !== null)).toBe(
       true
     )
+    expect(
+      detail?.items.find(
+        (item) => item.templateItemExternalId === 'source-item-1'
+      )?.mediaPlate
+    ).toBe('light')
 
     await t.mutation(
       api.marketplace.rankings.public.mutations.recordRankingView,
@@ -2969,6 +2983,34 @@ describe('marketplace template Convex functions', () =>
         [0, 1, 1],
         [0, 0, 2],
       ])
+      expect(
+        competitiveItems.page.find(
+          (row) => row.templateItemExternalId === 'aggregate-item-1'
+        )?.mediaPlate
+      ).toBe('light')
+
+      const remixUserId = await seedUser(
+        t,
+        'Aggregate Criteria Remix User',
+        'aggregate-remix@example.com'
+      )
+      const remix = await asUser(t, remixUserId).mutation(
+        api.marketplace.rankings.public.mutations.remixTemplateConsensus,
+        {
+          templateSlug,
+          criterionExternalId: 'competitive',
+          title: 'Consensus Remix',
+        }
+      )
+      const remixBoard = await asUser(t, remixUserId).query(
+        api.workspace.boards.queries.getBoardStateByExternalId,
+        { boardExternalId: remix.boardExternalId }
+      )
+      expect(
+        remixBoard?.items.find(
+          (item) => item.sourceTemplateItemExternalId === 'aggregate-item-1'
+        )?.mediaPlate
+      ).toBe('light')
 
       const favoritesSearch = await t.query(
         api.marketplace.rankings.public.queries

@@ -9,6 +9,7 @@ import type {
 import type {
   ItemLabelOptions,
   ItemTransform,
+  MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { itemLabelOptionsEqual } from '@tierlistbuilder/contracts/workspace/board'
 
@@ -38,6 +39,7 @@ export interface ItemDiff
     tierId: Id<'boardTiers'> | null
     label?: string
     backgroundColor?: string
+    mediaPlate?: MediaPlate
     altText?: string
     notes?: string
     mediaAssetId: Id<'mediaAssets'> | null
@@ -145,6 +147,10 @@ const buildItemPatchFields = (
   if (server.backgroundColor !== wire.backgroundColor)
   {
     fields.backgroundColor = wire.backgroundColor
+  }
+  if ((server.mediaPlate ?? undefined) !== wire.mediaPlate)
+  {
+    fields.mediaPlate = wire.mediaPlate
   }
   if (server.altText !== wire.altText) fields.altText = wire.altText
   if (server.notes !== wire.notes) fields.notes = wire.notes
@@ -277,6 +283,7 @@ export const diffItems = (
         tierId: resolvedTierId,
         label: wire.label,
         backgroundColor: wire.backgroundColor,
+        mediaPlate: wire.mediaPlate,
         altText: wire.altText,
         notes: wire.notes,
         mediaAssetId: media.resolved,
@@ -320,6 +327,7 @@ export const diffItems = (
           order: wire.order,
           label: wire.label,
           backgroundColor: wire.backgroundColor,
+          mediaPlate: wire.mediaPlate,
           altText: wire.altText,
           notes: wire.notes,
           aspectRatio: wire.aspectRatio,

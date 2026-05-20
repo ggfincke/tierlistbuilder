@@ -644,6 +644,7 @@ export const syncSeedTemplateItems = internalMutation({
       const fields = {
         label: item.label,
         backgroundColor: null,
+        mediaPlate: item.mediaPlate ?? null,
         altText: item.label,
         mediaAssetId,
         order: item.order,
@@ -668,6 +669,7 @@ export const syncSeedTemplateItems = internalMutation({
         existing.mediaAssetId !== fields.mediaAssetId ||
         existing.aspectRatio !== fields.aspectRatio ||
         existing.imageFit !== fields.imageFit ||
+        (existing.mediaPlate ?? null) !== fields.mediaPlate ||
         !valuesEqual(existing.transform, fields.transform)
       if (!orderChanged && !contentChanged)
       {

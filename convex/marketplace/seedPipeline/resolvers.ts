@@ -137,6 +137,7 @@ export const resolveItems = async (
       mediaDedupeHash: media?.dedupeHash ?? null,
       aspectRatio: item.aspectRatio,
       transform: item.transform ?? null,
+      mediaPlate: item.mediaPlate ?? null,
     })
   }
   return resolved

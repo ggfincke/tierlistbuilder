@@ -84,6 +84,7 @@ export const buildSeedTemplateCoverItems = async (
       mediaAssetId: item.mediaAssetId,
       label: item.label,
       backgroundColor: item.backgroundColor,
+      mediaPlate: item.mediaPlate ?? null,
       aspectRatio: item.aspectRatio,
       imageFit: item.imageFit,
       transform: item.transform,

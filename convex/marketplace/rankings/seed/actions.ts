@@ -787,6 +787,7 @@ const insertSeedRanking = async (
         tierExternalId: tier.externalId,
         label: ranked.item.label,
         backgroundColor: ranked.item.backgroundColor,
+        mediaPlate: ranked.item.mediaPlate ?? null,
         altText: ranked.item.altText,
         mediaAssetId: ranked.item.mediaAssetId,
         aspectRatio: ranked.item.aspectRatio,

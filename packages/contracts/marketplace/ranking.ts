@@ -2,7 +2,7 @@
 // public ranking contracts shared by Convex & future marketplace UI
 
 import type { TierColorSpec } from '../lib/theme'
-import type { ImageFit, ItemTransform } from '../workspace/board'
+import type { ImageFit, ItemTransform, MediaPlate } from '../workspace/board'
 import type { TemplateAuthor, TemplateMediaRef } from './template'
 import type { TemplateCategory } from './category'
 import type { PaginationResult } from '../lib/pagination'
@@ -136,6 +136,7 @@ export interface MarketplaceRankingItem
   tierExternalId: string | null
   label: string | null
   backgroundColor: string | null
+  mediaPlate: MediaPlate | null
   altText: string | null
   media: TemplateMediaRef | null
   order: number

@@ -5,6 +5,7 @@ import { v } from 'convex/values'
 import {
   boardLabelSettingsValidator,
   itemTransformValidator,
+  mediaPlateNullableValidator,
   tierPresetTiersValidator,
 } from '../../lib/validators/common'
 import {
@@ -76,6 +77,7 @@ export const seedResolvedItemValidator = v.object({
   mediaDedupeHash: v.union(v.string(), v.null()),
   aspectRatio: v.union(v.number(), v.null()),
   transform: v.union(itemTransformValidator, v.null()),
+  mediaPlate: mediaPlateNullableValidator,
 })
 
 export const seedResolvedCriterionValidator = v.object({
@@ -152,6 +154,7 @@ export const seedItemUpsertValidator = v.object({
   mediaDedupeHash: v.string(),
   aspectRatio: v.union(v.number(), v.null()),
   transform: v.union(itemTransformValidator, v.null()),
+  mediaPlate: mediaPlateNullableValidator,
 })
 
 export const seedCriterionUpsertValidator = v.object({

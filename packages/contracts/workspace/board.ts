@@ -34,6 +34,12 @@ export const normalizeBoardTitle = (raw: string): string =>
 // value type used in per-item overrides & the board-wide default
 export type ImageFit = 'cover' | 'contain'
 
+// transparent logos that would be low-contrast on a solid backdrop get a plate
+// so they stay readable anywhere: 'light' rescues a dark logo, 'dark' a white
+// one; absent -> no plate. resolved to a theme/user color via --t-media-plate-*
+export const MEDIA_PLATES = ['light', 'dark'] as const
+export type MediaPlate = (typeof MEDIA_PLATES)[number]
+
 // 'auto' recomputes the board ratio from majority of item ratios on import;
 // 'manual' pins the user-selected value
 export type ItemAspectRatioMode = 'auto' | 'manual'
@@ -316,6 +322,8 @@ export interface TierItem
   sourceImageRef?: TierItemImageRef
   label?: string
   backgroundColor?: string
+  // tri-state plate for transparent logos; see MediaPlate
+  mediaPlate?: MediaPlate
   altText?: string
   // private per-item editor notes — "why I ranked this here" scratchpad.
   // travels w/ cloud sync & JSON export, but never out to published rankings
@@ -412,6 +420,7 @@ export interface TierItemWire
   imageUrl?: string
   label?: string
   backgroundColor?: string
+  mediaPlate?: MediaPlate
   altText?: string
   notes?: string
   aspectRatio?: number

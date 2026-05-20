@@ -208,6 +208,7 @@ export const processTemplatePublishJob = internalMutation({
             externalId: item.externalId,
             label: item.label ?? null,
             backgroundColor: item.backgroundColor ?? null,
+            mediaPlate: item.mediaPlate ?? null,
             altText: item.altText ?? null,
             mediaAssetId: item.mediaAssetId,
             order: item.order,

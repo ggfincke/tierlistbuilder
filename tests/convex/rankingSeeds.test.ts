@@ -12,6 +12,7 @@ import {
   formatRankingSeedId,
 } from '@convex/marketplace/rankings/seed/naming'
 import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
+import type { MediaPlate } from '@tierlistbuilder/contracts/workspace/board'
 import schema from '../../convex/schema'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
 import {
@@ -488,6 +489,7 @@ describe('ranking seed pipeline', () =>
       releaseId: RELEASE,
       templateExternalId: 'test:unchanged-sample',
       labels: ['Mario', 'Luigi'],
+      mediaPlates: ['light', null],
     })
     await seedUser(t, 'seed+rankings-ava@tierlistbuilder.local')
     const manifest = rankingManifest({
@@ -565,6 +567,14 @@ describe('ranking seed pipeline', () =>
       'Mario',
     ])
     expect(storedItems.every((item) => item.mediaAssetId === null)).toBe(true)
+    expect(
+      storedItems
+        .map((item) => [item.label, item.mediaPlate] as const)
+        .sort(([a], [b]) => (a ?? '').localeCompare(b ?? ''))
+    ).toEqual([
+      ['Luigi', null],
+      ['Mario', 'light'],
+    ])
     const detail = activeRows.ranking
       ? await t.query(
           api.marketplace.rankings.public.queries.getRankingBySlug,
@@ -580,6 +590,14 @@ describe('ranking seed pipeline', () =>
     expect(
       detail?.items.map((item) => item.templateItemExternalId).sort()
     ).toEqual(['item-0', 'item-1'])
+    expect(
+      detail?.items
+        .map((item) => [item.label, item.mediaPlate] as const)
+        .sort(([a], [b]) => (a ?? '').localeCompare(b ?? ''))
+    ).toEqual([
+      ['Luigi', null],
+      ['Mario', 'light'],
+    ])
 
     const second = await callUpsert(manifest, sampleTask)
     expect(second.rankingsDeleted).toBe(0)
@@ -756,6 +774,7 @@ const seedSeedTemplate = async (
     releaseId: string
     templateExternalId: string
     labels: readonly string[]
+    mediaPlates?: readonly (MediaPlate | null)[]
   }
 ): Promise<{ authorId: Id<'users'>; templateId: Id<'templates'> }> =>
 {
@@ -784,6 +803,7 @@ const seedSeedTemplate = async (
           externalId: `item-${index}`,
           label,
           backgroundColor: null,
+          mediaPlate: args.mediaPlates?.[index] ?? null,
           altText: label,
           mediaAssetId: null,
           order: index,

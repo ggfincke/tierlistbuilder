@@ -165,6 +165,7 @@ const seedAggregateItemRows = async (
         templateItemExternalId: item.externalId,
         label: item.label,
         backgroundColor: item.backgroundColor,
+        mediaPlate: item.mediaPlate ?? null,
         altText: item.altText,
         mediaAssetId: item.mediaAssetId,
         order: item.order,

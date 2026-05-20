@@ -42,6 +42,7 @@ import {
 } from '~/shared/lib/typeGuards'
 import {
   CLOUD_MEDIA_OWNERSHIPS,
+  MEDIA_PLATES,
   type CloudMediaOwnership,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -216,6 +217,7 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   const sourceImageRef = normalizeImageRef(raw.sourceImageRef)
   const aspectRatio = normalizePositiveFinite(raw.aspectRatio)
   const imageFit = normalizeEnum(raw.imageFit, IMAGE_FITS)
+  const mediaPlate = normalizeEnum(raw.mediaPlate, MEDIA_PLATES)
   const transform = normalizeItemTransform(raw.transform)
   const labelOptions = normalizeItemLabelOptions(raw.labelOptions)
 
@@ -230,6 +232,7 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   if (typeof raw.label === 'string') item.label = raw.label
   if (typeof raw.backgroundColor === 'string')
     item.backgroundColor = raw.backgroundColor
+  if (mediaPlate !== undefined) item.mediaPlate = mediaPlate
   if (typeof raw.altText === 'string') item.altText = raw.altText
   if (typeof raw.notes === 'string') item.notes = raw.notes
   if (aspectRatio !== undefined) item.aspectRatio = aspectRatio

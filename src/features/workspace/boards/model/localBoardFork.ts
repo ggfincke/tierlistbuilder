@@ -21,6 +21,7 @@ import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPr
 import type {
   ImageFit,
   ItemTransform,
+  MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   MarketplaceTemplateDetail,
@@ -130,6 +131,7 @@ interface ForkableMarketplaceItem
   media: TemplateMediaRef | null
   label: string | null
   backgroundColor: string | null
+  mediaPlate: MediaPlate | null
   altText: string | null
   aspectRatio: number | null
   imageFit: ImageFit | null
@@ -155,6 +157,9 @@ const toTierItemFromMarketplaceItem = (
       : {}),
     ...(item.backgroundColor !== null && item.backgroundColor !== undefined
       ? { backgroundColor: item.backgroundColor }
+      : {}),
+    ...(item.mediaPlate !== null && item.mediaPlate !== undefined
+      ? { mediaPlate: item.mediaPlate }
       : {}),
     ...(item.altText !== null && item.altText !== undefined
       ? { altText: item.altText }

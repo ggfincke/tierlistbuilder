@@ -13,6 +13,7 @@ import {
 import {
   LABEL_SCRIMS,
   LABEL_TEXT_COLORS,
+  MEDIA_PLATES,
   type BoardLabelSettings,
   type ImageFit,
   type ItemLabelOptions,
@@ -20,6 +21,7 @@ import {
   type LabelPlacement,
   type LabelScrim,
   type LabelTextColor,
+  type MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 
@@ -53,6 +55,12 @@ export const imageFitValidator = v.union(
   v.literal('contain')
 )
 export const imageFitNullableValidator = v.union(imageFitValidator, v.null())
+
+export const mediaPlateValidator = literalUnion(MEDIA_PLATES)
+export const mediaPlateNullableValidator = v.union(
+  mediaPlateValidator,
+  v.null()
+)
 
 export const tierColorSpecValidator = v.union(
   v.object({
@@ -122,6 +130,9 @@ export const boardLabelSettingsValidator = v.object({
 
 export type _ImageFitExact = _Assert<
   _Exact<ImageFit, Infer<typeof imageFitValidator>>
+>
+export type _MediaPlateExact = _Assert<
+  _Exact<MediaPlate, Infer<typeof mediaPlateValidator>>
 >
 export type _TierColorSpecExact = _Assert<
   _Exact<TierColorSpec, Infer<typeof tierColorSpecValidator>>

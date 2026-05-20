@@ -6,6 +6,7 @@ import type {
   BoardLabelSettings,
   ImageFit,
   ItemTransform,
+  MediaPlate,
 } from '../workspace/board'
 import type { PaginationResult } from '../lib/pagination'
 import type { TemplateCategory } from './category'
@@ -191,6 +192,7 @@ export interface TemplateCoverItem
   media: TemplateMediaRef
   label: string | null
   backgroundColor: string | null
+  mediaPlate: MediaPlate | null
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
@@ -305,6 +307,7 @@ export interface MarketplaceTemplateItem
   externalId: string
   label: string | null
   backgroundColor: string | null
+  mediaPlate: MediaPlate | null
   altText: string | null
   media: TemplateMediaRef | null
   order: number

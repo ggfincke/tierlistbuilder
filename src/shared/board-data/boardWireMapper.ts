@@ -12,6 +12,7 @@ import {
   PALETTE_IDS,
   TEXT_STYLE_IDS,
 } from '@tierlistbuilder/contracts/lib/theme'
+import { MEDIA_PLATES } from '@tierlistbuilder/contracts/workspace/board'
 import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
 import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
@@ -279,11 +280,13 @@ const wireItemToSnapshotItem = (
   const aspectRatio =
     normalizePositiveFinite(item.aspectRatio) ?? prepared?.aspectRatio
   const imageFit = normalizeEnum(item.imageFit, IMAGE_FITS)
+  const mediaPlate = normalizeEnum(item.mediaPlate, MEDIA_PLATES)
   const transform = normalizeItemTransform(item.transform)
   const labelOptions = normalizeItemLabelOptions(item.labelOptions)
   const base: TierItem = { id }
   if (label !== undefined) base.label = label
   if (backgroundColor !== undefined) base.backgroundColor = backgroundColor
+  if (mediaPlate !== undefined) base.mediaPlate = mediaPlate
   if (altText !== undefined) base.altText = altText
   if (notes !== undefined) base.notes = notes
   if (sourceTemplateItemExternalId !== undefined)

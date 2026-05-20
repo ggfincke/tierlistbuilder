@@ -581,6 +581,7 @@ export const toTemplateRankingAggregateItem = async (
     templateItemExternalId: row.templateItemExternalId,
     label: row.label,
     backgroundColor: row.backgroundColor,
+    mediaPlate: row.mediaPlate ?? null,
     altText: row.altText,
     media: await toTemplateMediaRef(ctx, row.mediaAssetId, 'tile', cache),
     order: row.order,

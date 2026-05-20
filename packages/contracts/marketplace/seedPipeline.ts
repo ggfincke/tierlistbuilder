@@ -8,7 +8,11 @@ import type {
   MediaVariantKind,
   SupportedImageMimeType,
 } from '../platform/media'
-import type { BoardLabelSettings, ItemTransform } from '../workspace/board'
+import type {
+  BoardLabelSettings,
+  ItemTransform,
+  MediaPlate,
+} from '../workspace/board'
 import type { TierPresetTier } from '../workspace/tierPreset'
 
 export const SEED_MANIFEST_SCHEMA_VERSION = 1
@@ -162,6 +166,7 @@ export interface SeedCompiledItem
   label: string | null
   aspectRatio: number
   transform: ItemTransform | null
+  mediaPlate: MediaPlate | null
   asset: SeedCompiledAsset
 }
 
@@ -284,6 +289,7 @@ export interface SeedResolvedItem
   mediaDedupeHash: string | null
   aspectRatio: number | null
   transform: ItemTransform | null
+  mediaPlate: MediaPlate | null
 }
 
 export interface SeedResolvedCriterion
@@ -483,6 +489,7 @@ export interface SeedItemUpsert
   mediaDedupeHash: string
   aspectRatio: number | null
   transform: ItemTransform | null
+  mediaPlate: MediaPlate | null
 }
 
 export interface SeedSyncTemplateItemsOutput

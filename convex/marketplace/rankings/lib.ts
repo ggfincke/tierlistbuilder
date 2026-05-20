@@ -193,6 +193,7 @@ const toRankingItem = async (
   tierExternalId: item.tierExternalId,
   label: item.label,
   backgroundColor: item.backgroundColor,
+  mediaPlate: item.mediaPlate ?? null,
   altText: item.altText,
   media: item.mediaAssetId
     ? await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache)

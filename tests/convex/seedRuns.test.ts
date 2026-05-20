@@ -725,6 +725,7 @@ describe('seed run precheck API', () =>
             mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
+            mediaPlate: null,
           },
           {
             itemExternalId: 'link',
@@ -733,6 +734,7 @@ describe('seed run precheck API', () =>
             mediaDedupeHash: 'tile:hash-link',
             aspectRatio: 1,
             transform: null,
+            mediaPlate: null,
           },
         ],
       }
@@ -768,6 +770,7 @@ describe('seed run precheck API', () =>
             mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
+            mediaPlate: null,
           },
           {
             itemExternalId: 'link',
@@ -776,6 +779,7 @@ describe('seed run precheck API', () =>
             mediaDedupeHash: 'tile:hash-link',
             aspectRatio: 1,
             transform: null,
+            mediaPlate: null,
           },
         ],
       }
@@ -830,6 +834,7 @@ describe('seed run precheck API', () =>
             mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
+            mediaPlate: null,
           },
           {
             itemExternalId: 'link',
@@ -838,6 +843,7 @@ describe('seed run precheck API', () =>
             mediaDedupeHash: 'tile:hash-link',
             aspectRatio: 1,
             transform: null,
+            mediaPlate: null,
           },
         ],
       }
@@ -857,6 +863,7 @@ describe('seed run precheck API', () =>
             mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
+            mediaPlate: null,
           },
           {
             itemExternalId: 'mario',
@@ -865,6 +872,7 @@ describe('seed run precheck API', () =>
             mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
+            mediaPlate: null,
           },
         ],
       })
@@ -884,6 +892,7 @@ describe('seed run precheck API', () =>
             mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
+            mediaPlate: null,
           },
         ],
       })
@@ -915,6 +924,7 @@ describe('seed run precheck API', () =>
             mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
+            mediaPlate: null,
           },
         ],
       }
@@ -1027,6 +1037,7 @@ describe('seed run precheck API', () =>
           mediaDedupeHash: current.dedupeHash,
           aspectRatio: 1,
           transform: null,
+          mediaPlate: null,
         },
       ],
     })
@@ -1212,6 +1223,7 @@ describe('seed run precheck API', () =>
           mediaDedupeHash: 'tile:hash-mario',
           aspectRatio: 1,
           transform: null,
+          mediaPlate: null,
         },
         {
           itemExternalId: 'link',
@@ -1220,6 +1232,7 @@ describe('seed run precheck API', () =>
           mediaDedupeHash: 'tile:hash-link',
           aspectRatio: 1,
           transform: null,
+          mediaPlate: null,
         },
       ],
     })
@@ -1368,6 +1381,7 @@ describe('seed run precheck API', () =>
           mediaDedupeHash: 'tile:hash-mario',
           aspectRatio: 1,
           transform: null,
+          mediaPlate: null,
         },
         {
           itemExternalId: 'link',
@@ -1376,6 +1390,7 @@ describe('seed run precheck API', () =>
           mediaDedupeHash: 'tile:hash-link',
           aspectRatio: 1,
           transform: null,
+          mediaPlate: null,
         },
       ],
     })

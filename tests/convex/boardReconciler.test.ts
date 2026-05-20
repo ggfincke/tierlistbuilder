@@ -64,6 +64,7 @@ describe('diffItems media semantics', () =>
           order: 4,
           label: undefined,
           backgroundColor: undefined,
+          mediaPlate: undefined,
           altText: undefined,
           notes: undefined,
           aspectRatio: undefined,
@@ -85,6 +86,7 @@ describe('diffItems media semantics', () =>
           order: 0,
           label: 'Edited label',
           backgroundColor: '#111827',
+          mediaPlate: 'light',
           altText: 'Edited alt text',
           notes: 'Private note edited before delete',
         },
@@ -93,6 +95,7 @@ describe('diffItems media semantics', () =>
         makeServerItem({
           label: 'Old label',
           backgroundColor: undefined,
+          mediaPlate: 'dark',
           altText: 'Old alt text',
           notes: 'Old note',
         }),
@@ -110,6 +113,7 @@ describe('diffItems media semantics', () =>
       fields: {
         label: 'Edited label',
         backgroundColor: '#111827',
+        mediaPlate: 'light',
         altText: 'Edited alt text',
         notes: 'Private note edited before delete',
       },
@@ -152,6 +156,31 @@ describe('diffItems media semantics', () =>
     )
     expect(labelPatch.patch).toEqual([
       { id: 'row-1', fields: { labelOptions: { fontSizePx: 18 } } },
+    ])
+  })
+
+  it('patches media plate changes and clears omitted plates', () =>
+  {
+    const setPlate = diffItems(
+      [{ externalId: 'item-1', tierId: null, mediaPlate: 'light', order: 0 }],
+      [makeServerItem()],
+      new Map(),
+      new Map(),
+      new Set()
+    )
+    expect(setPlate.patch).toEqual([
+      { id: 'row-1', fields: { mediaPlate: 'light' } },
+    ])
+
+    const clearPlate = diffItems(
+      [{ externalId: 'item-1', tierId: null, order: 0 }],
+      [makeServerItem({ mediaPlate: 'dark' })],
+      new Map(),
+      new Map(),
+      new Set()
+    )
+    expect(clearPlate.patch).toEqual([
+      { id: 'row-1', fields: { mediaPlate: undefined } },
     ])
   })
 })
