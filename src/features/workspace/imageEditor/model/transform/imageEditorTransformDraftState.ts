@@ -8,7 +8,7 @@ import {
   type DraftState,
 } from '~/features/workspace/imageEditor/model/transform/useDebouncedDraft'
 
-export type ImageEditorTransformDraftState = DraftState<ItemTransform>
+type ImageEditorTransformDraftState = DraftState<ItemTransform>
 
 export const syncImageEditorTransformDraftState = (
   draftState: ImageEditorTransformDraftState,

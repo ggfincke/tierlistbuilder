@@ -1,5 +1,5 @@
 // src/shared/ui/settings/OverrideColorRow.tsx
-// reusable color override row with reset affordance
+// reusable color override row w/ reset affordance
 
 import { RotateCcw } from 'lucide-react'
 

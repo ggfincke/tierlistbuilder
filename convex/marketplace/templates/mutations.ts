@@ -955,6 +955,9 @@ export const useTemplate = mutation({
     }
 
     const userId = await requireCurrentUserId(ctx)
+    // throttle before the board insert so a script can't mass-create boards or
+    // inflate the template's forkCount/trendingScore
+    await enforceRateLimit(ctx, 'userTemplateFork', userId)
     const template = await findTemplateBySlug(ctx, args.slug)
     if (!template || !isPublishedTemplateRow(template))
     {

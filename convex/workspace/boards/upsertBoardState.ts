@@ -60,6 +60,9 @@ import {
 } from '@tierlistbuilder/contracts/lib/ids'
 import { diffTiers, diffItems } from '../sync/boardReconciler'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
+import { loadBoardCloudState } from '../sync/boardStateLoader'
+import { cloudBoardStateValidator } from '../../lib/validators/workspace'
+import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../../lib/limits'
 import { assertCanCloudSyncBoard } from '../../lib/entitlements'
 import {
@@ -266,7 +269,7 @@ const validateImagePadding = (
 
 type UpsertResult =
   | { conflict: null; newRevision: number }
-  | { conflict: { serverRevision: number }; newRevision: null }
+  | { conflict: { serverState: CloudBoardState }; newRevision: null }
 
 // --- phase 1: validate inputs ------------------------------------------------
 
@@ -948,7 +951,10 @@ export const upsertBoardState = mutation({
   returns: v.union(
     v.object({ conflict: v.null(), newRevision: v.number() }),
     v.object({
-      conflict: v.object({ serverRevision: v.number() }),
+      // carry the full server snapshot in the conflict response so the client
+      // resolves against exactly the revision that lost — no second round-trip
+      // that could observe a newer, unreviewed revision mid-resolution
+      conflict: v.object({ serverState: cloudBoardStateValidator }),
       newRevision: v.null(),
     })
   ),
@@ -980,14 +986,32 @@ export const upsertBoardState = mutation({
       await tickForkCounterIfFirstSync(ctx, board)
     }
 
-    // cheap revision compare BEFORE loading rows — a conflict response avoids
-    // scanning the full server state. client follows up w/ getBoardStateByExternalId
-    // to populate the conflict UI
+    // conflict if another device committed since the client pulled (baseRevision
+    // mismatch), or the client thinks this is a fresh board but the server holds
+    // committed content (null baseRevision vs revision > 0) — reconcile, not clobber
     const currentRevision = board.revision
-    if (args.baseRevision !== null && args.baseRevision !== currentRevision)
+    const baseRevisionMismatch =
+      args.baseRevision !== null && args.baseRevision !== currentRevision
+    // isNewBoard is revision 0, so a genuine first sync is never caught here
+    const staleNullBaseRevision =
+      args.baseRevision === null && currentRevision > 0
+    if (baseRevisionMismatch || staleNullBaseRevision)
     {
+      // load the snapshot in THIS transaction so the client resolves against the
+      // exact revision that lost — a follow-up query could observe a newer
+      // revision from an interleaving flush (re-fetch TOCTOU)
+      const { serverTiers, serverItems } = await loadBoundedBoardRows(
+        ctx,
+        board._id
+      )
+      const serverState = await loadBoardCloudState(
+        ctx,
+        board,
+        serverTiers,
+        serverItems
+      )
       return {
-        conflict: { serverRevision: currentRevision },
+        conflict: { serverState },
         newRevision: null,
       }
     }

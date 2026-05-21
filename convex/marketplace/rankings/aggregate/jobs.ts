@@ -367,7 +367,8 @@ type AggregateHighlightIndex =
 const loadAggregateHighlight = async (
   ctx: MutationCtx,
   job: AggregateJob,
-  indexName: AggregateHighlightIndex
+  indexName: AggregateHighlightIndex,
+  requirePositiveControversy = false
 ): Promise<MarketplaceTemplateRankingAggregateHighlight | null> =>
 {
   const rows = await ctx.db
@@ -379,7 +380,13 @@ const loadAggregateHighlight = async (
         .eq('generation', job.generation)
     )
     .take(1)
-  return rows[0] ? toAggregateHighlight(rows[0]) : null
+  const row = rows[0]
+  if (!row) return null
+  // the controversySort index still surfaces a row even when every item is
+  // unanimous (controversyScore 0); a "most divisive" highlight is meaningless
+  // unless something is actually contested, so suppress it in that case
+  if (requirePositiveControversy && row.controversyScore <= 0) return null
+  return toAggregateHighlight(row)
 }
 
 const loadAggregateHighlights = async (
@@ -408,7 +415,8 @@ const loadAggregateHighlights = async (
       ? loadAggregateHighlight(
           ctx,
           job,
-          'byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder'
+          'byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder',
+          true
         )
       : Promise.resolve(null),
   ])
@@ -630,8 +638,18 @@ const processActiveRanking = async (
     })
 
   const bucketSpread = [...job.bucketSpread]
+  // two page items sharing a templateItemId would race read-modify-write under
+  // Promise.all & drop an increment. write paths enforce 1 row per templateItem
+  // per ranking, so this is a defensive in-transaction guard — dedupe to first
+  const seenTemplateItemIds = new Set<Id<'templateItems'>>()
+  const uniquePageItems = page.page.filter((item) =>
+  {
+    if (seenTemplateItemIds.has(item.templateItemId)) return false
+    seenTemplateItemIds.add(item.templateItemId)
+    return true
+  })
   const deltas = await Promise.all(
-    page.page.map(async (item) =>
+    uniquePageItems.map(async (item) =>
     {
       const tierExternalId = item.tierExternalId
       if (tierExternalId === null) return null
@@ -796,10 +814,10 @@ async function finishJob(
       previousGeneration
     )
   }
-  if (
-    job.restartRequestedAt !== null &&
-    job.restartRequestedAt > job.createdAt
-  )
+  // restartRequestedAt is null at job creation & only stamped when a recompute
+  // arrives mid-flight, so any non-null value means a re-run is owed. (the prior
+  // `> createdAt` compare silently dropped a request landing in the same ms.)
+  if (job.restartRequestedAt !== null)
   {
     await queueTemplateRankingAggregateRecompute(
       ctx,

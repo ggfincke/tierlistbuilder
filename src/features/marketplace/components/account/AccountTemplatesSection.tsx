@@ -16,6 +16,10 @@ import {
 } from '~/features/marketplace/model/detail/useTemplateDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
+import {
+  getTemplatePublishControl,
+  type TemplatePublishAction,
+} from '~/features/marketplace/model/account/templatePublishActions'
 import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
@@ -37,33 +41,27 @@ const PublishModal = lazyNamed(loadPublishModal, 'PublishModal')
 interface VisibilityBadgeProps
 {
   visibility: TemplateVisibility
-  isPubliclyListable: boolean
+  publicationState: MarketplaceTemplateManagementItem['publicationState']
 }
+
+const FaintBadge = ({ label }: { label: string }) => (
+  <span className="rounded-full border border-[var(--t-border)] bg-[var(--t-bg-page)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
+    {label}
+  </span>
+)
 
 const VisibilityBadge = ({
   visibility,
-  isPubliclyListable,
+  publicationState,
 }: VisibilityBadgeProps) =>
 {
-  // unpublished -> the template-state field is the source of truth, not the
-  // stored visibility (which is preserved across the unpublish/republish round
-  // trip so re-publishing restores the prior listing setting)
-  if (!isPubliclyListable && visibility === 'public')
-  {
-    return (
-      <span className="rounded-full border border-[var(--t-border)] bg-[var(--t-bg-page)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-        Unpublished
-      </span>
-    )
-  }
-  if (visibility === 'unlisted')
-  {
-    return (
-      <span className="rounded-full border border-[var(--t-border)] bg-[var(--t-bg-page)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-        Unlisted
-      </span>
-    )
-  }
+  // publication state is the source of truth, not stored visibility (preserved
+  // across unpublish/republish so re-publish restores the listing). pending/
+  // failed are surfaced distinctly so a failed publish isn't read as unpublished
+  if (publicationState === 'publishPending') return <FaintBadge label="Publishing" />
+  if (publicationState === 'publishFailed') return <FaintBadge label="Failed" />
+  if (publicationState === 'unpublished') return <FaintBadge label="Unpublished" />
+  if (visibility === 'unlisted') return <FaintBadge label="Unlisted" />
   return (
     <span className="rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
       Public
@@ -78,8 +76,6 @@ interface RowProps
   onEdit: () => void
   onTogglePublish: () => void
 }
-
-type TemplatePublishAction = 'unpublish' | 'republish'
 
 type TemplatePublishState =
   | { kind: 'idle' }
@@ -108,14 +104,26 @@ const TEMPLATE_PUBLISH_ACTION_META: Record<
 
 const IDLE_TEMPLATE_PUBLISH_STATE: TemplatePublishState = { kind: 'idle' }
 
-const isTemplateUnpublished = (
-  template: MarketplaceTemplateManagementItem
-): boolean =>
-  template.publicationState === 'unpublished' || !template.isPubliclyListable
+const PUBLISH_TOGGLE_LABEL: Record<TemplatePublishAction, string> = {
+  unpublish: 'Unpublish',
+  republish: 'Republish',
+}
 
 const TemplateRow = ({ template, busy, onEdit, onTogglePublish }: RowProps) =>
 {
   const categoryLabel = CATEGORY_META[template.category].label
+  const control = getTemplatePublishControl(template)
+  // pending/failed are publish-job states w/ no toggle action — disable the
+  // button so it can't tear down an in-flight or failed publish & label it
+  // to match the badge
+  const toggleDisabled = busy || control.kind !== 'toggle'
+  const toggleSpinning = busy || control.kind === 'pending'
+  const toggleLabel =
+    control.kind === 'pending'
+      ? 'Publishing…'
+      : control.kind === 'failed'
+        ? 'Publish failed'
+        : PUBLISH_TOGGLE_LABEL[control.action]
   return (
     <div className="flex flex-col gap-2 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3 sm:flex-row sm:items-center sm:gap-4">
       <div className="min-w-0 flex-1">
@@ -125,7 +133,7 @@ const TemplateRow = ({ template, busy, onEdit, onTogglePublish }: RowProps) =>
           </span>
           <VisibilityBadge
             visibility={template.visibility}
-            isPubliclyListable={template.isPubliclyListable}
+            publicationState={template.publicationState}
           />
         </div>
         <p className="mt-0.5 text-[11px] text-[var(--t-text-faint)]">
@@ -168,12 +176,14 @@ const TemplateRow = ({ template, busy, onEdit, onTogglePublish }: RowProps) =>
         </button>
         <button
           type="button"
-          onClick={onTogglePublish}
-          disabled={busy}
+          onClick={control.kind === 'toggle' ? onTogglePublish : undefined}
+          disabled={toggleDisabled}
           className="focus-custom inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--t-border)] px-2.5 text-xs font-medium text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
         >
-          {busy && <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />}
-          {isTemplateUnpublished(template) ? 'Republish' : 'Unpublish'}
+          {toggleSpinning && (
+            <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />
+          )}
+          {toggleLabel}
         </button>
       </div>
     </div>
@@ -272,7 +282,9 @@ export const AccountTemplatesSection = () =>
               onEdit={() => setEditTarget(toEditInitialValues(template))}
               onTogglePublish={() =>
               {
-                if (isTemplateUnpublished(template))
+                const control = getTemplatePublishControl(template)
+                if (control.kind !== 'toggle') return
+                if (control.action === 'republish')
                 {
                   void runPublishAction('republish', template.slug)
                 }

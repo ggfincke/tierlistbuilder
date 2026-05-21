@@ -244,4 +244,51 @@ describe('serverStateToSnapshot', () =>
       preferredCriterionExternalId: 'favorites',
     })
   })
+
+  it('keeps soft-deleted cloud items out of the live item map', () =>
+  {
+    const activeId = asItemId('item-active')
+    const deletedId = asItemId('item-deleted')
+
+    const snapshot = serverStateToSnapshot({
+      title: 'Board',
+      revision: 4,
+      tiers: [
+        {
+          externalId: 'tier-a',
+          name: 'A',
+          colorSpec: { kind: 'palette', index: 0 },
+          order: 0,
+          itemIds: [activeId],
+        },
+      ],
+      items: [
+        {
+          externalId: activeId,
+          tierId: 'tier-a',
+          label: 'Active',
+          order: 0,
+          deletedAt: null,
+        },
+        {
+          externalId: deletedId,
+          tierId: null,
+          label: 'Deleted',
+          notes: 'Trash note',
+          order: -1,
+          deletedAt: 200,
+        },
+      ],
+    })
+
+    expect(snapshot.items[activeId]?.label).toBe('Active')
+    expect(snapshot.items[deletedId]).toBeUndefined()
+    expect(snapshot.deletedItems).toEqual([
+      expect.objectContaining({
+        id: deletedId,
+        label: 'Deleted',
+        notes: 'Trash note',
+      }),
+    ])
+  })
 })

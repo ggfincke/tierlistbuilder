@@ -17,6 +17,9 @@ export const MAX_AGGREGATE_SEARCH_LENGTH = 80
 export const BATCH_LIMITS = {
   // hard-delete scheduler picks up this many soft-deleted boards per tick
   hardDeleteSchedule: 64,
+  // item-tombstone GC hard-deletes this many aged boardItems per batch. higher
+  // than board hard-delete since each delete is a leaf row w/ no cascade
+  itemTombstoneGc: 256,
   // media GC scans this many image rows per batch
   mediaGc: 64,
   // storage GC cleans this many orphaned storage blobs per batch

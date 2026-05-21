@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -135,7 +136,23 @@ class ConvexSeedClient:
 	def action(self, function_path: str, args: JsonObject) -> JsonObject:
 		return self._call("action", function_path, args)
 
-	def upload_file(self, upload_url: str, path: Path, mime_type: str) -> str:
+	def upload_file(
+		self,
+		upload_url: str,
+		path: Path,
+		mime_type: str,
+		expected_byte_size: int | None = None,
+	) -> str:
+		# stat() before read_bytes() so a variant that changed on disk since build
+		# (where it was validated & hashed) can't be slurped into memory or
+		# uploaded with bytes that won't match its contentHash at finalize
+		if expected_byte_size is not None:
+			actual_byte_size = path.stat().st_size
+			if actual_byte_size != expected_byte_size:
+				raise ConvexClientError(
+					f"upload aborted: {path} is {actual_byte_size} bytes, "
+					f"expected {expected_byte_size} (cache file changed since build?)"
+				)
 		body = path.read_bytes()
 		payload = self._request_json(
 			lambda: Request(
@@ -199,7 +216,26 @@ class ConvexSeedClient:
 		raise last_error or ConvexClientError("Convex request failed")
 
 	def _scrub_secret(self, message: str) -> str:
-		return message.replace(self.settings.seed_secret, "[redacted-seed-secret]")
+		# both the seed secret and author_password ride in request bodies, so a
+		# Convex error echo or traceback could leak them into CI logs. redact every
+		# secret in a single pass so a placeholder inserted for one is never
+		# rescanned for another (sequential str.replace could otherwise let one
+		# secret's value corrupt an already-inserted marker).
+		redactions = {
+			secret: placeholder
+			for secret, placeholder in (
+				(self.settings.seed_secret, "[redacted-seed-secret]"),
+				(self.settings.author_password, "[redacted-author-password]"),
+			)
+			if secret
+		}
+		if not redactions:
+			return message
+		# longest secrets first so a value that is a substring of another still
+		# resolves to its own (more specific) placeholder
+		ordered = sorted(redactions, key=len, reverse=True)
+		pattern = re.compile("|".join(re.escape(secret) for secret in ordered))
+		return pattern.sub(lambda match: redactions[match.group(0)], message)
 
 	def _error_from_http_detail(self, detail: str, http_status: int) -> ConvexClientError:
 		try:

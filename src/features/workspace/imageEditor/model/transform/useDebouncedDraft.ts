@@ -70,7 +70,7 @@ interface UseDebouncedDraftInput<T>
   onWorkingChange?: (next: T, isDirty: boolean) => void
 }
 
-export interface DebouncedDraft<T>
+interface DebouncedDraft<T>
 {
   working: T
   isDirty: boolean

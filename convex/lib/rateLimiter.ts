@@ -34,6 +34,15 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: HOUR,
     capacity: 20,
   },
+  // forking inserts a full board + items & ticks the source's fork/trending
+  // counters. more generous than publish (casual browsing) but bounded so one
+  // account can't mass-create boards or inflate a template's trending rank
+  userTemplateFork: {
+    kind: 'token bucket',
+    rate: 30,
+    period: HOUR,
+    capacity: 30,
+  },
   // ranking publish also queues an aggregate recompute downstream, so the
   // cap is set tighter than the surface-cost alone would suggest
   userRankingPublish: {
@@ -41,6 +50,14 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
     rate: 20,
     period: HOUR,
     capacity: 20,
+  },
+  // remixing a consensus inserts a full board + items & ticks the source
+  // template's remix/fork stats — same abuse surface as userTemplateFork
+  userRankingRemix: {
+    kind: 'token bucket',
+    rate: 30,
+    period: HOUR,
+    capacity: 30,
   },
   // keyed per (user, slug): one user cannot inflate a single template's
   // viewCount by mashing refresh, but can browse arbitrarily many templates
@@ -63,7 +80,9 @@ type RateLimitBucketName =
   | 'userShortLinkCreate'
   | 'userMediaUpload'
   | 'userTemplatePublish'
+  | 'userTemplateFork'
   | 'userRankingPublish'
+  | 'userRankingRemix'
   | 'userTemplateView'
   | 'userRankingView'
 

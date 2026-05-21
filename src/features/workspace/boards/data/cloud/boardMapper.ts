@@ -191,6 +191,34 @@ const toCloudImageRef = (
       }
     : undefined
 
+const cloudItemToSnapshotItem = (
+  item: CloudBoardState['items'][number]
+): TierItem =>
+{
+  const id = asItemId(item.externalId)
+  const mediaExternalId = item.mediaExternalId ?? undefined
+  return {
+    id,
+    imageRef: toCloudImageRef(item.previewMediaContentHash, mediaExternalId),
+    tileImageRef: toCloudImageRef(item.mediaContentHash, mediaExternalId),
+    sourceImageRef: toCloudImageRef(
+      item.sourceMediaContentHash,
+      mediaExternalId
+    ),
+    label: item.label,
+    backgroundColor: item.backgroundColor,
+    mediaPlate: item.mediaPlate,
+    altText: item.altText,
+    notes: item.notes,
+    aspectRatio: item.aspectRatio,
+    imageFit: item.imageFit,
+    transform: item.transform,
+    imagePadding: item.imagePadding,
+    labelOptions: item.labelOptions,
+    sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
+  }
+}
+
 // convert cloud server state to a local BoardSnapshot. images are wired
 // from the server's contentHash + externalId — the lazy fetcher hydrates
 // blobs into IDB on first render
@@ -205,29 +233,15 @@ export const serverStateToSnapshot = (
   // single pass: split active/deleted & build the items record
   for (const item of serverState.items)
   {
-    if (item.deletedAt === null) activeItems.push(item)
-    else deletedItems.push(item)
-
-    const mediaExternalId = item.mediaExternalId ?? undefined
-    items[asItemId(item.externalId)] = {
-      id: asItemId(item.externalId),
-      imageRef: toCloudImageRef(item.previewMediaContentHash, mediaExternalId),
-      tileImageRef: toCloudImageRef(item.mediaContentHash, mediaExternalId),
-      sourceImageRef: toCloudImageRef(
-        item.sourceMediaContentHash,
-        mediaExternalId
-      ),
-      label: item.label,
-      backgroundColor: item.backgroundColor,
-      mediaPlate: item.mediaPlate,
-      altText: item.altText,
-      notes: item.notes,
-      aspectRatio: item.aspectRatio,
-      imageFit: item.imageFit,
-      transform: item.transform,
-      imagePadding: item.imagePadding,
-      labelOptions: item.labelOptions,
-      sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
+    if (item.deletedAt === null)
+    {
+      activeItems.push(item)
+      const snapshotItem = cloudItemToSnapshotItem(item)
+      items[snapshotItem.id] = snapshotItem
+    }
+    else
+    {
+      deletedItems.push(item)
     }
   }
 
@@ -257,7 +271,7 @@ export const serverStateToSnapshot = (
     items,
     deletedItems: deletedItems
       .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0))
-      .map((i) => items[asItemId(i.externalId)]),
+      .map(cloudItemToSnapshotItem),
     itemAspectRatio: serverState.itemAspectRatio,
     itemAspectRatioMode: serverState.itemAspectRatioMode,
     aspectRatioPromptDismissed: serverState.aspectRatioPromptDismissed,

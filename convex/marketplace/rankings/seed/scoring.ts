@@ -28,7 +28,10 @@ const fnv1aHash = (value: string): number =>
   return hash >>> 0
 }
 
-const unitHash = (value: string): number => fnv1aHash(value) / 0xffffffff
+// divide by 2^32 (not 2^32-1) so the result stays in [0, 1) — dividing by
+// 0xffffffff lets a max hash land exactly on 1.0 & push downstream floor()s
+// one bucket past their intended range
+const unitHash = (value: string): number => fnv1aHash(value) / 0x100000000
 
 export const seedUnitHash = (value: string): number => unitHash(value)
 

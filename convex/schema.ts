@@ -248,7 +248,11 @@ export default defineSchema({
     .index('byBoardAndTier', ['boardId', 'tierId', 'order'])
     .index('byBoardDeletedAtOrder', ['boardId', 'deletedAt', 'order'])
     .index('byBoardAndTemplateItem', ['boardId', 'templateItemId'])
-    .index('byMedia', ['mediaAssetId']),
+    .index('byMedia', ['mediaAssetId'])
+    // global tombstone sweep: the daily gcDeletedBoardItems cron hard-deletes
+    // aged item tombstones on live boards so churn can't grow boardItems past
+    // the sync read limit (BOARD_ITEM_TAKE_LIMIT) & strand a board
+    .index('byDeletedAt', ['deletedAt']),
 
   // logical uploaded image identity; physical blobs live in mediaVariants
   mediaAssets: defineTable({

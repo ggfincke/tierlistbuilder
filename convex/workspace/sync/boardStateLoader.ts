@@ -3,8 +3,12 @@
 // upsertBoardState conflict path & the getBoardStateByExternalId query
 
 import { ConvexError } from 'convex/values'
-import type { QueryCtx } from '../../_generated/server'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
+
+// read-only over ctx.db — usable from both the getBoardStateByExternalId query
+// & the upsertBoardState mutation's conflict path
+type ReadCtx = QueryCtx | MutationCtx
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
@@ -17,7 +21,7 @@ import {
 // only ever know the slug. resolve typed table ids -> slugs at load time so
 // the wire stays slug-based both ways (push & pull)
 const loadSourceTemplateSlug = async (
-  ctx: QueryCtx,
+  ctx: ReadCtx,
   templateId: Id<'templates'> | null
 ): Promise<string | null> =>
 {
@@ -27,7 +31,7 @@ const loadSourceTemplateSlug = async (
 }
 
 const loadSourceRankingSlug = async (
-  ctx: QueryCtx,
+  ctx: ReadCtx,
   rankingId: Id<'publishedRankings'> | null
 ): Promise<string | null> =>
 {
@@ -44,7 +48,7 @@ type MediaInfo = {
 }
 
 export const loadBoardCloudState = async (
-  ctx: QueryCtx,
+  ctx: ReadCtx,
   board: Doc<'boards'>,
   serverTiers: Doc<'boardTiers'>[],
   serverItems: Doc<'boardItems'>[]

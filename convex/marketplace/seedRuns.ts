@@ -446,6 +446,9 @@ export const upsertSeedTemplates = internalMutation({
       args.datasetKey
     )
     const releaseIsActive = activeReleaseIdsForDataset.includes(args.releaseId)
+    // one timestamp for the whole batch so every template upserted in this call
+    // shares a consistent createdAt/updatedAt
+    const now = Date.now()
     for (const template of args.templates as SeedTemplateUpsertArg[])
     {
       const existing = existingByExternalId.get(template.externalId) ?? null
@@ -456,7 +459,6 @@ export const upsertSeedTemplates = internalMutation({
         mediaAssetCache,
         releaseIsActive || existing?.seedReleaseStatus === 'active'
       )
-      const now = Date.now()
       if (!existing)
       {
         const slug = await allocateTemplateSlug(ctx)

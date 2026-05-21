@@ -199,6 +199,10 @@ const buildOrderedRankingItems = async (
 
   const templateItemsById = await loadTemplateItemsByIds(ctx, templateItemIds)
   const sortedTiers = [...tiers].sort((a, b) => a.order - b.order)
+  // one ranking row per templateItem — two tiles linked to the same source item
+  // would emit duplicate rows the per-templateItem aggregate counts
+  // inconsistently (once if co-paged, twice if split). keep the first placement
+  const seenTemplateItemIds = new Set<Id<'templateItems'>>()
   const rows: OrderedRankingItem[] = []
   for (const tier of sortedTiers)
   {
@@ -215,6 +219,7 @@ const buildOrderedRankingItems = async (
           message: 'ranking item references a missing template item',
         })
       }
+      if (seenTemplateItemIds.has(templateItemId)) continue
       const templateItem = templateItemsById.get(templateItemId)
       if (!templateItem)
       {
@@ -223,6 +228,7 @@ const buildOrderedRankingItems = async (
           message: 'source template item missing',
         })
       }
+      seenTemplateItemIds.add(templateItemId)
       rows.push({
         boardItem: item,
         tierExternalId: tier.externalId,
@@ -500,6 +506,9 @@ export const remixTemplateConsensus = mutation({
       })
     }
     const userId = await requireCurrentUserId(ctx)
+    // throttle before the board insert so a script can't mass-create boards or
+    // inflate the source template's remix/fork stats
+    await enforceRateLimit(ctx, 'userRankingRemix', userId)
     const template = await findTemplateBySlug(ctx, args.templateSlug)
     if (!template || !isPublishedTemplateRow(template))
     {

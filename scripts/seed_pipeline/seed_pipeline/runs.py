@@ -638,10 +638,19 @@ def _upload_assets(
 
 		def upload_one(args: tuple[JsonObject, JsonObject]) -> str:
 			variant, upload_row = args
+			# positional pairing: the server returns one row per requested variant
+			# in order, and duplicate contentHashes intentionally map to distinct
+			# storage objects (so we can't re-key by hash). assert the hash matches
+			# at this position to catch any future server reordering before bytes
+			# land in the wrong storage slot
+			if upload_row.get("contentHash") != variant["contentHash"]:
+				msg = "seed upload row out of order: contentHash mismatch with its variant"
+				raise RuntimeError(msg)
 			return context.client.upload_file(
 				upload_row["uploadUrl"],
 				Path(variant["path"]),
 				variant["mimeType"],
+				variant["byteSize"],
 			)
 
 		# ThreadPoolExecutor directly (not concurrency.run_in_parallel) because

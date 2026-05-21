@@ -48,12 +48,55 @@ export const scheduleHardDeletes = internalMutation({
   },
 })
 
+// hard-delete aged item tombstones on live boards — without this sweep,
+// boardItems soft-deletes on churned boards accumulate past the
+// loadBoundedBoardRows take limit (BOARD_ITEM_TAKE_LIMIT) & strand the board
+export const gcDeletedBoardItems = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ deleted: v.number() }),
+  handler: async (ctx, args): Promise<{ deleted: number }> =>
+  {
+    const cutoff = Date.now() - BOARD_TOMBSTONE_RETENTION_MS
+    // gt(0) skips active rows (deletedAt === null) & the never-used 0 sentinel;
+    // lt(cutoff) bounds the range to tombstones past the retention window
+    const page = await ctx.db
+      .query('boardItems')
+      .withIndex('byDeletedAt', (q) =>
+        q.gt('deletedAt', 0).lt('deletedAt', cutoff)
+      )
+      .paginate({
+        numItems: BATCH_LIMITS.itemTombstoneGc,
+        cursor: args.cursor,
+      })
+
+    await Promise.all(page.page.map((item) => ctx.db.delete(item._id)))
+
+    if (!page.isDone)
+    {
+      await ctx.scheduler.runAfter(0, internal.crons.gcDeletedBoardItems, {
+        cursor: page.continueCursor,
+      })
+    }
+
+    return { deleted: page.page.length }
+  },
+})
+
 const crons = cronJobs()
 
 crons.cron(
   'hard-delete expired soft-deleted boards',
   '17 3 * * *',
   internal.crons.scheduleHardDeletes,
+  { cursor: null }
+)
+
+// item-tombstone sweep — staggered before the board hard-delete so it operates
+// on live boards only (dead boards' items are removed by cascadeDeleteBoard)
+crons.cron(
+  'gc aged board item tombstones',
+  '17 2 * * *',
+  internal.crons.gcDeletedBoardItems,
   { cursor: null }
 )
 

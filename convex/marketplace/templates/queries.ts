@@ -61,6 +61,7 @@ import {
   toTemplateItem,
 } from './lib'
 import { getBoardSourceTemplateId } from '../../workspace/boards/sourceFields'
+import { failInput } from '../../lib/text'
 
 const listCategoryArg = v.optional(v.union(templateCategoryValidator, v.null()))
 
@@ -658,6 +659,19 @@ export const getMyTemplateCloneJob = query({
 const DEFAULT_RELATED_LIMIT = 4
 const MAX_RELATED_LIMIT = 12
 
+const normalizeRelatedLimit = (raw: number | undefined): number =>
+{
+  if (raw === undefined)
+  {
+    return DEFAULT_RELATED_LIMIT
+  }
+  if (!Number.isFinite(raw) || raw < 1)
+  {
+    failInput('related template limit must be a finite number of at least 1')
+  }
+  return Math.min(Math.floor(raw), MAX_RELATED_LIMIT)
+}
+
 export const getRelatedTemplates = query({
   args: {
     slug: v.string(),
@@ -679,10 +693,7 @@ export const getRelatedTemplates = query({
       return { items: [] }
     }
 
-    const limit = Math.max(
-      1,
-      Math.min(MAX_RELATED_LIMIT, args.limit ?? DEFAULT_RELATED_LIMIT)
-    )
+    const limit = normalizeRelatedLimit(args.limit)
     const rows = await ctx.db
       .query('templateCards')
       .withIndex('byCategoryIsPubliclyListableForkCount', (q) =>

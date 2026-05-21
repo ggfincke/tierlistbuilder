@@ -982,6 +982,60 @@ describe('marketplace template Convex functions', () =>
     })
   })
 
+  it('normalizes related-template limits before reading the rail', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    await t.run(async (ctx) =>
+    {
+      await seedPublishedTemplate(ctx, {
+        authorId,
+        slug: 'RelTpl0001',
+        title: 'Related Anchor',
+        category: 'gaming',
+        itemCount: 1,
+        sizeClass: 'standard',
+      })
+      await seedPublishedTemplate(ctx, {
+        authorId,
+        slug: 'RelTpl0002',
+        title: 'Related One',
+        category: 'gaming',
+        itemCount: 1,
+        sizeClass: 'standard',
+      })
+      await seedPublishedTemplate(ctx, {
+        authorId,
+        slug: 'RelTpl0003',
+        title: 'Related Two',
+        category: 'gaming',
+        itemCount: 1,
+        sizeClass: 'standard',
+      })
+    })
+
+    const fractional = await t.query(
+      api.marketplace.templates.queries.getRelatedTemplates,
+      { slug: 'RelTpl0001', limit: 1.8 }
+    )
+    expect(fractional.items).toHaveLength(1)
+
+    await expectConvexCode(
+      t.query(api.marketplace.templates.queries.getRelatedTemplates, {
+        slug: 'RelTpl0001',
+        limit: Number.NaN,
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+    await expectConvexCode(
+      t.query(api.marketplace.templates.queries.getRelatedTemplates, {
+        slug: 'RelTpl0001',
+        limit: Number.POSITIVE_INFINITY,
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+  })
+
   it('uses preview cover media for template draft thumbnails', async () =>
   {
     const t = makeTest()

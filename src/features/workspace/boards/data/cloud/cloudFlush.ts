@@ -11,10 +11,7 @@ import {
   extractBoardSyncState,
   type BoardSyncState,
 } from '~/features/workspace/boards/model/sync'
-import {
-  getBoardStateByExternalIdImperative,
-  upsertBoardStateImperative,
-} from '~/features/workspace/boards/data/cloud/boardRepository'
+import { upsertBoardStateImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
 import { uploadBoardImages } from '~/features/platform/media/imageUploader'
 import { loadPersistedBoardState } from '~/features/workspace/boards/model/boardSession'
@@ -74,24 +71,10 @@ export const flushBoardToCloud = async (
 
     if (result.conflict)
     {
-      // conflict response is revision-only; fetch the full server state now
-      // so the conflict UI has everything it needs. the extra round-trip is
-      // rare (only on OCC mismatch) & saves a full-row load on the common path
-      const serverState = await getBoardStateByExternalIdImperative({
-        boardExternalId,
-      })
-      if (!serverState)
-      {
-        return {
-          kind: 'error',
-          error: classifySyncError(
-            new Error(
-              'conflict reported but server state missing: ' + boardExternalId
-            )
-          ),
-        }
-      }
-      return { kind: 'conflict', serverState }
+      // server snapshot rides along in the conflict response (captured in the
+      // same transaction that rejected the push), so the UI resolves against the
+      // exact revision that lost — not a newer one a follow-up fetch might see
+      return { kind: 'conflict', serverState: result.conflict.serverState }
     }
 
     return { kind: 'synced', revision: result.newRevision }
