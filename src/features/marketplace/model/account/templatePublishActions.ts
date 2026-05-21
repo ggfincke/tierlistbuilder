@@ -39,3 +39,7 @@ export const getTemplatePublishControl = (
     }
   }
 }
+
+export const canViewTemplateInGallery = (
+  template: TemplatePublishControlSource
+): boolean => template.publicationState === 'published'

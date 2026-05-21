@@ -2238,6 +2238,12 @@ describe('marketplace template Convex functions', () =>
         slug: published.slug,
       }
     )
+    await ranker.mutation(
+      api.marketplace.rankings.public.mutations.recordRankingView,
+      {
+        slug: published.slug,
+      }
+    )
 
     const rankings = await t.query(
       api.marketplace.rankings.public.queries.getRankingsForTemplate,
@@ -2270,6 +2276,72 @@ describe('marketplace template Convex functions', () =>
       detail!.items.map((item) => item.templateItemExternalId).sort()
     )
     expect(new Set(Object.values(myRanking.placements))).toEqual(new Set([0]))
+  })
+
+  it('hides rankings when their source template is unpublished', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(
+      t,
+      'Unpublish Author',
+      'unpublish-author@example.com'
+    )
+    const rankerId = await seedUser(
+      t,
+      'Unpublish Ranker',
+      'unpublish-ranker@example.com'
+    )
+    const {
+      templateId,
+      itemIds,
+      slug: templateSlug,
+    } = await seedAggregateTemplate(t, authorId, {
+      slug: 'UnpubTpl01',
+      title: 'Unpublish Template',
+    })
+    const tiers = [{ externalId: 'top', name: 'Top', order: 0 }]
+    const items = itemIds.map((templateItemId, index) => ({
+      templateItemId,
+      templateItemExternalId: `aggregate-item-${index}`,
+      tierExternalId: 'top',
+      externalId: `unpub-rank-item-${index}`,
+      label: `Aggregate Item ${index}`,
+      order: index,
+    }))
+    await seedAggregateRanking(t, {
+      ownerId: rankerId,
+      templateId,
+      templateSlug,
+      templateTitle: 'Unpublish Template',
+      slug: 'UnpubRank1',
+      title: 'Unpublish Ranking',
+      now: 1_000,
+      tiers,
+      items,
+    })
+
+    await asUser(t, authorId).mutation(
+      api.marketplace.templates.mutations.unpublishMyTemplate,
+      { slug: templateSlug }
+    )
+
+    await expect(
+      t.query(api.marketplace.rankings.public.queries.getRankingBySlug, {
+        slug: 'UnpubRank1',
+      })
+    ).resolves.toBeNull()
+    await expect(
+      t.query(api.marketplace.rankings.public.queries.getRankingsForTemplate, {
+        templateSlug,
+      })
+    ).resolves.toEqual({ items: [] })
+    await expect(
+      t.query(api.marketplace.rankings.public.queries.listRankingsForTemplate, {
+        templateSlug,
+        paginationOpts: { cursor: null, numItems: 10 },
+        sort: 'recent',
+      })
+    ).resolves.toMatchObject({ page: [] })
   })
 
   it('publishes rankings from locally-synced standard template forks', async () =>
@@ -3513,7 +3585,7 @@ describe('marketplace template Convex functions', () =>
         items: [item(0, 'tier-top'), item(1, 'tier-top'), item(2, 'tier-mid')],
       })
       vi.setSystemTime(5_000)
-      await t.mutation(
+      await asUser(t, rankerAId).mutation(
         api.marketplace.rankings.public.mutations.recordRankingView,
         {
           slug: 'AggRank001',

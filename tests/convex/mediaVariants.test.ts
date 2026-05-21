@@ -3,7 +3,7 @@
 
 import { convexTest } from 'convex-test'
 import { ConvexError } from 'convex/values'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
@@ -149,6 +149,110 @@ describe('media variants', () =>
       }
     )
     expect(withBoard).toEqual([true])
+  })
+
+  it('does not expose media referenced only by pending or failed templates', async () =>
+  {
+    const t = makeTest()
+    const ownerId = await seedUser(t)
+    const viewerId = await seedUser(t, 'Viewer')
+    const asset = await finalizeTileAsset(
+      t,
+      ownerId,
+      'pending-template-media',
+      [1, 2, 3]
+    )
+    const templateId = await t.run(async (ctx) =>
+    {
+      const id = await seedPublishedTemplate(ctx, {
+        slug: 'MediaTpl1',
+        authorId: ownerId,
+        title: 'Media Template',
+        sourceBoardId: null,
+        sizeClass: 'standard',
+        itemCount: 1,
+      })
+      await ctx.db.insert('templateItems', {
+        templateId: id,
+        externalId: 'media-template-item',
+        label: 'Media Template Item',
+        backgroundColor: null,
+        altText: null,
+        mediaAssetId: asset.mediaAssetId,
+        order: 0,
+        aspectRatio: null,
+        imageFit: null,
+        transform: null,
+        imagePadding: null,
+      })
+      await ctx.db.patch(id, {
+        publicationState: 'publishPending',
+        isPubliclyListable: false,
+      })
+      return id
+    })
+
+    const queryMedia = async () =>
+      await asUser(t, viewerId).query(
+        api.platform.media.queries.getMediaAssetsByExternalIds,
+        {
+          media: [{ externalId: asset.externalId, variant: 'tile' }],
+        }
+      )
+
+    await expect(queryMedia()).resolves.toEqual([null])
+    await t.run(
+      async (ctx) =>
+        await ctx.db.patch(templateId, { publicationState: 'publishFailed' })
+    )
+    await expect(queryMedia()).resolves.toEqual([null])
+
+    await t.run(
+      async (ctx) =>
+        await ctx.db.patch(templateId, { publicationState: 'published' })
+    )
+    const published = await queryMedia()
+    expect(published[0]).toMatchObject({
+      externalId: asset.externalId,
+      mimeType: 'image/png',
+    })
+  })
+
+  it('keeps registered seed upload blobs out of orphan storage GC', async () =>
+  {
+    const t = makeTest()
+    vi.useFakeTimers()
+    try
+    {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+      const storageId = await storeImageBlob(t, [9, 9, 9])
+      await t.run(async (ctx) =>
+      {
+        await ctx.db.insert('seedRunStorageUploads', {
+          datasetKey: 'media-test',
+          releaseId: 'release-1',
+          runId: 'run-1',
+          storageId,
+          status: 'uploaded',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        })
+      })
+
+      vi.setSystemTime(new Date('2026-01-01T02:00:00.000Z'))
+      await t.mutation(internal.platform.media.internal.gcOrphanedStorage, {
+        cursor: null,
+      })
+
+      const stillExists = await t.run(
+        async (ctx) => (await ctx.storage.get(storageId)) !== null
+      )
+      expect(stillExists).toBe(true)
+    }
+    finally
+    {
+      vi.useRealTimers()
+    }
   })
 
   it('dedupes exact variant sets without merging different editor assets', async () =>

@@ -18,7 +18,8 @@ import {
   IMAGE_PADDING_MIN,
 } from '@tierlistbuilder/contracts/workspace/board'
 import schema from '../../convex/schema'
-import { modules } from './convexTestHelpers'
+import { BOARD_ITEM_TAKE_LIMIT } from '../../convex/lib/limits'
+import { modules, seedCloudBoard } from './convexTestHelpers'
 
 const seedUser = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
@@ -329,6 +330,54 @@ describe('upsertBoardState', () =>
     expect(state?.items.every((item) => item.deletedAt !== null)).toBe(true)
   }, 20_000)
 
+  it('loads max-size boards even when recent tombstone churn exceeds the row window', async () =>
+  {
+    const t = convexTest({ schema, modules, transactionLimits: true })
+    const userId = await seedUser(t, 'plus')
+    const boardId = await t.run(
+      async (ctx) =>
+        await seedCloudBoard(ctx, {
+          ownerId: userId,
+          externalId: 'board-heavy-churn',
+          title: 'Heavy Churn Board',
+          activeItemCount: MAX_LARGE_CLOUD_BOARD_ITEMS,
+          unrankedItemCount: MAX_LARGE_CLOUD_BOARD_ITEMS,
+        })
+    )
+    const now = Date.now()
+    const totalRows = BOARD_ITEM_TAKE_LIMIT + 5
+    const chunkSize = 500
+    for (let start = 0; start < totalRows; start += chunkSize)
+    {
+      const end = Math.min(start + chunkSize, totalRows)
+      await t.run(async (ctx) =>
+      {
+        for (let i = start; i < end; i++)
+        {
+          const active = i < MAX_LARGE_CLOUD_BOARD_ITEMS
+          await ctx.db.insert('boardItems', {
+            boardId,
+            tierId: null,
+            externalId: active ? `active-${i}` : `deleted-${i}`,
+            label: active ? `Active ${i}` : `Deleted ${i}`,
+            mediaAssetId: null,
+            order: active ? i : -1,
+            deletedAt: active ? null : now - i,
+          })
+        }
+      })
+    }
+
+    const state = await asUser(t, userId).query(
+      api.workspace.boards.queries.getBoardStateByExternalId,
+      { boardExternalId: 'board-heavy-churn' }
+    )
+    expect(state?.items.filter((item) => item.deletedAt === null)).toHaveLength(
+      MAX_LARGE_CLOUD_BOARD_ITEMS
+    )
+    expect(state?.items).toHaveLength(BOARD_ITEM_TAKE_LIMIT)
+  }, 20_000)
+
   it('rejects payloads above tier/item caps & invalid label coordinates or font sizes', async () =>
   {
     const t = convexTest({ schema, modules, transactionLimits: true })
@@ -440,6 +489,72 @@ describe('upsertBoardState', () =>
         baseRevision: null,
         ...payload,
         defaultItemImagePadding: IMAGE_PADDING_MIN - 0.01,
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+
+    const boards = await caller.query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(boards).toEqual([])
+  })
+
+  it('rejects duplicate externalIds and invalid aspect ratios before writing rows', async () =>
+  {
+    const t = convexTest({ schema, modules, transactionLimits: true })
+    const userId = await seedUser(t)
+    const caller = asUser(t, userId)
+    const payload = makeBoardPayload({ tierCount: 2, itemCount: 2 })
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-duplicate-tiers',
+        baseRevision: null,
+        ...payload,
+        tiers: [
+          payload.tiers[0]!,
+          {
+            ...payload.tiers[1]!,
+            externalId: payload.tiers[0]!.externalId,
+          },
+        ],
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-duplicate-items',
+        baseRevision: null,
+        ...payload,
+        items: [
+          payload.items[0]!,
+          {
+            ...payload.items[1]!,
+            externalId: payload.items[0]!.externalId,
+          },
+        ],
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-item-aspect-ratio',
+        baseRevision: null,
+        ...payload,
+        items: [{ ...payload.items[0]!, aspectRatio: Number.NaN }],
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-board-aspect-ratio',
+        baseRevision: null,
+        ...payload,
+        itemAspectRatio: Number.POSITIVE_INFINITY,
       }),
       CONVEX_ERROR_CODES.invalidInput
     )

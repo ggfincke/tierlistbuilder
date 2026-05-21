@@ -217,7 +217,7 @@ const isMediaReferencedByTemplate = async (
     )
     if (
       templates.some(
-        (template) => template && template.publicationState !== 'unpublished'
+        (template) => template && template.publicationState === 'published'
       )
     )
     {
@@ -246,7 +246,7 @@ const isMediaReferencedByTemplate = async (
     refundUnusedBudget(budget, pageBudget, page.page.length)
 
     if (
-      page.page.some((template) => template.publicationState !== 'unpublished')
+      page.page.some((template) => template.publicationState === 'published')
     )
     {
       return true

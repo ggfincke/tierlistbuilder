@@ -11,7 +11,10 @@ interface PlateInsetFrameProps
   children: ReactNode
 }
 
-export const PlateInsetFrame = ({ padding, children }: PlateInsetFrameProps) =>
+export const PlateInsetFrame = ({
+  padding,
+  children,
+}: PlateInsetFrameProps) =>
 {
   if (padding <= 0) return <>{children}</>
   // an absolutely-positioned inset box: a child img's percentage (manual-crop)

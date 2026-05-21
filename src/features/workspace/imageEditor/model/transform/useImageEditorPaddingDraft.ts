@@ -32,7 +32,11 @@ export const useImageEditorPaddingDraft = ({
 }: UseImageEditorPaddingDraftInput) =>
 {
   // value rendered when nothing is being edited (item override wins)
-  const committed = getEffectiveImagePadding(item, boardDefaultPadding, hasPlate)
+  const committed = getEffectiveImagePadding(
+    item,
+    boardDefaultPadding,
+    hasPlate
+  )
   // value the item resolves to w/ NO per-item override — the reset target & the
   // "clear the override instead of storing a redundant value" sentinel
   const inherited = getEffectiveImagePadding(

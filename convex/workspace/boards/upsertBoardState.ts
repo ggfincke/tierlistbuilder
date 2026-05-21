@@ -16,6 +16,10 @@ import {
   normalizeBoardTitle,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  BOARD_ITEM_ASPECT_RATIO_MAX,
+  BOARD_ITEM_ASPECT_RATIO_MIN,
+} from '@tierlistbuilder/contracts/workspace/imageMath'
+import {
   findTemplateBySlug,
   incrementTemplateForkStats,
   loadTemplateItems,
@@ -36,6 +40,8 @@ import { assertStringLength, failInput } from '../../lib/text'
 import {
   assertExternalIdShape,
   assertFiniteRange,
+  assertPositiveFinite,
+  assertUniqueValues,
 } from '../../lib/assertions'
 import { memoizePromise } from '../../lib/cache'
 import {
@@ -267,6 +273,20 @@ const validateImagePadding = (
   assertFiniteRange(field, padding, IMAGE_PADDING_MIN, IMAGE_PADDING_MAX)
 }
 
+const validateBoardAspectRatio = (
+  aspectRatio: number | undefined,
+  field: string
+): void =>
+{
+  if (aspectRatio === undefined) return
+  assertFiniteRange(
+    field,
+    aspectRatio,
+    BOARD_ITEM_ASPECT_RATIO_MIN,
+    BOARD_ITEM_ASPECT_RATIO_MAX
+  )
+}
+
 type UpsertResult =
   | { conflict: null; newRevision: number }
   | { conflict: { serverState: CloudBoardState }; newRevision: null }
@@ -296,6 +316,15 @@ const validateInputs = (args: UpsertArgs): void =>
       message: `too many items: ${args.items.length} exceeds ${MAX_SYNC_ITEMS}`,
     })
   }
+  assertUniqueValues(
+    'tierExternalId',
+    args.tiers.map((tier) => tier.externalId)
+  )
+  assertUniqueValues(
+    'itemExternalId',
+    args.items.map((item) => item.externalId)
+  )
+  assertUniqueValues('deletedItemExternalId', args.deletedItemIds)
 
   // per-field bounds — prevents a client from smuggling oversized blobs
   // (Convex caps strings at 1MB but a run of ~999KB labels still adds up)
@@ -359,6 +388,10 @@ const validateInputs = (args: UpsertArgs): void =>
     if (item.backgroundColor)
     {
       validateHexColor(item.backgroundColor, 'item.backgroundColor')
+    }
+    if (item.aspectRatio !== undefined)
+    {
+      assertPositiveFinite('item.aspectRatio', item.aspectRatio)
     }
     if (item.mediaExternalId)
     {
@@ -436,6 +469,7 @@ const validateInputs = (args: UpsertArgs): void =>
   {
     validateHexColor(args.pageBackground, 'pageBackground')
   }
+  validateBoardAspectRatio(args.itemAspectRatio, 'itemAspectRatio')
   validateImagePadding(args.defaultItemImagePadding, 'defaultItemImagePadding')
   validateLabelPlacement(args.labels?.placement, 'labels.placement')
   validateLabelFontSize(args.labels?.fontSizePx, 'labels.fontSizePx')

@@ -537,6 +537,11 @@ export const getRankingBySlug = query({
     {
       return null
     }
+    const template = await ctx.db.get(ranking.sourceTemplateId)
+    if (!template || !isPublishedTemplateRow(template))
+    {
+      return null
+    }
     return await toRankingDetail(ctx, ranking)
   },
 })
@@ -556,7 +561,7 @@ export const getRankingsForTemplate = query({
       return { items: [] }
     }
     const template = await findTemplateBySlug(ctx, args.templateSlug)
-    if (!template)
+    if (!template || !isPublishedTemplateRow(template))
     {
       return { items: [] }
     }
@@ -601,7 +606,7 @@ export const listRankingsForTemplate = query({
       return emptyRankingPaginatedResult(args.paginationOpts.cursor)
     }
     const template = await findTemplateBySlug(ctx, args.templateSlug)
-    if (!template)
+    if (!template || !isPublishedTemplateRow(template))
     {
       return emptyRankingPaginatedResult(args.paginationOpts.cursor)
     }

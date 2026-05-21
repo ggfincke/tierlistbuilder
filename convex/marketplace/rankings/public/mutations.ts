@@ -739,16 +739,16 @@ export const recordRankingView = mutation({
     {
       return null
     }
-    // anonymous views still count (rankings are public-consume surfaces),
-    // but signed-in callers are rate-limited per (user, slug) so refresh-spam
-    // by one account cannot inflate one ranking's viewCount unboundedly
     const userId = await getCurrentUserId(ctx)
-    if (userId)
+    if (!userId)
     {
-      await enforceRateLimit(ctx, 'userRankingView', userId, {
-        scope: args.slug,
-      })
+      return null
     }
+    // scoped per (user, slug) so refresh-spam on one ranking depletes only
+    // its own bucket — browsing many rankings never throttles itself.
+    await enforceRateLimit(ctx, 'userRankingView', userId, {
+      scope: args.slug,
+    })
     const ranking = await findRankingBySlug(ctx, args.slug)
     if (!ranking || !isPublishedRankingRow(ranking))
     {

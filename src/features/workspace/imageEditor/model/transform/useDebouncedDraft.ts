@@ -27,7 +27,10 @@ export const syncDraftState = <T>(
 ): DraftState<T> =>
 {
   if (equals(draft.committed, committed)) return draft
-  if (equals(draft.working, draft.committed) || equals(draft.working, committed))
+  if (
+    equals(draft.working, draft.committed) ||
+    equals(draft.working, committed)
+  )
   {
     return { working: committed, committed }
   }
@@ -83,7 +86,7 @@ interface DebouncedDraft<T>
   readDirty: () => T | null
 }
 
-export const useDebouncedDraft = <T,>({
+export const useDebouncedDraft = <T>({
   committed,
   seedWorking,
   equals,
@@ -179,14 +182,11 @@ export const useDebouncedDraft = <T,>({
     runtime.isDirty = false
   }, [clearAutoCommitTimer])
 
-  const readDirty = useCallback(
-    (): T | null =>
-    {
-      const runtime = runtimeRef.current
-      return runtime.isDirty ? runtime.working : null
-    },
-    []
-  )
+  const readDirty = useCallback((): T | null =>
+  {
+    const runtime = runtimeRef.current
+    return runtime.isDirty ? runtime.working : null
+  }, [])
 
   useEffect(
     () => () =>
@@ -198,5 +198,12 @@ export const useDebouncedDraft = <T,>({
     [clearAutoCommitTimer]
   )
 
-  return { working, isDirty, setWorking, flush, cancel: clearAutoCommitTimer, readDirty }
+  return {
+    working,
+    isDirty,
+    setWorking,
+    flush,
+    cancel: clearAutoCommitTimer,
+    readDirty,
+  }
 }

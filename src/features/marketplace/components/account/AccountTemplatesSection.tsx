@@ -17,6 +17,7 @@ import {
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import {
+  canViewTemplateInGallery,
   getTemplatePublishControl,
   type TemplatePublishAction,
 } from '~/features/marketplace/model/account/templatePublishActions'
@@ -58,9 +59,11 @@ const VisibilityBadge = ({
   // publication state is the source of truth, not stored visibility (preserved
   // across unpublish/republish so re-publish restores the listing). pending/
   // failed are surfaced distinctly so a failed publish isn't read as unpublished
-  if (publicationState === 'publishPending') return <FaintBadge label="Publishing" />
+  if (publicationState === 'publishPending')
+    return <FaintBadge label="Publishing" />
   if (publicationState === 'publishFailed') return <FaintBadge label="Failed" />
-  if (publicationState === 'unpublished') return <FaintBadge label="Unpublished" />
+  if (publicationState === 'unpublished')
+    return <FaintBadge label="Unpublished" />
   if (visibility === 'unlisted') return <FaintBadge label="Unlisted" />
   return (
     <span className="rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
@@ -113,6 +116,7 @@ const TemplateRow = ({ template, busy, onEdit, onTogglePublish }: RowProps) =>
 {
   const categoryLabel = CATEGORY_META[template.category].label
   const control = getTemplatePublishControl(template)
+  const showGalleryLink = canViewTemplateInGallery(template)
   // pending/failed are publish-job states w/ no toggle action — disable the
   // button so it can't tear down an in-flight or failed publish & label it
   // to match the badge
@@ -154,14 +158,16 @@ const TemplateRow = ({ template, busy, onEdit, onTogglePublish }: RowProps) =>
         </div>
       </div>
       <div className="flex items-center gap-1.5 self-end sm:self-center">
-        <Link
-          to={`${TEMPLATES_ROUTE_PATH}/${template.slug}`}
-          aria-label={`View ${template.title}`}
-          title="View in gallery"
-          className="focus-custom inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--t-border)] text-[var(--t-text-muted)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.8} />
-        </Link>
+        {showGalleryLink && (
+          <Link
+            to={`${TEMPLATES_ROUTE_PATH}/${template.slug}`}
+            aria-label={`View ${template.title}`}
+            title="View in gallery"
+            className="focus-custom inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--t-border)] text-[var(--t-text-muted)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          >
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.8} />
+          </Link>
+        )}
         <button
           type="button"
           onClick={onEdit}

@@ -136,8 +136,8 @@ export const itemTransformToCropCss = (
 // to absorb rounding & codec variance (e.g. 1000x1500 vs 1001x1500) without
 // letting obviously different ratios (4:3 vs 1:1) collapse into one bucket
 export const ASPECT_RATIO_TOLERANCE = 0.02
-const BOARD_ITEM_ASPECT_RATIO_MAX = 4
-const BOARD_ITEM_ASPECT_RATIO_MIN = 1 / BOARD_ITEM_ASPECT_RATIO_MAX
+export const BOARD_ITEM_ASPECT_RATIO_MAX = 4
+export const BOARD_ITEM_ASPECT_RATIO_MIN = 1 / BOARD_ITEM_ASPECT_RATIO_MAX
 
 export interface AspectRatioPreset
 {

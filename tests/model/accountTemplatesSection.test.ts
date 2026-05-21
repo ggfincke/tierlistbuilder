@@ -3,7 +3,10 @@
 // down an in-flight or failed publish.
 
 import { describe, expect, it } from 'vitest'
-import { getTemplatePublishControl } from '~/features/marketplace/model/account/templatePublishActions'
+import {
+  canViewTemplateInGallery,
+  getTemplatePublishControl,
+} from '~/features/marketplace/model/account/templatePublishActions'
 
 describe('account template publish control', () =>
 {
@@ -22,7 +25,9 @@ describe('account template publish control', () =>
 
   it('routes unpublished templates through republish', () =>
   {
-    expect(getTemplatePublishControl({ publicationState: 'unpublished' })).toEqual({
+    expect(
+      getTemplatePublishControl({ publicationState: 'unpublished' })
+    ).toEqual({
       kind: 'toggle',
       action: 'republish',
     })
@@ -30,15 +35,35 @@ describe('account template publish control', () =>
 
   it('does not toggle an in-flight publish', () =>
   {
-    expect(getTemplatePublishControl({ publicationState: 'publishPending' })).toEqual({
+    expect(
+      getTemplatePublishControl({ publicationState: 'publishPending' })
+    ).toEqual({
       kind: 'pending',
     })
   })
 
   it('does not unpublish a failed publish', () =>
   {
-    expect(getTemplatePublishControl({ publicationState: 'publishFailed' })).toEqual({
+    expect(
+      getTemplatePublishControl({ publicationState: 'publishFailed' })
+    ).toEqual({
       kind: 'failed',
     })
+  })
+
+  it('links to the gallery only after a successful publish', () =>
+  {
+    expect(canViewTemplateInGallery({ publicationState: 'published' })).toBe(
+      true
+    )
+    expect(canViewTemplateInGallery({ publicationState: 'unpublished' })).toBe(
+      false
+    )
+    expect(
+      canViewTemplateInGallery({ publicationState: 'publishPending' })
+    ).toBe(false)
+    expect(
+      canViewTemplateInGallery({ publicationState: 'publishFailed' })
+    ).toBe(false)
   })
 })

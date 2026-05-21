@@ -102,10 +102,13 @@ export const useImageEditorTransformDraft = ({
     [onCommit, resolveCommitTransform]
   )
   // a fresh edit hides the "saved" flash from the prior auto-commit
-  const handleWorkingChange = useCallback((_: ItemTransform, dirty: boolean) =>
-  {
-    if (dirty) setSavedFlash(false)
-  }, [])
+  const handleWorkingChange = useCallback(
+    (_: ItemTransform, dirty: boolean) =>
+    {
+      if (dirty) setSavedFlash(false)
+    },
+    []
+  )
 
   const seedWorking = useCallback(
     () => seedTransform(item, frameAspectRatio, effectiveFit),

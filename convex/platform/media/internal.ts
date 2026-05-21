@@ -457,25 +457,35 @@ const hasStorageReference = async (
   storageId: Id<'_storage'>
 ): Promise<boolean> =>
 {
-  const [variantRefs, shortLinkRefs, avatarRefs] = await Promise.all([
-    ctx.db
-      .query('mediaVariants')
-      .withIndex('byStorageId', (q) => q.eq('storageId', storageId))
-      .take(1),
-    ctx.db
-      .query('shortLinks')
-      .withIndex('bySnapshotStorageId', (q) =>
-        q.eq('snapshotStorageId', storageId)
-      )
-      .take(1),
-    ctx.db
-      .query('users')
-      .withIndex('byAvatarStorageId', (q) => q.eq('avatarStorageId', storageId))
-      .take(1),
-  ])
+  const [variantRefs, shortLinkRefs, avatarRefs, seedUploadRefs] =
+    await Promise.all([
+      ctx.db
+        .query('mediaVariants')
+        .withIndex('byStorageId', (q) => q.eq('storageId', storageId))
+        .take(1),
+      ctx.db
+        .query('shortLinks')
+        .withIndex('bySnapshotStorageId', (q) =>
+          q.eq('snapshotStorageId', storageId)
+        )
+        .take(1),
+      ctx.db
+        .query('users')
+        .withIndex('byAvatarStorageId', (q) =>
+          q.eq('avatarStorageId', storageId)
+        )
+        .take(1),
+      ctx.db
+        .query('seedRunStorageUploads')
+        .withIndex('byStorageId', (q) => q.eq('storageId', storageId))
+        .take(1),
+    ])
 
   return (
-    variantRefs.length > 0 || shortLinkRefs.length > 0 || avatarRefs.length > 0
+    variantRefs.length > 0 ||
+    shortLinkRefs.length > 0 ||
+    avatarRefs.length > 0 ||
+    seedUploadRefs.length > 0
   )
 }
 
