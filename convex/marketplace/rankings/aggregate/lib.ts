@@ -14,6 +14,7 @@ import {
   makeEmptyBucketSpread,
   type MarketplaceTemplateRankingAggregate,
   type MarketplaceTemplateRankingAggregateBucket,
+  type MarketplaceTemplateRankingAggregateHighlight,
   type MarketplaceTemplateRankingAggregateItem,
   type TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
@@ -179,6 +180,27 @@ const toBuckets = (
   }))
 }
 
+export const toAggregateHighlight = (source: {
+  templateItemExternalId: string | null
+  label: string | null
+}): MarketplaceTemplateRankingAggregateHighlight | null =>
+  source.templateItemExternalId
+    ? {
+        templateItemExternalId: source.templateItemExternalId,
+        label: source.label,
+      }
+    : null
+
+export const fromAggregateHighlight = (
+  highlight: MarketplaceTemplateRankingAggregateHighlight | null
+): {
+  templateItemExternalId: string | null
+  label: string | null
+} => ({
+  templateItemExternalId: highlight?.templateItemExternalId ?? null,
+  label: highlight?.label ?? null,
+})
+
 export const toTemplateRankingAggregate = (
   template: Pick<
     Doc<'templates'>,
@@ -213,18 +235,14 @@ export const toTemplateRankingAggregate = (
     buckets: toBuckets(template, aggregate.bucketCount),
     bucketSpread:
       aggregate.bucketSpread ?? makeEmptyBucketSpread(aggregate.bucketCount),
-    mostAgreed: aggregate.mostAgreedItemExternalId
-      ? {
-          templateItemExternalId: aggregate.mostAgreedItemExternalId,
-          label: aggregate.mostAgreedItemLabel,
-        }
-      : null,
-    mostDivisive: aggregate.mostDivisiveItemExternalId
-      ? {
-          templateItemExternalId: aggregate.mostDivisiveItemExternalId,
-          label: aggregate.mostDivisiveItemLabel,
-        }
-      : null,
+    mostAgreed: toAggregateHighlight({
+      templateItemExternalId: aggregate.mostAgreedItemExternalId,
+      label: aggregate.mostAgreedItemLabel,
+    }),
+    mostDivisive: toAggregateHighlight({
+      templateItemExternalId: aggregate.mostDivisiveItemExternalId,
+      label: aggregate.mostDivisiveItemLabel,
+    }),
   }
 }
 
@@ -261,11 +279,7 @@ const findActiveAggregateJob = async (
         .take(1)
     )
   )
-  for (const match of matches)
-  {
-    if (match[0]) return match[0]
-  }
-  return null
+  return matches.flatMap((match) => match).at(0) ?? null
 }
 
 const nextAggregateGeneration = (

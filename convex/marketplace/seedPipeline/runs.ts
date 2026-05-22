@@ -7,7 +7,10 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { SeedRunSummary } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
-import { assertNonnegativeInteger } from '../../lib/assertions'
+import {
+  assertNonemptyString,
+  assertNonnegativeInteger,
+} from '../../lib/assertions'
 import { SEED_LIMITS } from '../../lib/limits'
 import type { SeedDiagnosticRow } from './types'
 
@@ -30,6 +33,25 @@ export const assertSeedCompiledTotals = (
   {
     assertNonnegativeInteger(`expectedTotals.${key}`, value)
   }
+}
+
+export const assertSeedReleaseArgs = (args: {
+  datasetKey: string
+  releaseId: string
+}): void =>
+{
+  assertNonemptyString('datasetKey', args.datasetKey)
+  assertNonemptyString('releaseId', args.releaseId)
+}
+
+export const assertSeedRunArgs = (args: {
+  datasetKey: string
+  releaseId: string
+  runId: string
+}): void =>
+{
+  assertSeedReleaseArgs(args)
+  assertNonemptyString('runId', args.runId)
 }
 
 export const hasErrorDiagnostics = (

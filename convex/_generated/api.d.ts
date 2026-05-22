@@ -50,6 +50,7 @@ import type * as marketplace_rankings_seed_curatedResolver from "../marketplace/
 import type * as marketplace_rankings_seed_lifecycle from "../marketplace/rankings/seed/lifecycle.js";
 import type * as marketplace_rankings_seed_naming from "../marketplace/rankings/seed/naming.js";
 import type * as marketplace_rankings_seed_plan from "../marketplace/rankings/seed/plan.js";
+import type * as marketplace_rankings_seed_rows from "../marketplace/rankings/seed/rows.js";
 import type * as marketplace_rankings_seed_scoring from "../marketplace/rankings/seed/scoring.js";
 import type * as marketplace_rankings_seed_validators from "../marketplace/rankings/seed/validators.js";
 import type * as marketplace_seedAuth from "../marketplace/seedAuth.js";
@@ -148,6 +149,7 @@ declare const fullApi: ApiFromModules<{
   "marketplace/rankings/seed/lifecycle": typeof marketplace_rankings_seed_lifecycle;
   "marketplace/rankings/seed/naming": typeof marketplace_rankings_seed_naming;
   "marketplace/rankings/seed/plan": typeof marketplace_rankings_seed_plan;
+  "marketplace/rankings/seed/rows": typeof marketplace_rankings_seed_rows;
   "marketplace/rankings/seed/scoring": typeof marketplace_rankings_seed_scoring;
   "marketplace/rankings/seed/validators": typeof marketplace_rankings_seed_validators;
   "marketplace/seedAuth": typeof marketplace_seedAuth;

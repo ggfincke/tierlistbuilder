@@ -72,6 +72,7 @@ import {
 import {
   assertBatchSize,
   assertSeedCompiledTotals,
+  assertSeedRunArgs,
   currentSeedActor,
   findSeedAuthorId,
   hasErrorDiagnostics,
@@ -222,9 +223,7 @@ export const beginSeedRun = internalMutation({
   returns: v.object({ run: seedRunSummaryValidator }),
   handler: async (ctx, args): Promise<SeedBeginRunOutput> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     assertNonnegativeInteger('templateCount', args.templateCount)
     assertNonnegativeInteger('itemCount', args.itemCount)
     assertNonnegativeInteger('imageVariantCount', args.imageVariantCount)
@@ -282,9 +281,7 @@ export const generateSeedUploadUrls = internalMutation({
   returns: v.object({ urls: v.array(seedUploadUrlValidator) }),
   handler: async (ctx, args): Promise<{ urls: SeedUploadUrlRow[] }> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     assertCountRange(
       'variants',
       args.variants.length,
@@ -335,9 +332,7 @@ export const finalizeSeedUploadedMedia = internalAction({
     rejected: SeedRejectedUpload[]
   }> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     assertNonemptyString('authorEmail', args.authorEmail)
     assertCountRange(
       'assets',
@@ -395,9 +390,7 @@ export const upsertSeedTemplates = internalMutation({
     args
   ): Promise<{ created: string[]; updated: string[]; unchanged: string[] }> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     assertNonemptyString('authorEmail', args.authorEmail)
     assertCountRange(
       'templates',
@@ -555,9 +548,7 @@ export const syncSeedTemplateItems = internalMutation({
     deleted: SeedTemplateItemKey[]
   }> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     assertNonemptyString('templateExternalId', args.templateExternalId)
     assertNonemptyString('itemsContentHash', args.itemsContentHash)
     assertCountRange(
@@ -754,9 +745,7 @@ export const upsertSeedCriteria = internalMutation({
     deactivated: SeedTemplateCriterionKey[]
   }> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     assertCountRange(
       'criteria',
       args.criteria.length,
@@ -906,9 +895,7 @@ export const verifySeedReleaseChunk = internalMutation({
   }),
   handler: async (ctx, args) =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     assertBatchSize('templateExternalIds', args.templateExternalIds.length)
     await loadSeedRunOrThrow(ctx, args.datasetKey, args.releaseId, args.runId)
     return await buildSeedReleaseDiagnosticsForTemplates(
@@ -935,9 +922,7 @@ export const completeSeedReleaseVerification = internalMutation({
   }),
   handler: async (ctx, args) =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     assertSeedCompiledTotals(args.expectedTotals)
     const run = await loadSeedRunOrThrow(
       ctx,
@@ -991,9 +976,7 @@ export const activateSeedRelease = internalMutation({
   }),
   handler: async (ctx, args): Promise<SeedActivateReleaseOutput> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     const run = await loadSeedRunOrThrow(
       ctx,
       args.datasetKey,
@@ -1024,9 +1007,7 @@ export const rollbackSeedRelease = internalMutation({
   }),
   handler: async (ctx, args): Promise<SeedRollbackReleaseOutput> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     assertNonemptyString('targetReleaseId', args.targetReleaseId)
     if (args.releaseId === args.targetReleaseId)
     {

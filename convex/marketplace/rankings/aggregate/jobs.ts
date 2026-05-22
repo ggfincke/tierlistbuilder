@@ -19,11 +19,13 @@ import {
   deleteTemplateRankingAggregateParentRows,
   deleteTemplateRankingAggregateParentRowsPage,
   findTemplateRankingAggregate,
+  fromAggregateHighlight,
   makeEmptyDistribution,
   queueTemplateRankingAggregateRecompute,
   queueTemplateRankingAggregateRecomputesForActiveCriteria,
   rollupTemplateRankingCount,
   scheduleTemplateRankingAggregateJobAdmission,
+  toAggregateHighlight,
 } from './lib'
 import { buildRankingTierBucketMap } from '@tierlistbuilder/contracts/marketplace/ranking'
 import {
@@ -322,13 +324,6 @@ const EMPTY_AGGREGATE_HIGHLIGHTS: AggregateHighlights = {
   mostAgreed: null,
   mostDivisive: null,
 }
-
-const toAggregateHighlight = (
-  row: Doc<'templateRankingAggregateItems'>
-): MarketplaceTemplateRankingAggregateHighlight => ({
-  templateItemExternalId: row.templateItemExternalId,
-  label: row.label,
-})
 
 const loadAggregateGenerationRows = async (
   ctx: MutationCtx,
@@ -757,13 +752,13 @@ async function finishJob(
     job.rankingCount > 0
       ? await loadAggregateHighlights(ctx, job)
       : EMPTY_AGGREGATE_HIGHLIGHTS
+  const mostAgreed = fromAggregateHighlight(highlights.mostAgreed)
+  const mostDivisive = fromAggregateHighlight(highlights.mostDivisive)
   const highlightFields = {
-    mostAgreedItemExternalId:
-      highlights.mostAgreed?.templateItemExternalId ?? null,
-    mostAgreedItemLabel: highlights.mostAgreed?.label ?? null,
-    mostDivisiveItemExternalId:
-      highlights.mostDivisive?.templateItemExternalId ?? null,
-    mostDivisiveItemLabel: highlights.mostDivisive?.label ?? null,
+    mostAgreedItemExternalId: mostAgreed.templateItemExternalId,
+    mostAgreedItemLabel: mostAgreed.label,
+    mostDivisiveItemExternalId: mostDivisive.templateItemExternalId,
+    mostDivisiveItemLabel: mostDivisive.label,
   }
   const aggregateState: Doc<'templateRankingAggregates'>['state'] =
     job.rankingCount > 0 ? 'ready' : 'empty'

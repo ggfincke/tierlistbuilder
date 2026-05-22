@@ -31,7 +31,11 @@ import {
   normalizeRankingTitle,
   rankingTopScore,
 } from '../lib'
-import { hasErrorDiagnostics } from '../../seedPipeline/runs'
+import {
+  assertSeedReleaseArgs,
+  assertSeedRunArgs,
+  hasErrorDiagnostics,
+} from '../../seedPipeline/runs'
 import {
   queueTemplateRankingAggregateRecompute,
   scheduleTemplateRankingAggregateJobAdmission,
@@ -80,6 +84,11 @@ import {
   deleteSeedRankingWithChildren,
 } from './cleanup'
 import { buildSeedRankingPlan, type SeedRankingPlan } from './plan'
+import {
+  findSeedRowByExternalId,
+  hasFeaturedSlot,
+  takeBoundedSeedRankings,
+} from './rows'
 
 const SAMPLE_RANKING_DESCRIPTION =
   'Seeded sample ranking for community feature testing.'
@@ -210,32 +219,12 @@ const loadExistingSeedRankings = async (
   releaseId: string,
   activeOnly = false
 ): Promise<Doc<'publishedRankings'>[]> =>
-{
-  const rows = activeOnly
-    ? await ctx.db
-        .query('publishedRankings')
-        .withIndex('bySeedDatasetReleaseStatus', (q) =>
-          q
-            .eq('seedDatasetKey', datasetKey)
-            .eq('seedReleaseId', releaseId)
-            .eq('seedReleaseStatus', 'active')
-        )
-        .take(SEED_LIMITS.rankingSeedRowsPerRelease + 1)
-    : await ctx.db
-        .query('publishedRankings')
-        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-          q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
-        )
-        .take(SEED_LIMITS.rankingSeedRowsPerRelease + 1)
-  if (rows.length > SEED_LIMITS.rankingSeedRowsPerRelease)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidState,
-      message: 'seed ranking release exceeds read limit',
-    })
-  }
-  return rows
-}
+  await takeBoundedSeedRankings(ctx, {
+    datasetKey,
+    releaseId,
+    status: activeOnly ? 'active' : undefined,
+    overLimitMessage: 'seed ranking release exceeds read limit',
+  })
 
 const countStringValues = (values: readonly string[]): Map<string, number> =>
 {
@@ -305,15 +294,11 @@ const requireSeedTemplate = async (
   templateExternalId: string
 ): Promise<Doc<'templates'>> =>
 {
-  const template = await ctx.db
-    .query('templates')
-    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-      q
-        .eq('seedDatasetKey', datasetKey)
-        .eq('seedReleaseId', releaseId)
-        .eq('seedExternalId', templateExternalId)
-    )
-    .unique()
+  const template = await findSeedRowByExternalId(ctx, 'templates', {
+    datasetKey,
+    releaseId,
+    seedExternalId: templateExternalId,
+  })
   if (!template)
   {
     throw new ConvexError({
@@ -349,38 +334,6 @@ const requireSeedAuthor = async (
   }
   return user
 }
-
-const findExistingSeedRanking = async (
-  ctx: MutationCtx,
-  datasetKey: string,
-  releaseId: string,
-  seedExternalId: string
-): Promise<Doc<'publishedRankings'> | null> =>
-  await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-      q
-        .eq('seedDatasetKey', datasetKey)
-        .eq('seedReleaseId', releaseId)
-        .eq('seedExternalId', seedExternalId)
-    )
-    .unique()
-
-const findExistingSeedBoard = async (
-  ctx: MutationCtx,
-  datasetKey: string,
-  releaseId: string,
-  seedExternalId: string
-): Promise<Doc<'boards'> | null> =>
-  await ctx.db
-    .query('boards')
-    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-      q
-        .eq('seedDatasetKey', datasetKey)
-        .eq('seedReleaseId', releaseId)
-        .eq('seedExternalId', seedExternalId)
-    )
-    .unique()
 
 const buildSeedRankingContentHash = (
   args: InsertSeedRankingArgs,
@@ -456,13 +409,11 @@ const lifecycleFieldsMatchStatus = (
   {
     case 'active':
     {
-      const hasFeaturedSlot =
-        ranking.featuredRank !== null && ranking.featuredBadge !== null
       return (
         ranking.visibility === 'public' &&
         ranking.publicationState === 'published' &&
         ranking.isPubliclyListable &&
-        ranking.isFeatured === hasFeaturedSlot
+        ranking.isFeatured === hasFeaturedSlot(ranking)
       )
     }
     case 'applied_hidden':
@@ -507,18 +458,16 @@ const replaceExistingSeedRows = async (
 ): Promise<ReplacementResult> =>
 {
   const [ranking, board] = await Promise.all([
-    findExistingSeedRanking(
-      ctx,
-      params.datasetKey,
-      params.releaseId,
-      params.rankingSeedExternalId
-    ),
-    findExistingSeedBoard(
-      ctx,
-      params.datasetKey,
-      params.releaseId,
-      params.boardSeedExternalId
-    ),
+    findSeedRowByExternalId(ctx, 'publishedRankings', {
+      datasetKey: params.datasetKey,
+      releaseId: params.releaseId,
+      seedExternalId: params.rankingSeedExternalId,
+    }),
+    findSeedRowByExternalId(ctx, 'boards', {
+      datasetKey: params.datasetKey,
+      releaseId: params.releaseId,
+      seedExternalId: params.boardSeedExternalId,
+    }),
   ])
   const rankingSlug = ranking?.slug ?? null
   if (seedRowsAreReusable(ranking, params.contentHash))
@@ -558,8 +507,7 @@ export const deleteStaleSeedRankingRowsImpl = internalMutation({
   }),
   handler: async (ctx, args) =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
+    assertSeedReleaseArgs(args)
     const planned = new Set(args.plannedSeedExternalIds)
     const page = await ctx.db
       .query('publishedRankings')
@@ -613,12 +561,11 @@ export const deleteStaleSeedRankingRowsImpl = internalMutation({
         : null
     const board =
       sourceBoard ??
-      (await findExistingSeedBoard(
-        ctx,
-        args.datasetKey,
-        args.releaseId,
-        boardSeedId
-      ))
+      (await findSeedRowByExternalId(ctx, 'boards', {
+        datasetKey: args.datasetKey,
+        releaseId: args.releaseId,
+        seedExternalId: boardSeedId,
+      }))
     // Capture the lane before delete: if this was the last active ranking in
     // the lane, the apply-time queue-active pass would never discover the lane
     // & aggregate counts would stay stale forever.
@@ -1136,8 +1083,7 @@ const buildPreflight = async (
   }
 ): Promise<SeedRankingPreflightResult> =>
 {
-  assertNonemptyString('datasetKey', args.datasetKey)
-  assertNonemptyString('releaseId', args.releaseId)
+  assertSeedReleaseArgs(args)
   const diagnostics: SeedDiagnosticRow[] = []
   const profileKeys = new Set<string>()
   for (const [index, profile] of args.rankingSeeds.profiles.entries())
@@ -1415,7 +1361,7 @@ export const applySeedRankingChunk = internalAction({
   returns: seedRankingApplyChunkResultValidator,
   handler: async (ctx, args): Promise<SeedRankingApplyChunkResult> =>
   {
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
 
     const plan = buildSeedRankingPlan(args.rankingSeeds)
     const groups = groupTasksByTemplate(plan).flatMap(chunkTaskGroup)
@@ -1478,7 +1424,7 @@ export const cleanupStaleSeedRankings = internalAction({
   }),
   handler: async (ctx, args) =>
   {
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     const plannedSeedExternalIds = buildSeedRankingPlan(
       args.rankingSeeds
     ).plannedSeedExternalIds
@@ -1535,9 +1481,7 @@ export const ensureSeedRankingAuthors = internalAction({
   returns: seedRankingAuthorEnsureResultValidator,
   handler: async (ctx, args): Promise<SeedRankingAuthorEnsureResult> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
+    assertSeedRunArgs(args)
     assertNonemptyString('authorPassword', args.authorPassword)
     const preflight: SeedRankingPreflightResult = await ctx.runQuery(
       internal.marketplace.rankings.seed.actions.preflightSeedRankings,
