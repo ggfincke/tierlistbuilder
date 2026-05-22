@@ -222,13 +222,6 @@ const seedAggregateItemRows = async (
   return null
 }
 
-const tierBucketMap = (
-  tiers: readonly Doc<'publishedRankingTiers'>[],
-  bucketCount: number,
-  targetBucketLabels: readonly string[] | undefined
-): Map<string, number> =>
-  buildRankingTierBucketMap(tiers, bucketCount, targetBucketLabels)
-
 const loadTierBucketMap = async (
   ctx: MutationCtx,
   rankingId: Id<'publishedRankings'>,
@@ -240,7 +233,7 @@ const loadTierBucketMap = async (
     .query('publishedRankingTiers')
     .withIndex('byRanking', (q) => q.eq('rankingId', rankingId))
     .take(MAX_SYNC_TIERS)
-  return tierBucketMap(tiers, bucketCount, targetBucketLabels)
+  return buildRankingTierBucketMap(tiers, bucketCount, targetBucketLabels)
 }
 
 const serializeTierBucketMap = (

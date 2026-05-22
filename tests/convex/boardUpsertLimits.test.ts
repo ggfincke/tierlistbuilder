@@ -149,6 +149,34 @@ const seedMediaAssets = async (
 
 describe('upsertBoardState', () =>
 {
+  it('does not bump the revision for omitted optional style fields', async () =>
+  {
+    const t = convexTest({ schema, modules, transactionLimits: true })
+    const userId = await seedUser(t)
+    const caller = asUser(t, userId)
+    const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+
+    const created = await caller.mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId: 'board-no-style-overrides',
+        baseRevision: null,
+        ...payload,
+      }
+    )
+    expect(created).toEqual({ conflict: null, newRevision: 1 })
+
+    const unchanged = await caller.mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId: 'board-no-style-overrides',
+        baseRevision: 1,
+        ...payload,
+      }
+    )
+    expect(unchanged).toEqual({ conflict: null, newRevision: 1 })
+  })
+
   it('maintains library summary fields w/ ranked/unranked counts & cover items', async () =>
   {
     const t = convexTest({ schema, modules, transactionLimits: true })

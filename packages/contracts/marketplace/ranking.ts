@@ -210,9 +210,7 @@ export const normalizeBucketLabel = (value: string): string =>
   value.trim().toLowerCase().replace(/\s+/g, ' ')
 
 const normalizeBucketFamily = (value: string): string =>
-  normalizeBucketLabel(value)
-    .replace(/\s*[+-]+$/, '')
-    .trim()
+  normalizeBucketLabel(value).replace(/\s*[+-]+$/, '')
 
 const targetBucketIndexByLabel = (
   labels: readonly string[] | undefined
@@ -222,12 +220,7 @@ const targetBucketIndexByLabel = (
   labels?.forEach((label, index) =>
   {
     const normalized = normalizeBucketLabel(label)
-    const family = normalizeBucketFamily(label)
     if (normalized && !map.has(normalized)) map.set(normalized, index)
-    if (family && normalized === family && !map.has(family))
-    {
-      map.set(family, index)
-    }
   })
   return map
 }

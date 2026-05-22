@@ -1,5 +1,5 @@
 // packages/contracts/workspace/board.ts
-// * serializable board contract — persisted per board & exchanged across import/export
+// serializable board contract — persisted per board & exchanged across import/export
 
 import type { BoardId, ItemId, TierId } from '../lib/ids'
 import type { PaletteId, TextStyleId, TierColorSpec } from '../lib/theme'
@@ -92,7 +92,7 @@ export const boardAutoPlateSettingsEqual = (
 ): boolean =>
 {
   if (a === b) return true
-  if (!a || !b) return !a && !b
+  if (!a || !b) return false
   if (a.mode !== b.mode) return false
   if (a.mode !== 'uniform' || b.mode !== 'uniform') return true
   return a.uniformColor === b.uniformColor
@@ -292,7 +292,7 @@ const labelPlacementsEqual = (
 ): boolean =>
 {
   if (a === b) return true
-  if (!a || !b) return !a && !b
+  if (!a || !b) return false
   if (a.mode !== b.mode) return false
   if (a.mode === 'overlay' && b.mode === 'overlay')
   {
@@ -307,7 +307,7 @@ export const boardLabelSettingsEqual = (
 ): boolean =>
 {
   if (a === b) return true
-  if (!a || !b) return !a && !b
+  if (!a || !b) return false
   return (
     a.show === b.show &&
     labelPlacementsEqual(a.placement, b.placement) &&
@@ -324,7 +324,7 @@ export const itemLabelOptionsEqual = (
 ): boolean =>
 {
   if (a === b) return true
-  if (!a || !b) return !a && !b
+  if (!a || !b) return false
   return (
     a.visible === b.visible &&
     labelPlacementsEqual(a.placement, b.placement) &&

@@ -1,5 +1,5 @@
 // packages/contracts/workspace/tierPreset.ts
-// * serializable tier-preset contract — reusable tier structure, independent of boards
+// serializable tier-preset contract — reusable tier structure, independent of boards
 
 import type { PresetId } from '../lib/ids'
 import type { TierColorSpec } from '../lib/theme'

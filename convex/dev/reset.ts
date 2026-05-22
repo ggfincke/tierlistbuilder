@@ -21,6 +21,7 @@ import {
   acquireDevResetLock,
   releaseDevResetLocks,
 } from './resetLock'
+import { literalUnion } from '../lib/validators/common'
 
 // every user table in the schema, ordered children-first so partial failures
 // leave fewer dangling foreign-id refs (convex doesn't enforce FKs, but a clean
@@ -66,12 +67,7 @@ const RESETTABLE_TABLES = [
 
 type ResettableTable = (typeof RESETTABLE_TABLES)[number]
 
-const resettableTableValidator = v.union(
-  ...(RESETTABLE_TABLES.map((name) => v.literal(name)) as [
-    ReturnType<typeof v.literal<ResettableTable>>,
-    ...ReturnType<typeof v.literal<ResettableTable>>[],
-  ])
-)
+const resettableTableValidator = literalUnion(RESETTABLE_TABLES)
 
 const RESET_HOT_TABLE_NAMES = [
   'publishedRankingItems',
@@ -85,12 +81,7 @@ type HotTableId =
   | Id<'publishedRankingTiers'>
   | Id<'publishedRankings'>
 
-const resetHotTableValidator = v.union(
-  ...(RESET_HOT_TABLE_NAMES.map((name) => v.literal(name)) as [
-    ReturnType<typeof v.literal<ResetHotTable>>,
-    ...ReturnType<typeof v.literal<ResetHotTable>>[],
-  ])
-)
+const resetHotTableValidator = literalUnion(RESET_HOT_TABLE_NAMES)
 
 const resetHotTableIdValidator = v.union(
   v.id('publishedRankingItems'),

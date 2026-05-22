@@ -176,7 +176,7 @@ export const adjustPublicTemplateCount = async (
     return
   }
   const totalDelta = changes.reduce((sum, change) => sum + change.delta, 0)
-  if (totalDelta === 0 && changes.every((change) => change.delta === 0))
+  if (changes.every((change) => change.delta === 0))
   {
     return
   }

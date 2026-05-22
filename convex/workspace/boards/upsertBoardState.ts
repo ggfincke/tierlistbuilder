@@ -930,8 +930,8 @@ const applyBoardState = async (
     board.paletteId !== writeFields.paletteId ||
     board.textStyleId !== writeFields.textStyleId ||
     board.pageBackground !== writeFields.pageBackground ||
-    !boardLabelSettingsEqual(board.labels, args.labels) ||
-    !boardAutoPlateSettingsEqual(board.autoPlate, args.autoPlate)
+    !boardLabelSettingsEqual(board.labels, writeFields.labels) ||
+    !boardAutoPlateSettingsEqual(board.autoPlate, writeFields.autoPlate)
   const templateProgressState = resolveTemplateProgressState(
     getBoardSourceTemplateId(board),
     progressCounts
