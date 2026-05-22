@@ -54,56 +54,38 @@ const LABEL_FONT_STYLES = Object.fromEntries(
   ])
 ) as Record<TextStyleId, CSSProperties>
 
-const captionPaddingCache = new Map<number, CSSProperties>()
-const overlayPaddingCache = new Map<number, CSSProperties>()
 const MAX_PADDING_STYLE_CACHE_ENTRIES = 128
 
 const paddingKey = (fontSizePx: number): number =>
   Number.isFinite(fontSizePx) ? Number(fontSizePx.toFixed(2)) : 0
 
-export const captionPaddingStyle = (fontSizePx: number): CSSProperties =>
+const createCachedPaddingStyle = (
+  inlineFactor: number,
+  blockFactor: number
+): ((fontSizePx: number) => CSSProperties) =>
 {
-  const key = paddingKey(fontSizePx)
-  const cached = captionPaddingCache.get(key)
-  if (cached)
+  const cache = new Map<number, CSSProperties>()
+  return (fontSizePx) =>
   {
-    touchMapEntry(captionPaddingCache, key)
-    return cached
+    const key = paddingKey(fontSizePx)
+    const cached = cache.get(key)
+    if (cached)
+    {
+      touchMapEntry(cache, key)
+      return cached
+    }
+    const style = {
+      paddingInline: `${Math.max(2, Math.round(fontSizePx * inlineFactor))}px`,
+      paddingBlock: `${Math.max(1, Math.round(fontSizePx * blockFactor))}px`,
+    }
+    setMapEntryLru(cache, key, style, MAX_PADDING_STYLE_CACHE_ENTRIES)
+    return style
   }
-  const style = {
-    paddingInline: `${Math.max(2, Math.round(fontSizePx * 0.35))}px`,
-    paddingBlock: `${Math.max(1, Math.round(fontSizePx * 0.12))}px`,
-  }
-  setMapEntryLru(
-    captionPaddingCache,
-    key,
-    style,
-    MAX_PADDING_STYLE_CACHE_ENTRIES
-  )
-  return style
 }
 
-export const overlayPaddingStyle = (fontSizePx: number): CSSProperties =>
-{
-  const key = paddingKey(fontSizePx)
-  const cached = overlayPaddingCache.get(key)
-  if (cached)
-  {
-    touchMapEntry(overlayPaddingCache, key)
-    return cached
-  }
-  const style = {
-    paddingInline: `${Math.max(2, Math.round(fontSizePx * 0.4))}px`,
-    paddingBlock: `${Math.max(1, Math.round(fontSizePx * 0.15))}px`,
-  }
-  setMapEntryLru(
-    overlayPaddingCache,
-    key,
-    style,
-    MAX_PADDING_STYLE_CACHE_ENTRIES
-  )
-  return style
-}
+export const captionPaddingStyle = createCachedPaddingStyle(0.35, 0.12)
+
+export const overlayPaddingStyle = createCachedPaddingStyle(0.4, 0.15)
 
 // inline font override — undefined textStyleId inherits from the parent
 // (page-level font) so callers without a per-label override don't reset
