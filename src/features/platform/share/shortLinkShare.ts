@@ -39,6 +39,15 @@ export const isShortLinkDecodeError = (
   error: unknown
 ): error is ShortLinkDecodeError => error instanceof ShortLinkDecodeError
 
+const assertBlobSize = (bytes: number): void =>
+{
+  if (bytes <= MAX_SNAPSHOT_COMPRESSED_BYTES) return
+  throw new ShortLinkDecodeError(
+    'too-large',
+    `short link blob too large: ${bytes} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`
+  )
+}
+
 // build a workspace inbound-share URL — recipient lands on the workspace
 // route, useAppBootstrap detects the slug & resolves the snapshot
 export const getShareUrlFromSlug = (slug: string): string =>
@@ -109,15 +118,9 @@ export const decodeBoardFromShortLink = async (
   if (contentLengthHeader !== null)
   {
     const contentLength = Number(contentLengthHeader)
-    if (
-      Number.isFinite(contentLength) &&
-      contentLength > MAX_SNAPSHOT_COMPRESSED_BYTES
-    )
+    if (Number.isFinite(contentLength))
     {
-      throw new ShortLinkDecodeError(
-        'too-large',
-        `short link blob too large: ${contentLength} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`
-      )
+      assertBlobSize(contentLength)
     }
   }
 
@@ -126,13 +129,7 @@ export const decodeBoardFromShortLink = async (
   // second guard for servers that omit Content-Length (chunked transfer,
   // misconfigured CDN). the Content-Length check above short-circuits
   // when the header is present; this catches the header-less case
-  if (buffer.byteLength > MAX_SNAPSHOT_COMPRESSED_BYTES)
-  {
-    throw new ShortLinkDecodeError(
-      'too-large',
-      `short link blob too large: ${buffer.byteLength} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`
-    )
-  }
+  assertBlobSize(buffer.byteLength)
   try
   {
     assertShortLinkSnapshotSize(buffer.byteLength)

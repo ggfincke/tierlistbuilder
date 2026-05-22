@@ -58,9 +58,7 @@ export const useDeleteLibraryBoard = (): DeleteLibraryBoardAction =>
     const target = confirmTarget
 
     const registry = useWorkspaceBoardRegistryStore.getState()
-    const inRegistry = registry.boards.some(
-      (board) => board.id === target.externalId
-    )
+    const inRegistry = registry.isBoardInRegistry(target.externalId)
     if (inRegistry && registry.boards.length <= 1)
     {
       toast('At least one board has to stay in your workspace.', 'error')

@@ -2,6 +2,7 @@
 // sync theme/text-style/reduced-motion from preferences to DOM runtime
 
 import { useEffect } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import type { ThemeId, TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
@@ -19,9 +20,13 @@ export function useThemeSync({
   syncTextStyle = true,
 }: ThemeSyncOptions = {}): void
 {
-  const themeId = usePreferencesStore((s) => s.themeId)
-  const textStyleId = usePreferencesStore((s) => s.textStyleId)
-  const reducedMotion = usePreferencesStore((s) => s.reducedMotion)
+  const { themeId, textStyleId, reducedMotion } = usePreferencesStore(
+    useShallow((state) => ({
+      themeId: state.themeId,
+      textStyleId: state.textStyleId,
+      reducedMotion: state.reducedMotion,
+    }))
+  )
 
   useEffect(() =>
   {

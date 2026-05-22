@@ -1,6 +1,8 @@
 // src/app/shells/topNav/TopNavModalLayer.tsx
 // lazy account, auth, & preferences modal slots for global chrome
 
+import { useCallback } from 'react'
+
 import type { ModalStack } from '~/app/shells/useModalStack'
 import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
@@ -41,6 +43,14 @@ export const TopNavModalLayer = ({
 }: TopNavModalLayerProps) =>
 {
   const { state: modalState, close: closeModal } = modalStack
+  const handleCloseAccount = useCallback(
+    () => closeModal('account'),
+    [closeModal]
+  )
+  const handleClosePreferences = useCallback(
+    () => closeModal('preferences'),
+    [closeModal]
+  )
 
   return (
     <>
@@ -48,12 +58,10 @@ export const TopNavModalLayer = ({
         {() => <SignInModal open onClose={onCloseSignIn} />}
       </LazyModalSlot>
       <LazyModalSlot when={modalState.account} section="account">
-        {() => <AccountModal open onClose={() => closeModal('account')} />}
+        {() => <AccountModal open onClose={handleCloseAccount} />}
       </LazyModalSlot>
       <LazyModalSlot when={modalState.preferences} section="preferences">
-        {() => (
-          <PreferencesModal open onClose={() => closeModal('preferences')} />
-        )}
+        {() => <PreferencesModal open onClose={handleClosePreferences} />}
       </LazyModalSlot>
     </>
   )

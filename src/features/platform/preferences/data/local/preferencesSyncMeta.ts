@@ -74,7 +74,9 @@ export const stampPreferencesPending = (
   return next
 }
 
-// clear pendingSyncAt & advance lastSyncedAt — the success path
+// clear pendingSyncAt & advance lastSyncedAt — the success path. starts from
+// empty scoped meta because a successful write supersedes every local pending
+// marker for this user
 export const markPreferencesSynced = (
   ownerUserId: string,
   syncedAt: number = Date.now()
