@@ -21,9 +21,21 @@ const rule = {
   {
     const sourceCode = context.sourceCode ?? context.getSourceCode()
 
-    // regex patterns for standalone words
-    const andPattern = /\band\b/gi
-    const withPattern = /\bwith\b/gi
+    const stylePatterns = [
+      {
+        pattern: /\band\b/gi,
+        messageId: 'useAmpersand',
+        replacement: '&',
+      },
+      {
+        pattern: /\bwith\b/gi,
+        messageId: 'useWith',
+        replacement: 'w/',
+      },
+    ]
+
+    const wrapComment = (comment, text) =>
+      comment.type === 'Line' ? `//${text}` : `/*${text}*/`
 
     return {
       Program()
@@ -34,48 +46,19 @@ const rule = {
         {
           const text = comment.value
 
-          // check for "&" violations
-          andPattern.lastIndex = 0
-          if (andPattern.test(text))
+          for (const { pattern, messageId, replacement } of stylePatterns)
           {
-            andPattern.lastIndex = 0
-            context.report({
-              loc: comment.loc,
-              messageId: 'useAmpersand',
-              fix(fixer)
-              {
-                const newText = text.replace(andPattern, '&')
-                if (comment.type === 'Line')
-                {
-                  return fixer.replaceText(comment, `//${newText}`)
-                }
-                else
-                {
-                  return fixer.replaceText(comment, `/*${newText}*/`)
-                }
-              },
-            })
-          }
+            pattern.lastIndex = 0
+            if (!pattern.test(text)) continue
 
-          // check for "w/" violations
-          withPattern.lastIndex = 0
-          if (withPattern.test(text))
-          {
-            withPattern.lastIndex = 0
             context.report({
               loc: comment.loc,
-              messageId: 'useWith',
+              messageId,
               fix(fixer)
               {
-                const newText = text.replace(withPattern, 'w/')
-                if (comment.type === 'Line')
-                {
-                  return fixer.replaceText(comment, `//${newText}`)
-                }
-                else
-                {
-                  return fixer.replaceText(comment, `/*${newText}*/`)
-                }
+                pattern.lastIndex = 0
+                const newText = text.replace(pattern, replacement)
+                return fixer.replaceText(comment, wrapComment(comment, newText))
               },
             })
           }
