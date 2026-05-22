@@ -368,7 +368,7 @@ def _try_compile_cache_hit(
 		return None
 	try:
 		current_fingerprint = _compute_compile_fingerprint(manifest_path, raw_manifest, repo_root)
-	except OSError, KeyError, TypeError, ValueError:
+	except (OSError, KeyError, TypeError, ValueError):
 		# malformed manifest or missing source — fall through to validation,
 		# which will produce a real diagnostic instead of a generic exception
 		return None
@@ -379,7 +379,7 @@ def _try_compile_cache_hit(
 		raise ManifestValidationError(cached_warnings)
 	try:
 		compiled = read_json(compiled_path)
-	except OSError, json.JSONDecodeError:
+	except (OSError, json.JSONDecodeError):
 		return None
 	# the upload phase reads each compiled variant by path. if a cleanup
 	# script or a user removed individual variant files but left the
@@ -446,7 +446,7 @@ def _peek_manifest(manifest_path: Path) -> JsonObject | None:
 	try:
 		with manifest_path.open("r", encoding="utf-8") as file:
 			value = json.load(file)
-	except FileNotFoundError, json.JSONDecodeError, OSError:
+	except (FileNotFoundError, json.JSONDecodeError, OSError):
 		return None
 	return value if isinstance(value, dict) else None
 
@@ -575,7 +575,7 @@ def _restore_validation_warnings(
 					severity=str(entry["severity"]),
 				)
 			)
-		except KeyError, TypeError:
+		except (KeyError, TypeError):
 			# drop malformed warnings rather than failing the whole cache hit;
 			# at worst the user sees a stale warning count, never a crash
 			continue
