@@ -295,6 +295,41 @@ interface AggregateRankingSeed
   items: AggregateRankingItemSeed[]
 }
 
+const STANDARD_AGGREGATE_TIERS: AggregateRankingTierSeed[] = [
+  { externalId: 'tier-top', name: 'Top', order: 0 },
+  { externalId: 'tier-mid', name: 'Middle', order: 1 },
+  { externalId: 'tier-low', name: 'Low', order: 2 },
+]
+
+const makeAggregateItem = (
+  itemIds: readonly Id<'templateItems'>[],
+  index: number,
+  tierExternalId: string,
+  externalIdPrefix = 'ranking-item'
+): AggregateRankingItemSeed => ({
+  templateItemId: itemIds[index]!,
+  templateItemExternalId: `aggregate-item-${index}`,
+  tierExternalId,
+  externalId: `${externalIdPrefix}-${index}`,
+  label: `Aggregate Item ${index}`,
+  order: index,
+})
+
+const makeAggregateItemsForBuckets = (
+  itemIds: readonly Id<'templateItems'>[],
+  externalIdPrefix: string,
+  bucketIndexes: readonly number[],
+  tiers: readonly AggregateRankingTierSeed[] = STANDARD_AGGREGATE_TIERS
+): AggregateRankingItemSeed[] =>
+  bucketIndexes.map((bucketIndex, index) =>
+    makeAggregateItem(
+      itemIds,
+      index,
+      tiers[bucketIndex]!.externalId,
+      externalIdPrefix
+    )
+  )
+
 const seedAggregateRanking = async (
   t: ConvexTestHandle,
   args: AggregateRankingSeed
@@ -2856,19 +2891,6 @@ describe('marketplace template Convex functions', () =>
       } = await seedAggregateTemplate(t, authorId, {
         criteria: TEST_CRITERIA,
       })
-      const tiers = [
-        { externalId: 'tier-top', name: 'Top', order: 0 },
-        { externalId: 'tier-mid', name: 'Middle', order: 1 },
-        { externalId: 'tier-low', name: 'Low', order: 2 },
-      ]
-      const item = (index: number, tierExternalId: string) => ({
-        templateItemId: itemIds[index],
-        templateItemExternalId: `aggregate-item-${index}`,
-        tierExternalId,
-        externalId: `criterion-ranking-item-${index}`,
-        label: `Aggregate Item ${index}`,
-        order: index,
-      })
 
       await seedAggregateRanking(t, {
         ownerId: rankerAId,
@@ -2879,8 +2901,12 @@ describe('marketplace template Convex functions', () =>
         title: 'Competitive Ranker A',
         now: 1_000,
         criterion: toCriterionSnapshot('competitive'),
-        tiers,
-        items: [item(0, 'tier-top'), item(1, 'tier-low'), item(2, 'tier-low')],
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(
+          itemIds,
+          'criterion-ranking-item',
+          [0, 2, 2]
+        ),
       })
       await seedAggregateRanking(t, {
         ownerId: rankerBId,
@@ -2891,8 +2917,12 @@ describe('marketplace template Convex functions', () =>
         title: 'Competitive Ranker B',
         now: 2_000,
         criterion: toCriterionSnapshot('competitive'),
-        tiers,
-        items: [item(0, 'tier-top'), item(1, 'tier-mid'), item(2, 'tier-low')],
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(
+          itemIds,
+          'criterion-ranking-item',
+          [0, 1, 2]
+        ),
       })
       await seedAggregateRanking(t, {
         ownerId: rankerCId,
@@ -2903,8 +2933,12 @@ describe('marketplace template Convex functions', () =>
         title: 'Favorites Ranker C',
         now: 3_000,
         criterion: toCriterionSnapshot('favorites'),
-        tiers,
-        items: [item(0, 'tier-low'), item(1, 'tier-top'), item(2, 'tier-low')],
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(
+          itemIds,
+          'criterion-ranking-item',
+          [2, 0, 2]
+        ),
       })
 
       vi.setSystemTime(10_000)
@@ -3114,23 +3148,6 @@ describe('marketplace template Convex functions', () =>
         itemIds,
         slug: templateSlug,
       } = await seedAggregateTemplate(t, authorId, { criteria })
-      const tiers = [
-        { externalId: 'tier-top', name: 'Top', order: 0 },
-        { externalId: 'tier-mid', name: 'Middle', order: 1 },
-        { externalId: 'tier-low', name: 'Low', order: 2 },
-      ]
-      const itemsForBuckets = (
-        slug: string,
-        bucketIndexes: readonly number[]
-      ) =>
-        bucketIndexes.map((bucketIndex, index) => ({
-          templateItemId: itemIds[index],
-          templateItemExternalId: `aggregate-item-${index}`,
-          tierExternalId: tiers[bucketIndex].externalId,
-          externalId: `${slug}-item-${index}`,
-          label: `Aggregate Item ${index}`,
-          order: index,
-        }))
 
       for (let index = 0; index < rankerIds.length; index++)
       {
@@ -3143,8 +3160,8 @@ describe('marketplace template Convex functions', () =>
           title: `Competitive Relative ${index}`,
           now: 1_000 + index,
           criterion: toCriterionSnapshot('competitive'),
-          tiers,
-          items: itemsForBuckets(`comp-${index}`, [
+          tiers: STANDARD_AGGREGATE_TIERS,
+          items: makeAggregateItemsForBuckets(itemIds, `comp-${index}-item`, [
             index < 5 ? 0 : 2,
             index < 6 ? 0 : 1,
             2,
@@ -3163,8 +3180,12 @@ describe('marketplace template Convex functions', () =>
             name: 'Consistency',
             prompt: 'Rank by stable consensus.',
           },
-          tiers,
-          items: itemsForBuckets(`cons-${index}`, [0, 1, 2]),
+          tiers: STANDARD_AGGREGATE_TIERS,
+          items: makeAggregateItemsForBuckets(itemIds, `cons-${index}-item`, [
+            0,
+            1,
+            2,
+          ]),
         })
       }
       for (let index = 0; index < 3; index++)
@@ -3178,8 +3199,12 @@ describe('marketplace template Convex functions', () =>
           title: `Favorites Relative ${index}`,
           now: 3_000 + index,
           criterion: toCriterionSnapshot('favorites'),
-          tiers,
-          items: itemsForBuckets(`fav-${index}`, [index === 0 ? 0 : 2, 0, 1]),
+          tiers: STANDARD_AGGREGATE_TIERS,
+          items: makeAggregateItemsForBuckets(itemIds, `fav-${index}-item`, [
+            index === 0 ? 0 : 2,
+            0,
+            1,
+          ]),
         })
       }
 
@@ -3399,24 +3424,11 @@ describe('marketplace template Convex functions', () =>
             imagePadding: null,
           })
       )
-      const tiers = [
-        { externalId: 'tier-top', name: 'Top', order: 0 },
-        { externalId: 'tier-mid', name: 'Middle', order: 1 },
-        { externalId: 'tier-low', name: 'Low', order: 2 },
-      ]
       const wideTiers = Array.from({ length: 7 }, (_, index) => ({
         externalId: `wide-tier-${index}`,
         name: `Wide ${index}`,
         order: index,
       }))
-      const item = (index: number, tierExternalId: string) => ({
-        templateItemId: itemIds[index],
-        templateItemExternalId: `aggregate-item-${index}`,
-        tierExternalId,
-        externalId: `ranking-item-${index}`,
-        label: `Aggregate Item ${index}`,
-        order: index,
-      })
 
       await seedAggregateRanking(t, {
         ownerId: rankerAId,
@@ -3426,8 +3438,12 @@ describe('marketplace template Convex functions', () =>
         slug: 'AggRank001',
         title: 'Older Ranker A Ranking',
         now: 1_000,
-        tiers,
-        items: [item(0, 'tier-low'), item(1, 'tier-mid'), item(2, 'tier-top')],
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [
+          2,
+          1,
+          0,
+        ]),
       })
       await seedAggregateRanking(t, {
         ownerId: rankerAId,
@@ -3437,8 +3453,12 @@ describe('marketplace template Convex functions', () =>
         slug: 'AggRank002',
         title: 'Latest Ranker A Ranking',
         now: 2_000,
-        tiers,
-        items: [item(0, 'tier-top'), item(1, 'tier-top'), item(2, 'tier-mid')],
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [
+          0,
+          0,
+          1,
+        ]),
       })
       vi.setSystemTime(5_000)
       await asUser(t, rankerAId).mutation(
@@ -3460,7 +3480,11 @@ describe('marketplace template Convex functions', () =>
           { externalId: 'fine', name: 'Fine', order: 1 },
           { externalId: 'nope', name: 'Nope', order: 2 },
         ],
-        items: [item(0, 'fine'), item(1, 'nope'), item(2, 'nope')],
+        items: [
+          makeAggregateItem(itemIds, 0, 'fine'),
+          makeAggregateItem(itemIds, 1, 'nope'),
+          makeAggregateItem(itemIds, 2, 'nope'),
+        ],
       })
       await seedAggregateRanking(t, {
         ownerId: rankerCId,
@@ -3472,8 +3496,12 @@ describe('marketplace template Convex functions', () =>
         now: 3_000,
         visibility: 'unlisted',
         isPubliclyListable: false,
-        tiers,
-        items: [item(0, 'tier-low'), item(1, 'tier-low'), item(2, 'tier-low')],
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [
+          2,
+          2,
+          2,
+        ]),
       })
       await seedAggregateRanking(t, {
         ownerId: rankerDId,
@@ -3485,8 +3513,12 @@ describe('marketplace template Convex functions', () =>
         now: 3_500,
         publicationState: 'unpublished',
         isPubliclyListable: true,
-        tiers,
-        items: [item(0, 'tier-low'), item(1, 'tier-low'), item(2, 'tier-low')],
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [
+          2,
+          2,
+          2,
+        ]),
       })
       await seedAggregateRanking(t, {
         ownerId: rankerEId,
@@ -3496,10 +3528,10 @@ describe('marketplace template Convex functions', () =>
         slug: 'AggRank006',
         title: 'Partially Corrupt Ranking',
         now: 4_000,
-        tiers,
+        tiers: STANDARD_AGGREGATE_TIERS,
         items: [
-          item(0, 'tier-top'),
-          item(1, 'missing-tier'),
+          makeAggregateItem(itemIds, 0, 'tier-top'),
+          makeAggregateItem(itemIds, 1, 'missing-tier'),
           {
             templateItemId: otherItemId,
             templateItemExternalId: 'other-item',
@@ -3520,9 +3552,9 @@ describe('marketplace template Convex functions', () =>
         now: 4_500,
         tiers: wideTiers,
         items: [
-          item(0, 'wide-tier-0'),
-          item(1, 'wide-tier-6'),
-          item(2, 'wide-tier-6'),
+          makeAggregateItem(itemIds, 0, 'wide-tier-0'),
+          makeAggregateItem(itemIds, 1, 'wide-tier-6'),
+          makeAggregateItem(itemIds, 2, 'wide-tier-6'),
         ],
       })
 
