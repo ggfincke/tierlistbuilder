@@ -8,6 +8,7 @@ import type { MarketplaceRankingSummary } from '@tierlistbuilder/contracts/marke
 import { RANKING_FEATURED_BADGE_LABELS } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
+import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
 
 import { avatarColor } from '../lib/utils'
 
@@ -48,9 +49,7 @@ export const ConsensusFeaturedSpotlight = ({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-warning,#facc15)]">
-              {badgeLabel} ranking
-            </p>
+            <SectionEyebrow tone="warning">{badgeLabel} ranking</SectionEyebrow>
             {active && (
               <span className="shrink-0 rounded-sm bg-[var(--t-accent)] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--t-accent-foreground)]">
                 Active

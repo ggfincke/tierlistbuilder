@@ -51,6 +51,17 @@ export const useMarketplaceAsyncAction = <
   })
 }
 
+export const useVoidRun = <TArgs extends readonly unknown[]>(
+  run: (...args: TArgs) => Promise<unknown>
+): ((...args: TArgs) => Promise<void>) =>
+  useCallback(
+    async (...args: TArgs): Promise<void> =>
+    {
+      await run(...args)
+    },
+    [run]
+  )
+
 export const useSignedInMarketplaceAction = <
   TArgs extends readonly unknown[],
   TResult,

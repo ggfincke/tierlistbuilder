@@ -2,7 +2,7 @@
 // modal that drives publish-from-board OR edit-existing flows — board picker,
 // metadata fields, optional cover image, & rate-limit-aware submit
 
-import { LayoutGrid, Loader2 } from 'lucide-react'
+import { LayoutGrid } from 'lucide-react'
 import { useId, useState, type FormEvent } from 'react'
 
 import {
@@ -17,11 +17,8 @@ import {
   type TemplateCategory,
 } from '@tierlistbuilder/contracts/marketplace/category'
 import { BaseModal } from '~/shared/overlay/BaseModal'
-import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
-import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { TextInput } from '~/shared/ui/TextInput'
 import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 import { CATEGORY_LIST } from '~/features/marketplace/model/categories'
@@ -36,6 +33,11 @@ import {
   CoverImageInput,
   type CoverImageInputValue,
 } from '../cover/CoverImageInput'
+import {
+  LabeledTextArea,
+  LabeledTextField,
+  PublishSubmitFooter,
+} from './PublishFormFields'
 import {
   createInitialPublishBoardSelection,
   resolveSelectedPublishBoard,
@@ -249,63 +251,34 @@ const PublishForm = ({
             Template details
           </h3>
 
-          <div>
-            <label
-              htmlFor={titleFieldId}
-              className="block text-xs font-medium text-[var(--t-text-secondary)]"
-            >
-              Title
-            </label>
-            <TextInput
-              id={titleFieldId}
-              size="md"
-              value={title}
-              onChange={(e) => setTitleOverride(e.target.value)}
-              maxLength={MAX_TEMPLATE_TITLE_LENGTH + 1}
-              placeholder="Every Pokémon, ranked"
-              className="mt-1 w-full"
-              disabled={isPending}
-              required
-            />
-            <div className="mt-1 flex items-center justify-between text-[10px] text-[var(--t-text-faint)]">
-              <span>What it'll show up as in the gallery</span>
-              <span
-                className={
-                  titleTooLong ? 'text-[var(--t-destructive-hover)]' : ''
-                }
-              >
-                {trimmedTitle.length}/{MAX_TEMPLATE_TITLE_LENGTH}
-              </span>
-            </div>
-          </div>
+          <LabeledTextField
+            id={titleFieldId}
+            label="Title"
+            value={title}
+            onChange={setTitleOverride}
+            maxLength={MAX_TEMPLATE_TITLE_LENGTH + 1}
+            placeholder="Every Pokémon, ranked"
+            disabled={isPending}
+            required
+            hint="What it'll show up as in the gallery"
+            count={trimmedTitle.length}
+            max={MAX_TEMPLATE_TITLE_LENGTH}
+            tooLong={titleTooLong}
+          />
 
-          <div>
-            <label
-              htmlFor={descFieldId}
-              className="block text-xs font-medium text-[var(--t-text-secondary)]"
-            >
-              Description
-            </label>
-            <textarea
-              id={descFieldId}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={MAX_TEMPLATE_DESCRIPTION_LENGTH + 1}
-              rows={3}
-              disabled={isPending}
-              placeholder="Optional — a short blurb shown on the detail page."
-              className="focus-custom mt-1 w-full rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] placeholder:text-[var(--t-text-faint)] focus:border-[var(--t-border-hover)]"
-            />
-            <div className="mt-1 flex justify-end text-[10px] text-[var(--t-text-faint)]">
-              <span
-                className={
-                  descriptionTooLong ? 'text-[var(--t-destructive-hover)]' : ''
-                }
-              >
-                {trimmedDescription.length}/{MAX_TEMPLATE_DESCRIPTION_LENGTH}
-              </span>
-            </div>
-          </div>
+          <LabeledTextArea
+            id={descFieldId}
+            label="Description"
+            value={description}
+            onChange={setDescription}
+            maxLength={MAX_TEMPLATE_DESCRIPTION_LENGTH + 1}
+            rows={3}
+            disabled={isPending}
+            placeholder="Optional — a short blurb shown on the detail page."
+            count={trimmedDescription.length}
+            max={MAX_TEMPLATE_DESCRIPTION_LENGTH}
+            tooLong={descriptionTooLong}
+          />
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -361,33 +334,18 @@ const PublishForm = ({
             </div>
           </div>
 
-          <div>
-            <label
-              htmlFor={creditFieldId}
-              className="block text-xs font-medium text-[var(--t-text-secondary)]"
-            >
-              Credit line
-            </label>
-            <TextInput
-              id={creditFieldId}
-              size="md"
-              value={creditLine}
-              onChange={(e) => setCreditLine(e.target.value)}
-              maxLength={MAX_TEMPLATE_CREDIT_LINE_LENGTH + 1}
-              placeholder="Optional — e.g. 'Item images by The Pokémon Company.'"
-              className="mt-1 w-full"
-              disabled={isPending}
-            />
-            <div className="mt-1 flex justify-end text-[10px] text-[var(--t-text-faint)]">
-              <span
-                className={
-                  creditTooLong ? 'text-[var(--t-destructive-hover)]' : ''
-                }
-              >
-                {trimmedCreditLine.length}/{MAX_TEMPLATE_CREDIT_LINE_LENGTH}
-              </span>
-            </div>
-          </div>
+          <LabeledTextField
+            id={creditFieldId}
+            label="Credit line"
+            value={creditLine}
+            onChange={setCreditLine}
+            maxLength={MAX_TEMPLATE_CREDIT_LINE_LENGTH + 1}
+            placeholder="Optional — e.g. 'Item images by The Pokémon Company.'"
+            disabled={isPending}
+            count={trimmedCreditLine.length}
+            max={MAX_TEMPLATE_CREDIT_LINE_LENGTH}
+            tooLong={creditTooLong}
+          />
         </section>
 
         <section className="space-y-2">
@@ -448,23 +406,14 @@ const PublishForm = ({
         )}
       </div>
 
-      <DialogActions className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--t-border)] bg-[var(--t-bg-overlay)] px-5 py-3">
-        <SecondaryButton type="button" disabled={isPending} onClick={onClose}>
-          Cancel
-        </SecondaryButton>
-        <PrimaryButton type="submit" size="md" disabled={!canSubmit}>
-          {isPending ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-              {isEdit ? 'Saving…' : 'Publishing…'}
-            </>
-          ) : isEdit ? (
-            'Save changes'
-          ) : (
-            'Publish template'
-          )}
-        </PrimaryButton>
-      </DialogActions>
+      <PublishSubmitFooter
+        isPending={isPending}
+        canSubmit={canSubmit}
+        onCancel={onClose}
+        pendingLabel={isEdit ? 'Saving…' : 'Publishing…'}
+        submitLabel={isEdit ? 'Save changes' : 'Publish template'}
+        className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--t-border)] bg-[var(--t-bg-overlay)] px-5 py-3"
+      />
     </form>
   )
 }

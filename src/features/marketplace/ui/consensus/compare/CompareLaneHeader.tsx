@@ -8,6 +8,7 @@ import { useId } from 'react'
 import type { MarketplaceTemplateRankingAggregate } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { formatCount } from '~/shared/catalog/formatters'
+import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
 
 import { LEFT_LANE_TONE, RIGHT_LANE_TONE } from './laneUtils'
 import { CompareCard } from './CompareCard'
@@ -94,12 +95,9 @@ export const CompareLaneHeader = ({
           <Tag className="h-4 w-4" strokeWidth={2} />
         </span>
         <div className="min-w-0 flex-1">
-          <p
-            className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]"
-            style={{ color: tone.color }}
-          >
+          <SectionEyebrow tone="none" style={{ color: tone.color }}>
             {tone.label}
-          </p>
+          </SectionEyebrow>
           <p className="mt-0.5 truncate text-sm font-semibold leading-tight text-[var(--t-text)]">
             {criterion.name}
           </p>

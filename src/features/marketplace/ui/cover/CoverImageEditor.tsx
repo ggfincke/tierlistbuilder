@@ -24,6 +24,7 @@ import {
   scanCoverImage,
 } from '~/features/marketplace/model/cover/coverAutoCrop'
 import { computeFramedPlacement } from '~/shared/board-ui/coverFramingPlacement'
+import { SnapGuide } from '~/shared/board-ui/SnapGuide'
 import { useCoverFramingPicker } from '~/features/marketplace/model/cover/useCoverFramingPicker'
 import { applyAxisSnap } from '~/shared/lib/axisSnap'
 import { formatError } from '~/shared/lib/errors'
@@ -478,19 +479,6 @@ const CoverImageEditorBody = ({
     </BaseModal>
   )
 }
-
-// thin alignment guide overlay that lights up when crop offset snaps to the
-// container center on its axis. mirrors the workspace pane's SnapGuide
-const SnapGuide = ({ axis }: { axis: 'x' | 'y' }) => (
-  <div
-    aria-hidden="true"
-    className={
-      axis === 'x'
-        ? 'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--t-accent)]'
-        : 'pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--t-accent)]'
-    }
-  />
-)
 
 // `area` is in % of the source image. w/ restrictPosition=false + minZoom<1 the
 // values may go outside [0, 100] when the crop extends past the image edges

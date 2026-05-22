@@ -5,11 +5,11 @@
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { uploadCoverImage } from '~/features/marketplace/data/coverImageUpload'
 import {
   usePublishFromBoardMutation,
   type PublishFromBoardArgs,
 } from '~/features/marketplace/data/templatesRepository'
+import { resolveCoverMediaExternalId } from '~/features/marketplace/model/publish/coverMedia'
 import { useSignedInMarketplaceAction } from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { toast } from '~/shared/notifications/useToastStore'
@@ -37,12 +37,9 @@ export const usePublishTemplate = (): PublishTemplateAction =>
   const publish = useCallback(
     async (input: PublishTemplateInput): Promise<{ slug: string }> =>
     {
-      let coverMediaExternalId: string | undefined
-      if (input.coverFile)
-      {
-        const { externalId } = await uploadCoverImage(input.coverFile)
-        coverMediaExternalId = externalId
-      }
+      const coverMediaExternalId = await resolveCoverMediaExternalId({
+        coverFile: input.coverFile,
+      })
 
       const result = await publishMutation({
         boardExternalId: input.boardExternalId,

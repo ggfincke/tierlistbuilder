@@ -16,6 +16,7 @@ import { RANKING_FEATURED_BADGE_LABELS } from '@tierlistbuilder/contracts/market
 import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
+import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
 import { avatarColor } from '../lib/utils'
 
 export type ConsensusRailTab = 'featured' | 'recent' | 'top' | 'all'
@@ -59,9 +60,7 @@ const RailHeader = ({
 }) => (
   <div className="flex items-center justify-between gap-2 border-b border-[var(--t-border)] px-3 py-2.5">
     <div className="min-w-0">
-      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-        Showing
-      </p>
+      <SectionEyebrow>Showing</SectionEyebrow>
       <p className="truncate text-[13px] font-semibold text-[var(--t-text)]">
         {activeRanking ? activeRanking.title : 'Community average'}
       </p>

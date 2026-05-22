@@ -3,6 +3,8 @@
 
 import type { ReactNode } from 'react'
 
+import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
+
 interface RailCardProps
 {
   eyebrow: ReactNode
@@ -13,9 +15,9 @@ interface RailCardProps
 export const RailCard = ({ eyebrow, meta, children }: RailCardProps) => (
   <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3">
     <div className="flex items-center justify-between gap-2">
-      <p className="flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
+      <SectionEyebrow className="flex items-center gap-1.5">
         {eyebrow}
-      </p>
+      </SectionEyebrow>
       {meta && (
         <span className="font-mono text-[10px] text-[var(--t-text-faint)]">
           {meta}

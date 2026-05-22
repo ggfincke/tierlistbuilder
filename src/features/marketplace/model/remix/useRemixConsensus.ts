@@ -6,7 +6,10 @@ import { useNavigate } from 'react-router-dom'
 
 import { useRemixTemplateConsensusMutation } from '~/features/marketplace/data/rankingsRepository'
 import { importCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
-import { useSignedInMarketplaceAction } from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
+import {
+  useSignedInMarketplaceAction,
+  useVoidRun,
+} from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
 import { toast } from '~/shared/notifications/useToastStore'
 
 interface RemixConsensusInput
@@ -51,13 +54,7 @@ export const useRemixConsensus = (): RemixConsensusAction =>
     promptOnSignedOut: true,
   })
 
-  const run = useCallback(
-    async (input: RemixConsensusInput) =>
-    {
-      await runRemix(input)
-    },
-    [runRemix]
-  )
+  const run = useVoidRun(runRemix)
 
   return { run, isPending }
 }
