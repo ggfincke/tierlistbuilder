@@ -468,50 +468,39 @@ export const deleteTemplateRankingAggregateParentRowsPage = async (
 ): Promise<boolean> =>
 {
   const criterionExternalId = args.criterionExternalId
-  const page =
+  const paginationOpts = {
+    numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+    cursor: args.cursor,
+  }
+  const query =
     args.phase === 'aggregates'
       ? criterionExternalId === undefined
-        ? await ctx.db
+        ? ctx.db
             .query('templateRankingAggregates')
             .withIndex('byTemplateId', (q) =>
               q.eq('templateId', args.templateId)
             )
-            .paginate({
-              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
-              cursor: args.cursor,
-            })
-        : await ctx.db
+        : ctx.db
             .query('templateRankingAggregates')
             .withIndex('byTemplateIdAndCriterion', (q) =>
               q
                 .eq('templateId', args.templateId)
                 .eq('criterionExternalId', criterionExternalId)
             )
-            .paginate({
-              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
-              cursor: args.cursor,
-            })
       : criterionExternalId === undefined
-        ? await ctx.db
+        ? ctx.db
             .query('templateRankingAggregateJobs')
             .withIndex('byTemplateId', (q) =>
               q.eq('templateId', args.templateId)
             )
-            .paginate({
-              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
-              cursor: args.cursor,
-            })
-        : await ctx.db
+        : ctx.db
             .query('templateRankingAggregateJobs')
             .withIndex('byTemplateIdAndCriterion', (q) =>
               q
                 .eq('templateId', args.templateId)
                 .eq('criterionExternalId', criterionExternalId)
             )
-            .paginate({
-              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
-              cursor: args.cursor,
-            })
+  const page = await query.paginate(paginationOpts)
 
   await Promise.all(page.page.map((row) => ctx.db.delete(row._id)))
   if (!page.isDone)

@@ -56,6 +56,25 @@ export const buildBoardItemInsertFromTemplateItem = (
   templateItemId: item._id,
 })
 
+export const buildTemplateItemInsert = (
+  templateId: Id<'templates'>,
+  item: Doc<'boardItems'>,
+  order: number
+) => ({
+  templateId,
+  externalId: item.externalId,
+  label: item.label ?? null,
+  backgroundColor: item.backgroundColor ?? null,
+  mediaPlate: item.mediaPlate ?? null,
+  altText: item.altText ?? null,
+  mediaAssetId: item.mediaAssetId,
+  order,
+  aspectRatio: item.aspectRatio ?? null,
+  imageFit: item.imageFit ?? null,
+  transform: item.transform ?? null,
+  imagePadding: item.imagePadding ?? null,
+})
+
 export const insertBoardItemsFromTemplate = async (
   ctx: MutationCtx,
   boardId: Id<'boards'>,

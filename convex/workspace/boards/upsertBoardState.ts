@@ -36,6 +36,7 @@ import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
 import { assertStringLength, failInput } from '../../lib/text'
 import {
+  assertExternalIdLength,
   assertExternalIdShape,
   assertFiniteRange,
   assertPositiveFinite,
@@ -354,10 +355,7 @@ const validateInputs = (args: UpsertArgs): void =>
 
   for (const item of args.items)
   {
-    if (item.externalId.length < 1 || item.externalId.length > 128)
-    {
-      failInput('invalid itemExternalId: length must be 1..128')
-    }
+    assertExternalIdLength('itemExternalId', item.externalId)
     assertStringLength(
       'item label',
       item.label,
@@ -400,13 +398,12 @@ const validateInputs = (args: UpsertArgs): void =>
         'media-'
       )
     }
-    if (
-      item.sourceTemplateItemExternalId !== undefined &&
-      (item.sourceTemplateItemExternalId.length < 1 ||
-        item.sourceTemplateItemExternalId.length > 128)
-    )
+    if (item.sourceTemplateItemExternalId !== undefined)
     {
-      failInput('invalid sourceTemplateItemExternalId: length must be 1..128')
+      assertExternalIdLength(
+        'sourceTemplateItemExternalId',
+        item.sourceTemplateItemExternalId
+      )
     }
     if (item.transform)
     {
@@ -457,10 +454,7 @@ const validateInputs = (args: UpsertArgs): void =>
 
   for (const deletedId of args.deletedItemIds)
   {
-    if (deletedId.length < 1 || deletedId.length > 128)
-    {
-      failInput('invalid itemExternalId: length must be 1..128')
-    }
+    assertExternalIdLength('itemExternalId', deletedId)
   }
 
   if (args.pageBackground !== undefined)

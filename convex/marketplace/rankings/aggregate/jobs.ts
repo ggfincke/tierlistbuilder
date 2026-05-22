@@ -1243,28 +1243,25 @@ export const deleteTemplateRankingAggregateRows = internalMutation({
   {
     if (await isDevResetActive(ctx)) return { isDone: true }
     const criterionExternalId = args.criterionExternalId
-    const page =
+    const paginationOpts = {
+      numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+      cursor: args.cursor,
+    }
+    const query =
       criterionExternalId === undefined
-        ? await ctx.db
+        ? ctx.db
             .query('templateRankingAggregateItems')
             .withIndex('byTemplateIdAndOrder', (q) =>
               q.eq('templateId', args.templateId)
             )
-            .paginate({
-              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
-              cursor: args.cursor,
-            })
-        : await ctx.db
+        : ctx.db
             .query('templateRankingAggregateItems')
             .withIndex('byTemplateIdAndCriterionAndOrder', (q) =>
               q
                 .eq('templateId', args.templateId)
                 .eq('criterionExternalId', criterionExternalId)
             )
-            .paginate({
-              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
-              cursor: args.cursor,
-            })
+    const page = await query.paginate(paginationOpts)
 
     await Promise.all(page.page.map((row) => ctx.db.delete(row._id)))
     if (page.isDone)

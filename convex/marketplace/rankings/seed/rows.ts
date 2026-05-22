@@ -82,32 +82,8 @@ export async function findSeedRowByExternalId(
   args: SeedExternalIdArgs
 ): Promise<Doc<'publishedRankings'> | Doc<'boards'> | Doc<'templates'> | null>
 {
-  if (tableName === 'publishedRankings')
-  {
-    return await ctx.db
-      .query('publishedRankings')
-      .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-        q
-          .eq('seedDatasetKey', args.datasetKey)
-          .eq('seedReleaseId', args.releaseId)
-          .eq('seedExternalId', args.seedExternalId)
-      )
-      .unique()
-  }
-  if (tableName === 'boards')
-  {
-    return await ctx.db
-      .query('boards')
-      .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-        q
-          .eq('seedDatasetKey', args.datasetKey)
-          .eq('seedReleaseId', args.releaseId)
-          .eq('seedExternalId', args.seedExternalId)
-      )
-      .unique()
-  }
   return await ctx.db
-    .query('templates')
+    .query(tableName)
     .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
       q
         .eq('seedDatasetKey', args.datasetKey)

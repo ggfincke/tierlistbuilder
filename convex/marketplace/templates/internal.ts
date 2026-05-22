@@ -32,7 +32,10 @@ import {
   syncTemplateTagRows,
   writeTemplateCardPreservingCounters,
 } from './lib/writes'
-import { buildBoardItemInsertFromTemplateItem } from './lib/board'
+import {
+  buildBoardItemInsertFromTemplateItem,
+  buildTemplateItemInsert,
+} from './lib/board'
 import { buildTemplateStateFields, isPublishedTemplateRow } from './lib/state'
 import {
   calculateTemplateTrendingScore,
@@ -204,20 +207,10 @@ export const processTemplatePublishJob = internalMutation({
       existingEntries
         .filter(({ existing }) => !existing)
         .map(({ item }) =>
-          ctx.db.insert('templateItems', {
-            templateId: template._id,
-            externalId: item.externalId,
-            label: item.label ?? null,
-            backgroundColor: item.backgroundColor ?? null,
-            mediaPlate: item.mediaPlate ?? null,
-            altText: item.altText ?? null,
-            mediaAssetId: item.mediaAssetId,
-            order: item.order,
-            aspectRatio: item.aspectRatio ?? null,
-            imageFit: item.imageFit ?? null,
-            transform: item.transform ?? null,
-            imagePadding: item.imagePadding ?? null,
-          })
+          ctx.db.insert(
+            'templateItems',
+            buildTemplateItemInsert(template._id, item, item.order)
+          )
         )
     )
 

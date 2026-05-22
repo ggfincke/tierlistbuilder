@@ -84,3 +84,11 @@ export const assertExternalIdShape = (
     failInput(`invalid ${name}: must start with "${prefix}"`)
   }
 }
+
+export const assertExternalIdLength = (name: string, value: string): void =>
+{
+  if (value.length < 1 || value.length > 128)
+  {
+    failInput(`invalid ${name}: length must be 1..128`)
+  }
+}
