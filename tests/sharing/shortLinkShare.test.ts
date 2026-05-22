@@ -18,6 +18,15 @@ import {
   isShortLinkDecodeError,
 } from '~/features/platform/share/shortLinkShare'
 
+const mockSnapshotResponse = (
+  body: BodyInit | null,
+  contentLength: number
+): Response =>
+  new Response(body, {
+    headers: { 'Content-Length': String(contentLength) },
+    status: 200,
+  })
+
 describe('short-link decode', () =>
 {
   beforeEach(() =>
@@ -56,12 +65,7 @@ describe('short-link decode', () =>
       'fetch',
       vi.fn(
         async () =>
-          new Response(null, {
-            headers: {
-              'Content-Length': String(MAX_SNAPSHOT_COMPRESSED_BYTES + 1),
-            },
-            status: 200,
-          })
+          mockSnapshotResponse(null, MAX_SNAPSHOT_COMPRESSED_BYTES + 1)
       )
     )
 
@@ -81,10 +85,7 @@ describe('short-link decode', () =>
       'fetch',
       vi.fn(
         async () =>
-          new Response(new Uint8Array([1, 2, 3]), {
-            headers: { 'Content-Length': '3' },
-            status: 200,
-          })
+          mockSnapshotResponse(new Uint8Array([1, 2, 3]), 3)
       )
     )
 
@@ -108,10 +109,7 @@ describe('short-link decode', () =>
     {
       expect(init?.signal).toBe(controller.signal)
       controller.abort(abortReason)
-      return new Response(new Uint8Array([1, 2, 3]), {
-        headers: { 'Content-Length': '3' },
-        status: 200,
-      })
+      return mockSnapshotResponse(new Uint8Array([1, 2, 3]), 3)
     })
 
     repositoryMocks.resolveShortLinkImperative.mockResolvedValue({

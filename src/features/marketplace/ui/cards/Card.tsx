@@ -9,7 +9,7 @@ import {
   Sparkles,
   TrendingUp,
 } from 'lucide-react'
-import { memo, type ComponentType, type SVGProps } from 'react'
+import { memo, type ComponentType, type ReactNode, type SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 
 import type {
@@ -137,6 +137,30 @@ const FRAME_DEFAULT =
 
 const FRAME_ELEVATED = 'border-[var(--t-accent)]'
 
+const OVERLAY_CHIP_CLASS =
+  'inline-flex items-center gap-1 rounded bg-black/55 px-1.5 py-1 text-[9px] font-semibold tracking-[0.16em] text-white uppercase backdrop-blur-sm'
+
+interface OverlayChipProps
+{
+  icon?: ComponentType<SVGProps<SVGSVGElement>>
+  alignEnd?: boolean
+  children: ReactNode
+}
+
+const OverlayChip = ({
+  icon: Icon,
+  alignEnd = false,
+  children,
+}: OverlayChipProps) => (
+  <span
+    className={`${alignEnd ? 'ml-auto ' : ''}${OVERLAY_CHIP_CLASS}`}
+    style={{ fontFamily: 'var(--ts-mono)' }}
+  >
+    {Icon && <Icon className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />}
+    {children}
+  </span>
+)
+
 const CardImpl = ({
   template,
   size = 'default',
@@ -183,33 +207,14 @@ const CardImpl = ({
             <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />
             <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start gap-2">
               {labelMeta && LabelIcon ? (
-                <span
-                  className="inline-flex items-center gap-1 rounded bg-black/55 px-1.5 py-1 text-[9px] font-semibold tracking-[0.16em] text-white uppercase backdrop-blur-sm"
-                  style={{ fontFamily: 'var(--ts-mono)' }}
-                >
-                  <LabelIcon
-                    className="h-2.5 w-2.5"
-                    strokeWidth={2}
-                    aria-hidden
-                  />
-                  {labelMeta.text}
-                </span>
+                <OverlayChip icon={LabelIcon}>{labelMeta.text}</OverlayChip>
               ) : showGenericFeatured ? (
-                <span
-                  className="rounded bg-black/55 px-1.5 py-1 text-[9px] font-semibold tracking-[0.16em] text-white uppercase backdrop-blur-sm"
-                  style={{ fontFamily: 'var(--ts-mono)' }}
-                >
-                  Featured
-                </span>
+                <OverlayChip>Featured</OverlayChip>
               ) : null}
               {accessLabel && (
-                <span
-                  className="ml-auto inline-flex items-center gap-1 rounded bg-black/55 px-1.5 py-1 text-[9px] font-semibold tracking-[0.16em] text-white uppercase backdrop-blur-sm"
-                  style={{ fontFamily: 'var(--ts-mono)' }}
-                >
-                  <Lock className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />
+                <OverlayChip icon={Lock} alignEnd>
                   {accessLabel}
-                </span>
+                </OverlayChip>
               )}
             </div>
           </>

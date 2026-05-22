@@ -54,6 +54,7 @@ import {
   buildRowsForActiveRanking,
   filterAndSortActiveRankingRows,
 } from '../consensus/lib/activeRankingRows'
+import { CompareSectionHeading } from '../consensus/compare/CompareSectionHeading'
 import { ItemPopover } from '../consensus/item/ItemPopover'
 import { usePopover } from '../consensus/item/usePopover'
 import { templateFrame, type ConsensusVizMode } from '../consensus/lib/utils'
@@ -376,28 +377,25 @@ const SectionHeader = ({
       ? `${RANKING_FEATURED_BADGE_LABELS[activeRanking.featuredBadge]} ranking`
       : 'Individual ranking'
     return (
-      <div className="mb-3">
-        <SectionEyebrow
-          tone={activeRanking.featuredBadge ? 'warning' : 'faint'}
-        >
-          {eyebrow}
-        </SectionEyebrow>
-        <h2 className="mt-0.5 text-xl font-semibold tracking-tight text-[var(--t-text)]">
-          {activeRanking.title}
-        </h2>
-        <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-          Viewing one ranking — by {activeRanking.authorName},{' '}
-          {formatRelativeTime(activeRanking.updatedAt)}.{' '}
-          <button
-            type="button"
-            onClick={onResetActive}
-            className="focus-custom rounded text-[var(--t-accent)] transition hover:text-[var(--t-accent-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-          >
-            Back to community average
-          </button>
-          .
-        </p>
-      </div>
+      <CompareSectionHeading
+        eyebrow={eyebrow}
+        eyebrowTone={activeRanking.featuredBadge ? 'warning' : 'faint'}
+        title={activeRanking.title}
+        body={
+          <>
+            Viewing one ranking — by {activeRanking.authorName},{' '}
+            {formatRelativeTime(activeRanking.updatedAt)}.{' '}
+            <button
+              type="button"
+              onClick={onResetActive}
+              className="focus-custom rounded text-[var(--t-accent)] transition hover:text-[var(--t-accent-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+            >
+              Back to community average
+            </button>
+            .
+          </>
+        }
+      />
     )
   }
 

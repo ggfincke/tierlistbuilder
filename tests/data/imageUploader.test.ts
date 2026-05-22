@@ -61,6 +61,26 @@ const makeLocalBlobRecord = (hash: string) => ({
   bytes: new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'image/png' }),
 })
 
+const uploadUrlKinds = ['tile', 'preview', 'editor'] as const
+
+const mockUploadUrls = (
+  uploadTokens: readonly string[],
+  envelopeUserId = 'server-user-1'
+): void =>
+{
+  vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
+    envelopeUserId,
+    urls: uploadTokens.map((uploadToken, index) =>
+    {
+      const kind = uploadUrlKinds[index] ?? `variant-${index}`
+      return {
+        uploadUrl: `https://uploads.example.test/${kind}`,
+        uploadToken,
+      }
+    }),
+  })
+}
+
 describe('uploadBoardImages', () =>
 {
   beforeEach(() =>
@@ -95,16 +115,7 @@ describe('uploadBoardImages', () =>
   {
     const record = makeLocalBlobRecord('marketplace-hash')
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
-    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
-      envelopeUserId: 'server-user-1',
-      urls: [
-        { uploadUrl: 'https://uploads.example.test/tile', uploadToken: 'tile' },
-        {
-          uploadUrl: 'https://uploads.example.test/preview',
-          uploadToken: 'preview',
-        },
-      ],
-    })
+    mockUploadUrls(['tile', 'preview'])
     vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
       'storage-1' as unknown as never
     )
@@ -133,16 +144,7 @@ describe('uploadBoardImages', () =>
     const record = makeLocalBlobRecord('stale-cloud-hash')
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
     vi.mocked(getReusableMediaExternalIdsImperative).mockResolvedValue([false])
-    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
-      envelopeUserId: 'server-user-1',
-      urls: [
-        { uploadUrl: 'https://uploads.example.test/tile', uploadToken: 'tile' },
-        {
-          uploadUrl: 'https://uploads.example.test/preview',
-          uploadToken: 'preview',
-        },
-      ],
-    })
+    mockUploadUrls(['tile', 'preview'])
     vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
       'storage-1' as unknown as never
     )
@@ -179,16 +181,7 @@ describe('uploadBoardImages', () =>
     )
     vi.mocked(getReusableMediaExternalIdsImperative).mockResolvedValue([false])
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
-    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
-      envelopeUserId: 'server-user-1',
-      urls: [
-        { uploadUrl: 'https://uploads.example.test/tile', uploadToken: 'tile' },
-        {
-          uploadUrl: 'https://uploads.example.test/preview',
-          uploadToken: 'preview',
-        },
-      ],
-    })
+    mockUploadUrls(['tile', 'preview'])
     vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
       'storage-1' as unknown as never
     )
@@ -216,13 +209,7 @@ describe('uploadBoardImages', () =>
     const envelopeUserId = 'server-user-1'
     const record = makeLocalBlobRecord('hash-1')
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
-    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
-      envelopeUserId,
-      urls: [
-        { uploadUrl: 'https://uploads.example.test/tile', uploadToken },
-        { uploadUrl: 'https://uploads.example.test/preview', uploadToken },
-      ],
-    })
+    mockUploadUrls([uploadToken, uploadToken], envelopeUserId)
     vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
       'storage-1' as unknown as never
     )
@@ -264,23 +251,7 @@ describe('uploadBoardImages', () =>
         [source.hash, source],
       ])
     )
-    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
-      envelopeUserId: 'server-user-1',
-      urls: [
-        {
-          uploadUrl: 'https://uploads.example.test/tile',
-          uploadToken: tileToken,
-        },
-        {
-          uploadUrl: 'https://uploads.example.test/preview',
-          uploadToken: previewToken,
-        },
-        {
-          uploadUrl: 'https://uploads.example.test/editor',
-          uploadToken: editorToken,
-        },
-      ],
-    })
+    mockUploadUrls([tileToken, previewToken, editorToken])
     vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
       'storage-1' as unknown as never
     )
@@ -328,10 +299,7 @@ describe('uploadBoardImages', () =>
 
     vi.clearAllMocks()
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map())
-    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
-      envelopeUserId: 'server-user-1',
-      urls: [],
-    })
+    mockUploadUrls([])
     vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
       externalId: 'media-display',
     })
@@ -370,20 +338,7 @@ describe('uploadBoardImages', () =>
         [sourceB.hash, sourceB],
       ])
     )
-    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
-      envelopeUserId: 'server-user-1',
-      urls: [
-        { uploadUrl: 'https://uploads.example.test/tile', uploadToken: 'tile' },
-        {
-          uploadUrl: 'https://uploads.example.test/preview',
-          uploadToken: 'preview',
-        },
-        {
-          uploadUrl: 'https://uploads.example.test/editor',
-          uploadToken: 'editor',
-        },
-      ],
-    })
+    mockUploadUrls(['tile', 'preview', 'editor'])
     vi.mocked(uploadEnvelopedBlob)
       .mockResolvedValueOnce('storage-tile-a' as unknown as never)
       .mockResolvedValueOnce('storage-preview-a' as unknown as never)

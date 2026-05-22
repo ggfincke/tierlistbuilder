@@ -12,11 +12,20 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type Ref,
+  type SVGProps,
+} from 'react'
 
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
   TEMPLATE_LIST_SORTS,
+  type MarketplaceTemplateSummary,
   type TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
@@ -141,6 +150,37 @@ const GridSkeleton = () => (
       <SkeletonCard key={i} />
     ))}
   </>
+)
+
+interface GalleryRailSectionProps
+{
+  sectionRef?: Ref<HTMLElement>
+  scrollMargin?: boolean
+  title: string
+  subtitle: string
+  icon: ComponentType<SVGProps<SVGSVGElement>>
+  meta?: string
+  items: readonly MarketplaceTemplateSummary[] | undefined
+}
+
+const GalleryRailSection = ({
+  sectionRef,
+  scrollMargin = false,
+  title,
+  subtitle,
+  icon,
+  meta,
+  items,
+}: GalleryRailSectionProps) => (
+  <section
+    ref={sectionRef}
+    className={`relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10 ${
+      scrollMargin ? 'scroll-mt-24' : ''
+    }`}
+  >
+    <RailHeader title={title} subtitle={subtitle} icon={icon} meta={meta} />
+    <Rail items={items} size="small" />
+  </section>
 )
 
 export const TemplatesGalleryPage = () =>
@@ -357,41 +397,34 @@ export const TemplatesGalleryPage = () =>
       {showRails && (
         <>
           {gallery.showTrendingRail && (
-            <section
-              ref={trendingSectionRef}
-              className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] scroll-mt-24 px-6 sm:px-10"
-            >
-              <RailHeader
-                title="Trending this week"
-                subtitle="Hottest forks in the last 7 days"
-                icon={Flame}
-                meta={railMeta(gallery.trending, 'template')}
-              />
-              <Rail items={gallery.trending} size="small" />
-            </section>
+            <GalleryRailSection
+              sectionRef={trendingSectionRef}
+              scrollMargin
+              title="Trending this week"
+              subtitle="Hottest forks in the last 7 days"
+              icon={Flame}
+              meta={railMeta(gallery.trending, 'template')}
+              items={gallery.trending}
+            />
           )}
 
           {gallery.showPopularRail && (
-            <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
-              <RailHeader
-                title="Most popular"
-                subtitle="All-time forks"
-                icon={TrendingUp}
-                meta={railMeta(gallery.popular, 'template')}
-              />
-              <Rail items={gallery.popular} size="small" />
-            </section>
+            <GalleryRailSection
+              title="Most popular"
+              subtitle="All-time forks"
+              icon={TrendingUp}
+              meta={railMeta(gallery.popular, 'template')}
+              items={gallery.popular}
+            />
           )}
 
-          <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
-            <RailHeader
-              title="New & recently updated"
-              subtitle="Fresh from creators"
-              icon={Sparkles}
-              meta={railMeta(gallery.recent, 'template')}
-            />
-            <Rail items={gallery.recent} size="small" />
-          </section>
+          <GalleryRailSection
+            title="New & recently updated"
+            subtitle="Fresh from creators"
+            icon={Sparkles}
+            meta={railMeta(gallery.recent, 'template')}
+            items={gallery.recent}
+          />
         </>
       )}
 

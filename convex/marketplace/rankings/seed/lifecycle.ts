@@ -8,6 +8,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { SeedRankingReleaseStatus } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import { assertNonemptyString } from '../../../lib/assertions'
 import { BATCH_LIMITS } from '../../../lib/limits'
+import { assertSeedReleaseArgs } from '../../seedPipeline/runs'
 import {
   queueTemplateRankingAggregateRecompute,
   scheduleTemplateRankingAggregateJobAdmission,
@@ -267,8 +268,7 @@ export const activateSeedRankings = internalMutation({
   returns: seedRankingActivationResultValidator,
   handler: async (ctx, args): Promise<SeedRankingActivationResult> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
+    assertSeedReleaseArgs(args)
     return await activateSeedRankingReleaseInternal(ctx, {
       datasetKey: args.datasetKey,
       releaseId: args.releaseId,
@@ -307,8 +307,7 @@ export const queueActiveSeedRankingAggregates = internalMutation({
   returns: seedRankingActivationResultValidator,
   handler: async (ctx, args): Promise<SeedRankingActivationResult> =>
   {
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
+    assertSeedReleaseArgs(args)
     const rows = await loadSeedRankingsForAggregateQueue(
       ctx,
       args.datasetKey,

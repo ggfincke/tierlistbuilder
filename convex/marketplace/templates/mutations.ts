@@ -30,7 +30,6 @@ import {
   assertCanPublishTemplate,
   assertCanUseTemplate,
 } from '../../lib/entitlements'
-import { resolveTemplateProgressState } from '../../lib/templateProgress'
 import { failInput } from '../../lib/text'
 import {
   findOwnedMediaAssetByExternalId,
@@ -69,6 +68,7 @@ import {
   pickCoverItemPresentationFields,
 } from './lib/projections'
 import {
+  buildTemplateItemInsert,
   insertBoardItemsFromTemplate,
   insertBoardTiers,
   templateTitleToBoardTitle,
@@ -86,15 +86,8 @@ import {
   buildDefaultTemplateCriteria,
   findActiveTemplateCriterion,
 } from './criteria'
-import {
-  buildBoardLibrarySummary,
-  EMPTY_BOARD_LIBRARY_SUMMARY,
-} from '../../workspace/boards/librarySummary'
-import { buildFreshBoardCloudFields } from '../../workspace/boards/cloudFields'
-import {
-  EMPTY_BOARD_SOURCE_RANKING,
-  boardSourceTemplateFromTemplate,
-} from '../../workspace/boards/sourceFields'
+import { buildBoardLibrarySummary } from '../../workspace/boards/librarySummary'
+import { buildForkedBoardInsert } from '../../workspace/boards/cloudFields'
 
 const templateTierSelectionValidator = v.union(
   v.object({ kind: v.literal('template') }),
@@ -104,6 +97,61 @@ const templateTierSelectionValidator = v.union(
 )
 
 type TemplateTierSelection = TemplateUseTierSelection
+type TemplateInsertFields = Omit<Doc<'templates'>, '_id' | '_creationTime'>
+
+const buildTemplateInsertFields = (args: {
+  slug: string
+  authorId: Id<'users'>
+  title: string
+  description: TemplateInsertFields['description']
+  category: TemplateCategory
+  tags: string[]
+  visibility: TemplateInsertFields['visibility']
+  coverMediaAssetId: TemplateInsertFields['coverMediaAssetId']
+  coverFraming: TemplateInsertFields['coverFraming']
+  coverItems: TemplateInsertFields['coverItems']
+  suggestedTiers: TemplateInsertFields['suggestedTiers']
+  templateState: ReturnType<typeof buildTemplateStateFields>
+  sourceBoardId: Id<'boards'>
+  itemCount: number
+  creditLine: string | null
+  board: Pick<
+    Doc<'boards'>,
+    | 'itemAspectRatio'
+    | 'itemAspectRatioMode'
+    | 'defaultItemImageFit'
+    | 'defaultItemImagePadding'
+    | 'labels'
+    | 'autoPlate'
+  >
+  now: number
+}): TemplateInsertFields => ({
+  slug: args.slug,
+  authorId: args.authorId,
+  title: args.title,
+  description: args.description,
+  category: args.category,
+  tags: args.tags,
+  visibility: args.visibility,
+  coverMediaAssetId: args.coverMediaAssetId,
+  coverFraming: args.coverFraming,
+  coverItems: args.coverItems,
+  suggestedTiers: args.suggestedTiers,
+  criteria: buildDefaultTemplateCriteria(),
+  sourceBoardId: args.sourceBoardId,
+  ...args.templateState,
+  itemCount: args.itemCount,
+  featuredRank: null,
+  creditLine: args.creditLine,
+  itemAspectRatio: args.board.itemAspectRatio,
+  itemAspectRatioMode: args.board.itemAspectRatioMode,
+  defaultItemImageFit: args.board.defaultItemImageFit,
+  defaultItemImagePadding: args.board.defaultItemImagePadding ?? null,
+  labels: args.board.labels,
+  autoPlate: args.board.autoPlate,
+  createdAt: args.now,
+  updatedAt: args.now,
+})
 
 const stringArraysEqual = (
   left: readonly string[],
@@ -367,7 +415,7 @@ const queueLargeTemplatePublish = async (
     args.visibility,
     'publishPending'
   )
-  const templateFields = {
+  const templateFields = buildTemplateInsertFields({
     slug,
     authorId: userId,
     title: args.title,
@@ -379,21 +427,13 @@ const queueLargeTemplatePublish = async (
     coverFraming,
     coverItems: coverState.coverItems,
     suggestedTiers,
-    criteria: buildDefaultTemplateCriteria(),
     sourceBoardId: board._id,
-    ...templateState,
     itemCount: board.activeItemCount,
-    featuredRank: null,
     creditLine: args.creditLine,
-    itemAspectRatio: board.itemAspectRatio,
-    itemAspectRatioMode: board.itemAspectRatioMode,
-    defaultItemImageFit: board.defaultItemImageFit,
-    defaultItemImagePadding: board.defaultItemImagePadding ?? null,
-    labels: board.labels,
-    autoPlate: board.autoPlate,
-    createdAt: now,
-    updatedAt: now,
-  } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
+    templateState,
+    board,
+    now,
+  })
   const templateId = await ctx.db.insert('templates', templateFields)
   const stats = await createTemplateStats(ctx, templateId, now)
   await writeTemplateCard(ctx, { _id: templateId, ...templateFields }, stats)
@@ -449,42 +489,15 @@ const queueLargeTemplateClone = async (
   const boardId = await ctx.db.insert('boards', {
     externalId: boardExternalId,
     ownerId: userId,
-    title,
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null,
-    revision: 0,
-    sourceTemplate: boardSourceTemplateFromTemplate(template),
-    sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
-    // false during the clone job's queued/running phase — flipped to true the
-    // moment processTemplateCloneJob ticks the fork counter at job completion
-    forkCounted: false,
     preferredCriterionExternalId: preferredCriterionExternalId ?? null,
-    ...buildFreshBoardCloudFields(now),
-    materializationState: 'clonePending',
-    itemAspectRatio: template.itemAspectRatio ?? null,
-    itemAspectRatioMode: template.itemAspectRatioMode ?? null,
-    aspectRatioPromptDismissed: false,
-    defaultItemImageFit: template.defaultItemImageFit ?? null,
-    defaultItemImagePadding: template.defaultItemImagePadding ?? null,
-    paletteId: null,
-    textStyleId: null,
-    pageBackground: null,
-    labels: template.labels ?? null,
-    autoPlate: template.autoPlate,
-    activeItemCount: template.itemCount,
-    unrankedItemCount: template.itemCount,
-    templateProgressState: resolveTemplateProgressState(template._id, {
-      activeItemCount: template.itemCount,
-      unrankedItemCount: template.itemCount,
+    ...buildForkedBoardInsert(template, {
+      title,
+      // false during the clone job's queued/running phase — flipped to true the
+      // moment processTemplateCloneJob ticks the fork counter at job completion
+      forkCounted: false,
+      materializationState: 'clonePending',
+      now,
     }),
-    librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-    seedDatasetKey: null,
-    seedReleaseId: null,
-    seedExternalId: null,
-    seedContentHash: null,
-    seedKind: null,
-    seedReleaseStatus: null,
   })
   await insertBoardTiers(ctx, boardId, tiers)
 
@@ -609,7 +622,7 @@ export const publishFromBoard = mutation({
       activeItems.length,
       args.visibility
     )
-    const templateFields = {
+    const templateFields = buildTemplateInsertFields({
       slug,
       authorId: userId,
       title,
@@ -621,40 +634,22 @@ export const publishFromBoard = mutation({
       coverFraming,
       coverItems,
       suggestedTiers,
-      criteria: buildDefaultTemplateCriteria(),
       sourceBoardId: board._id,
-      ...templateState,
       itemCount: activeItems.length,
-      featuredRank: null,
       creditLine,
-      itemAspectRatio: board.itemAspectRatio,
-      itemAspectRatioMode: board.itemAspectRatioMode,
-      defaultItemImageFit: board.defaultItemImageFit,
-      defaultItemImagePadding: board.defaultItemImagePadding ?? null,
-      labels: board.labels,
-      autoPlate: board.autoPlate,
-      createdAt: now,
-      updatedAt: now,
-    } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
+      templateState,
+      board,
+      now,
+    })
     const templateId = await ctx.db.insert('templates', templateFields)
     const stats = await createTemplateStats(ctx, templateId, now)
 
     await Promise.all(
       activeItems.map((item, order) =>
-        ctx.db.insert('templateItems', {
-          templateId,
-          externalId: item.externalId,
-          label: item.label ?? null,
-          backgroundColor: item.backgroundColor ?? null,
-          mediaPlate: item.mediaPlate ?? null,
-          altText: item.altText ?? null,
-          mediaAssetId: item.mediaAssetId,
-          order,
-          aspectRatio: item.aspectRatio ?? null,
-          imageFit: item.imageFit ?? null,
-          transform: item.transform ?? null,
-          imagePadding: item.imagePadding ?? null,
-        })
+        ctx.db.insert(
+          'templateItems',
+          buildTemplateItemInsert(templateId, item, order)
+        )
       )
     )
     if (templateState.isPubliclyListable)
@@ -998,50 +993,18 @@ export const useTemplate = mutation({
 
     const boardExternalId = generateBoardId()
     const now = Date.now()
-    const progressCounts = {
-      activeItemCount: templateItems.length,
-      unrankedItemCount: templateItems.length,
-    }
     const boardId = await ctx.db.insert('boards', {
       externalId: boardExternalId,
       ownerId: userId,
-      title: boardTitle,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-      revision: 0,
-      sourceTemplate: boardSourceTemplateFromTemplate(template),
-      sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
-      // counter ticks inline below via incrementTemplateForkStats so this is
-      // already "counted" the moment the board exists server-side
-      forkCounted: true,
       preferredCriterionExternalId: preferredCriterionExternalId ?? null,
-      ...buildFreshBoardCloudFields(now),
-      // propagate the template's design-time ratio so per-item transforms
-      // (computed in seed against this same ratio) frame correctly. unset
-      // values fall back to board defaults (1, auto, cover)
-      itemAspectRatio: template.itemAspectRatio ?? null,
-      itemAspectRatioMode: template.itemAspectRatioMode ?? null,
-      aspectRatioPromptDismissed: false,
-      defaultItemImageFit: template.defaultItemImageFit ?? null,
-      defaultItemImagePadding: template.defaultItemImagePadding ?? null,
-      paletteId: null,
-      textStyleId: null,
-      pageBackground: null,
-      labels: template.labels ?? null,
-      autoPlate: template.autoPlate,
-      ...progressCounts,
-      templateProgressState: resolveTemplateProgressState(
-        template._id,
-        progressCounts
-      ),
-      librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-      seedDatasetKey: null,
-      seedReleaseId: null,
-      seedExternalId: null,
-      seedContentHash: null,
-      seedKind: null,
-      seedReleaseStatus: null,
+      ...buildForkedBoardInsert(template, {
+        title: boardTitle,
+        // counter ticks inline below via incrementTemplateForkStats so this is
+        // already "counted" the moment the board exists server-side
+        forkCounted: true,
+        itemCount: templateItems.length,
+        now,
+      }),
     })
 
     await insertBoardTiers(ctx, boardId, tiers)
@@ -1066,6 +1029,62 @@ export const useTemplate = mutation({
   },
 })
 
+type MutableTemplateJob = Doc<'templatePublishJobs'> | Doc<'templateCloneJobs'>
+
+const retryTemplateJob = async <TJob extends MutableTemplateJob>(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  job: TJob | null,
+  onQueued: (job: TJob, now: number) => Promise<void>
+): Promise<null> =>
+{
+  if (!job || job.ownerId !== userId || job.status !== 'failed')
+  {
+    return null
+  }
+
+  const now = Date.now()
+  await ctx.db.patch(job._id, {
+    status: 'queued',
+    errorCode: null,
+    retryCount: job.retryCount + 1,
+    startedAt: null,
+    completedAt: null,
+    canceledAt: null,
+    updatedAt: now,
+  })
+  await onQueued(job, now)
+  return null
+}
+
+const cancelTemplateJob = async <TJob extends MutableTemplateJob>(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  job: TJob | null,
+  onCanceled: (job: TJob) => Promise<void>
+): Promise<null> =>
+{
+  if (
+    !job ||
+    job.ownerId !== userId ||
+    isFinishedTemplateJobStatus(job.status)
+  )
+  {
+    return null
+  }
+
+  const now = Date.now()
+  await ctx.db.patch(job._id, {
+    status: 'canceled',
+    errorCode: null,
+    canceledAt: now,
+    completedAt: now,
+    updatedAt: now,
+  })
+  await onCanceled(job)
+  return null
+}
+
 export const retryTemplatePublishJob = mutation({
   args: { jobId: v.id('templatePublishJobs') },
   returns: v.null(),
@@ -1073,27 +1092,14 @@ export const retryTemplatePublishJob = mutation({
   {
     const userId = await requireCurrentUserId(ctx)
     const job = await ctx.db.get(args.jobId)
-    if (!job || job.ownerId !== userId || job.status !== 'failed')
+    return await retryTemplateJob(ctx, userId, job, async (queuedJob) =>
     {
-      return null
-    }
-
-    const now = Date.now()
-    await ctx.db.patch(job._id, {
-      status: 'queued',
-      errorCode: null,
-      retryCount: job.retryCount + 1,
-      startedAt: null,
-      completedAt: null,
-      canceledAt: null,
-      updatedAt: now,
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.templates.internal.processTemplatePublishJob,
+        { jobId: queuedJob._id }
+      )
     })
-    await ctx.scheduler.runAfter(
-      0,
-      internal.marketplace.templates.internal.processTemplatePublishJob,
-      { jobId: job._id }
-    )
-    return null
   },
 })
 
@@ -1104,29 +1110,18 @@ export const cancelTemplatePublishJob = mutation({
   {
     const userId = await requireCurrentUserId(ctx)
     const job = await ctx.db.get(args.jobId)
-    if (
-      !job ||
-      job.ownerId !== userId ||
-      isFinishedTemplateJobStatus(job.status)
-    )
+    return await cancelTemplateJob(ctx, userId, job, async (canceledJob) =>
     {
-      return null
-    }
-
-    const now = Date.now()
-    await ctx.db.patch(job._id, {
-      status: 'canceled',
-      errorCode: null,
-      canceledAt: now,
-      completedAt: now,
-      updatedAt: now,
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.templates.internal.cascadeDeleteTemplate,
+        {
+          templateId: canceledJob.targetTemplateId,
+          cursor: null,
+          phase: 'items',
+        }
+      )
     })
-    await ctx.scheduler.runAfter(
-      0,
-      internal.marketplace.templates.internal.cascadeDeleteTemplate,
-      { templateId: job.targetTemplateId, cursor: null, phase: 'items' }
-    )
-    return null
   },
 })
 
@@ -1137,35 +1132,22 @@ export const retryTemplateCloneJob = mutation({
   {
     const userId = await requireCurrentUserId(ctx)
     const job = await ctx.db.get(args.jobId)
-    if (!job || job.ownerId !== userId || job.status !== 'failed')
+    return await retryTemplateJob(ctx, userId, job, async (queuedJob, now) =>
     {
-      return null
-    }
-
-    const now = Date.now()
-    await ctx.db.patch(job._id, {
-      status: 'queued',
-      errorCode: null,
-      retryCount: job.retryCount + 1,
-      startedAt: null,
-      completedAt: null,
-      canceledAt: null,
-      updatedAt: now,
+      const board = await ctx.db.get(queuedJob.targetBoardId)
+      if (board)
+      {
+        await ctx.db.patch(board._id, {
+          materializationState: 'clonePending',
+          updatedAt: now,
+        })
+      }
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.templates.internal.processTemplateCloneJob,
+        { jobId: queuedJob._id }
+      )
     })
-    const board = await ctx.db.get(job.targetBoardId)
-    if (board)
-    {
-      await ctx.db.patch(board._id, {
-        materializationState: 'clonePending',
-        updatedAt: now,
-      })
-    }
-    await ctx.scheduler.runAfter(
-      0,
-      internal.marketplace.templates.internal.processTemplateCloneJob,
-      { jobId: job._id }
-    )
-    return null
   },
 })
 
@@ -1176,28 +1158,13 @@ export const cancelTemplateCloneJob = mutation({
   {
     const userId = await requireCurrentUserId(ctx)
     const job = await ctx.db.get(args.jobId)
-    if (
-      !job ||
-      job.ownerId !== userId ||
-      isFinishedTemplateJobStatus(job.status)
-    )
+    return await cancelTemplateJob(ctx, userId, job, async (canceledJob) =>
     {
-      return null
-    }
-
-    const now = Date.now()
-    await ctx.db.patch(job._id, {
-      status: 'canceled',
-      errorCode: null,
-      canceledAt: now,
-      completedAt: now,
-      updatedAt: now,
+      await ctx.scheduler.runAfter(
+        0,
+        internal.workspace.boards.internal.cascadeDeleteBoard,
+        { boardId: canceledJob.targetBoardId, cursor: null, phase: 'items' }
+      )
     })
-    await ctx.scheduler.runAfter(
-      0,
-      internal.workspace.boards.internal.cascadeDeleteBoard,
-      { boardId: job.targetBoardId, cursor: null, phase: 'items' }
-    )
-    return null
   },
 })

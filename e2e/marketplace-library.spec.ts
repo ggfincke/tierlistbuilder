@@ -5,6 +5,7 @@ import { expect, test } from 'playwright/test'
 
 import {
   escapeRegExp,
+  makeRunId,
   makeBoard,
   openWorkspaceWithBoard,
   resetBrowserStorage,
@@ -24,9 +25,7 @@ test('signed-in publish, use-template, and My Boards open flow', async ({
   page,
 }) =>
 {
-  const runId = `${Date.now().toString(36)}${Math.random()
-    .toString(36)
-    .slice(2, 8)}`
+  const runId = makeRunId()
   const sourceTitle = `Group B Source ${runId}`
   const templateTitle = `Group B Template ${runId}`
   const escapedTemplateTitle = escapeRegExp(templateTitle)

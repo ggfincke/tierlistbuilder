@@ -7,7 +7,7 @@ import json
 import os
 import re
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -280,7 +280,7 @@ def read_seed_settings(
 ) -> ConvexSeedSettings:
 	# resolve explicit CLI args first, then shell env, then repo-local dotenv
 	env = load_dotenv(repo_root / ".env.local")
-	resolved_url = resolve_convex_site_url(repo_root, convex_url)
+	resolved_url = resolve_convex_site_url(repo_root, convex_url, env)
 	resolved_secret = (
 		seed_secret or os.environ.get("CONVEX_SEED_SECRET") or env.get("CONVEX_SEED_SECRET")
 	)
@@ -303,13 +303,17 @@ def read_seed_settings(
 	)
 
 
-def resolve_convex_site_url(repo_root: Path, cli_override: str | None = None) -> str | None:
-	env = load_dotenv(repo_root / ".env.local")
+def resolve_convex_site_url(
+	repo_root: Path,
+	cli_override: str | None = None,
+	env: Mapping[str, str] | None = None,
+) -> str | None:
+	dotenv_env = env if env is not None else load_dotenv(repo_root / ".env.local")
 	value = _first_string(
 		(
 			cli_override,
 			*(os.environ.get(name) for name in CONVEX_SITE_URL_ENV_NAMES),
-			*(env.get(name) for name in CONVEX_SITE_URL_ENV_NAMES),
+			*(dotenv_env.get(name) for name in CONVEX_SITE_URL_ENV_NAMES),
 		)
 	)
 	return normalize_convex_site_url(value) if value else None

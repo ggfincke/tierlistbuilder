@@ -183,6 +183,23 @@ interface InsertSeedRankingArgs
   viewCountSeedKey: string
 }
 
+type SeedRankingTierEntry = Omit<
+  Doc<'publishedRankingTiers'>,
+  '_id' | '_creationTime' | 'rankingId'
+>
+
+const buildSeedRankingTierEntries = (
+  args: InsertSeedRankingArgs
+): SeedRankingTierEntry[] =>
+  args.tiers.map((tier, order) => ({
+    externalId: formatTierSeedId(args.seedExternalId, order),
+    order,
+    name: tier.name,
+    description: tier.description ?? null,
+    colorSpec: tier.colorSpec,
+    rowColorSpec: tier.rowColorSpec ?? null,
+  }))
+
 const ensureRankingSeedAuthors = async (
   ctx: ActionCtx,
   authorPassword: string,
@@ -346,7 +363,8 @@ const buildSeedRankingContentHash = (
     rankingTitle: string
     rankingDescription: string | null
     viewCount: number
-  }
+  },
+  tierEntries: readonly SeedRankingTierEntry[]
 ): Promise<string> =>
   seedContentHash('ranking-snapshot', {
     version: 3,
@@ -372,14 +390,7 @@ const buildSeedRankingContentHash = (
       featuredRank: args.featuredRank,
       featuredBadge: args.featuredBadge,
     },
-    tiers: args.tiers.map((tier, order) => ({
-      externalId: formatTierSeedId(args.seedExternalId, order),
-      order,
-      name: tier.name,
-      description: tier.description ?? null,
-      colorSpec: tier.colorSpec,
-      rowColorSpec: tier.rowColorSpec ?? null,
-    })),
+    tiers: tierEntries,
     rankedItems: args.rankedItems.map((ranked) => ({
       templateItemId: ranked.item._id,
       templateItemExternalId: ranked.item.externalId,
@@ -627,6 +638,7 @@ const insertSeedRanking = async (
   const rankingTitle = normalizeRankingTitle(args.title)
   const rankingDescription = normalizeRankingDescription(args.description)
   const viewCount = Math.floor(seedUnitHash(args.viewCountSeedKey) * 24)
+  const tierEntries = buildSeedRankingTierEntries(args)
   const contentHash = await buildSeedRankingContentHash(
     args,
     criterionSnapshot,
@@ -634,7 +646,8 @@ const insertSeedRanking = async (
       rankingTitle,
       rankingDescription,
       viewCount,
-    }
+    },
+    tierEntries
   )
   const replacement = await replaceExistingSeedRows(ctx, {
     datasetKey: args.datasetKey,
@@ -661,14 +674,6 @@ const insertSeedRanking = async (
     }
   }
   const now = Date.now()
-  const tierEntries = args.tiers.map((tier, order) => ({
-    externalId: formatTierSeedId(args.seedExternalId, order),
-    order,
-    name: tier.name,
-    description: tier.description ?? null,
-    colorSpec: tier.colorSpec,
-    rowColorSpec: tier.rowColorSpec ?? null,
-  }))
 
   const rankingSlug =
     replacement.rankingSlug ?? (await allocateRankingSlug(ctx))

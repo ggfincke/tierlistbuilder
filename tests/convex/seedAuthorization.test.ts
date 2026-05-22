@@ -1,19 +1,13 @@
 // tests/convex/seedAuthorization.test.ts
 // marketplace seed action authorization gates
 
-import { convexTest } from 'convex-test'
-import rateLimiter from '@convex-dev/rate-limiter/test'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { api } from '@convex/_generated/api'
-import schema from '../../convex/schema'
-import { captureSeedEnv, modules, restoreSeedEnv } from './convexTestHelpers'
-
-const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
-{
-  const t = convexTest({ schema, modules, transactionLimits: true })
-  rateLimiter.register(t)
-  return t
-}
+import {
+  captureSeedEnv,
+  makeRateLimitedTest as makeTest,
+  restoreSeedEnv,
+} from './convexTestHelpers'
 
 const SEED_SECRET = 'test-seed-secret'
 const originalEnv = captureSeedEnv()

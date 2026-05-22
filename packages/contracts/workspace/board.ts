@@ -296,6 +296,23 @@ const labelPlacementsEqual = (
   return true
 }
 
+const labelSharedOptionsEqual = (
+  a: LabelSharedOptions,
+  b: LabelSharedOptions
+): boolean =>
+  labelPlacementsEqual(a.placement, b.placement) &&
+  a.scrim === b.scrim &&
+  a.fontSizePx === b.fontSizePx &&
+  a.textStyleId === b.textStyleId &&
+  a.textColor === b.textColor
+
+const isEmptyLabelSharedOptions = (options: LabelSharedOptions): boolean =>
+  options.placement === undefined &&
+  options.scrim === undefined &&
+  options.fontSizePx === undefined &&
+  options.textStyleId === undefined &&
+  options.textColor === undefined
+
 export const boardLabelSettingsEqual = (
   a: BoardLabelSettings | null | undefined,
   b: BoardLabelSettings | null | undefined
@@ -303,14 +320,7 @@ export const boardLabelSettingsEqual = (
 {
   if (a === b) return true
   if (!a || !b) return false
-  return (
-    a.show === b.show &&
-    labelPlacementsEqual(a.placement, b.placement) &&
-    a.scrim === b.scrim &&
-    a.fontSizePx === b.fontSizePx &&
-    a.textStyleId === b.textStyleId &&
-    a.textColor === b.textColor
-  )
+  return a.show === b.show && labelSharedOptionsEqual(a, b)
 }
 
 export const itemLabelOptionsEqual = (
@@ -320,37 +330,20 @@ export const itemLabelOptionsEqual = (
 {
   if (a === b) return true
   if (!a || !b) return false
-  return (
-    a.visible === b.visible &&
-    labelPlacementsEqual(a.placement, b.placement) &&
-    a.scrim === b.scrim &&
-    a.fontSizePx === b.fontSizePx &&
-    a.textStyleId === b.textStyleId &&
-    a.textColor === b.textColor
-  )
+  return a.visible === b.visible && labelSharedOptionsEqual(a, b)
 }
 
 export const isEmptyBoardLabelSettings = (
   settings: BoardLabelSettings | undefined
 ): boolean =>
   !settings ||
-  (settings.show === undefined &&
-    settings.placement === undefined &&
-    settings.scrim === undefined &&
-    settings.fontSizePx === undefined &&
-    settings.textStyleId === undefined &&
-    settings.textColor === undefined)
+  (settings.show === undefined && isEmptyLabelSharedOptions(settings))
 
 export const isEmptyItemLabelOptions = (
   options: ItemLabelOptions | undefined
 ): boolean =>
   !options ||
-  (options.visible === undefined &&
-    options.placement === undefined &&
-    options.scrim === undefined &&
-    options.fontSizePx === undefined &&
-    options.textStyleId === undefined &&
-    options.textColor === undefined)
+  (options.visible === undefined && isEmptyLabelSharedOptions(options))
 
 // board-level settings that drive how an item's media renders on read-only
 // viewing surfaces (consensus tiers/rail/compare): label chrome + backdrop

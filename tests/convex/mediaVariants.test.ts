@@ -1,69 +1,29 @@
 // tests/convex/mediaVariants.test.ts
 // Convex media variant finalization, exact lookup, & reachability GC
 
-import { convexTest } from 'convex-test'
-import { ConvexError } from 'convex/values'
 import { describe, expect, it, vi } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import schema from '../../convex/schema'
 import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
 import {
   EMPTY_BOARD_SOURCE_RANKING,
   EMPTY_BOARD_SOURCE_TEMPLATE,
 } from '../../convex/workspace/boards/sourceFields'
 import {
-  modules,
+  asUser,
+  type ConvexTestHandle,
+  expectConvexCode,
+  makeTest,
   seedCloudBoard,
   seedPublishedTemplate,
+  seedTileMediaAsset,
+  seedUser,
+  withFakeTimers,
 } from './convexTestHelpers'
 
-const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
-  convexTest({ schema, modules, transactionLimits: true })
-
-const seedUser = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
-  name = 'Media User'
-): Promise<Id<'users'>> =>
-  await t.run(
-    async (ctx) =>
-      await ctx.db.insert('users', {
-        name,
-        displayName: name,
-        email: 'media@example.com',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        plan: 'free',
-      })
-  )
-
-const asUser = (
-  t: ReturnType<typeof convexTest<typeof schema>>,
-  userId: Id<'users'>
-) =>
-  t.withIdentity({
-    subject: `${userId}|test-session`,
-    issuer: 'https://convex.test',
-  })
-
-const expectConvexCode = async (
-  promise: Promise<unknown>,
-  code: string
-): Promise<void> =>
-{
-  await expect(promise).rejects.toSatisfy(
-    (error: unknown) =>
-      error instanceof ConvexError &&
-      typeof error.data === 'object' &&
-      error.data !== null &&
-      'code' in error.data &&
-      error.data.code === code
-  )
-}
-
 const storeImageBlob = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   bytes: number[]
 ): Promise<Id<'_storage'>> =>
   await t.run(
@@ -74,7 +34,7 @@ const storeImageBlob = async (
   )
 
 const finalizeTileAsset = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   userId: Id<'users'>,
   contentHash: string,
   bytes: number[]
@@ -106,7 +66,11 @@ describe('media variants', () =>
   {
     const t = makeTest()
     const userId = await seedUser(t)
-    const otherUserId = await seedUser(t, 'Other Media User')
+    const otherUserId = await seedUser(
+      t,
+      'Other Media User',
+      'other-media@example.com'
+    )
     const owned = await finalizeTileAsset(t, userId, 'owned-hash', [1, 2, 3])
     const other = await finalizeTileAsset(
       t,
@@ -155,7 +119,7 @@ describe('media variants', () =>
   {
     const t = makeTest()
     const ownerId = await seedUser(t)
-    const viewerId = await seedUser(t, 'Viewer')
+    const viewerId = await seedUser(t, 'Viewer', 'media-viewer@example.com')
     const asset = await finalizeTileAsset(
       t,
       ownerId,
@@ -219,41 +183,34 @@ describe('media variants', () =>
   })
 
   it('keeps registered seed upload blobs out of orphan storage GC', async () =>
+  await withFakeTimers(async () =>
   {
     const t = makeTest()
-    vi.useFakeTimers()
-    try
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    const storageId = await storeImageBlob(t, [9, 9, 9])
+    await t.run(async (ctx) =>
     {
-      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
-      const storageId = await storeImageBlob(t, [9, 9, 9])
-      await t.run(async (ctx) =>
-      {
-        await ctx.db.insert('seedRunStorageUploads', {
-          datasetKey: 'media-test',
-          releaseId: 'release-1',
-          runId: 'run-1',
-          storageId,
-          status: 'uploaded',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        })
+      await ctx.db.insert('seedRunStorageUploads', {
+        datasetKey: 'media-test',
+        releaseId: 'release-1',
+        runId: 'run-1',
+        storageId,
+        status: 'uploaded',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
+    })
 
-      vi.setSystemTime(new Date('2026-01-01T02:00:00.000Z'))
-      await t.mutation(internal.platform.media.internal.gcOrphanedStorage, {
-        cursor: null,
-      })
+    vi.setSystemTime(new Date('2026-01-01T02:00:00.000Z'))
+    await t.mutation(internal.platform.media.internal.gcOrphanedStorage, {
+      cursor: null,
+    })
 
-      const stillExists = await t.run(
-        async (ctx) => (await ctx.storage.get(storageId)) !== null
-      )
-      expect(stillExists).toBe(true)
-    }
-    finally
-    {
-      vi.useRealTimers()
-    }
-  })
+    const stillExists = await t.run(
+      async (ctx) => (await ctx.storage.get(storageId)) !== null
+    )
+    expect(stillExists).toBe(true)
+  }))
 
   it('dedupes exact variant sets without merging different editor assets', async () =>
   {
@@ -436,29 +393,15 @@ describe('media variants', () =>
 
     const ids = await t.run(async (ctx) =>
     {
-      const mediaAssetId = await ctx.db.insert('mediaAssets', {
+      const { mediaAssetId } = await seedTileMediaAsset(ctx, {
         ownerId: userId,
         externalId: 'media-shared',
         dedupeHash: 'tile-shared',
-        tileVariant: {
-          storageId,
-          width: 120,
-          height: 120,
-          byteSize: 1,
-          mimeType: 'image/png',
-          contentHash: 'tile-shared',
-        },
-        createdAt: 0,
-      })
-      await ctx.db.insert('mediaVariants', {
-        mediaAssetId,
-        kind: 'tile',
+        contentHash: 'tile-shared',
         storageId,
         width: 120,
         height: 120,
         byteSize: 1,
-        mimeType: 'image/png',
-        contentHash: 'tile-shared',
         createdAt: 0,
       })
       const boardId = await ctx.db.insert('boards', {
@@ -478,6 +421,7 @@ describe('media variants', () =>
         forkCounted: false,
         preferredCriterionExternalId: null,
         ...buildFreshBoardCloudFields(0),
+        materializationState: 'ready',
         activeItemCount: 1,
         unrankedItemCount: 1,
         templateProgressState: 'none',

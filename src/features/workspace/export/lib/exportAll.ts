@@ -27,6 +27,7 @@ import {
   IMAGE_FORMAT_META,
 } from '~/features/workspace/export/lib/constants'
 import { renderToBlob } from '~/features/workspace/export/lib/exportImage'
+import { addBoardPageToPdf } from '~/features/workspace/export/lib/exportPdf'
 import { withExportSession } from '~/features/workspace/export/lib/exportBoardRender'
 
 // envelope type for multi-board JSON export — each board's `data` is
@@ -152,24 +153,9 @@ export const exportAllBoardsAsPdf = async (
         const element = await session.renderBoard(board.data)
         const width = element.offsetWidth * EXPORT_PIXEL_RATIO
         const height = element.offsetHeight * EXPORT_PIXEL_RATIO
-        const orientation = width >= height ? 'landscape' : 'portrait'
 
         const blob = await renderToBlob(element, 'png', backgroundColor)
-        const bytes = new Uint8Array(await blob.arrayBuffer())
-
-        if (doc === null)
-        {
-          doc = new jsPDF({
-            orientation,
-            unit: 'px',
-            format: [width, height],
-          })
-        }
-        else
-        {
-          doc.addPage([width, height], orientation)
-        }
-        doc.addImage(bytes, 'PNG', 0, 0, width, height)
+        doc = await addBoardPageToPdf(doc, jsPDF, { blob, width, height })
 
         onProgress?.(i + 1, allBoards.length)
       }

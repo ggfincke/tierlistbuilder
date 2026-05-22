@@ -193,6 +193,22 @@ const loadAssetUrl = async (
   )
 }
 
+const buildMediaRefFromVariant = (
+  externalId: string,
+  variant: Pick<
+    TemplateMediaRef,
+    'contentHash' | 'width' | 'height' | 'mimeType'
+  >,
+  url: string
+): TemplateMediaRef => ({
+  externalId,
+  contentHash: variant.contentHash,
+  url,
+  width: variant.width,
+  height: variant.height,
+  mimeType: variant.mimeType,
+})
+
 const buildMediaRef = async (
   ctx: DbCtx,
   asset: Doc<'mediaAssets'>,
@@ -204,14 +220,7 @@ const buildMediaRef = async (
   if (!variant) return null
   const url = await loadAssetUrl(ctx, variant.storageId, cache)
   if (!url) return null
-  return {
-    externalId: asset.externalId,
-    contentHash: variant.contentHash,
-    url,
-    width: variant.width,
-    height: variant.height,
-    mimeType: variant.mimeType,
-  }
+  return buildMediaRefFromVariant(asset.externalId, variant, url)
 }
 
 export const toTemplateMediaRef = async (
@@ -519,14 +528,7 @@ const toTemplateCardMediaRef = async (
 {
   const url = await loadAssetUrl(ctx, media.storageId, cache)
   if (!url) return null
-  return {
-    externalId: media.externalId,
-    contentHash: media.contentHash,
-    url,
-    width: media.width,
-    height: media.height,
-    mimeType: media.mimeType,
-  }
+  return buildMediaRefFromVariant(media.externalId, media, url)
 }
 
 const toTemplateCardCoverItem = async (
@@ -617,11 +619,11 @@ export const toTemplateBase = async (
     requireTemplateStats(ctx, template._id, cache),
     findTemplateCardByTemplateId(ctx, template._id),
   ])
+  const counters = readTemplateCounters(stats)
   const metrics = card
     ? getTemplateCardMetrics(card)
-    : getInitialTemplateCardMetrics(readTemplateCounters(stats))
+    : getInitialTemplateCardMetrics(counters)
 
-  const counters = readTemplateCounters(stats)
   return {
     slug: template.slug,
     title: template.title,

@@ -302,6 +302,21 @@ interface AuthAccountCleanupState
 }
 
 type CleanupStep<TState> = { isDone: true } | ({ isDone: false } & TState)
+type StripUndefined<T extends Record<string, unknown>> = {
+  [K in keyof T as undefined extends T[K] ? never : K]: T[K]
+} & {
+  [K in keyof T as undefined extends T[K] ? K : never]?: Exclude<
+    T[K],
+    undefined
+  >
+}
+
+const stripUndefined = <T extends Record<string, unknown>>(
+  value: T
+): StripUndefined<T> =>
+  Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined)
+  ) as StripUndefined<T>
 
 type OwnedAuthParentTable = 'authSessions' | 'authAccounts'
 
@@ -717,26 +732,17 @@ const scheduleAuthSessionCleanup = async (
   mode: AuthSessionCleanupMode
 ): Promise<void> =>
 {
-  const args: {
-    userId: Id<'users'>
-    mode: AuthSessionCleanupMode
-    cursor: string | null
-    targetSessionId?: Id<'authSessions'>
-    tokenCursor?: string | null
-  } = {
-    userId,
-    mode,
-    cursor: state.cursor,
-  }
-  if (state.targetSessionId !== undefined)
-  {
-    args.targetSessionId = state.targetSessionId
-  }
-  if (state.tokenCursor !== undefined)
-  {
-    args.tokenCursor = state.tokenCursor
-  }
-  await ctx.scheduler.runAfter(0, internal.users.cleanupAuthSessions, args)
+  await ctx.scheduler.runAfter(
+    0,
+    internal.users.cleanupAuthSessions,
+    stripUndefined({
+      userId,
+      mode,
+      cursor: state.cursor,
+      targetSessionId: state.targetSessionId,
+      tokenCursor: state.tokenCursor,
+    })
+  )
 }
 
 const scheduleCascadeAuthAccounts = async (
@@ -745,26 +751,17 @@ const scheduleCascadeAuthAccounts = async (
   state: AuthAccountCleanupState
 ): Promise<void> =>
 {
-  const args: {
-    userId: Id<'users'>
-    phase: 'authAccounts'
-    cursor: string | null
-    targetAccountId?: Id<'authAccounts'>
-    codeCursor?: string | null
-  } = {
-    userId,
-    phase: 'authAccounts',
-    cursor: state.cursor,
-  }
-  if (state.targetAccountId !== undefined)
-  {
-    args.targetAccountId = state.targetAccountId
-  }
-  if (state.codeCursor !== undefined)
-  {
-    args.codeCursor = state.codeCursor
-  }
-  await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, args)
+  await ctx.scheduler.runAfter(
+    0,
+    internal.users.cascadeDeleteUserData,
+    stripUndefined({
+      userId,
+      phase: 'authAccounts' as const,
+      cursor: state.cursor,
+      targetAccountId: state.targetAccountId,
+      codeCursor: state.codeCursor,
+    })
+  )
 }
 
 const paginateOwnedAuthParentPage = async (
@@ -920,12 +917,12 @@ const deleteAuthSessionCleanupStep = async (
   {
     return result
   }
-  return {
+  return stripUndefined({
     isDone: false,
     cursor: result.cursor,
     targetSessionId: result.targetParentId,
     tokenCursor: result.childCursor,
-  }
+  }) as CleanupStep<AuthSessionCleanupState>
 }
 
 const deleteAuthAccountCleanupStep = async (
@@ -949,10 +946,10 @@ const deleteAuthAccountCleanupStep = async (
   {
     return result
   }
-  return {
+  return stripUndefined({
     isDone: false,
     cursor: result.cursor,
     targetAccountId: result.targetParentId,
     codeCursor: result.childCursor,
-  }
+  }) as CleanupStep<AuthAccountCleanupState>
 }

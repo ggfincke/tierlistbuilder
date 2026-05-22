@@ -138,6 +138,59 @@ export const LabeledTextArea = ({
   </div>
 )
 
+export interface LabeledSelectOption<TValue extends string>
+{
+  value: TValue
+  label: string
+}
+
+interface LabeledSelectProps<TValue extends string>
+{
+  id: string
+  label: string
+  value: TValue
+  onChange: (value: TValue) => void
+  options: readonly LabeledSelectOption<TValue>[]
+  disabled: boolean
+}
+
+export const LabeledSelect = <TValue extends string>({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  disabled,
+}: LabeledSelectProps<TValue>) => (
+  <div>
+    <label
+      htmlFor={id}
+      className="block text-xs font-medium text-[var(--t-text-secondary)]"
+    >
+      {label}
+    </label>
+    <select
+      id={id}
+      value={value}
+      onChange={(event) =>
+      {
+        const selected = options.find(
+          (option) => option.value === event.target.value
+        )
+        if (selected) onChange(selected.value)
+      }}
+      disabled={disabled}
+      className="focus-custom mt-1 w-full rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] focus:border-[var(--t-border-hover)]"
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  </div>
+)
+
 interface PublishSubmitFooterProps
 {
   isPending: boolean

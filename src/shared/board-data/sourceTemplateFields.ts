@@ -16,29 +16,28 @@ type SourceTemplateFields = Pick<
   | 'preferredCriterionExternalId'
 >
 
+const SOURCE_TEMPLATE_FIELD_KEYS = [
+  'sourceTemplateId',
+  'sourceRankingId',
+  'sourceTemplateTitle',
+  'sourceRankingTitle',
+  'preferredCriterionExternalId',
+] as const satisfies readonly (keyof SourceTemplateFields)[]
+
 // validation projection — pulls source-template fields from an untrusted
 // wire/persisted object, coercing non-strings to undefined
 export const normalizeSourceTemplateFields = (
   source: Record<string, unknown>
-): SourceTemplateFields => ({
-  sourceTemplateId:
-    typeof source.sourceTemplateId === 'string'
-      ? source.sourceTemplateId
-      : undefined,
-  sourceRankingId:
-    typeof source.sourceRankingId === 'string'
-      ? source.sourceRankingId
-      : undefined,
-  sourceTemplateTitle:
-    typeof source.sourceTemplateTitle === 'string'
-      ? source.sourceTemplateTitle
-      : undefined,
-  sourceRankingTitle:
-    typeof source.sourceRankingTitle === 'string'
-      ? source.sourceRankingTitle
-      : undefined,
-  preferredCriterionExternalId:
-    typeof source.preferredCriterionExternalId === 'string'
-      ? source.preferredCriterionExternalId
-      : undefined,
-})
+): SourceTemplateFields =>
+{
+  const fields: SourceTemplateFields = {}
+  for (const key of SOURCE_TEMPLATE_FIELD_KEYS)
+  {
+    const value = source[key]
+    if (typeof value === 'string')
+    {
+      fields[key] = value
+    }
+  }
+  return fields
+}

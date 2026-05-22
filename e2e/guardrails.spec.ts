@@ -3,6 +3,7 @@
 
 import { expect, test } from 'playwright/test'
 import {
+  addImageViaSettings,
   dragCenterToCenter,
   encodeShareFragment,
   makeBoard,
@@ -199,21 +200,8 @@ test('mixed aspect-ratio prompt fits a mobile settings viewport', async ({
   )
 
   await openWorkspaceWithBoard(page)
-  await page.getByRole('button', { name: 'Open settings' }).click()
-  const settings = page.getByRole('dialog', { name: 'Settings' })
-  await expect(settings).toBeVisible()
-
-  await page.getByRole('tab', { name: /layout/i }).click()
-  await settings.getByRole('button', { name: '1:1', exact: true }).click()
-  await page.getByRole('tab', { name: /items/i }).click()
-
   const imageUrl = new URL('/e2e-wide.svg', page.url()).toString()
-  await settings.getByLabel('Image URL').fill(imageUrl)
-  await settings.getByRole('button', { name: 'Add' }).first().click()
-
-  const prompt = page.getByRole('dialog', {
-    name: 'Mixed aspect ratios detected',
-  })
+  const prompt = await addImageViaSettings(page, imageUrl)
   await expect(prompt).toBeVisible()
   await expect(prompt).toContainText('1 item')
 
@@ -250,21 +238,8 @@ test('mixed aspect-ratio prompt opens the image editor', async ({ page }) =>
   )
 
   await openWorkspaceWithBoard(page)
-  await page.getByRole('button', { name: 'Open settings' }).click()
-  const settings = page.getByRole('dialog', { name: 'Settings' })
-  await expect(settings).toBeVisible()
-
-  await page.getByRole('tab', { name: /layout/i }).click()
-  await settings.getByRole('button', { name: '1:1', exact: true }).click()
-  await page.getByRole('tab', { name: /items/i }).click()
-
   const imageUrl = new URL('/e2e-editor-wide.svg', page.url()).toString()
-  await settings.getByLabel('Image URL').fill(imageUrl)
-  await settings.getByRole('button', { name: 'Add' }).first().click()
-
-  const prompt = page.getByRole('dialog', {
-    name: 'Mixed aspect ratios detected',
-  })
+  const prompt = await addImageViaSettings(page, imageUrl)
   await expect(prompt).toBeVisible()
   await prompt.getByRole('button', { name: /adjust each item/i }).click()
   await expect(prompt).toBeHidden()

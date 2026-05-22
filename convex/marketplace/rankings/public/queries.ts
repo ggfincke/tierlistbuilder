@@ -118,27 +118,43 @@ const unavailableRankingPublish = (
   preferredCriterionExternalId,
 })
 
-const emptyAggregateItemsResult = (
+const emptyPaginatedResult = <T>(
   cursor: string | null
-): MarketplaceTemplateRankingAggregateItemsResult => ({
+): { page: T[]; isDone: true; continueCursor: string } => ({
   page: [],
   isDone: true,
   continueCursor: cursor ?? '',
 })
 
+const emptyAggregateItemsResult = (
+  cursor: string | null
+): MarketplaceTemplateRankingAggregateItemsResult =>
+  emptyPaginatedResult<
+    MarketplaceTemplateRankingAggregateItemsResult['page'][number]
+  >(cursor)
+
 const emptyRankingPaginatedResult = (
   cursor: string | null
-): MarketplaceRankingPaginatedResult => ({
-  page: [],
-  isDone: true,
-  continueCursor: cursor ?? '',
-})
+): MarketplaceRankingPaginatedResult =>
+  emptyPaginatedResult<MarketplaceRankingPaginatedResult['page'][number]>(
+    cursor
+  )
 
 const emptyMyRankingForTemplateResult =
   (): MarketplaceMyRankingForTemplateResult => ({
     ranking: null,
     placements: {},
   })
+
+const resolvePublishedTemplateBySlug = async (
+  ctx: QueryCtx,
+  slug: string
+): Promise<Doc<'templates'> | null> =>
+{
+  if (!isTemplateSlug(slug)) return null
+  const template = await findTemplateBySlug(ctx, slug)
+  return template && isPublishedTemplateRow(template) ? template : null
+}
 
 const aggregateSortArg = v.optional(templateRankingAggregateItemSortValidator)
 const aggregateBandArg = v.optional(templateRankingAggregateItemBandValidator)
@@ -567,12 +583,11 @@ export const getRankingsForTemplate = query({
   returns: marketplaceRankingListResultValidator,
   handler: async (ctx, args): Promise<MarketplaceRankingListResult> =>
   {
-    if (!isTemplateSlug(args.templateSlug))
-    {
-      return { items: [] }
-    }
-    const template = await findTemplateBySlug(ctx, args.templateSlug)
-    if (!template || !isPublishedTemplateRow(template))
+    const template = await resolvePublishedTemplateBySlug(
+      ctx,
+      args.templateSlug
+    )
+    if (!template)
     {
       return { items: [] }
     }
@@ -612,12 +627,11 @@ export const listRankingsForTemplate = query({
   returns: marketplaceRankingPaginatedResultValidator,
   handler: async (ctx, args): Promise<MarketplaceRankingPaginatedResult> =>
   {
-    if (!isTemplateSlug(args.templateSlug))
-    {
-      return emptyRankingPaginatedResult(args.paginationOpts.cursor)
-    }
-    const template = await findTemplateBySlug(ctx, args.templateSlug)
-    if (!template || !isPublishedTemplateRow(template))
+    const template = await resolvePublishedTemplateBySlug(
+      ctx,
+      args.templateSlug
+    )
+    if (!template)
     {
       return emptyRankingPaginatedResult(args.paginationOpts.cursor)
     }
@@ -659,13 +673,11 @@ export const getTemplateRankingAggregate = query({
     args
   ): Promise<MarketplaceTemplateRankingAggregate | null> =>
   {
-    if (!isTemplateSlug(args.templateSlug))
-    {
-      return null
-    }
-
-    const template = await findTemplateBySlug(ctx, args.templateSlug)
-    if (!template || !isPublishedTemplateRow(template))
+    const template = await resolvePublishedTemplateBySlug(
+      ctx,
+      args.templateSlug
+    )
+    if (!template)
     {
       return null
     }
@@ -708,13 +720,11 @@ export const listTemplateRankingAggregateItems = query({
     args
   ): Promise<MarketplaceTemplateRankingAggregateItemsResult> =>
   {
-    if (!isTemplateSlug(args.templateSlug))
-    {
-      return emptyAggregateItemsResult(args.paginationOpts.cursor)
-    }
-
-    const template = await findTemplateBySlug(ctx, args.templateSlug)
-    if (!template || !isPublishedTemplateRow(template))
+    const template = await resolvePublishedTemplateBySlug(
+      ctx,
+      args.templateSlug
+    )
+    if (!template)
     {
       return emptyAggregateItemsResult(args.paginationOpts.cursor)
     }

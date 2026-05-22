@@ -288,9 +288,7 @@ def _compile_item(
 	# uniform fills one color behind every tile), so drop the detector verdict to
 	# keep compiled data honest & stale recommendations out of the editor swatch
 	media_plate = (
-		None
-		if auto_plate_mode in AUTO_PLATE_MEDIA_PLATE_SUPPRESSING_MODES
-		else source.media_plate
+		None if auto_plate_mode in AUTO_PLATE_MEDIA_PLATE_SUPPRESSING_MODES else source.media_plate
 	)
 	# transform is null when natural rendering already matches the template ratio
 	compiled_item = {
@@ -527,27 +525,28 @@ def _compute_compile_fingerprint(
 	}
 
 
-def _hashed_path_entries(paths: list[Path], repo_resolved: Path) -> list[JsonObject]:
+def _hashed_entries(
+	paths: list[Path], key: str, repo_resolved: Path | None = None
+) -> list[JsonObject]:
 	entries: list[JsonObject] = []
 	for raw in paths:
 		resolved = raw.resolve()
-		entries.append(
-			{
-				"path": resolved.relative_to(repo_resolved).as_posix(),
-				"sha256": sha256_file(resolved),
-			}
+		value = (
+			resolved.relative_to(repo_resolved).as_posix()
+			if repo_resolved is not None
+			else resolved.name
 		)
-	entries.sort(key=lambda entry: entry["path"])
+		entries.append({key: value, "sha256": sha256_file(resolved)})
+	entries.sort(key=lambda entry: entry[key])
 	return entries
+
+
+def _hashed_path_entries(paths: list[Path], repo_resolved: Path) -> list[JsonObject]:
+	return _hashed_entries(paths, "path", repo_resolved)
 
 
 def _hashed_package_files(paths: list[Path]) -> list[JsonObject]:
-	entries: list[JsonObject] = []
-	for raw in paths:
-		resolved = raw.resolve()
-		entries.append({"name": resolved.name, "sha256": sha256_file(resolved)})
-	entries.sort(key=lambda entry: entry["name"])
-	return entries
+	return _hashed_entries(paths, "name")
 
 
 def _fingerprint_inputs_match(cached: JsonObject, current: JsonObject) -> bool:

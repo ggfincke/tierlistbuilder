@@ -17,6 +17,7 @@ import {
   __resetPublishableBoardsCacheForTests,
   projectPublishableBoards,
 } from '~/features/workspace/boards/model/usePublishableBoards'
+import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
 
 const boardId = 'board-publishable-test' as BoardId
 const tierId = 'tier-publishable' as TierId
@@ -32,22 +33,18 @@ const meta: BoardMeta = {
 const makeSnapshot = (
   title: string,
   itemIds: readonly ItemId[]
-): BoardSnapshot => ({
-  title,
-  tiers: [
-    {
-      id: tierId,
-      name: 'S',
-      colorSpec: { kind: 'palette', index: 0 },
-      itemIds: [],
-    },
-  ],
-  items: Object.fromEntries(
-    itemIds.map((id, index) => [id, { id, label: `Item ${index + 1}` }])
-  ) as BoardSnapshot['items'],
-  unrankedItemIds: [...itemIds],
-  deletedItems: [],
-})
+): BoardSnapshot =>
+  makeBoardSnapshot({
+    title,
+    tiers: [makeTier({ id: tierId, itemIds: [] })],
+    items: Object.fromEntries(
+      itemIds.map((id, index) => [
+        id,
+        makeItem({ id, label: `Item ${index + 1}` }),
+      ])
+    ) as BoardSnapshot['items'],
+    unrankedItemIds: [...itemIds],
+  })
 
 describe('publishable board projection', () =>
 {

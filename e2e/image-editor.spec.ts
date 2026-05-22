@@ -3,6 +3,7 @@
 
 import { expect, test, type Page } from 'playwright/test'
 import {
+  addImageViaSettings,
   openWorkspaceWithBoard,
   readActiveBoardFromBrowser,
   resetBrowserStorage,
@@ -82,24 +83,11 @@ test('image editor transform autosaves and survives reload', async ({
   )
 
   await openWorkspaceWithBoard(page)
-  await page.getByRole('button', { name: 'Open settings' }).click()
-  const settings = page.getByRole('dialog', { name: 'Settings' })
-  await expect(settings).toBeVisible()
-
-  await page.getByRole('tab', { name: /layout/i }).click()
-  await settings.getByRole('button', { name: '1:1', exact: true }).click()
-  await page.getByRole('tab', { name: /items/i }).click()
-
   const imageUrl = new URL(
     '/e2e-editor-persist-wide.svg',
     page.url()
   ).toString()
-  await settings.getByLabel('Image URL').fill(imageUrl)
-  await settings.getByRole('button', { name: 'Add' }).first().click()
-
-  const prompt = page.getByRole('dialog', {
-    name: 'Mixed aspect ratios detected',
-  })
+  const prompt = await addImageViaSettings(page, imageUrl)
   await expect(prompt).toBeVisible()
   await prompt.getByRole('button', { name: /adjust each item/i }).click()
 
@@ -147,24 +135,11 @@ test('ratio prompt auto-crops imported image without opening editor', async ({
   await useCaptionBelowLabelDefaults(page)
 
   await openWorkspaceWithBoard(page)
-  await page.getByRole('button', { name: 'Open settings' }).click()
-  const settings = page.getByRole('dialog', { name: 'Settings' })
-  await expect(settings).toBeVisible()
-
-  await page.getByRole('tab', { name: /layout/i }).click()
-  await settings.getByRole('button', { name: '1:1', exact: true }).click()
-  await page.getByRole('tab', { name: /items/i }).click()
-
   const imageUrl = new URL(
     '/e2e-prompt-autocrop-wide.svg',
     page.url()
   ).toString()
-  await settings.getByLabel('Image URL').fill(imageUrl)
-  await settings.getByRole('button', { name: 'Add' }).first().click()
-
-  const prompt = page.getByRole('dialog', {
-    name: 'Mixed aspect ratios detected',
-  })
+  const prompt = await addImageViaSettings(page, imageUrl)
   await expect(prompt).toBeVisible()
   const done = prompt.getByRole('button', { name: 'Done' })
 
@@ -204,24 +179,11 @@ test('image editor reruns auto-crop when label visibility changes', async ({
   await useCaptionBelowLabelDefaults(page)
 
   await openWorkspaceWithBoard(page)
-  await page.getByRole('button', { name: 'Open settings' }).click()
-  const settings = page.getByRole('dialog', { name: 'Settings' })
-  await expect(settings).toBeVisible()
-
-  await page.getByRole('tab', { name: /layout/i }).click()
-  await settings.getByRole('button', { name: '1:1', exact: true }).click()
-  await page.getByRole('tab', { name: /items/i }).click()
-
   const imageUrl = new URL(
     '/e2e-editor-label-rerun-wide.svg',
     page.url()
   ).toString()
-  await settings.getByLabel('Image URL').fill(imageUrl)
-  await settings.getByRole('button', { name: 'Add' }).first().click()
-
-  const prompt = page.getByRole('dialog', {
-    name: 'Mixed aspect ratios detected',
-  })
+  const prompt = await addImageViaSettings(page, imageUrl)
   await expect(prompt).toBeVisible()
   await prompt.getByRole('button', { name: /adjust each item/i }).click()
 
