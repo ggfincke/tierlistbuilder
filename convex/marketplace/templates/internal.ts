@@ -15,6 +15,7 @@ import {
   rollupTemplateRankingCount,
 } from '../rankings/aggregate/lib'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import { isActiveTemplateJobStatus } from '@tierlistbuilder/contracts/marketplace/template'
 import { LIBRARY_BOARD_COVER_ITEM_LIMIT } from '@tierlistbuilder/contracts/workspace/board'
 import {
   getLargeTemplateFeatureState,
@@ -23,23 +24,19 @@ import {
 import { loadPreviewOrTileStorageId } from '../../lib/mediaVariants'
 import { buildBoardLibrarySummary } from '../../workspace/boards/librarySummary'
 import {
-  adjustPublicTemplateCount,
+  creditTemplateAsPublic,
   deleteTemplateParentForCascade,
   incrementTemplateForkStats,
   markTemplateNotPublic,
   patchTemplateAndSyncCard,
-  setSourceBoardLivePublicTemplate,
   syncTemplateTagRows,
   writeTemplateCardPreservingCounters,
 } from './lib/writes'
 import { buildBoardItemInsertFromTemplateItem } from './lib/board'
-import {
-  buildTemplateStateFields,
-  isActiveTemplateJob,
-  isPublishedTemplateRow,
-} from './lib/state'
+import { buildTemplateStateFields, isPublishedTemplateRow } from './lib/state'
 import {
   calculateTemplateTrendingScore,
+  createTemplateProjectionCache,
   getTemplateMetricDayStart,
   TEMPLATE_TRENDING_DAY_MS,
   TEMPLATE_TRENDING_WINDOW_DAYS,
@@ -135,7 +132,7 @@ export const processTemplatePublishJob = internalMutation({
   handler: async (ctx, args): Promise<null> =>
   {
     const job = await ctx.db.get(args.jobId)
-    if (!job || !isActiveTemplateJob(job.status)) return null
+    if (!job || !isActiveTemplateJobStatus(job.status)) return null
 
     const now = Date.now()
     const gateError = await assertLargeJobCanContinue(
@@ -260,10 +257,7 @@ export const processTemplatePublishJob = internalMutation({
     )
     if (templatePatch.isPubliclyListable)
     {
-      await adjustPublicTemplateCount(ctx, [
-        { category: template.category, delta: 1 },
-      ])
-      await setSourceBoardLivePublicTemplate(ctx, board, template._id, now)
+      await creditTemplateAsPublic(ctx, template, board, now)
     }
     await syncTemplateTagRows(ctx, nextTemplate)
     await ctx.db.patch(job._id, {
@@ -322,7 +316,7 @@ export const processTemplateCloneJob = internalMutation({
   handler: async (ctx, args): Promise<null> =>
   {
     const job = await ctx.db.get(args.jobId)
-    if (!job || !isActiveTemplateJob(job.status)) return null
+    if (!job || !isActiveTemplateJobStatus(job.status)) return null
 
     const now = Date.now()
     const gateError = await assertLargeJobCanContinue(
@@ -427,7 +421,7 @@ export const processTemplateCloneJob = internalMutation({
       librarySummary,
       updatedAt: now,
     })
-    await incrementTemplateForkStats(ctx, template._id, now)
+    await incrementTemplateForkStats(ctx, template, now)
     await ctx.db.patch(job._id, {
       status: 'succeeded',
       processedItemCount,
@@ -548,9 +542,10 @@ export const syncTemplateCardsForAuthor = internalMutation({
         cursor: args.cursor ?? null,
       })
 
+    const cache = createTemplateProjectionCache()
     await Promise.all(
       page.page.map((template) =>
-        writeTemplateCardPreservingCounters(ctx, template)
+        writeTemplateCardPreservingCounters(ctx, template, cache)
       )
     )
 

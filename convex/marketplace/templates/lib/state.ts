@@ -8,12 +8,7 @@ import {
 } from '../../../lib/entitlements'
 import type {
   TemplateCardAccessState,
-  TemplateJobStatus,
   TemplatePublicationState,
-} from '@tierlistbuilder/contracts/marketplace/template'
-import {
-  isActiveTemplateJobStatus,
-  isFinishedTemplateJobStatus,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import type { UserPlan } from '@tierlistbuilder/contracts/platform/user'
 
@@ -50,9 +45,3 @@ export const getTemplateAccessState = (
     ? 'usable'
     : 'featureNotReady'
 }
-
-export const isActiveTemplateJob = (status: TemplateJobStatus): boolean =>
-  isActiveTemplateJobStatus(status)
-
-export const isFinishedTemplateJob = (status: TemplateJobStatus): boolean =>
-  isFinishedTemplateJobStatus(status)

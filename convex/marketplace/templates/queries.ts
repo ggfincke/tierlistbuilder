@@ -4,7 +4,7 @@
 import { v } from 'convex/values'
 import { paginationOptsValidator } from 'convex/server'
 import { query, type QueryCtx } from '../../_generated/server'
-import type { Doc } from '../../_generated/dataModel'
+import type { Doc, Id } from '../../_generated/dataModel'
 import { clamp } from '@tierlistbuilder/contracts/lib/math'
 import type {
   MarketplaceTemplateDetail,
@@ -47,8 +47,8 @@ import {
 } from '../../lib/validators/marketplace'
 import { createTemplateProjectionCache } from './lib/trending'
 import {
-  findTemplateBySlug,
   findTemplateCardByTemplateId,
+  loadPublishedTemplateBySlug,
   readPublicTemplateStats,
   toTemplateCardSummary,
   toTemplateDetail,
@@ -61,7 +61,7 @@ import {
   normalizeSearchQuery,
   normalizeTagArg,
 } from './lib/normalize'
-import { getTemplateAccessState, isPublishedTemplateRow } from './lib/state'
+import { getTemplateAccessState } from './lib/state'
 import { getBoardSourceTemplateId } from '../../workspace/boards/sourceFields'
 import { failInput } from '../../lib/text'
 
@@ -261,22 +261,12 @@ const searchPublicRows = async (
   let tagIdSet: Set<string> | null = null
   if (tag)
   {
-    const tagRows = options.category
-      ? await ctx.db
-          .query('templateTags')
-          .withIndex('byCategoryTagIsPubliclyListableUpdatedAt', (q) =>
-            q
-              .eq('category', options.category!)
-              .eq('tag', tag)
-              .eq('isPubliclyListable', true)
-          )
-          .take(TAG_INTERSECT_ID_CAP)
-      : await ctx.db
-          .query('templateTags')
-          .withIndex('byTagIsPubliclyListableUpdatedAt', (q) =>
-            q.eq('tag', tag).eq('isPubliclyListable', true)
-          )
-          .take(TAG_INTERSECT_ID_CAP)
+    const tagRows = await queryPublicTemplateTagRows(ctx, {
+      tag,
+      category: options.category,
+      limit: TAG_INTERSECT_ID_CAP,
+      order: 'asc',
+    })
     if (tagRows.length === 0) return []
     tagIdSet = new Set(tagRows.map((row) => row.templateId as string))
   }
@@ -303,6 +293,33 @@ const searchPublicRows = async (
 // resolve tag-filtered template rows via the normalized templateTags table,
 // ordered by tag-row updatedAt desc. denormalized listability keeps templates
 // dropped from public view out of the join
+const queryPublicTemplateTagRows = async (
+  ctx: QueryCtx,
+  options: {
+    tag: string
+    category: TemplateCategory | null
+    limit: number
+    order: 'asc' | 'desc'
+  }
+): Promise<Doc<'templateTags'>[]> =>
+{
+  const query = options.category
+    ? ctx.db
+        .query('templateTags')
+        .withIndex('byCategoryTagIsPubliclyListableUpdatedAt', (q) =>
+          q
+            .eq('category', options.category!)
+            .eq('tag', options.tag)
+            .eq('isPubliclyListable', true)
+        )
+    : ctx.db
+        .query('templateTags')
+        .withIndex('byTagIsPubliclyListableUpdatedAt', (q) =>
+          q.eq('tag', options.tag).eq('isPubliclyListable', true)
+        )
+  return await query.order(options.order).take(options.limit)
+}
+
 const takePublicRowsByTag = async (
   ctx: QueryCtx,
   options: {
@@ -312,31 +329,66 @@ const takePublicRowsByTag = async (
   }
 ): Promise<Doc<'templateCards'>[]> =>
 {
-  const tagRows = options.category
-    ? await ctx.db
-        .query('templateTags')
-        .withIndex('byCategoryTagIsPubliclyListableUpdatedAt', (q) =>
-          q
-            .eq('category', options.category!)
-            .eq('tag', options.tag)
-            .eq('isPubliclyListable', true)
-        )
-        .order('desc')
-        .take(options.limit)
-    : await ctx.db
-        .query('templateTags')
-        .withIndex('byTagIsPubliclyListableUpdatedAt', (q) =>
-          q.eq('tag', options.tag).eq('isPubliclyListable', true)
-        )
-        .order('desc')
-        .take(options.limit)
-
+  const tagRows = await queryPublicTemplateTagRows(ctx, {
+    ...options,
+    order: 'desc',
+  })
   const cards = await Promise.all(
     tagRows.map((row) => findTemplateCardByTemplateId(ctx, row.templateId))
   )
   return cards.filter(
     (card): card is Doc<'templateCards'> =>
       card !== null && card.isPubliclyListable
+  )
+}
+
+const resolvePublicListRows = async (
+  ctx: QueryCtx,
+  args: {
+    search?: string | null
+    category?: TemplateCategory | null
+    tag?: string | null
+    sort?: TemplateListSort
+    limit?: number
+  }
+): Promise<Doc<'templateCards'>[]> =>
+{
+  const limit = normalizeListLimit(args.limit)
+  const category = args.category ?? null
+  const search = normalizeSearchQuery(args.search)
+  const tag = normalizeTagArg(args.tag)
+  const sort = args.sort ?? 'recent'
+
+  return search
+    ? await searchPublicRows(ctx, { search, category, tag, limit })
+    : tag
+      ? await takePublicRowsByTag(ctx, { tag, category, limit })
+      : await takePublicRows(ctx, { category, sort, limit })
+}
+
+const loadMyTemplateCards = async (
+  ctx: QueryCtx,
+  userId: Id<'users'>,
+  limit: number | undefined
+): Promise<
+  Array<{
+    row: Doc<'templateCards'>
+    summary: Awaited<ReturnType<typeof toTemplateCardSummary>>
+  }>
+> =>
+{
+  const rows = await ctx.db
+    .query('templateCards')
+    .withIndex('byAuthorUpdatedAt', (q) => q.eq('authorId', userId))
+    .order('desc')
+    .take(normalizeListLimit(limit))
+
+  const cache = createTemplateProjectionCache()
+  return await Promise.all(
+    rows.map(async (row) => ({
+      row,
+      summary: await toTemplateCardSummary(ctx, row, cache),
+    }))
   )
 }
 
@@ -381,20 +433,7 @@ export const listTemplates = query({
   returns: marketplaceTemplateListResultValidator,
   handler: async (ctx, args): Promise<MarketplaceTemplateListResult> =>
   {
-    const limit = normalizeListLimit(args.limit)
-    const category = args.category ?? null
-    const search = normalizeSearchQuery(args.search)
-    const tag = normalizeTagArg(args.tag)
-    const sort = args.sort ?? 'recent'
-
-    // Search keeps relevance ordering; tag membership narrows the result set
-    // after the search-index read because searchPublic can't join templateTags.
-    const rows = search
-      ? await searchPublicRows(ctx, { search, category, tag, limit })
-      : tag
-        ? await takePublicRowsByTag(ctx, { tag, category, limit })
-        : await takePublicRows(ctx, { category, sort, limit })
-
+    const rows = await resolvePublicListRows(ctx, args)
     const cache = createTemplateProjectionCache()
     return {
       items: await Promise.all(
@@ -415,17 +454,7 @@ export const getTemplatesGallery = query({
   returns: marketplaceTemplateGalleryResultValidator,
   handler: async (ctx, args): Promise<MarketplaceTemplateGalleryResult> =>
   {
-    const limit = normalizeListLimit(args.limit)
-    const category = args.category ?? null
-    const search = normalizeSearchQuery(args.search)
-    const tag = normalizeTagArg(args.tag)
-    const sort = args.sort ?? 'recent'
-
-    const resultsPromise = search
-      ? searchPublicRows(ctx, { search, category, tag, limit })
-      : tag
-        ? takePublicRowsByTag(ctx, { tag, category, limit })
-        : takePublicRows(ctx, { category, sort, limit })
+    const resultsPromise = resolvePublicListRows(ctx, args)
 
     const [
       featuredRows,
@@ -529,17 +558,7 @@ export const getTemplateGalleryResults = query({
     args
   ): Promise<MarketplaceTemplateGalleryResultsResult> =>
   {
-    const limit = normalizeListLimit(args.limit)
-    const category = args.category ?? null
-    const search = normalizeSearchQuery(args.search)
-    const tag = normalizeTagArg(args.tag)
-    const sort = args.sort ?? 'recent'
-
-    const resultsPromise = search
-      ? searchPublicRows(ctx, { search, category, tag, limit })
-      : tag
-        ? takePublicRowsByTag(ctx, { tag, category, limit })
-        : takePublicRows(ctx, { category, sort, limit })
+    const resultsPromise = resolvePublicListRows(ctx, args)
 
     const [resultsRows, stats, viewerPlan] = await Promise.all([
       resultsPromise,
@@ -572,11 +591,8 @@ export const getTemplateBySlug = query({
       return null
     }
 
-    const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || !isPublishedTemplateRow(template))
-    {
-      return null
-    }
+    const template = await loadPublishedTemplateBySlug(ctx, args.slug)
+    if (!template) return null
 
     const cache = createTemplateProjectionCache()
     const viewerPlan = await readViewerPlan(ctx)
@@ -597,11 +613,8 @@ export const listTemplateItems = query({
       return emptyTemplateItemsResult(args.paginationOpts.cursor)
     }
 
-    const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || !isPublishedTemplateRow(template))
-    {
-      return emptyTemplateItemsResult(args.paginationOpts.cursor)
-    }
+    const template = await loadPublishedTemplateBySlug(ctx, args.slug)
+    if (!template) return emptyTemplateItemsResult(args.paginationOpts.cursor)
 
     const result = await ctx.db
       .query('templateItems')
@@ -728,17 +741,9 @@ export const getMyTemplates = query({
       return { items: [] }
     }
 
-    const rows = await ctx.db
-      .query('templateCards')
-      .withIndex('byAuthorUpdatedAt', (q) => q.eq('authorId', userId))
-      .order('desc')
-      .take(normalizeListLimit(args.limit))
-
-    const cache = createTemplateProjectionCache()
+    const cards = await loadMyTemplateCards(ctx, userId, args.limit)
     return {
-      items: await Promise.all(
-        rows.map((row) => toTemplateCardSummary(ctx, row, cache))
-      ),
+      items: cards.map(({ summary }) => summary),
     }
   },
 })
@@ -757,20 +762,12 @@ export const getMyTemplateManagementList = query({
       return { items: [] }
     }
 
-    const rows = await ctx.db
-      .query('templateCards')
-      .withIndex('byAuthorUpdatedAt', (q) => q.eq('authorId', userId))
-      .order('desc')
-      .take(normalizeListLimit(args.limit))
-
-    const cache = createTemplateProjectionCache()
+    const cards = await loadMyTemplateCards(ctx, userId, args.limit)
     return {
-      items: await Promise.all(
-        rows.map(async (row) => ({
-          ...(await toTemplateCardSummary(ctx, row, cache)),
-          isPubliclyListable: row.isPubliclyListable,
-        }))
-      ),
+      items: cards.map(({ row, summary }) => ({
+        ...summary,
+        isPubliclyListable: row.isPubliclyListable,
+      })),
     }
   },
 })

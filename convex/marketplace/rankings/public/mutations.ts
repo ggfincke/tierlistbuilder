@@ -724,7 +724,7 @@ export const remixTemplateConsensus = mutation({
         items: summaryItems,
       }),
     })
-    await incrementTemplateForkStats(ctx, template._id, now)
+    await incrementTemplateForkStats(ctx, template, now)
 
     return { boardExternalId }
   },

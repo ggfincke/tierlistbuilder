@@ -23,7 +23,7 @@ import {
   findTemplateBySlug,
   loadTemplateItems,
 } from '../../marketplace/templates/lib/projections'
-import { incrementTemplateForkStats } from '../../marketplace/templates/lib/writes'
+import { incrementTemplateForkStatsById } from '../../marketplace/templates/lib/writes'
 import { findActiveTemplateCriterion } from '../../marketplace/templates/criteria'
 import {
   findRankingBySlug,
@@ -610,7 +610,7 @@ const tickForkCounterIfFirstSync = async (
   if (sourceTemplateId === null) return
 
   const now = Date.now()
-  await incrementTemplateForkStats(ctx, sourceTemplateId, now)
+  await incrementTemplateForkStatsById(ctx, sourceTemplateId, now)
 
   const sourceRankingId = getBoardSourceRankingId(board)
   if (sourceRankingId !== null)

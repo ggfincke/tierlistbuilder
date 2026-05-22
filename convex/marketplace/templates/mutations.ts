@@ -14,6 +14,7 @@ import {
   ACTIVE_TEMPLATE_JOB_STATUSES,
   COVER_SURFACES,
   MAX_TEMPLATE_COVER_ITEMS,
+  isFinishedTemplateJobStatus,
   isTemplateSlug,
   isValidCoverFrame,
   type CoverFrame,
@@ -51,6 +52,7 @@ import {
   allocateTemplateSlug,
   clearSourceBoardLivePublicTemplate,
   createTemplateStats,
+  creditTemplateAsPublic,
   incrementTemplateForkStats,
   incrementTemplateViewStats,
   markTemplateUnpublished,
@@ -60,13 +62,12 @@ import {
   syncTemplateTagRows,
   writeTemplateCard,
 } from './lib/writes'
+import { buildTemplateStateFields, isPublicTemplateRow } from './lib/state'
 import {
-  buildTemplateStateFields,
-  isFinishedTemplateJob,
-  isPublicTemplateRow,
-  isPublishedTemplateRow,
-} from './lib/state'
-import { findTemplateBySlug, loadTemplateItems } from './lib/projections'
+  loadPublishedTemplateBySlug,
+  loadTemplateItems,
+  pickCoverItemPresentationFields,
+} from './lib/projections'
 import {
   insertBoardItemsFromTemplate,
   insertBoardTiers,
@@ -202,13 +203,7 @@ const toTemplateCoverItem = (
   item: MediaBackedBoardItem
 ): Doc<'templates'>['coverItems'][number] => ({
   mediaAssetId: item.mediaAssetId,
-  label: item.label ?? null,
-  backgroundColor: item.backgroundColor ?? null,
-  mediaPlate: item.mediaPlate ?? null,
-  aspectRatio: item.aspectRatio ?? null,
-  imageFit: item.imageFit ?? null,
-  transform: item.transform ?? null,
-  imagePadding: item.imagePadding ?? null,
+  ...pickCoverItemPresentationFields(item),
 })
 
 const resolveTemplateTiers = async (
@@ -664,10 +659,12 @@ export const publishFromBoard = mutation({
     )
     if (templateState.isPubliclyListable)
     {
-      await adjustPublicTemplateCount(ctx, [
-        { category: args.category, delta: 1 },
-      ])
-      await setSourceBoardLivePublicTemplate(ctx, board, templateId, now)
+      await creditTemplateAsPublic(
+        ctx,
+        { _id: templateId, category: args.category },
+        board,
+        now
+      )
     }
 
     await syncTemplateTagRows(ctx, {
@@ -885,19 +882,11 @@ export const republishMyTemplate = mutation({
     })
     if (nextTemplateState.isPubliclyListable)
     {
-      await adjustPublicTemplateCount(ctx, [
-        { category: template.category, delta: 1 },
-      ])
       const sourceBoard =
         template.sourceBoardId === null
           ? null
           : await ctx.db.get(template.sourceBoardId)
-      await setSourceBoardLivePublicTemplate(
-        ctx,
-        sourceBoard,
-        template._id,
-        now
-      )
+      await creditTemplateAsPublic(ctx, template, sourceBoard, now)
     }
     await patchTemplateTagRows(ctx, template._id, {
       isPubliclyListable: nextTemplateState.isPubliclyListable,
@@ -930,11 +919,8 @@ export const recordTemplateView = mutation({
       scope: args.slug,
     })
 
-    const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || !isPublishedTemplateRow(template))
-    {
-      return null
-    }
+    const template = await loadPublishedTemplateBySlug(ctx, args.slug)
+    if (!template) return null
 
     await incrementTemplateViewStats(ctx, template, Date.now())
     return null
@@ -963,8 +949,8 @@ export const useTemplate = mutation({
     // throttle before the board insert so a script can't mass-create boards or
     // inflate the template's forkCount/trendingScore
     await enforceRateLimit(ctx, 'userTemplateFork', userId)
-    const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || !isPublishedTemplateRow(template))
+    const template = await loadPublishedTemplateBySlug(ctx, args.slug)
+    if (!template)
     {
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.notFound,
@@ -1074,7 +1060,7 @@ export const useTemplate = mutation({
         items: summaryItems,
       }),
     })
-    await incrementTemplateForkStats(ctx, template._id, now)
+    await incrementTemplateForkStats(ctx, template, now)
 
     return { status: 'ready', boardExternalId }
   },
@@ -1118,7 +1104,11 @@ export const cancelTemplatePublishJob = mutation({
   {
     const userId = await requireCurrentUserId(ctx)
     const job = await ctx.db.get(args.jobId)
-    if (!job || job.ownerId !== userId || isFinishedTemplateJob(job.status))
+    if (
+      !job ||
+      job.ownerId !== userId ||
+      isFinishedTemplateJobStatus(job.status)
+    )
     {
       return null
     }
@@ -1186,7 +1176,11 @@ export const cancelTemplateCloneJob = mutation({
   {
     const userId = await requireCurrentUserId(ctx)
     const job = await ctx.db.get(args.jobId)
-    if (!job || job.ownerId !== userId || isFinishedTemplateJob(job.status))
+    if (
+      !job ||
+      job.ownerId !== userId ||
+      isFinishedTemplateJobStatus(job.status)
+    )
     {
       return null
     }
