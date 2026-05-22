@@ -20,6 +20,7 @@ import type {
   MarketplaceRankingSummary,
   MarketplaceRankingTier,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
+import type { MarketplaceItemRenderFields } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { failInput, normalizeNullableText } from '../../lib/text'
 import { createTemplateProjectionCache } from '../templates/lib/trending'
@@ -175,27 +176,51 @@ export const toRankingBucketPlacementItems = (
     tierExternalId: item.tierExternalId,
   }))
 
-const toRankingItem = async (
+type RankingItemRenderSource = Pick<
+  Doc<'publishedRankingItems'>,
+  | 'label'
+  | 'backgroundColor'
+  | 'mediaPlate'
+  | 'altText'
+  | 'mediaAssetId'
+  | 'order'
+  | 'aspectRatio'
+  | 'imageFit'
+  | 'transform'
+  | 'imagePadding'
+>
+
+export const toRankingItemRenderFields = async (
   ctx: DbCtx,
-  item: Doc<'publishedRankingItems'>,
+  item: RankingItemRenderSource,
   cache = createTemplateProjectionCache()
-): Promise<MarketplaceRankingItem> => ({
-  externalId: item.externalId,
-  templateItemExternalId: item.templateItemExternalId,
-  tierExternalId: item.tierExternalId,
+): Promise<MarketplaceItemRenderFields> => ({
   label: item.label,
   backgroundColor: item.backgroundColor,
   mediaPlate: item.mediaPlate ?? null,
   altText: item.altText,
-  media: item.mediaAssetId
-    ? await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache)
-    : null,
+  media: await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache),
   order: item.order,
   aspectRatio: item.aspectRatio,
   imageFit: item.imageFit,
   transform: item.transform,
   imagePadding: item.imagePadding ?? null,
 })
+
+const toRankingItem = async (
+  ctx: DbCtx,
+  item: Doc<'publishedRankingItems'>,
+  cache = createTemplateProjectionCache()
+): Promise<MarketplaceRankingItem> =>
+{
+  const renderFields = await toRankingItemRenderFields(ctx, item, cache)
+  return {
+    externalId: item.externalId,
+    templateItemExternalId: item.templateItemExternalId,
+    tierExternalId: item.tierExternalId,
+    ...renderFields,
+  }
+}
 
 export const toRankingDetail = async (
   ctx: DbCtx,

@@ -21,15 +21,13 @@ import {
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { DEFAULT_TEMPLATE_TIERS } from '../../templates/lib/normalize'
 import { createTemplateProjectionCache } from '../../templates/lib/trending'
-import {
-  findTemplateCardByTemplateId,
-  toTemplateMediaRef,
-} from '../../templates/lib/projections'
+import { findTemplateCardByTemplateId } from '../../templates/lib/projections'
 import {
   resolveTemplateCriteria,
   resolveTemplateCriterionForHistoricalRead,
   type TemplateCriteriaSource,
 } from '../../templates/criteria'
+import { toRankingItemRenderFields } from '../lib'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -591,19 +589,11 @@ export const toTemplateRankingAggregateItem = async (
   cache: ReturnType<typeof createTemplateProjectionCache>
 ): Promise<MarketplaceTemplateRankingAggregateItem> =>
 {
+  const renderFields = await toRankingItemRenderFields(ctx, row, cache)
   return {
     externalId: row.templateItemExternalId,
     templateItemExternalId: row.templateItemExternalId,
-    label: row.label,
-    backgroundColor: row.backgroundColor,
-    mediaPlate: row.mediaPlate ?? null,
-    altText: row.altText,
-    media: await toTemplateMediaRef(ctx, row.mediaAssetId, 'tile', cache),
-    order: row.order,
-    aspectRatio: row.aspectRatio,
-    imageFit: row.imageFit,
-    transform: row.transform,
-    imagePadding: row.imagePadding ?? null,
+    ...renderFields,
     sampleCount: row.sampleCount,
     averageBucket: row.averageBucket,
     topBucketIndex: row.topBucketIndex,
