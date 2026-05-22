@@ -123,6 +123,38 @@ const readAuthState = async (
     codes: await ctx.db.query('authVerificationCodes').collect(),
   }))
 
+const readBoardCascade = async (
+  t: ConvexTestHandle,
+  boardId: Id<'boards'>
+) =>
+  await t.run(async (ctx) => ({
+    board: await ctx.db.get(boardId),
+    items: await ctx.db
+      .query('boardItems')
+      .withIndex('byBoardAndTier', (q) => q.eq('boardId', boardId))
+      .collect(),
+    tiers: await ctx.db
+      .query('boardTiers')
+      .withIndex('byBoard', (q) => q.eq('boardId', boardId))
+      .collect(),
+  }))
+
+const readTemplateCascade = async (
+  t: ConvexTestHandle,
+  templateId: Id<'templates'>
+) =>
+  await t.run(async (ctx) => ({
+    template: await ctx.db.get(templateId),
+    stats: await ctx.db
+      .query('templateStats')
+      .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+      .unique(),
+    items: await ctx.db
+      .query('templateItems')
+      .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
+      .collect(),
+  }))
+
 const seedTemplate = async (
   t: ConvexTestHandle,
   authorId: Id<'users'>,
@@ -296,34 +328,14 @@ describe('user cascade cleanup', () =>
         boardId,
       })
 
-      const intermediate = await t.run(async (ctx) => ({
-        board: await ctx.db.get(boardId),
-        items: await ctx.db
-          .query('boardItems')
-          .withIndex('byBoardAndTier', (q) => q.eq('boardId', boardId))
-          .collect(),
-        tiers: await ctx.db
-          .query('boardTiers')
-          .withIndex('byBoard', (q) => q.eq('boardId', boardId))
-          .collect(),
-      }))
+      const intermediate = await readBoardCascade(t, boardId)
       expect(intermediate.board).not.toBeNull()
       expect(intermediate.items).toHaveLength(4)
       expect(intermediate.tiers).toHaveLength(260)
 
       await t.finishAllScheduledFunctions(() => vi.runAllTimers())
 
-      const remaining = await t.run(async (ctx) => ({
-        board: await ctx.db.get(boardId),
-        items: await ctx.db
-          .query('boardItems')
-          .withIndex('byBoardAndTier', (q) => q.eq('boardId', boardId))
-          .collect(),
-        tiers: await ctx.db
-          .query('boardTiers')
-          .withIndex('byBoard', (q) => q.eq('boardId', boardId))
-          .collect(),
-      }))
+      const remaining = await readBoardCascade(t, boardId)
       expect(remaining.board).toBeNull()
       expect(remaining.items).toHaveLength(0)
       expect(remaining.tiers).toHaveLength(0)
@@ -348,17 +360,7 @@ describe('user cascade cleanup', () =>
         { templateId }
       )
 
-      const intermediate = await t.run(async (ctx) => ({
-        template: await ctx.db.get(templateId),
-        stats: await ctx.db
-          .query('templateStats')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-          .unique(),
-        items: await ctx.db
-          .query('templateItems')
-          .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
-          .collect(),
-      }))
+      const intermediate = await readTemplateCascade(t, templateId)
       expect(intermediate.template).toBeNull()
       expect(intermediate.stats).toBeNull()
       expect(intermediate.items.length).toBeGreaterThan(0)
@@ -371,17 +373,7 @@ describe('user cascade cleanup', () =>
 
       await t.finishAllScheduledFunctions(() => vi.runAllTimers())
 
-      const remaining = await t.run(async (ctx) => ({
-        template: await ctx.db.get(templateId),
-        stats: await ctx.db
-          .query('templateStats')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-          .unique(),
-        items: await ctx.db
-          .query('templateItems')
-          .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
-          .collect(),
-      }))
+      const remaining = await readTemplateCascade(t, templateId)
       expect(remaining.items).toHaveLength(0)
       expect(remaining.stats).toBeNull()
     }
@@ -409,17 +401,9 @@ describe('user cascade cleanup', () =>
 
       await t.finishAllScheduledFunctions(() => vi.runAllTimers())
 
+      const templateCascade = await readTemplateCascade(t, templateId)
       const remaining = await t.run(async (ctx) => ({
         user: await ctx.db.get(userId),
-        template: await ctx.db.get(templateId),
-        stats: await ctx.db
-          .query('templateStats')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-          .unique(),
-        items: await ctx.db
-          .query('templateItems')
-          .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
-          .collect(),
         rankings: await ctx.db
           .query('publishedRankings')
           .withIndex('byOwnerUpdatedAt', (q) => q.eq('ownerId', userId))
@@ -434,9 +418,9 @@ describe('user cascade cleanup', () =>
           .collect(),
       }))
       expect(remaining.user).toBeNull()
-      expect(remaining.template).toBeNull()
-      expect(remaining.stats).toBeNull()
-      expect(remaining.items).toHaveLength(0)
+      expect(templateCascade.template).toBeNull()
+      expect(templateCascade.stats).toBeNull()
+      expect(templateCascade.items).toHaveLength(0)
       expect(remaining.rankings).toHaveLength(0)
       expect(remaining.rankingTiers).toHaveLength(0)
       expect(remaining.rankingItems).toHaveLength(0)
