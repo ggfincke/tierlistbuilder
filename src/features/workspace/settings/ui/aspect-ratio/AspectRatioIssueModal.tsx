@@ -22,6 +22,7 @@ import {
   withBoardShowLabels,
 } from '~/shared/board-ui/labelSettings'
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { formatCountedWord } from '~/shared/lib/pluralize'
@@ -390,7 +391,7 @@ const AspectRatioIssueModalBody = ({
             Re-enable in board settings
           </span>
         </div>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+        <DialogActions className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {onAdjustEach && (
             <SecondaryButton
               onClick={handleAdjustEach}
@@ -411,7 +412,7 @@ const AspectRatioIssueModalBody = ({
           >
             Done
           </SecondaryButton>
-        </div>
+        </DialogActions>
       </div>
     </BaseModal>
   )

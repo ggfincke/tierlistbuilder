@@ -23,6 +23,7 @@ import {
 import { useUpdateProfileMutation } from '~/features/platform/auth/model/useAccountMutations'
 import { formatError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextArea } from '~/shared/ui/TextArea'
@@ -227,7 +228,7 @@ export const AccountProfileSection = ({ user }: AccountProfileSectionProps) =>
       </div>
 
       {dirty && (
-        <div className="flex items-center gap-2 pt-1">
+        <DialogActions className="flex items-center gap-2 pt-1">
           <PrimaryButton
             size="sm"
             onClick={() =>
@@ -246,7 +247,7 @@ export const AccountProfileSection = ({ user }: AccountProfileSectionProps) =>
               Display name is required
             </span>
           )}
-        </div>
+        </DialogActions>
       )}
     </div>
   )

@@ -3,6 +3,7 @@
 // provider w/ flow: 'signIn' | 'signUp'
 
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState, type FormEvent } from 'react'
 
@@ -203,7 +204,7 @@ export const SignInModal = ({ open, onClose }: SignInModalProps) =>
           </p>
         )}
 
-        <div className="flex justify-end gap-2 pt-1">
+        <DialogActions className="flex justify-end gap-2 pt-1">
           <SecondaryButton type="button" disabled={pending} onClick={onClose}>
             Cancel
           </SecondaryButton>
@@ -216,7 +217,7 @@ export const SignInModal = ({ open, onClose }: SignInModalProps) =>
                 ? 'Create account'
                 : 'Sign in'}
           </PrimaryButton>
-        </div>
+        </DialogActions>
       </form>
     </BaseModal>
   )

@@ -29,6 +29,7 @@ import { applyAxisSnap } from '~/shared/lib/axisSnap'
 import { formatError } from '~/shared/lib/errors'
 import { logger } from '~/shared/lib/logger'
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -460,7 +461,7 @@ const CoverImageEditorBody = ({
       </div>
 
       <footer className="shrink-0 border-t border-[var(--t-border)] px-5 py-3">
-        <div className="flex items-center justify-end gap-2">
+        <DialogActions className="flex items-center justify-end gap-2">
           <SecondaryButton type="button" onClick={onCancel}>
             Cancel
           </SecondaryButton>
@@ -472,7 +473,7 @@ const CoverImageEditorBody = ({
           >
             Apply
           </PrimaryButton>
-        </div>
+        </DialogActions>
       </footer>
     </BaseModal>
   )

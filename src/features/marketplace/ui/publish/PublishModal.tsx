@@ -17,6 +17,7 @@ import {
   type TemplateCategory,
 } from '@tierlistbuilder/contracts/marketplace/category'
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -447,7 +448,7 @@ const PublishForm = ({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--t-border)] bg-[var(--t-bg-overlay)] px-5 py-3">
+      <DialogActions className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--t-border)] bg-[var(--t-bg-overlay)] px-5 py-3">
         <SecondaryButton type="button" disabled={isPending} onClick={onClose}>
           Cancel
         </SecondaryButton>
@@ -463,7 +464,7 @@ const PublishForm = ({
             'Publish template'
           )}
         </PrimaryButton>
-      </div>
+      </DialogActions>
     </form>
   )
 }

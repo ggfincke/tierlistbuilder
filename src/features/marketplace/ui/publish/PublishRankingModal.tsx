@@ -13,6 +13,7 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -370,7 +371,7 @@ const PublishRankingForm = ({
         </p>
       )}
 
-      <div className="flex items-center justify-end gap-2 border-t border-[var(--t-border)] pt-4">
+      <DialogActions className="flex items-center justify-end gap-2 border-t border-[var(--t-border)] pt-4">
         <SecondaryButton type="button" disabled={isPending} onClick={onClose}>
           Cancel
         </SecondaryButton>
@@ -384,7 +385,7 @@ const PublishRankingForm = ({
             'Publish ranking'
           )}
         </PrimaryButton>
-      </div>
+      </DialogActions>
     </form>
   )
 }

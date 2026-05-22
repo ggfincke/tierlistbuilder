@@ -8,6 +8,7 @@ import { useDeleteAccountMutation } from '~/features/platform/auth/model/useAcco
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { formatError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
@@ -87,7 +88,7 @@ export const AccountDangerZone = ({ onClose }: AccountDangerZoneProps) =>
         disabled={pending}
         aria-label="Type 'delete' to confirm"
       />
-      <div className="flex items-center gap-2">
+      <DialogActions className="flex items-center gap-2">
         <PrimaryButton
           tone="destructive"
           disabled={!canConfirm}
@@ -108,7 +109,7 @@ export const AccountDangerZone = ({ onClose }: AccountDangerZoneProps) =>
         >
           Cancel
         </SecondaryButton>
-      </div>
+      </DialogActions>
     </div>
   )
 }
