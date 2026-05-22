@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { sha256Hex } from '../../convex/lib/sha256'
 import { computeVariantDedupeHash } from '../../convex/lib/mediaVariants'
 import {
@@ -17,6 +16,7 @@ import {
   restoreSeedEnv,
   seedPublishedTemplate,
   seedUser,
+  TEST_CRITERIA,
 } from './convexTestHelpers'
 
 const SEED_SECRET = 'test-seed-secret'
@@ -46,19 +46,7 @@ const seedHttpPost = async (
     body: JSON.stringify(body),
   })
 
-const criteria: MarketplaceTemplateCriterion[] = [
-  {
-    externalId: 'competitive',
-    name: 'Competitive',
-    shortName: 'Comp',
-    prompt: 'Rank by viability.',
-    axisTop: 'Strongest',
-    axisBottom: 'Weakest',
-    order: 0,
-    isPrimary: true,
-    status: 'active',
-  },
-]
+const criteria = TEST_CRITERIA.slice(0, 1)
 
 const withCriteriaContentHash = <
   T extends { templateExternalId: string; criterionExternalId: string },

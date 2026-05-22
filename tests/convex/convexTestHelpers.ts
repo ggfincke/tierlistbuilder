@@ -25,7 +25,10 @@ import {
   type BoardSourceTemplate,
 } from '@convex/workspace/boards/sourceFields'
 import { RANKING_TOP_SCORE_REMIX_WEIGHT } from '@tierlistbuilder/contracts/marketplace/ranking'
-import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
+import type {
+  MarketplaceTemplateCriterion,
+  MarketplaceTemplateCriterionSnapshot,
+} from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 
 const modules = import.meta.glob('../../convex/**/*.*s')
 
@@ -64,6 +67,66 @@ export const expectConvexCode = async (
       'code' in error.data &&
       error.data.code === code
   )
+}
+
+export const TEST_CRITERIA: MarketplaceTemplateCriterion[] = [
+  {
+    externalId: 'competitive',
+    name: 'Competitive',
+    shortName: 'Comp',
+    prompt: 'Rank by competitive viability.',
+    axisTop: 'Strongest',
+    axisBottom: 'Weakest',
+    order: 0,
+    isPrimary: true,
+    status: 'active',
+  },
+  {
+    externalId: 'favorites',
+    name: 'Favorites',
+    shortName: 'Favs',
+    prompt: 'Rank by personal preference.',
+    axisTop: 'Favorite',
+    axisBottom: 'Least favorite',
+    order: 1,
+    isPrimary: false,
+    status: 'active',
+  },
+  {
+    externalId: 'staged',
+    name: 'Staged',
+    shortName: null,
+    prompt: 'Hidden staging question.',
+    axisTop: null,
+    axisBottom: null,
+    order: 2,
+    isPrimary: false,
+    status: 'hidden',
+  },
+  {
+    externalId: 'retired',
+    name: 'Retired',
+    shortName: null,
+    prompt: 'Retired historical question.',
+    axisTop: null,
+    axisBottom: null,
+    order: 3,
+    isPrimary: false,
+    status: 'deprecated',
+  },
+]
+
+export const toCriterionSnapshot = (
+  externalId = 'competitive'
+): MarketplaceTemplateCriterionSnapshot =>
+{
+  const criterion = TEST_CRITERIA.find((item) => item.externalId === externalId)
+  if (!criterion) throw new Error(`missing test criterion: ${externalId}`)
+  return {
+    externalId: criterion.externalId,
+    name: criterion.name,
+    prompt: criterion.prompt,
+  }
 }
 
 export function seedUser(

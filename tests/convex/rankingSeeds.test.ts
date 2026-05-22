@@ -9,7 +9,6 @@ import {
   formatBoardSeedId,
   formatRankingSeedId,
 } from '@convex/marketplace/rankings/seed/naming'
-import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import type { MediaPlate } from '@tierlistbuilder/contracts/workspace/board'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
 import {
@@ -19,6 +18,8 @@ import {
   seedPublishedRanking,
   seedPublishedTemplate,
   seedUser,
+  TEST_CRITERIA,
+  toCriterionSnapshot,
   withSeedEnv,
 } from './convexTestHelpers'
 
@@ -26,43 +27,7 @@ const DATASET = 'marketplace-core'
 const RELEASE = '2026-05-templates-v2'
 const OLD_RELEASE = '2026-04-templates-v1'
 
-const criteria: Doc<'templates'>['criteria'] = [
-  {
-    externalId: 'competitive',
-    name: 'Competitive',
-    shortName: 'Comp',
-    prompt: 'Rank by viability.',
-    axisTop: 'Strongest',
-    axisBottom: 'Weakest',
-    order: 0,
-    isPrimary: true,
-    status: 'active',
-  },
-  {
-    externalId: 'favorites',
-    name: 'Favorites',
-    shortName: 'Favs',
-    prompt: 'Rank by preference.',
-    axisTop: 'Favorite',
-    axisBottom: 'Least favorite',
-    order: 1,
-    isPrimary: false,
-    status: 'active',
-  },
-]
-
-const criterionSnapshot = (
-  externalId: 'competitive' | 'favorites' = 'competitive'
-): MarketplaceTemplateCriterionSnapshot =>
-{
-  const criterion = criteria.find((item) => item.externalId === externalId)
-  if (!criterion) throw new Error(`missing test criterion: ${externalId}`)
-  return {
-    externalId: criterion.externalId,
-    name: criterion.name,
-    prompt: criterion.prompt,
-  }
-}
+const criteria: Doc<'templates'>['criteria'] = TEST_CRITERIA.slice(0, 2)
 
 describe('ranking seed pipeline', () =>
 {
@@ -901,7 +866,7 @@ const seedRankingRow = async (
       isFeatured: args.status === 'active',
       featuredRank: 0,
       featuredBadge: 'creator',
-      criterion: criterionSnapshot(),
+      criterion: toCriterionSnapshot(),
     })
     await ctx.db.patch(rankingId, {
       seedDatasetKey: DATASET,
@@ -955,7 +920,7 @@ const seedRankingRowsWithoutBoards = async (
         isFeatured: args.status === 'active',
         featuredRank: 0,
         featuredBadge: 'creator',
-        criterion: criterionSnapshot(),
+        criterion: toCriterionSnapshot(),
       })
       await ctx.db.patch(rankingId, {
         seedDatasetKey: DATASET,

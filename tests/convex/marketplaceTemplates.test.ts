@@ -43,6 +43,8 @@ import {
   seedPublishedRanking,
   seedPublishedTemplate,
   seedUser,
+  TEST_CRITERIA,
+  toCriterionSnapshot,
   withSeedEnv,
 } from './convexTestHelpers'
 
@@ -51,72 +53,10 @@ const SEED_SECRET = 'test-seed-secret'
 const withSeedActionsEnabled = async <T>(run: () => Promise<T>): Promise<T> =>
   await withSeedEnv(SEED_SECRET, run)
 
-const MULTI_CRITERION_TEST_CRITERIA: MarketplaceTemplateCriterion[] = [
-  {
-    externalId: 'competitive',
-    name: 'Competitive',
-    shortName: 'Comp',
-    prompt: 'Rank by competitive viability.',
-    axisTop: 'Strongest',
-    axisBottom: 'Weakest',
-    order: 0,
-    isPrimary: true,
-    status: 'active',
-  },
-  {
-    externalId: 'favorites',
-    name: 'Favorites',
-    shortName: 'Favs',
-    prompt: 'Rank by personal preference.',
-    axisTop: 'Favorite',
-    axisBottom: 'Least favorite',
-    order: 1,
-    isPrimary: false,
-    status: 'active',
-  },
-  {
-    externalId: 'staged',
-    name: 'Staged',
-    shortName: null,
-    prompt: 'Hidden staging question.',
-    axisTop: null,
-    axisBottom: null,
-    order: 2,
-    isPrimary: false,
-    status: 'hidden',
-  },
-  {
-    externalId: 'retired',
-    name: 'Retired',
-    shortName: null,
-    prompt: 'Retired historical question.',
-    axisTop: null,
-    axisBottom: null,
-    order: 3,
-    isPrimary: false,
-    status: 'deprecated',
-  },
-]
-
-const testCriterionSnapshot = (
-  externalId: string
-): MarketplaceTemplateCriterionSnapshot =>
-{
-  const criterion = MULTI_CRITERION_TEST_CRITERIA.find(
-    (item) => item.externalId === externalId
-  )
-  if (!criterion) throw new Error(`Expected test criterion: ${externalId}`)
-  return {
-    externalId: criterion.externalId,
-    name: criterion.name,
-    prompt: criterion.prompt,
-  }
-}
-
 const setTemplateCriteria = async (
   t: ConvexTestHandle,
   slug: string,
-  criteria: MarketplaceTemplateCriterion[] = MULTI_CRITERION_TEST_CRITERIA
+  criteria: MarketplaceTemplateCriterion[] = TEST_CRITERIA
 ) =>
   await withSeedActionsEnabled(() =>
     t.action(api.marketplace.templates.seed.setTemplateCriteria, {
@@ -2310,7 +2250,7 @@ describe('marketplace template Convex functions', () =>
       'local-fork-ranker@example.com'
     )
     const { slug: templateSlug } = await seedAggregateTemplate(t, authorId, {
-      criteria: MULTI_CRITERION_TEST_CRITERIA,
+      criteria: TEST_CRITERIA,
       title: 'Local Fork Template',
     })
     const ranker = asUser(t, rankerId)
@@ -2861,7 +2801,7 @@ describe('marketplace template Convex functions', () =>
       templates.push(
         await seedAggregateTemplate(t, authorId, {
           slug: `AggAdm${index}`,
-          criteria: MULTI_CRITERION_TEST_CRITERIA,
+          criteria: TEST_CRITERIA,
         })
       )
     }
@@ -2950,7 +2890,7 @@ describe('marketplace template Convex functions', () =>
         itemIds,
         slug: templateSlug,
       } = await seedAggregateTemplate(t, authorId, {
-        criteria: MULTI_CRITERION_TEST_CRITERIA,
+        criteria: TEST_CRITERIA,
       })
       const tiers = [
         { externalId: 'tier-top', name: 'Top', order: 0 },
@@ -2974,7 +2914,7 @@ describe('marketplace template Convex functions', () =>
         slug: 'AggCrit001',
         title: 'Competitive Ranker A',
         now: 1_000,
-        criterion: testCriterionSnapshot('competitive'),
+        criterion: toCriterionSnapshot('competitive'),
         tiers,
         items: [item(0, 'tier-top'), item(1, 'tier-low'), item(2, 'tier-low')],
       })
@@ -2986,7 +2926,7 @@ describe('marketplace template Convex functions', () =>
         slug: 'AggCrit002',
         title: 'Competitive Ranker B',
         now: 2_000,
-        criterion: testCriterionSnapshot('competitive'),
+        criterion: toCriterionSnapshot('competitive'),
         tiers,
         items: [item(0, 'tier-top'), item(1, 'tier-mid'), item(2, 'tier-low')],
       })
@@ -2998,7 +2938,7 @@ describe('marketplace template Convex functions', () =>
         slug: 'AggCrit003',
         title: 'Favorites Ranker C',
         now: 3_000,
-        criterion: testCriterionSnapshot('favorites'),
+        criterion: toCriterionSnapshot('favorites'),
         tiers,
         items: [item(0, 'tier-low'), item(1, 'tier-top'), item(2, 'tier-low')],
       })
@@ -3192,7 +3132,7 @@ describe('marketplace template Convex functions', () =>
         )
       }
       const criteria: MarketplaceTemplateCriterion[] = [
-        ...MULTI_CRITERION_TEST_CRITERIA.slice(0, 2),
+        ...TEST_CRITERIA.slice(0, 2),
         {
           externalId: 'consistency',
           name: 'Consistency',
@@ -3238,7 +3178,7 @@ describe('marketplace template Convex functions', () =>
           slug: `RelComp${String(index).padStart(3, '0')}`,
           title: `Competitive Relative ${index}`,
           now: 1_000 + index,
-          criterion: testCriterionSnapshot('competitive'),
+          criterion: toCriterionSnapshot('competitive'),
           tiers,
           items: itemsForBuckets(`comp-${index}`, [
             index < 5 ? 0 : 2,
@@ -3273,7 +3213,7 @@ describe('marketplace template Convex functions', () =>
           slug: `RelFav${String(index).padStart(3, '0')}`,
           title: `Favorites Relative ${index}`,
           now: 3_000 + index,
-          criterion: testCriterionSnapshot('favorites'),
+          criterion: toCriterionSnapshot('favorites'),
           tiers,
           items: itemsForBuckets(`fav-${index}`, [index === 0 ? 0 : 2, 0, 1]),
         })
