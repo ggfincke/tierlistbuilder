@@ -519,20 +519,37 @@ export const getBlobsBatch = async (
   }
 }
 
+const deleteMemoryBlobRefsForScope = (scope: string): void =>
+{
+  for (const [id, ref] of memoryBlobRefs)
+  {
+    if (ref.scope === scope)
+    {
+      memoryBlobRefs.delete(id)
+    }
+  }
+}
+
+const runBlobRefsTxForScope = async (
+  write: (store: IDBObjectStore) => Promise<unknown>
+): Promise<void> =>
+{
+  const db = await openDatabaseSafe()
+  if (!db) return
+
+  const tx = db.transaction(BLOB_REFS_STORE, 'readwrite')
+  const done = awaitTransaction(tx)
+  await write(tx.objectStore(BLOB_REFS_STORE))
+  await done
+}
+
 export const replaceBlobRefs = async (
   scope: string,
   hashes: readonly string[]
 ): Promise<void> =>
   runBlobRefWrite(scope, async () =>
   {
-    for (const [id, ref] of memoryBlobRefs)
-    {
-      if (ref.scope === scope)
-      {
-        memoryBlobRefs.delete(id)
-      }
-    }
-
+    deleteMemoryBlobRefsForScope(scope)
     const uniqueHashes = [...new Set(hashes)]
     const now = Date.now()
     const nextRefs = uniqueHashes.map(
@@ -552,23 +569,11 @@ export const replaceBlobRefs = async (
     }
     pruneMemoryCaches(new Set(uniqueHashes))
 
-    const db = await openDatabaseSafe()
-    if (!db)
-    {
-      return
-    }
-
     try
     {
-      const tx = db.transaction(BLOB_REFS_STORE, 'readwrite')
-      const done = awaitTransaction(tx)
-      await replaceIndexRecords(
-        tx.objectStore(BLOB_REFS_STORE),
-        BLOB_REFS_BY_SCOPE,
-        scope,
-        nextRefs
+      await runBlobRefsTxForScope((store) =>
+        replaceIndexRecords(store, BLOB_REFS_BY_SCOPE, scope, nextRefs)
       )
-      await done
     }
     catch (error)
     {
@@ -583,30 +588,13 @@ export const replaceBlobRefs = async (
 export const clearBlobRefs = async (scope: string): Promise<void> =>
   runBlobRefWrite(scope, async () =>
   {
-    for (const [id, ref] of memoryBlobRefs)
-    {
-      if (ref.scope === scope)
-      {
-        memoryBlobRefs.delete(id)
-      }
-    }
-
-    const db = await openDatabaseSafe()
-    if (!db)
-    {
-      return
-    }
+    deleteMemoryBlobRefsForScope(scope)
 
     try
     {
-      const tx = db.transaction(BLOB_REFS_STORE, 'readwrite')
-      const done = awaitTransaction(tx)
-      await awaitIndexDeletes(
-        tx.objectStore(BLOB_REFS_STORE),
-        BLOB_REFS_BY_SCOPE,
-        scope
+      await runBlobRefsTxForScope((store) =>
+        awaitIndexDeletes(store, BLOB_REFS_BY_SCOPE, scope)
       )
-      await done
     }
     catch (error)
     {
