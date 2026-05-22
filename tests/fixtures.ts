@@ -1,5 +1,6 @@
 import type {
   BoardListItem,
+  LibraryBoardListItem,
   BoardMeta,
   BoardSnapshot,
   Tier,
@@ -88,6 +89,39 @@ export const makeBoardListItem = (
   createdAt: 1,
   updatedAt: 1,
   revision: 1,
+  ...overrides,
+})
+
+export const makeLibraryBoardListItem = (
+  overrides?: Partial<LibraryBoardListItem>
+): LibraryBoardListItem => ({
+  externalId: 'board-library-test',
+  title: 'Library Board',
+  createdAt: 1,
+  updatedAt: 2,
+  revision: 3,
+  activeItemCount: 1,
+  unrankedItemCount: 0,
+  rankedItemCount: 1,
+  publishState: 'wip',
+  syncState: 'localOnly',
+  visibility: 'private',
+  category: 'other',
+  sourceTemplateSizeClass: null,
+  sourceTemplateCoverMedia: null,
+  sourceTemplateCoverFraming: null,
+  coverItems: [],
+  paletteId: 'classic',
+  tierCount: 1,
+  tierColors: [createPaletteTierColorSpec(0)],
+  tierBreakdown: [
+    {
+      tierIndex: 0,
+      itemCount: 1,
+      colorSpec: createPaletteTierColorSpec(0),
+    },
+  ],
+  pinned: false,
   ...overrides,
 })
 

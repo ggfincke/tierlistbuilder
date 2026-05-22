@@ -4,6 +4,7 @@
 import { expect, test } from 'playwright/test'
 
 import {
+  makeRunId,
   openWorkspaceWithBoard,
   resetBrowserStorage,
   signUpNewAccount,
@@ -20,9 +21,7 @@ test('account profile saves and deletion requires confirmation', async ({
   page,
 }) =>
 {
-  const runId = `${Date.now().toString(36)}${Math.random()
-    .toString(36)
-    .slice(2, 8)}`
+  const runId = makeRunId()
   const email = `group-e-account-${runId}@example.com`
   const password = 'group-e-password'
   const displayName = `Group E ${runId}`

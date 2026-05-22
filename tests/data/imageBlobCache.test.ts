@@ -9,54 +9,25 @@ import {
   handlePageHide,
   subscribeCachedImageUrl,
 } from '~/shared/images/imageBlobCache'
+import { mockObjectUrls } from '../shared-lib/objectUrl'
 
-const originalCreateObjectUrl = Object.getOwnPropertyDescriptor(
-  URL,
-  'createObjectURL'
-)
-const originalRevokeObjectUrl = Object.getOwnPropertyDescriptor(
-  URL,
-  'revokeObjectURL'
-)
 let objectUrlId = 0
-
-const restoreUrlMethod = (
-  key: 'createObjectURL' | 'revokeObjectURL',
-  descriptor: PropertyDescriptor | undefined
-): void =>
-{
-  if (descriptor)
-  {
-    Object.defineProperty(URL, key, descriptor)
-    return
-  }
-
-  delete (URL as typeof URL & Partial<Record<typeof key, unknown>>)[key]
-}
+let objectUrls: ReturnType<typeof mockObjectUrls> | null = null
 
 describe('imageBlobCache', () =>
 {
   beforeEach(() =>
   {
     objectUrlId = 0
-    Object.defineProperty(URL, 'createObjectURL', {
-      configurable: true,
-      writable: true,
-      value: vi.fn(() => `blob:test-url-${++objectUrlId}`),
-    })
-    Object.defineProperty(URL, 'revokeObjectURL', {
-      configurable: true,
-      writable: true,
-      value: vi.fn(),
-    })
+    objectUrls = mockObjectUrls(() => `blob:test-url-${++objectUrlId}`)
     disposeImageBlobCache()
   })
 
   afterEach(() =>
   {
     disposeImageBlobCache()
-    restoreUrlMethod('createObjectURL', originalCreateObjectUrl)
-    restoreUrlMethod('revokeObjectURL', originalRevokeObjectUrl)
+    objectUrls?.restore()
+    objectUrls = null
   })
 
   it('does not clear cached urls on persisted pagehide events', () =>

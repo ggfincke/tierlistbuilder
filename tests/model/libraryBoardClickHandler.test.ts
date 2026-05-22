@@ -3,34 +3,12 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 import { makeBoardClickHandler } from '~/features/library/lib/boardClickHandler'
+import { makeLibraryBoardListItem } from '../fixtures'
 
-const board: LibraryBoardListItem = {
-  externalId: 'board-click-handler-test',
+const board = makeLibraryBoardListItem({
   title: 'Click handler test',
-  createdAt: 1,
-  updatedAt: 2,
-  revision: 3,
-  activeItemCount: 1,
-  unrankedItemCount: 0,
-  rankedItemCount: 1,
-  publishState: 'wip',
-  syncState: 'localOnly',
-  visibility: 'private',
-  category: 'other',
-  sourceTemplateSizeClass: null,
-  sourceTemplateCoverMedia: null,
-  sourceTemplateCoverFraming: null,
-  coverItems: [],
-  paletteId: 'classic',
-  tierCount: 1,
-  tierColors: [{ kind: 'palette', index: 0 }],
-  tierBreakdown: [
-    { tierIndex: 0, itemCount: 1, colorSpec: { kind: 'palette', index: 0 } },
-  ],
-  pinned: false,
-}
+})
 
 describe('makeBoardClickHandler', () =>
 {

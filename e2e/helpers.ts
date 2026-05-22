@@ -38,6 +38,30 @@ export const templateCategoryChip = (page: Page, label: string): Locator =>
 export const escapeRegExp = (value: string): string =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+export const makeRunId = (): string =>
+  `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+
+export const addImageViaSettings = async (
+  page: Page,
+  imageUrl: string
+): Promise<Locator> =>
+{
+  await page.getByRole('button', { name: 'Open settings' }).click()
+  const settings = page.getByRole('dialog', { name: 'Settings' })
+  await expect(settings).toBeVisible()
+
+  await page.getByRole('tab', { name: /layout/i }).click()
+  await settings.getByRole('button', { name: '1:1', exact: true }).click()
+  await page.getByRole('tab', { name: /items/i }).click()
+
+  await settings.getByLabel('Image URL').fill(imageUrl)
+  await settings.getByRole('button', { name: 'Add' }).first().click()
+
+  return page.getByRole('dialog', {
+    name: 'Mixed aspect ratios detected',
+  })
+}
+
 // keep the encoding contract aligned w/ src/shared/sharing/hashShare.ts —
 // prod uses a lazy-loaded pako via the browser-only binaryCodec; the e2e side
 // runs in Node so we stand up a minimal Buffer-based base64url encoder

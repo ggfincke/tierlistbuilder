@@ -13,38 +13,15 @@ import {
   createLocalBoardFromTemplate,
 } from '~/features/workspace/boards/model/localBoardFork'
 import { loadBoardFromStorage } from '~/features/workspace/boards/data/local/boardStorage'
-import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
-import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
   disposeImageBlobCache,
   getCachedImageUrl,
 } from '~/shared/images/imageBlobCache'
 import { getBlob } from '~/shared/images/imageStore'
-import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
+import { mockObjectUrls } from '../shared-lib/objectUrl'
+import { resetBoardStores } from '../shared-lib/boardStores'
 
-const originalCreateObjectUrl = Object.getOwnPropertyDescriptor(
-  URL,
-  'createObjectURL'
-)
-const originalRevokeObjectUrl = Object.getOwnPropertyDescriptor(
-  URL,
-  'revokeObjectURL'
-)
-
-const restoreUrlMethod = (
-  key: 'createObjectURL' | 'revokeObjectURL',
-  descriptor: PropertyDescriptor | undefined
-): void =>
-{
-  if (descriptor)
-  {
-    Object.defineProperty(URL, key, descriptor)
-    return
-  }
-
-  delete (URL as typeof URL & Partial<Record<typeof key, unknown>>)[key]
-}
+let objectUrls: ReturnType<typeof mockObjectUrls> | null = null
 
 const media: TemplateMediaRef = {
   externalId: 'media-public-template',
@@ -138,23 +115,7 @@ const ranking: MarketplaceRankingDetail = {
 
 const resetStores = (): void =>
 {
-  useWorkspaceBoardRegistryStore.setState({ boards: [], activeBoardId: null })
-  useActiveBoardStore.setState({
-    ...createInitialBoardData('classic'),
-    past: [],
-    future: [],
-    activeItemId: null,
-    dragPreview: null,
-    dragGroupIds: [],
-    keyboardMode: 'idle',
-    keyboardFocusItemId: null,
-    selection: { ids: [], set: new Set() },
-    lastClickedItemId: null,
-    itemsManuallyMoved: false,
-    activeItemCount: 0,
-    runtimeError: null,
-    ...EMPTY_BOARD_SYNC_STATE,
-  })
+  resetBoardStores()
 }
 
 describe('createLocalBoardFromTemplate', () =>
@@ -162,23 +123,14 @@ describe('createLocalBoardFromTemplate', () =>
   beforeEach(() =>
   {
     resetStores()
-    Object.defineProperty(URL, 'createObjectURL', {
-      configurable: true,
-      writable: true,
-      value: vi.fn(() => 'blob:template-item'),
-    })
-    Object.defineProperty(URL, 'revokeObjectURL', {
-      configurable: true,
-      writable: true,
-      value: vi.fn(),
-    })
+    objectUrls = mockObjectUrls('blob:template-item')
   })
 
   afterEach(() =>
   {
     disposeImageBlobCache()
-    restoreUrlMethod('createObjectURL', originalCreateObjectUrl)
-    restoreUrlMethod('revokeObjectURL', originalRevokeObjectUrl)
+    objectUrls?.restore()
+    objectUrls = null
     resetStores()
   })
 
