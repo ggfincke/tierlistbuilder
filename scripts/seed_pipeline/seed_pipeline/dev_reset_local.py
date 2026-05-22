@@ -15,8 +15,9 @@ import sys
 from tempfile import TemporaryDirectory
 
 from .convex_client import load_dotenv
+from .manifest import find_repo_root
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = find_repo_root(Path(__file__))
 DOTENV_PATH = REPO_ROOT / ".env.local"
 LOCAL_STATE_DIR = REPO_ROOT / ".convex" / "local" / "default"
 LOCAL_CONVEX_PORTS = (3210, 3211)

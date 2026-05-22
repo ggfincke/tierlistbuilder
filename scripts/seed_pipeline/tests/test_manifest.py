@@ -13,7 +13,7 @@ from unittest import mock
 from PIL import Image
 
 from seed_pipeline import assets as assets_module
-from seed_pipeline.build import build_compiled_manifest
+from seed_pipeline.build import _compiled_variants_present, build_compiled_manifest
 from seed_pipeline.manifest import (
 	find_repo_root,
 	iter_compiled_asset_entries,
@@ -178,6 +178,18 @@ class ManifestValidationTests(unittest.TestCase):
 		self.assertEqual(second_preview["height"], 1)
 		self.assertNotEqual(first_preview["path"], second_preview["path"])
 		self.assertEqual(fingerprint["variantPolicy"]["preview"]["maxSize"], 1)
+
+	def test_compiled_variant_presence_rejects_malformed_item_assets(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			_write_repo_fixture(root)
+			manifest_path = _write_split_dataset(root, _source_manifest())
+			compiled_path = build_compiled_manifest(manifest_path, root)
+			compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
+
+			self.assertTrue(_compiled_variants_present(compiled))
+			compiled["templates"][0]["items"][0]["asset"] = None
+			self.assertFalse(_compiled_variants_present(compiled))
 
 	def test_find_repo_root_finds_current_workspace(self) -> None:
 		root = find_repo_root(Path.cwd())

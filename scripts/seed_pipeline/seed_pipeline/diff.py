@@ -19,6 +19,7 @@ from .manifest import (
 	read_json,
 )
 from .progress import ProgressLogger
+from .report_layout import _append_section
 
 
 SEED_STATE_FUNCTION = "marketplace/seedRuns:resolveSeedState"
@@ -440,13 +441,7 @@ def _compiled_variant_hashes(compiled: JsonObject) -> set[str]:
 
 
 def _append_diff_section(lines: list[str], title: str, entries: list[object]) -> None:
-	lines.extend([f"## {title}", ""])
-	if not entries:
-		lines.extend(["- None", ""])
-		return
-	for entry in entries:
-		lines.append(f"- `{_format_entry(entry)}`")
-	lines.append("")
+	_append_section(lines, title, entries, lambda entry: f"- `{_format_entry(entry)}`")
 
 
 def _changed_fields(left: JsonObject, right: JsonObject, fields: list[str]) -> list[str]:

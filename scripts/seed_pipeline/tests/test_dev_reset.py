@@ -5,15 +5,18 @@ from __future__ import annotations
 
 from io import StringIO
 import os
+from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
 from seed_pipeline import dev_reset
+from seed_pipeline.convex_client import resolve_convex_site_url
 
 
 class DevResetUrlTests(unittest.TestCase):
-	def test_resolve_site_url_normalizes_client_url_sources(self) -> None:
+	def test_resolve_convex_site_url_normalizes_client_url_sources(self) -> None:
 		cases = [
 			(
 				"cli local client url",
@@ -56,12 +59,23 @@ class DevResetUrlTests(unittest.TestCase):
 		]
 		for name, cli_override, env, env_file, expected in cases:
 			with self.subTest(name=name):
-				with patch.dict(os.environ, env, clear=True):
-					self.assertEqual(dev_reset.resolve_site_url(cli_override, env_file), expected)
+				with TemporaryDirectory() as directory:
+					repo_root = Path(directory)
+					if env_file:
+						(repo_root / ".env.local").write_text(
+							"\n".join(f"{key}={value}" for key, value in env_file.items()),
+							encoding="utf-8",
+						)
+					with patch.dict(os.environ, env, clear=True):
+						self.assertEqual(
+							resolve_convex_site_url(repo_root, cli_override),
+							expected,
+						)
 
-	def test_resolve_site_url_returns_none_without_any_source(self) -> None:
-		with patch.dict(os.environ, {}, clear=True):
-			self.assertIsNone(dev_reset.resolve_site_url(None, {}))
+	def test_resolve_convex_site_url_returns_none_without_any_source(self) -> None:
+		with TemporaryDirectory() as directory:
+			with patch.dict(os.environ, {}, clear=True):
+				self.assertIsNone(resolve_convex_site_url(Path(directory)))
 
 	def test_main_constructs_reset_client_without_author_password(self) -> None:
 		calls: list[tuple[object, str, dict[str, object]]] = []

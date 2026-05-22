@@ -17,7 +17,9 @@ from seed_pipeline.convex_client import (
 	ConvexClientError,
 	ConvexSeedClient,
 	ConvexSeedSettings,
+	is_convex_write_rate_error,
 	read_seed_settings,
+	resolve_convex_site_url,
 )
 
 
@@ -222,6 +224,31 @@ class ConvexSeedClientTests(unittest.TestCase):
 					with patch.dict(os.environ, {}, clear=True):
 						settings = read_seed_settings(repo_root, "test")
 				self.assertEqual(settings.site_url, site_url)
+
+	def test_resolve_convex_site_url_uses_shell_before_dotenv(self) -> None:
+		with TemporaryDirectory() as directory:
+			repo_root = Path(directory)
+			(repo_root / ".env.local").write_text(
+				"CONVEX_SITE_URL=https://dotenv.convex.site\n",
+				encoding="utf-8",
+			)
+			with patch.dict(
+				os.environ,
+				{"CONVEX_URL": "https://shell.convex.cloud"},
+				clear=True,
+			):
+				self.assertEqual(
+					resolve_convex_site_url(repo_root),
+					"https://shell.convex.site",
+				)
+
+	def test_classifies_convex_write_rate_errors(self) -> None:
+		self.assertTrue(
+			is_convex_write_rate_error(
+				ConvexClientError("Too many concurrent commits; retry later")
+			)
+		)
+		self.assertFalse(is_convex_write_rate_error(ConvexClientError("forbidden")))
 
 
 if __name__ == "__main__":

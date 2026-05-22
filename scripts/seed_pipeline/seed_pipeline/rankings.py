@@ -6,9 +6,9 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from .convex_client import ConvexClientError
+from .convex_client import ConvexClientError, is_convex_write_rate_error
 from .manifest import JsonObject, as_list
-from .report_layout import report_header, write_report
+from .report_layout import _append_section, report_header, write_report
 from .run_context import (
 	SeedRunContext,
 	SeedRunOptions,
@@ -37,16 +37,6 @@ RANKING_APPLY_THROTTLE_MAX_SECONDS = 30.0
 # Ranking target applies are server-heavy. Run them sequentially with a short
 # cooldown so retries do not stack more writes onto an already-throttled backend.
 RANKING_APPLY_TARGET_COOLDOWN_SECONDS = 0.25
-
-# substrings convex emits when per-deployment write-rate caps trip. these are
-# matched against ConvexClientError messages — if convex rewords any, this
-# orchestrator silently stops throttling, so keep all in one place. mirror
-# convex/lib/retry.ts isConvexWriteThrottleError when adding/removing markers
-CONVEX_WRITE_RATE_ERROR_MARKERS: tuple[str, ...] = (
-	"Too many writes per second",
-	"Too many concurrent commits",
-	"bytes written per 1 second",
-)
 
 
 def preflight_rankings_manifest(
@@ -222,7 +212,7 @@ def _run_ranking_lifecycle_until_complete(
 		try:
 			result = context.client.mutation(function_path, args)
 		except ConvexClientError as error:
-			if not _is_convex_write_rate_error(error):
+			if not is_convex_write_rate_error(error):
 				raise
 			context.progress.log("ranking activation throttled; retrying shortly")
 			time.sleep(RANKING_ACTIVATION_THROTTLE_SECONDS)
@@ -329,11 +319,6 @@ def _apply_ranking_targets(
 	return merged
 
 
-def _is_convex_write_rate_error(error: BaseException) -> bool:
-	message = str(error)
-	return any(marker in message for marker in CONVEX_WRITE_RATE_ERROR_MARKERS)
-
-
 def _ranking_apply_retry_delay(attempt: int) -> float:
 	return min(
 		RANKING_APPLY_THROTTLE_MAX_SECONDS,
@@ -351,7 +336,7 @@ def _run_ranking_action_with_retries(
 		try:
 			return context.client.action(function_path, args)
 		except ConvexClientError as error:
-			if not _is_convex_write_rate_error(error) or attempt >= MAX_RANKING_APPLY_ATTEMPTS:
+			if not is_convex_write_rate_error(error) or attempt >= MAX_RANKING_APPLY_ATTEMPTS:
 				raise
 			delay = _ranking_apply_retry_delay(attempt)
 			context.progress.log(
@@ -619,30 +604,28 @@ def _write_ranking_run_report(
 
 
 def _append_ranking_lanes(lines: list[str], lanes: object) -> None:
-	lines.extend(["## Ranking Lanes", ""])
 	lane_list = [lane for lane in as_list(lanes) if isinstance(lane, dict)]
-	if not lane_list:
-		lines.extend(["- None", ""])
-		return
-	for lane in lane_list:
-		lines.append(
+	_append_section(
+		lines,
+		"Ranking Lanes",
+		lane_list,
+		lambda lane: (
 			"- "
 			f"`{lane.get('templateExternalId')}` / `{lane.get('criterionExternalId')}`: "
 			f"{lane.get('sampleRankings', 0)} sample, "
 			f"{lane.get('curatedRankings', 0)} curated"
-		)
-	lines.append("")
+		),
+	)
 
 
 def _append_diagnostics(lines: list[str], diagnostics: object) -> None:
-	lines.extend(["## Diagnostics", ""])
 	rows = [item for item in as_list(diagnostics) if isinstance(item, dict)]
-	if not rows:
-		lines.extend(["- None", ""])
-		return
-	for item in rows:
-		lines.append(
+	_append_section(
+		lines,
+		"Diagnostics",
+		rows,
+		lambda item: (
 			f"- `{item.get('severity')}` `{item.get('code')}` "
 			f"{item.get('path')}: {item.get('message')}"
-		)
-	lines.append("")
+		),
+	)
