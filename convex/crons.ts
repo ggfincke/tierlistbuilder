@@ -7,6 +7,7 @@ import { internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
 import { BATCH_LIMITS } from './lib/limits'
+import { rescheduleIfMore } from './lib/scheduler'
 
 // schedule hard-deletes for boards past the soft-delete retention window
 export const scheduleHardDeletes = internalMutation({
@@ -37,12 +38,7 @@ export const scheduleHardDeletes = internalMutation({
       )
     )
 
-    if (!page.isDone)
-    {
-      await ctx.scheduler.runAfter(0, internal.crons.scheduleHardDeletes, {
-        cursor: page.continueCursor,
-      })
-    }
+    await rescheduleIfMore(ctx, page, internal.crons.scheduleHardDeletes, {})
 
     return { scheduled: page.page.length }
   },
@@ -71,12 +67,7 @@ export const gcDeletedBoardItems = internalMutation({
 
     await Promise.all(page.page.map((item) => ctx.db.delete(item._id)))
 
-    if (!page.isDone)
-    {
-      await ctx.scheduler.runAfter(0, internal.crons.gcDeletedBoardItems, {
-        cursor: page.continueCursor,
-      })
-    }
+    await rescheduleIfMore(ctx, page, internal.crons.gcDeletedBoardItems, {})
 
     return { deleted: page.page.length }
   },

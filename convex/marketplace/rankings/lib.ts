@@ -79,15 +79,6 @@ export const allocateRankingSlug = async (ctx: DbCtx): Promise<string> =>
   })
 }
 
-export const findRankingBySlug = async (
-  ctx: DbCtx,
-  slug: string
-): Promise<Doc<'publishedRankings'> | null> =>
-  await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySlug', (q) => q.eq('slug', slug))
-    .unique()
-
 export const isPublishedRankingRow = (
   ranking: Pick<Doc<'publishedRankings'>, 'publicationState'>
 ): boolean => ranking.publicationState === 'published'

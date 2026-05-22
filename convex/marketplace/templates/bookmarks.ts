@@ -22,9 +22,9 @@ import {
   marketplaceTemplateBookmarkListResultValidator,
   marketplaceTemplateBookmarkStateValidator,
 } from '../../lib/validators/marketplace'
+import { findTemplateBySlug } from '../../lib/marketplaceLookups'
 import { createTemplateProjectionCache } from './lib/trending'
 import {
-  findTemplateBySlug,
   findTemplateCardByTemplateId,
   toTemplateCardSummary,
 } from './lib/projections'

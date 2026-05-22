@@ -5,6 +5,7 @@ import { ConvexError } from 'convex/values'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import { findRankingBySlug, findTemplateBySlug } from './marketplaceLookups'
 
 type Ctx = QueryCtx | MutationCtx
 
@@ -127,24 +128,6 @@ export const requireTierPresetOwnershipByExternalId = async (
     await findOwnedTierPresetByExternalId(ctx, externalId, userId),
     'preset'
   )
-
-const findTemplateBySlug = async (
-  ctx: Ctx,
-  slug: string
-): Promise<Doc<'templates'> | null> =>
-  await ctx.db
-    .query('templates')
-    .withIndex('bySlug', (q) => q.eq('slug', slug))
-    .unique()
-
-const findRankingBySlug = async (
-  ctx: Ctx,
-  slug: string
-): Promise<Doc<'publishedRankings'> | null> =>
-  await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySlug', (q) => q.eq('slug', slug))
-    .unique()
 
 export const requireOwnedTemplate = async (
   ctx: Ctx,

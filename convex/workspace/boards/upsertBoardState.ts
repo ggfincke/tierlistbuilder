@@ -20,15 +20,13 @@ import {
   BOARD_ITEM_ASPECT_RATIO_MIN,
 } from '@tierlistbuilder/contracts/workspace/imageMath'
 import {
+  findRankingBySlug,
   findTemplateBySlug,
-  loadTemplateItems,
-} from '../../marketplace/templates/lib/projections'
+} from '../../lib/marketplaceLookups'
+import { loadTemplateItems } from '../../marketplace/templates/lib/projections'
 import { incrementTemplateForkStatsById } from '../../marketplace/templates/lib/writes'
 import { findActiveTemplateCriterion } from '../../marketplace/templates/criteria'
-import {
-  findRankingBySlug,
-  rankingTopScore,
-} from '../../marketplace/rankings/lib'
+import { rankingTopScore } from '../../marketplace/rankings/lib'
 import type {
   PaletteId,
   TextStyleId,

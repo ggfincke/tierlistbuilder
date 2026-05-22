@@ -146,6 +146,78 @@ const refundUnusedBudget = (
   budget.remaining += Math.max(0, reserved - used)
 }
 
+type ReferenceScanResult = 'matched' | 'complete' | 'budgetExhausted'
+
+type ReferencePage<Row> = {
+  page: Row[]
+  isDone: boolean
+  continueCursor: string
+}
+
+type RowReferenceScanOptions<Row> = {
+  budget: ReachabilityBudget
+  loadPage: (
+    cursor: string | null,
+    numItems: number
+  ) => Promise<ReferencePage<Row>>
+  rowMatches: (row: Row) => boolean
+}
+
+type ParentReferenceScanOptions<Row, ParentId extends string, Parent> = {
+  budget: ReachabilityBudget
+  loadPage: (
+    cursor: string | null,
+    numItems: number
+  ) => Promise<ReferencePage<Row>>
+  parentIds: (rows: readonly Row[]) => readonly ParentId[]
+  loadParent: (id: ParentId) => Promise<Parent | null>
+  parentMatches: (parent: Parent | null) => boolean
+}
+
+const scanReferencesWithBudget = async <
+  Row,
+  ParentId extends string = never,
+  Parent = never,
+>(
+  options:
+    | RowReferenceScanOptions<Row>
+    | ParentReferenceScanOptions<Row, ParentId, Parent>
+): Promise<ReferenceScanResult> =>
+{
+  let cursor: string | null = null
+
+  while (options.budget.remaining > 0)
+  {
+    const pageBudget = reserveBudget(options.budget, MEDIA_REF_PAGE_SIZE)
+    if (pageBudget === 0) return 'budgetExhausted'
+
+    const page: ReferencePage<Row> = await options.loadPage(cursor, pageBudget)
+    refundUnusedBudget(options.budget, pageBudget, page.page.length)
+
+    if ('rowMatches' in options)
+    {
+      if (page.page.some(options.rowMatches)) return 'matched'
+    }
+    else
+    {
+      const parentIds = [...new Set(options.parentIds(page.page))]
+      const parentBudget = reserveBudget(options.budget, parentIds.length)
+      const parents = await Promise.all(
+        parentIds
+          .slice(0, parentBudget)
+          .map((parentId) => options.loadParent(parentId))
+      )
+      if (parents.some(options.parentMatches)) return 'matched'
+      if (parentBudget < parentIds.length) return 'budgetExhausted'
+    }
+
+    if (page.isDone) return 'complete'
+    cursor = page.continueCursor
+  }
+
+  return 'budgetExhausted'
+}
+
 const isMediaReferencedByUserBoard = async (
   ctx: QueryCtx,
   assetId: Id<'mediaAssets'>,
@@ -153,39 +225,18 @@ const isMediaReferencedByUserBoard = async (
   budget: ReachabilityBudget
 ): Promise<boolean> =>
 {
-  let cursor: string | null = null
-
-  while (budget.remaining > 0)
-  {
-    const pageBudget = reserveBudget(budget, MEDIA_REF_PAGE_SIZE)
-    if (pageBudget === 0) return false
-    const page = await ctx.db
-      .query('boardItems')
-      .withIndex('byMedia', (q) => q.eq('mediaAssetId', assetId))
-      .paginate({
-        cursor,
-        numItems: pageBudget,
-      })
-    refundUnusedBudget(budget, pageBudget, page.page.length)
-
-    const boardIds = [...new Set(page.page.map((item) => item.boardId))]
-    const boardBudget = reserveBudget(budget, boardIds.length)
-    const boards = await Promise.all(
-      boardIds.slice(0, boardBudget).map((boardId) => ctx.db.get(boardId))
-    )
-    if (boards.some((board) => board?.ownerId === userId))
-    {
-      return true
-    }
-    if (boardBudget < boardIds.length) return false
-    if (page.isDone)
-    {
-      return false
-    }
-    cursor = page.continueCursor
-  }
-
-  return false
+  const result = await scanReferencesWithBudget({
+    budget,
+    loadPage: async (cursor, numItems) =>
+      await ctx.db
+        .query('boardItems')
+        .withIndex('byMedia', (q) => q.eq('mediaAssetId', assetId))
+        .paginate({ cursor, numItems }),
+    parentIds: (items) => items.map((item) => item.boardId),
+    loadParent: async (boardId) => await ctx.db.get(boardId),
+    parentMatches: (board) => board?.ownerId === userId,
+  })
+  return result === 'matched'
 }
 
 const isMediaReferencedByTemplate = async (
@@ -194,71 +245,30 @@ const isMediaReferencedByTemplate = async (
   budget: ReachabilityBudget
 ): Promise<boolean> =>
 {
-  let itemCursor: string | null = null
-  while (budget.remaining > 0)
-  {
-    const pageBudget = reserveBudget(budget, MEDIA_REF_PAGE_SIZE)
-    if (pageBudget === 0) return false
-    const page = await ctx.db
-      .query('templateItems')
-      .withIndex('byMedia', (q) => q.eq('mediaAssetId', assetId))
-      .paginate({
-        cursor: itemCursor,
-        numItems: pageBudget,
-      })
-    refundUnusedBudget(budget, pageBudget, page.page.length)
+  const itemResult = await scanReferencesWithBudget({
+    budget,
+    loadPage: async (cursor, numItems) =>
+      await ctx.db
+        .query('templateItems')
+        .withIndex('byMedia', (q) => q.eq('mediaAssetId', assetId))
+        .paginate({ cursor, numItems }),
+    parentIds: (items) => items.map((item) => item.templateId),
+    loadParent: async (templateId) => await ctx.db.get(templateId),
+    parentMatches: (template) => template?.publicationState === 'published',
+  })
+  if (itemResult === 'matched') return true
+  if (itemResult === 'budgetExhausted') return false
 
-    const templateIds = [...new Set(page.page.map((item) => item.templateId))]
-    const templateBudget = reserveBudget(budget, templateIds.length)
-    const templates = await Promise.all(
-      templateIds
-        .slice(0, templateBudget)
-        .map((templateId) => ctx.db.get(templateId))
-    )
-    if (
-      templates.some(
-        (template) => template && template.publicationState === 'published'
-      )
-    )
-    {
-      return true
-    }
-    if (templateBudget < templateIds.length) return false
-    if (page.isDone)
-    {
-      break
-    }
-    itemCursor = page.continueCursor
-  }
-
-  let coverCursor: string | null = null
-  while (budget.remaining > 0)
-  {
-    const pageBudget = reserveBudget(budget, MEDIA_REF_PAGE_SIZE)
-    if (pageBudget === 0) return false
-    const page = await ctx.db
-      .query('templates')
-      .withIndex('byCoverMedia', (q) => q.eq('coverMediaAssetId', assetId))
-      .paginate({
-        cursor: coverCursor,
-        numItems: pageBudget,
-      })
-    refundUnusedBudget(budget, pageBudget, page.page.length)
-
-    if (
-      page.page.some((template) => template.publicationState === 'published')
-    )
-    {
-      return true
-    }
-    if (page.isDone)
-    {
-      return false
-    }
-    coverCursor = page.continueCursor
-  }
-
-  return false
+  const coverResult = await scanReferencesWithBudget({
+    budget,
+    loadPage: async (cursor, numItems) =>
+      await ctx.db
+        .query('templates')
+        .withIndex('byCoverMedia', (q) => q.eq('coverMediaAssetId', assetId))
+        .paginate({ cursor, numItems }),
+    rowMatches: (template) => template.publicationState === 'published',
+  })
+  return coverResult === 'matched'
 }
 
 // returns true when the requesting user is allowed to read this asset.

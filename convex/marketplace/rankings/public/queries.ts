@@ -42,11 +42,14 @@ import {
   MAX_AGGREGATE_SEARCH_LENGTH,
   MAX_SYNC_ITEMS,
 } from '../../../lib/limits'
+import {
+  findRankingBySlug,
+  findTemplateBySlug,
+} from '../../../lib/marketplaceLookups'
 import { findOwnedBoardByExternalIdIncludingDeleted } from '../../../lib/permissions'
 import { getBoardSourceTemplateId } from '../../../workspace/boards/sourceFields'
 import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
 import { createTemplateProjectionCache } from '../../templates/lib/trending'
-import { findTemplateBySlug } from '../../templates/lib/projections'
 import { isPublishedTemplateRow } from '../../templates/lib/state'
 import {
   findActiveTemplateCriterion,
@@ -64,7 +67,6 @@ import {
   toTemplateRankingAggregateItem,
 } from '../aggregate/lib'
 import {
-  findRankingBySlug,
   isPublicRankingRow,
   isPublishedRankingRow,
   loadRankingItems,

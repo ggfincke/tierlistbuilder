@@ -9,6 +9,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import { selectMediaVariantSummary } from '../../../lib/mediaVariants'
 import { memoizePromise } from '../../../lib/cache'
+import { findTemplateBySlug } from '../../../lib/marketplaceLookups'
 import type {
   MarketplaceTemplateDraftTemplate,
   MarketplaceTemplateBase,
@@ -785,15 +786,6 @@ export const toTemplateDraft = async (
     template: draftTemplate,
   }
 }
-
-export const findTemplateBySlug = async (
-  ctx: DbCtx,
-  slug: string
-): Promise<Doc<'templates'> | null> =>
-  await ctx.db
-    .query('templates')
-    .withIndex('bySlug', (q) => q.eq('slug', slug))
-    .unique()
 
 export const loadPublishedTemplateBySlug = async (
   ctx: DbCtx,

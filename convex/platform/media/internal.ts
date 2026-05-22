@@ -1,14 +1,14 @@
 // convex/platform/media/internal.ts
 // internal media functions: finalize verified variants & reap unreachable assets
 
-import { ConvexError, v } from 'convex/values'
+import { v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { internal } from '../../_generated/api'
 import { BATCH_LIMITS } from '../../lib/limits'
 import { generateMediaAssetExternalId } from '@tierlistbuilder/contracts/lib/ids'
-import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { deleteStorageSilently } from '../../lib/storage'
+import { rescheduleIfMore } from '../../lib/scheduler'
 import {
   MAX_MEDIA_VARIANTS_PER_ASSET,
   MEDIA_VARIANT_KINDS,
@@ -16,6 +16,7 @@ import {
   type SupportedImageMimeType,
 } from '@tierlistbuilder/contracts/platform/media'
 import {
+  assertValidVariantRequest,
   computeVariantDedupeHash,
   type MediaVariantSummary,
 } from '../../lib/mediaVariants'
@@ -97,38 +98,18 @@ const GC_GRACE_MS = 60 * 60 * 1000
 // significantly for nightly batches
 const REFERENCE_CHECK_CONCURRENCY = 8
 
-const normalizeVerifiedVariants = (
+const normalizeVerifiedVariants = async (
   variants: readonly VerifiedVariantArgs[]
-): NormalizedVariants =>
+): Promise<NormalizedVariants> =>
 {
-  if (variants.length < 1 || variants.length > MAX_MEDIA_VARIANTS_PER_ASSET)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: `media asset finalization requires 1..${MAX_MEDIA_VARIANTS_PER_ASSET} variants`,
-    })
-  }
+  await assertValidVariantRequest(variants, undefined, {
+    invalidCount: `media asset finalization requires 1..${MAX_MEDIA_VARIANTS_PER_ASSET} variants`,
+  })
 
   const byKind = new Map<MediaVariantKind, VerifiedVariantArgs>()
   for (const variant of variants)
   {
-    if (byKind.has(variant.kind))
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidInput,
-        message: `duplicate media variant kind: ${variant.kind}`,
-      })
-    }
     byKind.set(variant.kind, variant)
-  }
-
-  const tile = byKind.get('tile')
-  if (!tile)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: 'media asset finalization requires a tile variant',
-    })
   }
 
   const normalizedVariants = [...byKind.values()]
@@ -138,11 +119,11 @@ const normalizeVerifiedVariants = (
   }
 }
 
-const normalizeVerifiedMediaAsset = (
+const normalizeVerifiedMediaAsset = async (
   args: VerifiedMediaAssetArgs
-): NormalizedVerifiedMediaAsset =>
+): Promise<NormalizedVerifiedMediaAsset> =>
 {
-  const normalized = normalizeVerifiedVariants(args.variants)
+  const normalized = await normalizeVerifiedVariants(args.variants)
   return {
     userId: args.userId,
     ...normalized,
@@ -309,7 +290,7 @@ export const finalizeVerifiedMediaAsset = internalMutation({
   handler: async (ctx, args): Promise<FinalizedUpload> =>
     await finalizeNormalizedVerifiedMediaAsset(
       ctx,
-      normalizeVerifiedMediaAsset(args)
+      await normalizeVerifiedMediaAsset(args)
     ),
 })
 
@@ -329,7 +310,7 @@ export const finalizeVerifiedMediaAssets = internalMutation({
     return await Promise.all(
       args.assets.map(async (assetArgs) =>
       {
-        const asset = normalizeVerifiedMediaAsset(assetArgs)
+        const asset = await normalizeVerifiedMediaAsset(assetArgs)
         const pending = pendingByHash.get(asset.key)
         if (pending)
         {
@@ -439,14 +420,12 @@ export const gcOrphanedMediaAssets = internalMutation({
       return null
     })
 
-    if (!page.isDone)
-    {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.platform.media.internal.gcOrphanedMediaAssets,
-        { cursor: page.continueCursor }
-      )
-    }
+    await rescheduleIfMore(
+      ctx,
+      page,
+      internal.platform.media.internal.gcOrphanedMediaAssets,
+      {}
+    )
 
     return { deleted: orphaned.length }
   },
@@ -522,14 +501,12 @@ export const gcOrphanedStorage = internalMutation({
       }
     )
 
-    if (!page.isDone)
-    {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.platform.media.internal.gcOrphanedStorage,
-        { cursor: page.continueCursor }
-      )
-    }
+    await rescheduleIfMore(
+      ctx,
+      page,
+      internal.platform.media.internal.gcOrphanedStorage,
+      {}
+    )
 
     return { deleted: orphaned.length }
   },

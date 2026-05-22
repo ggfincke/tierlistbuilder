@@ -69,13 +69,15 @@ export const computeVariantDedupeHash = (
 // clean up rejected blobs before bubbling the error
 export const assertValidVariantRequest = async (
   variants: readonly { kind: MediaVariantKind }[],
-  onInvalidKindSet?: () => Promise<void>
+  onInvalidKindSet?: () => Promise<void>,
+  messages: { invalidCount?: string } = {}
 ): Promise<void> =>
 {
   if (variants.length < 1 || variants.length > MAX_MEDIA_VARIANTS_PER_ASSET)
   {
     failInput(
-      `variants must include 1..${MAX_MEDIA_VARIANTS_PER_ASSET} entries`
+      messages.invalidCount ??
+        `variants must include 1..${MAX_MEDIA_VARIANTS_PER_ASSET} entries`
     )
   }
   const seen = new Set<MediaVariantKind>()

@@ -30,6 +30,10 @@ import {
 import { getCurrentUserId, requireCurrentUserId } from '../../../lib/auth'
 import { requireBoardOwnershipByExternalId } from '../../../lib/permissions'
 import { enforceRateLimit } from '../../../lib/rateLimiter'
+import {
+  findRankingBySlug,
+  findTemplateBySlug,
+} from '../../../lib/marketplaceLookups'
 import { loadPreviewOrTileStorageId } from '../../../lib/mediaVariants'
 import { loadBoundedBoardRows } from '../../../workspace/sync/loadBoundedBoardRows'
 import { buildFreshBoardCloudFields } from '../../../workspace/boards/cloudFields'
@@ -53,7 +57,6 @@ import {
 } from '../../../lib/validators/marketplace'
 import {
   allocateRankingSlug,
-  findRankingBySlug,
   isPublicRankingRow,
   isPublishedRankingRow,
   normalizeRankingDescription,
@@ -61,10 +64,7 @@ import {
   rankingTopScore,
 } from '../lib'
 import { DEFAULT_TEMPLATE_TIERS } from '../../templates/lib/normalize'
-import {
-  findTemplateBySlug,
-  loadTemplateItems,
-} from '../../templates/lib/projections'
+import { loadTemplateItems } from '../../templates/lib/projections'
 import { incrementTemplateForkStats } from '../../templates/lib/writes'
 import { isPublishedTemplateRow } from '../../templates/lib/state'
 import { templateTitleToBoardTitle } from '../../templates/lib/board'
