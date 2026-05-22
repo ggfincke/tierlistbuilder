@@ -6,7 +6,7 @@ import type { MutationCtx } from '@convex/_generated/server'
 import rateLimiter from '@convex-dev/rate-limiter/test'
 import { convexTest } from 'convex-test'
 import { ConvexError } from 'convex/values'
-import { expect } from 'vitest'
+import { expect, vi } from 'vitest'
 import schema from '../../convex/schema'
 import {
   buildDefaultTemplateCriteria,
@@ -68,6 +68,22 @@ export const expectConvexCode = async (
       error.data.code === code
   )
 }
+
+export const withFakeTimers = async <T>(run: () => Promise<T>): Promise<T> =>
+{
+  vi.useFakeTimers()
+  try
+  {
+    return await run()
+  }
+  finally
+  {
+    vi.useRealTimers()
+  }
+}
+
+export const runScheduled = async (t: ConvexTestHandle): Promise<void> =>
+  await t.finishAllScheduledFunctions(() => vi.runAllTimers())
 
 export const TEST_CRITERIA: MarketplaceTemplateCriterion[] = [
   {

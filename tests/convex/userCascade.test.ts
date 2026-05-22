@@ -1,7 +1,7 @@
 // tests/convex/userCascade.test.ts
 // Convex account-deletion & template-cascade cleanup paths
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { classifyItemCount } from '../../convex/lib/entitlements'
@@ -10,10 +10,12 @@ import {
   asUser,
   type ConvexTestHandle,
   makeRateLimitedTest as makeTest,
+  runScheduled,
   seedCloudBoard,
   seedPublishedRanking,
   seedPublishedTemplate,
   seedUser,
+  withFakeTimers,
 } from './convexTestHelpers'
 
 const TEMPLATE_SLUG = 'Cascade001'
@@ -276,311 +278,262 @@ const seedRanking = async (
 describe('user cascade cleanup', () =>
 {
   it('cascadeDeleteBoard drains item and tier pages before deleting board', async () =>
+  await withFakeTimers(async () =>
   {
-    vi.useFakeTimers()
-    try
+    const t = makeTest()
+    const userId = await seedUser(t)
+    const boardId = await t.run(async (ctx) =>
     {
-      const t = makeTest()
-      const userId = await seedUser(t)
-      const boardId = await t.run(async (ctx) =>
-      {
-        const now = Date.now()
-        const boardId = await seedCloudBoard(ctx, {
-          externalId: 'board-cascade-large',
-          ownerId: userId,
-          title: 'Large Cascade Board',
-          now,
-          activeItemCount: 260,
-          unrankedItemCount: 0,
-        })
-        const tierIds = await Promise.all(
-          Array.from(
-            { length: 260 },
-            async (_, index) =>
-              await ctx.db.insert('boardTiers', {
-                boardId,
-                externalId: `tier-${index}`,
-                name: `Tier ${index}`,
-                colorSpec: { kind: 'palette', index: index % 6 },
-                order: index,
-              })
-          )
-        )
-        await Promise.all(
-          Array.from(
-            { length: 260 },
-            async (_, index) =>
-              await ctx.db.insert('boardItems', {
-                boardId,
-                tierId: tierIds[0],
-                externalId: `item-${index}`,
-                label: `Item ${index}`,
-                mediaAssetId: null,
-                order: index,
-                deletedAt: null,
-              })
-          )
-        )
-        return boardId
+      const now = Date.now()
+      const boardId = await seedCloudBoard(ctx, {
+        externalId: 'board-cascade-large',
+        ownerId: userId,
+        title: 'Large Cascade Board',
+        now,
+        activeItemCount: 260,
+        unrankedItemCount: 0,
       })
+      const tierIds = await Promise.all(
+        Array.from(
+          { length: 260 },
+          async (_, index) =>
+            await ctx.db.insert('boardTiers', {
+              boardId,
+              externalId: `tier-${index}`,
+              name: `Tier ${index}`,
+              colorSpec: { kind: 'palette', index: index % 6 },
+              order: index,
+            })
+        )
+      )
+      await Promise.all(
+        Array.from(
+          { length: 260 },
+          async (_, index) =>
+            await ctx.db.insert('boardItems', {
+              boardId,
+              tierId: tierIds[0],
+              externalId: `item-${index}`,
+              label: `Item ${index}`,
+              mediaAssetId: null,
+              order: index,
+              deletedAt: null,
+            })
+        )
+      )
+      return boardId
+    })
 
-      await t.mutation(internal.workspace.boards.internal.cascadeDeleteBoard, {
-        boardId,
-      })
+    await t.mutation(internal.workspace.boards.internal.cascadeDeleteBoard, {
+      boardId,
+    })
 
-      const intermediate = await readBoardCascade(t, boardId)
-      expect(intermediate.board).not.toBeNull()
-      expect(intermediate.items).toHaveLength(4)
-      expect(intermediate.tiers).toHaveLength(260)
+    const intermediate = await readBoardCascade(t, boardId)
+    expect(intermediate.board).not.toBeNull()
+    expect(intermediate.items).toHaveLength(4)
+    expect(intermediate.tiers).toHaveLength(260)
 
-      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    await runScheduled(t)
 
-      const remaining = await readBoardCascade(t, boardId)
-      expect(remaining.board).toBeNull()
-      expect(remaining.items).toHaveLength(0)
-      expect(remaining.tiers).toHaveLength(0)
-    }
-    finally
-    {
-      vi.useRealTimers()
-    }
-  })
+    const remaining = await readBoardCascade(t, boardId)
+    expect(remaining.board).toBeNull()
+    expect(remaining.items).toHaveLength(0)
+    expect(remaining.tiers).toHaveLength(0)
+  }))
 
   it('cascadeDeleteTemplate hides parent immediately & finishes children via scheduled work', async () =>
+  await withFakeTimers(async () =>
   {
-    vi.useFakeTimers()
-    try
-    {
-      const t = makeTest()
-      const userId = await seedUser(t)
-      const templateId = await seedTemplate(t, userId, 260)
+    const t = makeTest()
+    const userId = await seedUser(t)
+    const templateId = await seedTemplate(t, userId, 260)
 
-      await t.mutation(
-        internal.marketplace.templates.internal.cascadeDeleteTemplate,
-        { templateId }
-      )
+    await t.mutation(
+      internal.marketplace.templates.internal.cascadeDeleteTemplate,
+      { templateId }
+    )
 
-      const intermediate = await readTemplateCascade(t, templateId)
-      expect(intermediate.template).toBeNull()
-      expect(intermediate.stats).toBeNull()
-      expect(intermediate.items.length).toBeGreaterThan(0)
+    const intermediate = await readTemplateCascade(t, templateId)
+    expect(intermediate.template).toBeNull()
+    expect(intermediate.stats).toBeNull()
+    expect(intermediate.items.length).toBeGreaterThan(0)
 
-      const listed = await t.query(
-        api.marketplace.templates.queries.listTemplates,
-        { limit: 10 }
-      )
-      expect(listed.items).toHaveLength(0)
+    const listed = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { limit: 10 }
+    )
+    expect(listed.items).toHaveLength(0)
 
-      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    await runScheduled(t)
 
-      const remaining = await readTemplateCascade(t, templateId)
-      expect(remaining.items).toHaveLength(0)
-      expect(remaining.stats).toBeNull()
-    }
-    finally
-    {
-      vi.useRealTimers()
-    }
-  })
+    const remaining = await readTemplateCascade(t, templateId)
+    expect(remaining.items).toHaveLength(0)
+    expect(remaining.stats).toBeNull()
+  }))
 
   it('cascadeDeleteUserData removes account templates and rankings before user deletion', async () =>
+  await withFakeTimers(async () =>
   {
-    vi.useFakeTimers()
-    try
-    {
-      const t = makeTest()
-      const userId = await seedUser(t)
-      const templateId = await seedTemplate(t, userId, 260)
-      const rankingId = await seedRanking(t, userId, templateId, 260)
+    const t = makeTest()
+    const userId = await seedUser(t)
+    const templateId = await seedTemplate(t, userId, 260)
+    const rankingId = await seedRanking(t, userId, templateId, 260)
 
-      await t.mutation(internal.users.cascadeDeleteUserData, {
-        userId,
-        phase: 'templates',
-        cursor: null,
-      })
+    await t.mutation(internal.users.cascadeDeleteUserData, {
+      userId,
+      phase: 'templates',
+      cursor: null,
+    })
 
-      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    await runScheduled(t)
 
-      const templateCascade = await readTemplateCascade(t, templateId)
-      const remaining = await t.run(async (ctx) => ({
-        user: await ctx.db.get(userId),
-        rankings: await ctx.db
-          .query('publishedRankings')
-          .withIndex('byOwnerUpdatedAt', (q) => q.eq('ownerId', userId))
-          .collect(),
-        rankingTiers: await ctx.db
-          .query('publishedRankingTiers')
-          .withIndex('byRanking', (q) => q.eq('rankingId', rankingId))
-          .collect(),
-        rankingItems: await ctx.db
-          .query('publishedRankingItems')
-          .withIndex('byRanking', (q) => q.eq('rankingId', rankingId))
-          .collect(),
-      }))
-      expect(remaining.user).toBeNull()
-      expect(templateCascade.template).toBeNull()
-      expect(templateCascade.stats).toBeNull()
-      expect(templateCascade.items).toHaveLength(0)
-      expect(remaining.rankings).toHaveLength(0)
-      expect(remaining.rankingTiers).toHaveLength(0)
-      expect(remaining.rankingItems).toHaveLength(0)
-    }
-    finally
-    {
-      vi.useRealTimers()
-    }
-  })
+    const templateCascade = await readTemplateCascade(t, templateId)
+    const remaining = await t.run(async (ctx) => ({
+      user: await ctx.db.get(userId),
+      rankings: await ctx.db
+        .query('publishedRankings')
+        .withIndex('byOwnerUpdatedAt', (q) => q.eq('ownerId', userId))
+        .collect(),
+      rankingTiers: await ctx.db
+        .query('publishedRankingTiers')
+        .withIndex('byRanking', (q) => q.eq('rankingId', rankingId))
+        .collect(),
+      rankingItems: await ctx.db
+        .query('publishedRankingItems')
+        .withIndex('byRanking', (q) => q.eq('rankingId', rankingId))
+        .collect(),
+    }))
+    expect(remaining.user).toBeNull()
+    expect(templateCascade.template).toBeNull()
+    expect(templateCascade.stats).toBeNull()
+    expect(templateCascade.items).toHaveLength(0)
+    expect(remaining.rankings).toHaveLength(0)
+    expect(remaining.rankingTiers).toHaveLength(0)
+    expect(remaining.rankingItems).toHaveLength(0)
+  }))
 
   it('signOutEverywhere clears sessions/refreshTokens but keeps the user & accounts', async () =>
+  await withFakeTimers(async () =>
   {
-    vi.useFakeTimers()
-    try
-    {
-      const t = makeTest()
-      const userId = await seedUser(t)
-      const sessionId = await seedAuthRows(t, userId)
+    const t = makeTest()
+    const userId = await seedUser(t)
+    const sessionId = await seedAuthRows(t, userId)
 
-      await asUser(t, userId, sessionId).mutation(
-        api.users.signOutEverywhere,
-        {}
-      )
-      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    await asUser(t, userId, sessionId).mutation(
+      api.users.signOutEverywhere,
+      {}
+    )
+    await runScheduled(t)
 
-      const after = await readAuthState(t, userId)
-      expect(after.user).not.toBeNull()
-      expect(after.sessions).toHaveLength(0)
-      expect(after.accounts).toHaveLength(2)
-      expect(after.refreshTokens).toHaveLength(0)
-      expect(after.codes).toHaveLength(4)
-    }
-    finally
-    {
-      vi.useRealTimers()
-    }
-  })
+    const after = await readAuthState(t, userId)
+    expect(after.user).not.toBeNull()
+    expect(after.sessions).toHaveLength(0)
+    expect(after.accounts).toHaveLength(2)
+    expect(after.refreshTokens).toHaveLength(0)
+    expect(after.codes).toHaveLength(4)
+  }))
 
   it('cleanupAuthSessions keeps the parent session until refresh-token pages finish', async () =>
+  await withFakeTimers(async () =>
   {
-    vi.useFakeTimers()
-    try
-    {
-      const t = makeTest()
-      const userId = await seedUser(t)
-      const sessionId = await seedAuthSessionWithTokens(
-        t,
-        userId,
-        BATCH_LIMITS.cascadeDelete + 1
-      )
+    const t = makeTest()
+    const userId = await seedUser(t)
+    const sessionId = await seedAuthSessionWithTokens(
+      t,
+      userId,
+      BATCH_LIMITS.cascadeDelete + 1
+    )
 
-      await t.mutation(internal.users.cleanupAuthSessions, {
-        userId,
-        mode: 'signOutOnly',
-        cursor: null,
-        targetSessionId: sessionId,
-        tokenCursor: null,
-      })
+    await t.mutation(internal.users.cleanupAuthSessions, {
+      userId,
+      mode: 'signOutOnly',
+      cursor: null,
+      targetSessionId: sessionId,
+      tokenCursor: null,
+    })
 
-      const intermediate = await t.run(async (ctx) => ({
-        session: await ctx.db.get(sessionId),
-        tokens: await ctx.db
-          .query('authRefreshTokens')
-          .withIndex('sessionId', (q) => q.eq('sessionId', sessionId))
-          .collect(),
-      }))
-      expect(intermediate.session).not.toBeNull()
-      expect(intermediate.tokens).toHaveLength(1)
+    const intermediate = await t.run(async (ctx) => ({
+      session: await ctx.db.get(sessionId),
+      tokens: await ctx.db
+        .query('authRefreshTokens')
+        .withIndex('sessionId', (q) => q.eq('sessionId', sessionId))
+        .collect(),
+    }))
+    expect(intermediate.session).not.toBeNull()
+    expect(intermediate.tokens).toHaveLength(1)
 
-      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    await runScheduled(t)
 
-      const remaining = await t.run(async (ctx) => ({
-        session: await ctx.db.get(sessionId),
-        tokens: await ctx.db
-          .query('authRefreshTokens')
-          .withIndex('sessionId', (q) => q.eq('sessionId', sessionId))
-          .collect(),
-      }))
-      expect(remaining.session).toBeNull()
-      expect(remaining.tokens).toHaveLength(0)
-    }
-    finally
-    {
-      vi.useRealTimers()
-    }
-  })
+    const remaining = await t.run(async (ctx) => ({
+      session: await ctx.db.get(sessionId),
+      tokens: await ctx.db
+        .query('authRefreshTokens')
+        .withIndex('sessionId', (q) => q.eq('sessionId', sessionId))
+        .collect(),
+    }))
+    expect(remaining.session).toBeNull()
+    expect(remaining.tokens).toHaveLength(0)
+  }))
 
   it('cascadeDeleteUserData keeps the parent account until code pages finish', async () =>
+  await withFakeTimers(async () =>
   {
-    vi.useFakeTimers()
-    try
-    {
-      const t = makeTest()
-      const userId = await seedUser(t)
-      const accountId = await seedAuthAccountWithCodes(
-        t,
-        userId,
-        BATCH_LIMITS.cascadeDelete + 1
-      )
+    const t = makeTest()
+    const userId = await seedUser(t)
+    const accountId = await seedAuthAccountWithCodes(
+      t,
+      userId,
+      BATCH_LIMITS.cascadeDelete + 1
+    )
 
-      await t.mutation(internal.users.cascadeDeleteUserData, {
-        userId,
-        phase: 'authAccounts',
-        cursor: null,
-        targetAccountId: accountId,
-        codeCursor: null,
-      })
+    await t.mutation(internal.users.cascadeDeleteUserData, {
+      userId,
+      phase: 'authAccounts',
+      cursor: null,
+      targetAccountId: accountId,
+      codeCursor: null,
+    })
 
-      const intermediate = await t.run(async (ctx) => ({
-        account: await ctx.db.get(accountId),
-        codes: await ctx.db
-          .query('authVerificationCodes')
-          .withIndex('accountId', (q) => q.eq('accountId', accountId))
-          .collect(),
-      }))
-      expect(intermediate.account).not.toBeNull()
-      expect(intermediate.codes).toHaveLength(1)
+    const intermediate = await t.run(async (ctx) => ({
+      account: await ctx.db.get(accountId),
+      codes: await ctx.db
+        .query('authVerificationCodes')
+        .withIndex('accountId', (q) => q.eq('accountId', accountId))
+        .collect(),
+    }))
+    expect(intermediate.account).not.toBeNull()
+    expect(intermediate.codes).toHaveLength(1)
 
-      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    await runScheduled(t)
 
-      const remaining = await t.run(async (ctx) => ({
-        user: await ctx.db.get(userId),
-        account: await ctx.db.get(accountId),
-        codes: await ctx.db
-          .query('authVerificationCodes')
-          .withIndex('accountId', (q) => q.eq('accountId', accountId))
-          .collect(),
-      }))
-      expect(remaining.user).toBeNull()
-      expect(remaining.account).toBeNull()
-      expect(remaining.codes).toHaveLength(0)
-    }
-    finally
-    {
-      vi.useRealTimers()
-    }
-  })
+    const remaining = await t.run(async (ctx) => ({
+      user: await ctx.db.get(userId),
+      account: await ctx.db.get(accountId),
+      codes: await ctx.db
+        .query('authVerificationCodes')
+        .withIndex('accountId', (q) => q.eq('accountId', accountId))
+        .collect(),
+    }))
+    expect(remaining.user).toBeNull()
+    expect(remaining.account).toBeNull()
+    expect(remaining.codes).toHaveLength(0)
+  }))
 
   it('deleteAccount cascades user + accounts + codes after scheduled cleanup', async () =>
+  await withFakeTimers(async () =>
   {
-    vi.useFakeTimers()
-    try
-    {
-      const t = makeTest()
-      const userId = await seedUser(t)
-      const sessionId = await seedAuthRows(t, userId)
+    const t = makeTest()
+    const userId = await seedUser(t)
+    const sessionId = await seedAuthRows(t, userId)
 
-      await asUser(t, userId, sessionId).mutation(api.users.deleteAccount, {})
-      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    await asUser(t, userId, sessionId).mutation(api.users.deleteAccount, {})
+    await runScheduled(t)
 
-      const after = await readAuthState(t, userId)
-      expect(after.user).toBeNull()
-      expect(after.sessions).toHaveLength(0)
-      expect(after.accounts).toHaveLength(0)
-      expect(after.refreshTokens).toHaveLength(0)
-      expect(after.codes).toHaveLength(0)
-    }
-    finally
-    {
-      vi.useRealTimers()
-    }
-  })
+    const after = await readAuthState(t, userId)
+    expect(after.user).toBeNull()
+    expect(after.sessions).toHaveLength(0)
+    expect(after.accounts).toHaveLength(0)
+    expect(after.refreshTokens).toHaveLength(0)
+    expect(after.codes).toHaveLength(0)
+  }))
 })
