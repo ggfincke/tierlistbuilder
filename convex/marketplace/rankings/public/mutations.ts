@@ -627,6 +627,7 @@ export const remixTemplateConsensus = mutation({
       forkCounted: true,
       preferredCriterionExternalId: criterion.externalId,
       ...buildFreshBoardCloudFields(now),
+      materializationState: 'ready',
       itemAspectRatio: template.itemAspectRatio ?? null,
       itemAspectRatioMode: template.itemAspectRatioMode ?? null,
       aspectRatioPromptDismissed: false,

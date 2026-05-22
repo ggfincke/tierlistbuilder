@@ -554,6 +554,7 @@ const ensureBoard = async (
       // false here; orchestrator ticks the counter post-insert & flips this true
       forkCounted: false,
       ...buildFreshBoardCloudFields(now),
+      materializationState: 'ready',
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(
         sourceTemplate?._id ?? null,

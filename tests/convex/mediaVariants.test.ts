@@ -421,6 +421,7 @@ describe('media variants', () =>
         forkCounted: false,
         preferredCriterionExternalId: null,
         ...buildFreshBoardCloudFields(0),
+        materializationState: 'ready',
         activeItemCount: 1,
         unrankedItemCount: 1,
         templateProgressState: 'none',

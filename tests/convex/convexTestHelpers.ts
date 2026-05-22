@@ -494,6 +494,7 @@ export const seedCloudBoard = async (
     forkCounted: Boolean(args.sourceTemplateId),
     preferredCriterionExternalId: null,
     ...buildFreshBoardCloudFields(now),
+    materializationState: 'ready',
     activeItemCount: args.activeItemCount ?? 0,
     unrankedItemCount: args.unrankedItemCount ?? 0,
     templateProgressState: args.templateProgressState ?? 'none',
