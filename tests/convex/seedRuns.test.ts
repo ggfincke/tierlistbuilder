@@ -68,6 +68,127 @@ const withCriteriaContentHash = <
 ): Array<T & { criteriaContentHash: string }> =>
   rows.map((row) => ({ ...row, criteriaContentHash }))
 
+interface SeedTemplateInput
+{
+  externalId: string
+  metadataContentHash: string
+  title: string
+  category: 'gaming' | 'movies'
+  description: string
+  tags: string[]
+  visibility: 'public' | 'unlisted'
+  coverMediaDedupeHash: string | null
+  coverFraming: null
+  suggestedTiers: Array<{
+    name: string
+    colorSpec: { kind: 'palette'; index: number }
+  }>
+  itemAspectRatio: number
+  defaultItemImagePadding: number | null
+  itemCount: number
+  labels?: { show: boolean }
+  autoPlate?: { mode: 'uniform'; uniformColor: string }
+}
+
+interface SeedItemInput
+{
+  itemExternalId: string
+  order: number
+  label: string
+  mediaDedupeHash: string | null
+  aspectRatio: number
+  transform: null
+  mediaPlate: null
+  imagePadding: number | null
+  backgroundColor: string | null
+}
+
+const buildSeedTemplate = (
+  overrides: Partial<SeedTemplateInput> = {}
+): SeedTemplateInput => ({
+  externalId: 'gaming:ssbu-fighters',
+  metadataContentHash: 'meta-ssbu-v1',
+  title: 'SSBU fighters',
+  category: 'gaming',
+  description: 'Playable fighters.',
+  tags: ['nintendo'],
+  visibility: 'public',
+  coverMediaDedupeHash: null,
+  coverFraming: null,
+  suggestedTiers: [
+    { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+  ],
+  itemAspectRatio: 1,
+  defaultItemImagePadding: null,
+  itemCount: 1,
+  ...overrides,
+})
+
+const buildSeedTemplateInput = (args: {
+  runId: string
+  templates?: SeedTemplateInput[]
+  template?: Partial<SeedTemplateInput>
+}) => ({
+  datasetKey: DATASET,
+  releaseId: RELEASE,
+  runId: args.runId,
+  authorEmail: AUTHOR_EMAIL,
+  templates: args.templates ?? [buildSeedTemplate(args.template)],
+})
+
+const seedItem = (
+  itemExternalId: string,
+  order: number,
+  overrides: Partial<Omit<SeedItemInput, 'itemExternalId' | 'order'>> = {}
+): SeedItemInput => ({
+  itemExternalId,
+  order,
+  label: itemExternalId,
+  mediaDedupeHash: null,
+  aspectRatio: 1,
+  transform: null,
+  mediaPlate: null,
+  imagePadding: null,
+  backgroundColor: null,
+  ...overrides,
+})
+
+const buildSeedItemsInput = (args: {
+  runId: string
+  templateExternalId?: string
+  itemsContentHash: string
+  items: SeedItemInput[]
+  allowContentHashSkip?: boolean
+}) => ({
+  datasetKey: DATASET,
+  releaseId: RELEASE,
+  runId: args.runId,
+  templateExternalId: args.templateExternalId ?? 'gaming:ssbu-fighters',
+  itemsContentHash: args.itemsContentHash,
+  ...(args.allowContentHashSkip !== undefined
+    ? { allowContentHashSkip: args.allowContentHashSkip }
+    : {}),
+  items: args.items,
+})
+
+const getSeedTemplate = async (
+  t: ConvexTestHandle,
+  externalId: string,
+  releaseId = RELEASE
+): Promise<Doc<'templates'> | null> =>
+  await t.run(
+    async (ctx) =>
+      await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', releaseId)
+            .eq('seedExternalId', externalId)
+        )
+        .unique()
+  )
+
 const seedTemplateWithItem = async (
   t: ConvexTestHandle,
   authorId: Id<'users'>,
@@ -508,32 +629,17 @@ describe('seed run precheck API', () =>
     const t = makeTest()
     await seedUser(t, AUTHOR_EMAIL)
 
-    const templateInput = {
-      datasetKey: DATASET,
-      releaseId: RELEASE,
+    const templateInput = buildSeedTemplateInput({
       runId: 'run-labels',
-      authorEmail: AUTHOR_EMAIL,
-      templates: [
-        {
-          externalId: 'gaming:labelled-template',
-          metadataContentHash: 'meta-labels-hidden',
-          title: 'Labelled template',
-          category: 'gaming' as const,
-          description: 'Template with seed label defaults.',
-          tags: ['labels'],
-          visibility: 'public' as const,
-          coverMediaDedupeHash: null,
-          coverFraming: null,
-          suggestedTiers: [
-            { name: 'S', colorSpec: { kind: 'palette' as const, index: 0 } },
-          ],
-          itemAspectRatio: 1,
-          defaultItemImagePadding: null,
-          itemCount: 1,
-          labels: { show: false },
-        },
-      ],
-    }
+      template: {
+        externalId: 'gaming:labelled-template',
+        metadataContentHash: 'meta-labels-hidden',
+        title: 'Labelled template',
+        description: 'Template with seed label defaults.',
+        tags: ['labels'],
+        labels: { show: false },
+      },
+    })
 
     const created = await t.mutation(
       internal.marketplace.seedRuns.upsertSeedTemplates,
@@ -553,18 +659,7 @@ describe('seed run precheck API', () =>
       }
     )
 
-    const template = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query('templates')
-          .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-            q
-              .eq('seedDatasetKey', DATASET)
-              .eq('seedReleaseId', RELEASE)
-              .eq('seedExternalId', 'gaming:labelled-template')
-          )
-          .unique()
-    )
+    const template = await getSeedTemplate(t, 'gaming:labelled-template')
 
     expect(created.created).toEqual(['gaming:labelled-template'])
     expect(updated.updated).toEqual(['gaming:labelled-template'])
@@ -576,31 +671,16 @@ describe('seed run precheck API', () =>
   {
     const t = makeTest()
     await seedUser(t, AUTHOR_EMAIL)
-    const templateInput = {
-      datasetKey: DATASET,
-      releaseId: RELEASE,
+    const templateInput = buildSeedTemplateInput({
       runId: 'run-colors',
-      authorEmail: AUTHOR_EMAIL,
-      templates: [
-        {
-          externalId: 'gaming:color-template',
-          metadataContentHash: 'meta-color-template',
-          title: 'Color template',
-          category: 'gaming' as const,
-          description: 'Color validation coverage.',
-          tags: ['colors'],
-          visibility: 'public' as const,
-          coverMediaDedupeHash: null,
-          coverFraming: null,
-          suggestedTiers: [
-            { name: 'S', colorSpec: { kind: 'palette' as const, index: 0 } },
-          ],
-          itemAspectRatio: 1,
-          defaultItemImagePadding: null,
-          itemCount: 1,
-        },
-      ],
-    }
+      template: {
+        externalId: 'gaming:color-template',
+        metadataContentHash: 'meta-color-template',
+        title: 'Color template',
+        description: 'Color validation coverage.',
+        tags: ['colors'],
+      },
+    })
 
     await expect(
       t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
@@ -626,17 +706,11 @@ describe('seed run precheck API', () =>
         templateExternalId: 'gaming:color-template',
         itemsContentHash: 'items-color-template',
         items: [
-          {
-            itemExternalId: 'mario',
-            order: 0,
+          seedItem('mario', 0, {
             label: 'Mario',
             mediaDedupeHash: 'tile:hash-mario',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
             backgroundColor: 'white',
-          },
+          }),
         ],
       })
     ).rejects.toThrow(/item\.backgroundColor must be a #rrggbb hex color/)
@@ -657,31 +731,17 @@ describe('seed run precheck API', () =>
     await seedMediaVariant(t, authorId, 'hash-link')
 
     enableSeedApi(SEED_SECRET)
-    const templateInput = {
-      datasetKey: DATASET,
-      releaseId: RELEASE,
+    const templateInput = buildSeedTemplateInput({
       runId: 'run-apply',
-      authorEmail: AUTHOR_EMAIL,
-      templates: [
-        {
-          externalId: 'gaming:ssbu-fighters',
-          metadataContentHash: 'meta-ssbu-v1',
-          title: 'SSBU roster',
-          category: 'gaming' as const,
-          description: 'Playable fighters.',
-          tags: ['Nintendo', 'smash'],
-          visibility: 'public' as const,
-          coverMediaDedupeHash: 'tile:hash-cover',
-          coverFraming: null,
-          suggestedTiers: [
-            { name: 'S', colorSpec: { kind: 'palette' as const, index: 0 } },
-          ],
-          itemAspectRatio: 1,
-          defaultItemImagePadding: null,
-          itemCount: 2,
-        },
-      ],
-    }
+      template: {
+        metadataContentHash: 'meta-ssbu-v1',
+        title: 'SSBU roster',
+        description: 'Playable fighters.',
+        tags: ['Nintendo', 'smash'],
+        coverMediaDedupeHash: 'tile:hash-cover',
+        itemCount: 2,
+      },
+    })
     const createdTemplates = await t.mutation(
       internal.marketplace.seedRuns.upsertSeedTemplates,
       templateInput
@@ -774,38 +834,21 @@ describe('seed run precheck API', () =>
 
     const firstItems = await t.mutation(
       internal.marketplace.seedRuns.syncSeedTemplateItems,
-      {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
+      buildSeedItemsInput({
         runId: 'run-apply',
-        templateExternalId: 'gaming:ssbu-fighters',
         itemsContentHash: 'items-ssbu-v1',
         allowContentHashSkip: true,
         items: [
-          {
-            itemExternalId: 'mario',
-            order: 0,
+          seedItem('mario', 0, {
             label: 'Mario',
             mediaDedupeHash: 'tile:hash-mario',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
-            backgroundColor: null,
-          },
-          {
-            itemExternalId: 'link',
-            order: 1,
+          }),
+          seedItem('link', 1, {
             label: 'Link',
             mediaDedupeHash: 'tile:hash-link',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
-            backgroundColor: null,
-          },
+          }),
         ],
-      }
+      })
     )
     await t.run(async (ctx) =>
     {
@@ -823,50 +866,25 @@ describe('seed run precheck API', () =>
     })
     const sameItems = await t.mutation(
       internal.marketplace.seedRuns.syncSeedTemplateItems,
-      {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
+      buildSeedItemsInput({
         runId: 'run-apply',
-        templateExternalId: 'gaming:ssbu-fighters',
         itemsContentHash: 'items-ssbu-v1',
         allowContentHashSkip: true,
         items: [
-          {
-            itemExternalId: 'mario',
-            order: 0,
+          seedItem('mario', 0, {
             label: 'Mario',
             mediaDedupeHash: 'tile:hash-mario',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
-            backgroundColor: null,
-          },
-          {
-            itemExternalId: 'link',
-            order: 1,
+          }),
+          seedItem('link', 1, {
             label: 'Link',
             mediaDedupeHash: 'tile:hash-link',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
-            backgroundColor: null,
-          },
+          }),
         ],
-      }
+      })
     )
-    const unchangedItemSyncTemplate = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query('templates')
-          .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-            q
-              .eq('seedDatasetKey', DATASET)
-              .eq('seedReleaseId', RELEASE)
-              .eq('seedExternalId', 'gaming:ssbu-fighters')
-          )
-          .unique()
+    const unchangedItemSyncTemplate = await getSeedTemplate(
+      t,
+      'gaming:ssbu-fighters'
     )
     await t.run(async (ctx) =>
     {
@@ -891,93 +909,55 @@ describe('seed run precheck API', () =>
     })
     const forcedItems = await t.mutation(
       internal.marketplace.seedRuns.syncSeedTemplateItems,
-      {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
+      buildSeedItemsInput({
         runId: 'run-apply',
-        templateExternalId: 'gaming:ssbu-fighters',
         itemsContentHash: 'items-ssbu-v1',
         allowContentHashSkip: false,
         items: [
-          {
-            itemExternalId: 'mario',
-            order: 0,
+          seedItem('mario', 0, {
             label: 'Mario',
             mediaDedupeHash: 'tile:hash-mario',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
-            backgroundColor: null,
-          },
-          {
-            itemExternalId: 'link',
-            order: 1,
+          }),
+          seedItem('link', 1, {
             label: 'Link',
             mediaDedupeHash: 'tile:hash-link',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
-            backgroundColor: null,
-          },
+          }),
         ],
-      }
+      })
     )
     await expect(
-      t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
-        runId: 'run-apply',
-        templateExternalId: 'gaming:ssbu-fighters',
-        itemsContentHash: 'items-duplicate',
-        items: [
-          {
-            itemExternalId: 'mario',
-            order: 0,
-            label: 'Mario',
-            mediaDedupeHash: 'tile:hash-mario',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
-            backgroundColor: null,
-          },
-          {
-            itemExternalId: 'mario',
-            order: 1,
-            label: 'Mario duplicate',
-            mediaDedupeHash: 'tile:hash-mario',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
-            backgroundColor: null,
-          },
-        ],
-      })
+      t.mutation(
+        internal.marketplace.seedRuns.syncSeedTemplateItems,
+        buildSeedItemsInput({
+          runId: 'run-apply',
+          itemsContentHash: 'items-duplicate',
+          items: [
+            seedItem('mario', 0, {
+              label: 'Mario',
+              mediaDedupeHash: 'tile:hash-mario',
+            }),
+            seedItem('mario', 1, {
+              label: 'Mario duplicate',
+              mediaDedupeHash: 'tile:hash-mario',
+            }),
+          ],
+        })
+      )
     ).rejects.toThrow(/duplicate seed item key/)
     await expect(
-      t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
-        runId: 'run-apply',
-        templateExternalId: 'gaming:ssbu-fighters',
-        itemsContentHash: 'items-wrong-count',
-        items: [
-          {
-            itemExternalId: 'mario',
-            order: 1,
-            label: 'Super Mario',
-            mediaDedupeHash: 'tile:hash-mario',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
-            backgroundColor: null,
-          },
-        ],
-      })
+      t.mutation(
+        internal.marketplace.seedRuns.syncSeedTemplateItems,
+        buildSeedItemsInput({
+          runId: 'run-apply',
+          itemsContentHash: 'items-wrong-count',
+          items: [
+            seedItem('mario', 1, {
+              label: 'Super Mario',
+              mediaDedupeHash: 'tile:hash-mario',
+            }),
+          ],
+        })
+      )
     ).rejects.toThrow(/expected 2 items, received 1/)
     await t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
       ...templateInput,
@@ -992,26 +972,16 @@ describe('seed run precheck API', () =>
     })
     const changedItems = await t.mutation(
       internal.marketplace.seedRuns.syncSeedTemplateItems,
-      {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
+      buildSeedItemsInput({
         runId: 'run-apply',
-        templateExternalId: 'gaming:ssbu-fighters',
         itemsContentHash: 'items-ssbu-v2',
         items: [
-          {
-            itemExternalId: 'mario',
-            order: 1,
+          seedItem('mario', 1, {
             label: 'Super Mario',
             mediaDedupeHash: 'tile:hash-mario',
-            aspectRatio: 1,
-            transform: null,
-            mediaPlate: null,
-            imagePadding: null,
-            backgroundColor: null,
-          },
+          }),
         ],
-      }
+      })
     )
 
     expect(firstItems.created).toHaveLength(2)
@@ -1083,63 +1053,32 @@ describe('seed run precheck API', () =>
       'new-preview'
     )
 
-    await t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
-      datasetKey: DATASET,
-      releaseId: RELEASE,
-      runId: 'run-dedupe-media',
-      authorEmail: AUTHOR_EMAIL,
-      templates: [
-        {
-          externalId: 'gaming:ssbu-fighters',
+    await t.mutation(
+      internal.marketplace.seedRuns.upsertSeedTemplates,
+      buildSeedTemplateInput({
+        runId: 'run-dedupe-media',
+        template: {
           metadataContentHash: 'meta-dedupe-media',
-          title: 'SSBU fighters',
-          category: 'gaming',
-          description: 'Playable fighters.',
-          tags: ['nintendo'],
-          visibility: 'public',
-          coverMediaDedupeHash: null,
-          coverFraming: null,
-          suggestedTiers: [
-            { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-          ],
-          itemAspectRatio: 1,
-          defaultItemImagePadding: null,
-          itemCount: 1,
         },
-      ],
-    })
-    await t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
-      datasetKey: DATASET,
-      releaseId: RELEASE,
-      runId: 'run-dedupe-media',
-      templateExternalId: 'gaming:ssbu-fighters',
-      itemsContentHash: 'items-dedupe-media',
-      items: [
-        {
-          itemExternalId: 'mario',
-          order: 0,
-          label: 'Mario',
-          mediaDedupeHash: current.dedupeHash,
-          aspectRatio: 1,
-          transform: null,
-          mediaPlate: null,
-          imagePadding: null,
-          backgroundColor: null,
-        },
-      ],
-    })
+      })
+    )
+    await t.mutation(
+      internal.marketplace.seedRuns.syncSeedTemplateItems,
+      buildSeedItemsInput({
+        runId: 'run-dedupe-media',
+        itemsContentHash: 'items-dedupe-media',
+        items: [
+          seedItem('mario', 0, {
+            label: 'Mario',
+            mediaDedupeHash: current.dedupeHash,
+          }),
+        ],
+      })
+    )
 
+    const template = await getSeedTemplate(t, 'gaming:ssbu-fighters')
     const row = await t.run(async (ctx) =>
     {
-      const template = await ctx.db
-        .query('templates')
-        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-          q
-            .eq('seedDatasetKey', DATASET)
-            .eq('seedReleaseId', RELEASE)
-            .eq('seedExternalId', 'gaming:ssbu-fighters')
-        )
-        .unique()
       if (!template) return null
       return await ctx.db
         .query('templateItems')
@@ -1250,31 +1189,17 @@ describe('seed run precheck API', () =>
       itemCount: 2,
       imageVariantCount: 6,
     })
-    await t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
-      datasetKey: DATASET,
-      releaseId: RELEASE,
-      runId: 'run-activation',
-      authorEmail: AUTHOR_EMAIL,
-      templates: [
-        {
-          externalId: 'gaming:ssbu-fighters',
+    await t.mutation(
+      internal.marketplace.seedRuns.upsertSeedTemplates,
+      buildSeedTemplateInput({
+        runId: 'run-activation',
+        template: {
           metadataContentHash: 'meta-activation-v1',
-          title: 'SSBU fighters',
-          category: 'gaming',
-          description: 'Playable fighters.',
-          tags: ['nintendo'],
-          visibility: 'public',
           coverMediaDedupeHash: 'tile:hash-cover',
-          coverFraming: null,
-          suggestedTiers: [
-            { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-          ],
-          itemAspectRatio: 1,
-          defaultItemImagePadding: null,
           itemCount: 2,
         },
-      ],
-    })
+      })
+    )
     await t.mutation(internal.marketplace.seedRuns.upsertSeedCriteria, {
       datasetKey: DATASET,
       releaseId: RELEASE,
@@ -1297,37 +1222,23 @@ describe('seed run precheck API', () =>
         'criteria-activation-v1'
       ),
     })
-    await t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
-      datasetKey: DATASET,
-      releaseId: RELEASE,
-      runId: 'run-activation',
-      templateExternalId: 'gaming:ssbu-fighters',
-      itemsContentHash: 'items-activation-v1',
-      items: [
-        {
-          itemExternalId: 'mario',
-          order: 0,
-          label: 'Mario',
-          mediaDedupeHash: 'tile:hash-mario',
-          aspectRatio: 1,
-          transform: null,
-          mediaPlate: null,
-          imagePadding: null,
-          backgroundColor: null,
-        },
-        {
-          itemExternalId: 'link',
-          order: 1,
-          label: 'Link',
-          mediaDedupeHash: 'tile:hash-link',
-          aspectRatio: 1,
-          transform: null,
-          mediaPlate: null,
-          imagePadding: null,
-          backgroundColor: null,
-        },
-      ],
-    })
+    await t.mutation(
+      internal.marketplace.seedRuns.syncSeedTemplateItems,
+      buildSeedItemsInput({
+        runId: 'run-activation',
+        itemsContentHash: 'items-activation-v1',
+        items: [
+          seedItem('mario', 0, {
+            label: 'Mario',
+            mediaDedupeHash: 'tile:hash-mario',
+          }),
+          seedItem('link', 1, {
+            label: 'Link',
+            mediaDedupeHash: 'tile:hash-link',
+          }),
+        ],
+      })
+    )
 
     const verified = await runChunkedSeedVerification(t, {
       datasetKey: DATASET,
@@ -1459,37 +1370,23 @@ describe('seed run precheck API', () =>
     expect(reactivatedRows.run?.status).toBe('active')
     expect(reactivatedRows.target?.updatedAt).toBe(22222)
 
-    await t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
-      datasetKey: DATASET,
-      releaseId: RELEASE,
-      runId: 'run-activation',
-      templateExternalId: 'gaming:ssbu-fighters',
-      itemsContentHash: 'items-activation-v2',
-      items: [
-        {
-          itemExternalId: 'mario',
-          order: 0,
-          label: 'Super Mario',
-          mediaDedupeHash: 'tile:hash-mario',
-          aspectRatio: 1,
-          transform: null,
-          mediaPlate: null,
-          imagePadding: null,
-          backgroundColor: null,
-        },
-        {
-          itemExternalId: 'link',
-          order: 1,
-          label: 'Link',
-          mediaDedupeHash: 'tile:hash-link',
-          aspectRatio: 1,
-          transform: null,
-          mediaPlate: null,
-          imagePadding: null,
-          backgroundColor: null,
-        },
-      ],
-    })
+    await t.mutation(
+      internal.marketplace.seedRuns.syncSeedTemplateItems,
+      buildSeedItemsInput({
+        runId: 'run-activation',
+        itemsContentHash: 'items-activation-v2',
+        items: [
+          seedItem('mario', 0, {
+            label: 'Super Mario',
+            mediaDedupeHash: 'tile:hash-mario',
+          }),
+          seedItem('link', 1, {
+            label: 'Link',
+            mediaDedupeHash: 'tile:hash-link',
+          }),
+        ],
+      })
+    )
     await t.mutation(internal.marketplace.seedRuns.upsertSeedCriteria, {
       datasetKey: DATASET,
       releaseId: RELEASE,
@@ -1530,48 +1427,27 @@ describe('seed run precheck API', () =>
       seedReleaseStatus: 'active',
       itemCount: 2,
     })
-    await t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
-      datasetKey: DATASET,
-      releaseId: RELEASE,
-      runId: 'run-activation',
-      authorEmail: AUTHOR_EMAIL,
-      templates: [
-        {
-          externalId: 'gaming:ssbu-fighters',
-          metadataContentHash: 'meta-activation-v2',
-          title: 'SSBU fighters',
-          category: 'movies',
-          description: 'Playable fighters.',
-          tags: ['nintendo'],
-          visibility: 'public',
-          coverMediaDedupeHash: 'tile:hash-cover',
-          coverFraming: null,
-          suggestedTiers: [
-            { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-          ],
-          itemAspectRatio: 1,
-          defaultItemImagePadding: null,
-          itemCount: 2,
-        },
-        {
-          externalId: 'gaming:new-active-template',
-          metadataContentHash: 'meta-new-active-template',
-          title: 'New active template',
-          category: 'gaming',
-          description: 'Added after activation.',
-          tags: ['new'],
-          visibility: 'public',
-          coverMediaDedupeHash: null,
-          coverFraming: null,
-          suggestedTiers: [
-            { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-          ],
-          itemAspectRatio: 1,
-          defaultItemImagePadding: null,
-          itemCount: 1,
-        },
-      ],
-    })
+    await t.mutation(
+      internal.marketplace.seedRuns.upsertSeedTemplates,
+      buildSeedTemplateInput({
+        runId: 'run-activation',
+        templates: [
+          buildSeedTemplate({
+            metadataContentHash: 'meta-activation-v2',
+            category: 'movies',
+            coverMediaDedupeHash: 'tile:hash-cover',
+            itemCount: 2,
+          }),
+          buildSeedTemplate({
+            externalId: 'gaming:new-active-template',
+            metadataContentHash: 'meta-new-active-template',
+            title: 'New active template',
+            description: 'Added after activation.',
+            tags: ['new'],
+          }),
+        ],
+      })
+    )
     const activeTemplateStats = await t.run(async (ctx) =>
     {
       const stats = await ctx.db
