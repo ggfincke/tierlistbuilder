@@ -1,7 +1,7 @@
 // src/features/workspace/imageEditor/ui/LabelEditorRow.tsx
 // caption visibility, placement, styling, & apply-to-all controls
 
-import { useId } from 'react'
+import { useId, type ComponentProps } from 'react'
 import { Check, ChevronRight, Wand2 } from 'lucide-react'
 
 import {
@@ -23,7 +23,10 @@ import {
   LABEL_PLACEMENT_OVERLAY_PRESETS,
   LABEL_TEXT_COLORS,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { LABEL_FONT_LABELS } from '~/features/workspace/imageEditor/lib/labelEditorOptions'
+import {
+  LABEL_FONT_LABELS,
+  PLACEMENT_MODE_LABELS_FULL,
+} from '~/features/workspace/imageEditor/lib/labelEditorOptions'
 import { NumberStepper } from '~/shared/ui/NumberStepper'
 
 const INHERIT_TEXT_STYLE_VALUE = '__inherit'
@@ -38,12 +41,6 @@ const LABEL_TEXT_COLOR_NAMES: Record<LabelTextColor, string> = {
   green: 'Green',
   blue: 'Blue',
   purple: 'Purple',
-}
-
-const PLACEMENT_MODE_LABELS: Record<LabelPlacementMode, string> = {
-  overlay: 'Overlay',
-  captionAbove: 'Caption above',
-  captionBelow: 'Caption below',
 }
 
 const PLACEMENT_MODE_ORDER: readonly LabelPlacementMode[] = [
@@ -204,14 +201,13 @@ export const LabelEditorRow = ({
                 key={mode}
                 active={resolvedPlacement.mode === mode}
                 onClick={() => handleModeSelect(mode)}
-                label={PLACEMENT_MODE_LABELS[mode]}
+                label={PLACEMENT_MODE_LABELS_FULL[mode]}
               />
             ))}
           </div>
-          <div
-            className={`flex items-center gap-1 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] p-0.5 transition-opacity ${
-              isOverlay ? '' : 'pointer-events-none opacity-40'
-            }`}
+          <OverlayOnlyGroup
+            active={isOverlay}
+            className="flex items-center gap-1 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] p-0.5"
             role="group"
             aria-label="Caption position"
             title={
@@ -236,12 +232,10 @@ export const LabelEditorRow = ({
                 />
               )
             })}
-          </div>
-          <div
-            className={`flex items-center gap-2 transition-opacity ${
-              isOverlay ? '' : 'pointer-events-none opacity-40'
-            }`}
-            aria-disabled={!isOverlay}
+          </OverlayOnlyGroup>
+          <OverlayOnlyGroup
+            active={isOverlay}
+            className="flex items-center gap-2"
           >
             <label
               className="text-[var(--t-text-muted)]"
@@ -270,12 +264,10 @@ export const LabelEditorRow = ({
               <option value="light">Light</option>
               <option value="none">None</option>
             </select>
-          </div>
-          <div
-            className={`flex items-center gap-2 transition-opacity ${
-              isOverlay ? '' : 'pointer-events-none opacity-40'
-            }`}
-            aria-disabled={!isOverlay}
+          </OverlayOnlyGroup>
+          <OverlayOnlyGroup
+            active={isOverlay}
+            className="flex items-center gap-2"
           >
             <label
               className="text-[var(--t-text-muted)]"
@@ -303,7 +295,7 @@ export const LabelEditorRow = ({
                 </option>
               ))}
             </select>
-          </div>
+          </OverlayOnlyGroup>
           <div className="flex items-center gap-2">
             <label htmlFor={fontId} className="text-[var(--t-text-muted)]">
               Font
@@ -376,6 +368,28 @@ export const LabelEditorRow = ({
     </div>
   )
 }
+
+interface OverlayOnlyGroupProps extends ComponentProps<'div'>
+{
+  active: boolean
+}
+
+const OverlayOnlyGroup = ({
+  active,
+  className = '',
+  children,
+  ...props
+}: OverlayOnlyGroupProps) => (
+  <div
+    {...props}
+    className={`${className} transition-opacity ${
+      active ? '' : 'pointer-events-none opacity-40'
+    }`}
+    aria-disabled={!active}
+  >
+    {children}
+  </div>
+)
 
 interface FontSizeInputProps
 {

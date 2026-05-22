@@ -8,10 +8,7 @@ import type {
   ImageFit,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import {
-  areCachedAutoCropsApplied,
-  type AutoCropTransformEntry,
-} from '~/shared/lib/autoCrop/pipeline'
+import type { AutoCropTransformEntry } from '~/shared/lib/autoCrop/pipeline'
 import {
   type AutoCropProgress,
   useCollectAutoCropTransformsRunner,
@@ -74,17 +71,16 @@ export const useAutoCropController = ({
   const autoCropTouchedIdsRef = useRef<Set<ItemId>>(new Set())
   const {
     abort: abortAutoCrop,
+    areCachedTransformsApplied,
     progress: autoCropProgress,
     run: runAutoCropTransforms,
   } = useCollectAutoCropTransformsRunner()
 
-  const autoCropAllApplied =
-    !autoCropProgress.running &&
-    areCachedAutoCropsApplied(
-      targets,
-      getBoardAspectRatioForItem,
-      trimSoftShadows
-    )
+  const autoCropAllApplied = areCachedTransformsApplied({
+    targets,
+    getBoardAspectRatio: getBoardAspectRatioForItem,
+    trimSoftShadows,
+  })
   const autoCropApplied = pendingBulkFit === null && autoCropAllApplied
   const autoCropSelected =
     pendingBulkFit === null &&

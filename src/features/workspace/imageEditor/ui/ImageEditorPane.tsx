@@ -161,7 +161,6 @@ export const ImageEditorPane = forwardRef<
     updateLabelDraft,
     commitLabel,
     updateLabelOption,
-    handleFontSizePxChange,
     placementDraft,
     labelDragSnap,
     handleLabelDragMove,
@@ -365,7 +364,7 @@ export const ImageEditorPane = forwardRef<
           onPlacementChange={handlePlacementChange}
           onScrimChange={(s) => updateLabelOption('scrim', s)}
           onTextColorChange={(c) => updateLabelOption('textColor', c)}
-          onFontSizePxChange={handleFontSizePxChange}
+          onFontSizePxChange={(px) => updateLabelOption('fontSizePx', px)}
           onTextStyleChange={(t) => updateLabelOption('textStyleId', t)}
           onVisibleChange={(v) => updateLabelOption('visible', v)}
           onClearOverrides={() => onLabelOptionsChange(null)}
