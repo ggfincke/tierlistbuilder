@@ -20,7 +20,7 @@
 
 ## Directory Structure
 
-The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,platform,marketplace,library,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Cross-runtime wire types live in the top-level `packages/contracts/` workspace package. See `dev-docs/archive/directory-restructure-proposal.mdx` for the long-form rationale.
+The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,platform,marketplace,library,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Cross-runtime wire types live in the top-level `packages/contracts/` workspace package.
 
 ```
 src/
@@ -34,7 +34,7 @@ src/
 │   │   ├── AppRouter.tsx            # React Router route tree
 │   │   ├── WorkspaceRoute.tsx       # workspace entry
 │   │   ├── EmbedRoute.tsx           # embed entry
-│   │   ├── MyListsRoute.tsx         # library entry
+│   │   ├── MyBoardsRoute.tsx         # library entry
 │   │   ├── NotFoundRoute.tsx        # 404 fallback
 │   │   └── AppChromeLayout.tsx      # chrome wrapper for app routes
 │   ├── shells/
@@ -96,11 +96,11 @@ src/
 │       ├── state/                   # syncStatusStore, syncStatusVisuals, cloud pull progress
 │       └── transport/               # connectivity detection
 ├── features/marketplace/            # templates, ranking publish/detail/remix, gallery flows
-│   ├── components/                  # account, cards, consensus, cover, discovery, layout, meta, publish, template
+│   ├── ui/                          # account, cards, consensus, cover, discovery, layout, meta, publish, template
 │   │   └── consensus/{views,rail,criterion,item,lib,compare}/
 │   └── model/{gallery,detail,publish,remix,cover,analytics,actions}/
-├── features/library/                # signed-in My Lists surface
-│   └── components/{cards,list,chrome,chips,modals}/
+├── features/library/                # signed-in My Boards surface
+│   └── ui/{cards,list,chrome,chips,modals}/
 ├── features/embed/ui                # read-only EmbedView primitives
 └── shared/
     ├── a11y/                        # announce() module, LiveRegion component
@@ -113,7 +113,8 @@ src/
     │                                # browserStorage, logger, urls, typeGuards,
     │                                # asyncMapLimit, binaryCodec, boardSnapshotItems, errors,
     │                                # localSidecar, sha256, sync/ (debouncedSyncRunner,
-    │                                # ownedSyncMeta, backoff, proceedGuard)
+    │                                # ownedSyncMeta, backoff, proceedGuard),
+    │                                # autoCrop/ (pipeline, cache & transforms-runner hooks)
     ├── notifications/               # ToastContainer, useToastStore
     ├── overlay/                     # BaseModal, ConfirmDialog, toolbarPosition, progress, focus/inert dialog wiring,
     │                                # dismissible layers, anchored popups, menu overflow, nested menus
@@ -222,7 +223,7 @@ The separation ensures board-input orchestration (selection, focus persistence, 
 - `/` -> `WorkspaceRoute` -> `WorkspaceShell` (full editable shell)
 - `/templates` -> `MarketplaceLayout` -> template gallery
 - `/templates/:slug` -> template detail
-- `/boards` -> `MyListsRoute` -> signed-in library
+- `/boards` -> `MyBoardsRoute` -> signed-in library
 - `/embed` -> `EmbedRoute` -> `EmbedView`
 - anything else -> `NotFoundRoute`
 
@@ -398,6 +399,16 @@ Marketplace ranking backend files are grouped by workflow:
 - `marketplace/rankings/seed/` — seed manifest validators, planning, scoring, lifecycle, cleanup, and seed actions.
 - `marketplace/rankings/maintenance/` — owner/data cascade jobs.
 
+Marketplace template helpers are split by responsibility under
+`marketplace/templates/lib/`:
+
+- `normalize.ts` — input normalization, validation, defaults.
+- `trending.ts` — trending-score math, metric-day bucketing, projection cache.
+- `state.ts` — publication/access-state predicates & state-field builders.
+- `board.ts` — template-to-board tier/item materialization.
+- `projections.ts` — read-side projections: media/author/item loaders, stats reads, & summary/detail/draft/card shaping.
+- `writes.ts` — table writes & lifecycle: stats/cards/tags writes, publication-state mutations, deletes, & slug allocation.
+
 Key boundary: **UI components never call Convex directly**. Every query & mutation flows through a per-feature adapter, platform repository, or auth hook. This keeps wire types, error surfaces, and retry policy out of the UI layer.
 
 Schema (`convex/schema.ts`) defines the app-owned tables alongside `@convex-dev/auth`'s `authTables`:
@@ -438,7 +449,7 @@ Unit & integration tests live under `tests/` and run via Vitest. End-to-end Play
 
 - `npm test` — Vitest single pass
 - `npm run test:watch` — Vitest watch mode
-- `npm run test:e2e` — Playwright smoke + guardrails for workspace, image-editor persistence, account profile/delete, embed, marketplace filters, signed-in publish/use-template, and My Lists activation (requires `npx playwright install chromium` once; config prepares local Convex Auth)
+- `npm run test:e2e` — Playwright smoke + guardrails for workspace, image-editor persistence, account profile/delete, embed, marketplace filters, signed-in publish/use-template, and My Boards activation (requires `npx playwright install chromium` once; config prepares local Convex Auth)
 - `npm run test:e2e:ui` — Playwright headed runner
 - `npm run audit:dead-code` — Knip unused dependency/export/file audit
 

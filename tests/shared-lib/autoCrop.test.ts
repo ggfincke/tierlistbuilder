@@ -7,7 +7,7 @@ import { ITEM_TRANSFORM_LIMITS } from '@tierlistbuilder/contracts/workspace/boar
 import {
   bboxToItemTransform,
   detectContentBBoxFromImageData,
-} from '~/shared/lib/autoCrop'
+} from '~/shared/lib/autoCrop/pipeline'
 
 interface AlphaRect
 {

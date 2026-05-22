@@ -17,12 +17,12 @@ import {
   type TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import { DEFAULT_TEMPLATE_TIERS } from '../../templates/lib/normalize'
+import { createTemplateProjectionCache } from '../../templates/lib/trending'
 import {
-  DEFAULT_TEMPLATE_TIERS,
-  createTemplateProjectionCache,
   findTemplateCardByTemplateId,
   toTemplateMediaRef,
-} from '../../templates/lib'
+} from '../../templates/lib/projections'
 import {
   resolveTemplateCriteria,
   resolveTemplateCriterionForHistoricalRead,

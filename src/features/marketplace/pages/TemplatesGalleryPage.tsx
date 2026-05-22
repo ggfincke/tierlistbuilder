@@ -24,14 +24,14 @@ import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/ca
 import {
   Card,
   type CardFeaturedLabel,
-} from '~/features/marketplace/components/cards/Card'
-import { CategoryChips } from '~/features/marketplace/components/discovery/CategoryChips'
-import { CreateTile } from '~/features/marketplace/components/cards/CreateTile'
-import { DraftRail } from '~/features/marketplace/components/discovery/DraftRail'
-import { Hero } from '~/features/marketplace/components/discovery/Hero'
-import { Rail } from '~/features/marketplace/components/discovery/Rail'
-import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
-import { SearchInput } from '~/features/marketplace/components/discovery/SearchInput'
+} from '~/features/marketplace/ui/cards/Card'
+import { CategoryChips } from '~/features/marketplace/ui/discovery/CategoryChips'
+import { CreateTile } from '~/features/marketplace/ui/cards/CreateTile'
+import { DraftRail } from '~/features/marketplace/ui/discovery/DraftRail'
+import { Hero } from '~/features/marketplace/ui/discovery/Hero'
+import { Rail } from '~/features/marketplace/ui/discovery/Rail'
+import { RailHeader } from '~/features/marketplace/ui/discovery/RailHeader'
+import { SearchInput } from '~/features/marketplace/ui/discovery/SearchInput'
 import { Button } from '~/shared/ui/Button'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
@@ -47,7 +47,7 @@ import { pluralizeWord } from '~/shared/lib/pluralize'
 import {
   loadPublishModal,
   preloadPublishModal,
-} from '~/features/marketplace/components/publish/loadPublishModal'
+} from '~/features/marketplace/ui/publish/loadPublishModal'
 import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'

@@ -11,13 +11,13 @@ import type {
 import {
   areCachedAutoCropsApplied,
   type AutoCropTransformEntry,
-} from '~/shared/lib/autoCrop'
+} from '~/shared/lib/autoCrop/pipeline'
 import {
   type AutoCropProgress,
   useCollectAutoCropTransformsRunner,
-} from '~/shared/lib/useCollectAutoCropTransformsRunner'
+} from '~/shared/lib/autoCrop/useCollectAutoCropTransformsRunner'
 import { logger } from '~/shared/lib/logger'
-import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
+import { useAutoCropCacheVersion } from '~/shared/lib/autoCrop/useAutoCropCache'
 
 const DEBUG_TARGET_ID_LIMIT = 20
 

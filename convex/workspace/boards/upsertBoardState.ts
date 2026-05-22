@@ -21,9 +21,9 @@ import {
 } from '@tierlistbuilder/contracts/workspace/imageMath'
 import {
   findTemplateBySlug,
-  incrementTemplateForkStats,
   loadTemplateItems,
-} from '../../marketplace/templates/lib'
+} from '../../marketplace/templates/lib/projections'
+import { incrementTemplateForkStats } from '../../marketplace/templates/lib/writes'
 import { findActiveTemplateCriterion } from '../../marketplace/templates/criteria'
 import {
   findRankingBySlug,

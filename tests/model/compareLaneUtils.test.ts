@@ -6,7 +6,7 @@ import type { MarketplaceTemplateRankingAggregateItem } from '@tierlistbuilder/c
 import {
   compareDirectionCopy,
   joinLanesByTemplateItem,
-} from '~/features/marketplace/components/consensus/compare/laneUtils'
+} from '~/features/marketplace/ui/consensus/compare/laneUtils'
 
 const aggregateItem = (
   templateItemExternalId: string,

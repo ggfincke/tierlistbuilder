@@ -24,7 +24,7 @@ import {
   resolveActiveTemplateCriterion,
   toTemplateCriterionSnapshot,
 } from '../../templates/criteria'
-import { loadTemplateItems } from '../../templates/lib'
+import { loadTemplateItems } from '../../templates/lib/projections'
 import {
   allocateRankingSlug,
   normalizeRankingDescription,

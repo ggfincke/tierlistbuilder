@@ -36,22 +36,22 @@ import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
-import { templateFrame } from '~/features/marketplace/components/consensus/lib/utils'
-import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
-import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
-import { LoadingBlock } from '~/features/marketplace/components/consensus/views/LoadingBlock'
+import { templateFrame } from '~/features/marketplace/ui/consensus/lib/utils'
+import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
+import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/MarketplaceNotFound'
+import { LoadingBlock } from '~/features/marketplace/ui/consensus/views/LoadingBlock'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
-import { CompareDivergenceTable } from '~/features/marketplace/components/consensus/compare/CompareDivergenceTable'
-import { CompareInsightStrip } from '~/features/marketplace/components/consensus/compare/CompareInsightStrip'
-import { CompareLaneHeader } from '~/features/marketplace/components/consensus/compare/CompareLaneHeader'
-import { CompareNarrativeCards } from '~/features/marketplace/components/consensus/compare/CompareNarrativeCards'
-import { CompareScatter } from '~/features/marketplace/components/consensus/compare/CompareScatter'
-import { CompareSideBySideTiers } from '~/features/marketplace/components/consensus/compare/CompareSideBySideTiers'
-import { CompareTierFlow } from '~/features/marketplace/components/consensus/compare/CompareTierFlow'
+import { CompareDivergenceTable } from '~/features/marketplace/ui/consensus/compare/CompareDivergenceTable'
+import { CompareInsightStrip } from '~/features/marketplace/ui/consensus/compare/CompareInsightStrip'
+import { CompareLaneHeader } from '~/features/marketplace/ui/consensus/compare/CompareLaneHeader'
+import { CompareNarrativeCards } from '~/features/marketplace/ui/consensus/compare/CompareNarrativeCards'
+import { CompareScatter } from '~/features/marketplace/ui/consensus/compare/CompareScatter'
+import { CompareSideBySideTiers } from '~/features/marketplace/ui/consensus/compare/CompareSideBySideTiers'
+import { CompareTierFlow } from '~/features/marketplace/ui/consensus/compare/CompareTierFlow'
 import {
   computeCompareInsights,
   joinLanesByTemplateItem,
-} from '~/features/marketplace/components/consensus/compare/laneUtils'
+} from '~/features/marketplace/ui/consensus/compare/laneUtils'
 
 interface ResolvedSelection
 {

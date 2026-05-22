@@ -15,7 +15,7 @@ import {
   loadImageEditorModal,
   preloadImageEditorModal,
 } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
-import { loadPublishModal } from '~/features/marketplace/components/publish/loadPublishModal'
+import { loadPublishModal } from '~/features/marketplace/ui/publish/loadPublishModal'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
 import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
@@ -43,7 +43,7 @@ const BoardSettingsModal = lazyNamed(
   'BoardSettingsModal'
 )
 const PublishRankingModal = lazyNamed(
-  () => import('~/features/marketplace/components/publish/PublishRankingModal'),
+  () => import('~/features/marketplace/ui/publish/PublishRankingModal'),
   'PublishRankingModal'
 )
 const PublishTemplateModal = lazyNamed(loadPublishModal, 'PublishModal')

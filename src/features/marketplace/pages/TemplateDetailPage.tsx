@@ -25,22 +25,22 @@ import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
-import { Card } from '~/features/marketplace/components/cards/Card'
-import { CommunityConsensusSection } from '~/features/marketplace/components/discovery/CommunityConsensusSection'
+import { Card } from '~/features/marketplace/ui/cards/Card'
+import { CommunityConsensusSection } from '~/features/marketplace/ui/discovery/CommunityConsensusSection'
 import {
   HeroRailCards,
   HeroRailCardsLoading,
-} from '~/features/marketplace/components/consensus/rail/HeroRailCards'
-import { useHeroSpread } from '~/features/marketplace/components/consensus/lib/useHeroSpread'
-import { templateFrame } from '~/features/marketplace/components/consensus/lib/utils'
-import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
-import { RecommendedPresetCard } from '~/features/marketplace/components/cards/RecommendedPresetCard'
+} from '~/features/marketplace/ui/consensus/rail/HeroRailCards'
+import { useHeroSpread } from '~/features/marketplace/ui/consensus/lib/useHeroSpread'
+import { templateFrame } from '~/features/marketplace/ui/consensus/lib/utils'
+import { RailHeader } from '~/features/marketplace/ui/discovery/RailHeader'
+import { RecommendedPresetCard } from '~/features/marketplace/ui/cards/RecommendedPresetCard'
 import {
   RESERVED_RAIL,
   TemplateHero,
-} from '~/features/marketplace/components/template/TemplateHero'
-import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
-import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
+} from '~/features/marketplace/ui/template/TemplateHero'
+import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/MarketplaceNotFound'
+import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
 
 const RELATED_LIMIT = 4
 const MAX_HERO_AGGREGATE_CACHE_ENTRIES = 32

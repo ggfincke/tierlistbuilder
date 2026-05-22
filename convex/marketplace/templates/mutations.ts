@@ -49,33 +49,38 @@ import { tierPresetTiersValidator } from '../../lib/validators/common'
 import {
   adjustPublicTemplateCount,
   allocateTemplateSlug,
-  buildTemplateStateFields,
   clearSourceBoardLivePublicTemplate,
   createTemplateStats,
-  DEFAULT_TEMPLATE_TIERS,
-  findTemplateBySlug,
   incrementTemplateForkStats,
   incrementTemplateViewStats,
-  insertBoardItemsFromTemplate,
-  insertBoardTiers,
+  markTemplateUnpublished,
+  patchTemplateAndSyncCard,
+  patchTemplateTagRows,
+  setSourceBoardLivePublicTemplate,
+  syncTemplateTagRows,
+  writeTemplateCard,
+} from './lib/writes'
+import {
+  buildTemplateStateFields,
   isFinishedTemplateJob,
   isPublicTemplateRow,
   isPublishedTemplateRow,
-  loadTemplateItems,
-  markTemplateUnpublished,
+} from './lib/state'
+import { findTemplateBySlug, loadTemplateItems } from './lib/projections'
+import {
+  insertBoardItemsFromTemplate,
+  insertBoardTiers,
+  templateTitleToBoardTitle,
+} from './lib/board'
+import {
+  DEFAULT_TEMPLATE_TIERS,
   normalizeCreditLine,
   normalizeDescription,
   normalizeTags,
   normalizeTemplateTitle,
-  patchTemplateTagRows,
-  patchTemplateAndSyncCard,
-  setSourceBoardLivePublicTemplate,
-  syncTemplateTagRows,
-  templateTitleToBoardTitle,
   tiersFromBoardRows,
   validateTemplateTiers,
-  writeTemplateCard,
-} from './lib'
+} from './lib/normalize'
 import {
   buildDefaultTemplateCriteria,
   findActiveTemplateCriterion,

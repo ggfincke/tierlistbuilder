@@ -28,10 +28,8 @@ import {
   deletedBoardListItemValidator,
   libraryBoardListItemValidator,
 } from '../../lib/validators/workspace'
-import {
-  createTemplateProjectionCache,
-  toTemplateMediaRefWithFallback,
-} from '../../marketplace/templates/lib'
+import { createTemplateProjectionCache } from '../../marketplace/templates/lib/trending'
+import { toTemplateMediaRefWithFallback } from '../../marketplace/templates/lib/projections'
 import { memoizePromise } from '../../lib/cache'
 import { getBoardSourceTemplateId } from './sourceFields'
 import { loadBoardCloudState } from '../sync/boardStateLoader'

@@ -8,7 +8,7 @@ export type TemplatePublishAction = 'unpublish' | 'republish'
 // the publish toggle only governs the published <-> unpublished lifecycle.
 // publishPending/publishFailed are publish-job states, not toggle targets:
 // unpublish would tear down an in-flight/failed publish, so surface as status
-export type TemplatePublishControl =
+type TemplatePublishControl =
   | { kind: 'toggle'; action: TemplatePublishAction }
   | { kind: 'pending' }
   | { kind: 'failed' }

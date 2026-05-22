@@ -12,10 +12,10 @@ import {
   areCachedAutoCropsApplied,
   getAutoCropImageRef,
   isCachedAutoCropApplied,
-} from '~/shared/lib/autoCrop'
+} from '~/shared/lib/autoCrop/pipeline'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
-import { useCollectAutoCropTransformsRunner } from '~/shared/lib/useCollectAutoCropTransformsRunner'
-import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
+import { useCollectAutoCropTransformsRunner } from '~/shared/lib/autoCrop/useCollectAutoCropTransformsRunner'
+import { useAutoCropCacheVersion } from '~/shared/lib/autoCrop/useAutoCropCache'
 import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 interface UseImageEditorAutoCropAllInput

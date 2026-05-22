@@ -22,13 +22,13 @@ import {
   marketplaceTemplateBookmarkListResultValidator,
   marketplaceTemplateBookmarkStateValidator,
 } from '../../lib/validators/marketplace'
+import { createTemplateProjectionCache } from './lib/trending'
 import {
-  createTemplateProjectionCache,
   findTemplateBySlug,
   findTemplateCardByTemplateId,
-  isPublishedTemplateRow,
   toTemplateCardSummary,
-} from './lib'
+} from './lib/projections'
+import { isPublishedTemplateRow } from './lib/state'
 
 type DbCtx = QueryCtx | MutationCtx
 

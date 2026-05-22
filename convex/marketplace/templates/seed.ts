@@ -17,14 +17,16 @@ import { templateCriteriaValidator } from '../../lib/validators/marketplace'
 import {
   findTemplateCardByTemplateId,
   findTemplateStatsByTemplateId,
-  MARKETPLACE_STATS_KEY,
+  requireTemplateStats,
+} from './lib/projections'
+import { MARKETPLACE_STATS_KEY } from './lib/trending'
+import {
   markTemplateUnpublished,
   patchTemplateAndSyncCard,
   patchTemplateAndSyncCardById,
-  requireTemplateStats,
   syncTemplateTagRows,
   writeTemplateCard,
-} from './lib'
+} from './lib/writes'
 import { requireSeedAuthorized } from '../seedAuth'
 
 const FEATURED_TEMPLATE_SCAN_CAP = BATCH_LIMITS.featuredTemplateScan

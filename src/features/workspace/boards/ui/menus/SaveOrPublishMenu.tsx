@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 
 import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
-import { preloadPublishModal } from '~/features/marketplace/components/publish/loadPublishModal'
+import { preloadPublishModal } from '~/features/marketplace/ui/publish/loadPublishModal'
 import { extractPresetFromBoard } from '~/features/workspace/tier-presets/model/tierPresets'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
 import { SavePresetModal } from '~/features/workspace/tier-presets/ui/SavePresetModal'

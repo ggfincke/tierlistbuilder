@@ -33,9 +33,9 @@ import {
 import {
   adjustPublicTemplateCount,
   deleteTemplateParentRow,
-  isPublicTemplateRow,
   type PublicCategoryDelta,
-} from './marketplace/templates/lib'
+} from './marketplace/templates/lib/writes'
+import { isPublicTemplateRow } from './marketplace/templates/lib/state'
 import { queueTemplateRankingAggregateRecompute } from './marketplace/rankings/aggregate/lib'
 import {
   deleteMediaAssetWithVariants,

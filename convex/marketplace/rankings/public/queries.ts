@@ -45,11 +45,9 @@ import {
 import { findOwnedBoardByExternalIdIncludingDeleted } from '../../../lib/permissions'
 import { getBoardSourceTemplateId } from '../../../workspace/boards/sourceFields'
 import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
-import {
-  createTemplateProjectionCache,
-  findTemplateBySlug,
-  isPublishedTemplateRow,
-} from '../../templates/lib'
+import { createTemplateProjectionCache } from '../../templates/lib/trending'
+import { findTemplateBySlug } from '../../templates/lib/projections'
+import { isPublishedTemplateRow } from '../../templates/lib/state'
 import {
   findActiveTemplateCriterion,
   resolvePrimaryTemplateCriterion,

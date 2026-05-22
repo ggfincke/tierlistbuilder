@@ -15,7 +15,7 @@ import {
   type TemplateCoverFraming,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { scanBlobForAutoCrop } from '~/shared/lib/autoCrop'
+import { scanBlobForAutoCrop } from '~/shared/lib/autoCrop/pipeline'
 import { logger } from '~/shared/lib/logger'
 import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 

@@ -60,14 +60,14 @@ import {
   normalizeRankingTitle,
   rankingTopScore,
 } from '../lib'
+import { DEFAULT_TEMPLATE_TIERS } from '../../templates/lib/normalize'
 import {
-  DEFAULT_TEMPLATE_TIERS,
   findTemplateBySlug,
-  incrementTemplateForkStats,
-  isPublishedTemplateRow,
   loadTemplateItems,
-  templateTitleToBoardTitle,
-} from '../../templates/lib'
+} from '../../templates/lib/projections'
+import { incrementTemplateForkStats } from '../../templates/lib/writes'
+import { isPublishedTemplateRow } from '../../templates/lib/state'
+import { templateTitleToBoardTitle } from '../../templates/lib/board'
 import {
   resolveActiveTemplateCriterion,
   toTemplateCriterionSnapshot,

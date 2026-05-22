@@ -21,12 +21,12 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { failInput, normalizeNullableText } from '../../lib/text'
+import { createTemplateProjectionCache } from '../templates/lib/trending'
+import { failState } from '../templates/lib/normalize'
 import {
-  createTemplateProjectionCache,
-  failState,
   toTemplateAuthor,
   toTemplateMediaRef,
-} from '../templates/lib'
+} from '../templates/lib/projections'
 
 type DbCtx = QueryCtx | MutationCtx
 

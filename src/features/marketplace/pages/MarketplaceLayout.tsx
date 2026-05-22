@@ -8,7 +8,7 @@ import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { Footer } from '~/features/marketplace/components/layout/Footer'
+import { Footer } from '~/features/marketplace/ui/layout/Footer'
 
 export const MarketplaceLayout = () =>
 {

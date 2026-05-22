@@ -44,22 +44,23 @@ import {
   templateGalleryRailValidator,
   templateListSortValidator,
 } from '../../lib/validators/marketplace'
+import { createTemplateProjectionCache } from './lib/trending'
 import {
-  createTemplateProjectionCache,
   findTemplateBySlug,
   findTemplateCardByTemplateId,
+  readPublicTemplateStats,
+  toTemplateCardSummary,
+  toTemplateDetail,
+  toTemplateDraft,
+  toTemplateItem,
+} from './lib/projections'
+import {
   normalizeDraftLimit,
   normalizeListLimit,
   normalizeSearchQuery,
   normalizeTagArg,
-  readPublicTemplateStats,
-  getTemplateAccessState,
-  isPublishedTemplateRow,
-  toTemplateDetail,
-  toTemplateDraft,
-  toTemplateCardSummary,
-  toTemplateItem,
-} from './lib'
+} from './lib/normalize'
+import { getTemplateAccessState, isPublishedTemplateRow } from './lib/state'
 import { getBoardSourceTemplateId } from '../../workspace/boards/sourceFields'
 import { failInput } from '../../lib/text'
 

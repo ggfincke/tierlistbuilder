@@ -33,10 +33,10 @@ import {
   RANKINGS_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
 } from '~/shared/routes/pathname'
-import { CriterionBadge } from '~/features/marketplace/components/consensus/criterion/CriterionBadge'
-import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
-import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
-import { MetaPill } from '~/features/marketplace/components/meta/MetaPill'
+import { CriterionBadge } from '~/features/marketplace/ui/consensus/criterion/CriterionBadge'
+import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/MarketplaceNotFound'
+import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
+import { MetaPill } from '~/features/marketplace/ui/meta/MetaPill'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 
 // neutral palette for ranking surfaces; viewers don't carry workspace prefs

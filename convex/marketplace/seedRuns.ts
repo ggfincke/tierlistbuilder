@@ -45,7 +45,7 @@ import {
   patchTemplateAndSyncCard,
   syncTemplateTagRows,
   writeTemplateCard,
-} from './templates/lib'
+} from './templates/lib/writes'
 import {
   buildDefaultTemplateCriteria,
   validateTemplateCriteria,

@@ -8,7 +8,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { normalizeBucketLabel } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { assertCountRange } from '../../../lib/assertions'
 import { SEED_LIMITS } from '../../../lib/limits'
-import { validateTemplateTiers } from '../../templates/lib'
+import { validateTemplateTiers } from '../../templates/lib/normalize'
 import { normalizeSeedTextKey, type RankedSeedItem } from './scoring'
 import type { SeedCuratedRanking } from './validators'
 

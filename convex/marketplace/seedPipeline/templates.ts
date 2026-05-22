@@ -25,16 +25,20 @@ import {
 import { SEED_LIMITS } from '../../lib/limits'
 import {
   adjustPublicTemplateCount,
-  buildTemplateStateFields,
-  isPublicTemplateRow,
-  normalizeDescription,
-  normalizeTags,
-  normalizeTemplateTitle,
   patchTemplateAndSyncCard,
   patchTemplateTagRows,
   syncTemplateTagRows,
+} from '../templates/lib/writes'
+import {
+  buildTemplateStateFields,
+  isPublicTemplateRow,
+} from '../templates/lib/state'
+import {
+  normalizeDescription,
+  normalizeTags,
+  normalizeTemplateTitle,
   validateTemplateTiers,
-} from '../templates/lib'
+} from '../templates/lib/normalize'
 import { valuesEqual } from '../../lib/equality'
 import { validateHexColor } from '../../lib/hexColor'
 import { resolveSeedMediaAssetIdByDedupeHash } from './media'

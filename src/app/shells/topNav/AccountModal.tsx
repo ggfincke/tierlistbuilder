@@ -6,8 +6,8 @@ import { AccountDangerZone } from '~/features/platform/auth/ui/AccountDangerZone
 import { AccountModalShell } from '~/features/platform/auth/ui/AccountModalShell'
 import { AccountProfileSection } from '~/features/platform/auth/ui/AccountProfileSection'
 import { AccountSessionsSection } from '~/features/platform/auth/ui/AccountSessionsSection'
-import { AccountRankingsSection } from '~/features/marketplace/components/account/AccountRankingsSection'
-import { AccountTemplatesSection } from '~/features/marketplace/components/account/AccountTemplatesSection'
+import { AccountRankingsSection } from '~/features/marketplace/ui/account/AccountRankingsSection'
+import { AccountTemplatesSection } from '~/features/marketplace/ui/account/AccountTemplatesSection'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 
 interface AccountModalProps

@@ -13,7 +13,7 @@ import {
   SEED_ENABLED_ENV,
   SEED_SECRET_ENV,
 } from '../../convex/marketplace/seedAuth'
-import { buildSearchText } from '@convex/marketplace/templates/lib'
+import { buildSearchText } from '@convex/marketplace/templates/lib/normalize'
 import { buildFreshBoardCloudFields } from '@convex/workspace/boards/cloudFields'
 import {
   boardSourceTemplateFromTemplate,

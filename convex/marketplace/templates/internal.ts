@@ -24,22 +24,26 @@ import { loadPreviewOrTileStorageId } from '../../lib/mediaVariants'
 import { buildBoardLibrarySummary } from '../../workspace/boards/librarySummary'
 import {
   adjustPublicTemplateCount,
-  buildBoardItemInsertFromTemplateItem,
-  buildTemplateStateFields,
-  calculateTemplateTrendingScore,
   deleteTemplateParentForCascade,
-  getTemplateMetricDayStart,
-  TEMPLATE_TRENDING_DAY_MS,
-  TEMPLATE_TRENDING_WINDOW_DAYS,
   incrementTemplateForkStats,
-  isActiveTemplateJob,
-  isPublishedTemplateRow,
   markTemplateNotPublic,
   patchTemplateAndSyncCard,
   setSourceBoardLivePublicTemplate,
   syncTemplateTagRows,
   writeTemplateCardPreservingCounters,
-} from './lib'
+} from './lib/writes'
+import { buildBoardItemInsertFromTemplateItem } from './lib/board'
+import {
+  buildTemplateStateFields,
+  isActiveTemplateJob,
+  isPublishedTemplateRow,
+} from './lib/state'
+import {
+  calculateTemplateTrendingScore,
+  getTemplateMetricDayStart,
+  TEMPLATE_TRENDING_DAY_MS,
+  TEMPLATE_TRENDING_WINDOW_DAYS,
+} from './lib/trending'
 
 const cascadePhaseValidator = v.union(
   v.literal('items'),
