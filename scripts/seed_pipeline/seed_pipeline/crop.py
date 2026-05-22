@@ -1,5 +1,6 @@
 # scripts/seed_pipeline/seed_pipeline/crop.py
 # Python port of seed crop & aspect-ratio decisions
+# mirrors packages/contracts/workspace/imageMath.ts where runtimes overlap
 
 from __future__ import annotations
 
