@@ -357,6 +357,7 @@ const projectLibraryRow = async (
     sourceTemplateCoverFraming: rowCtx.sourceCover.framing,
     coverItems,
     paletteId: board.paletteId ?? rowCtx.userDefaultPaletteId,
+    tierCount: board.librarySummary.tierCount,
     tierColors: board.librarySummary.tierColors,
     tierBreakdown: board.librarySummary.tierBreakdown,
     pinned: false,

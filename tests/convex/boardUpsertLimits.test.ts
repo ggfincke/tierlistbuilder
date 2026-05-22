@@ -235,6 +235,7 @@ describe('upsertBoardState', () =>
       rankedItemCount: 1,
       publishState: 'wip',
       syncState: 'synced',
+      tierCount: 2,
     })
     expect(boards[0]).not.toHaveProperty('status')
   })

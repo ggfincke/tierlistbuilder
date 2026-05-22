@@ -19,6 +19,7 @@ export interface BoardLibrarySummaryCoverItem
 export interface BoardLibrarySummary
 {
   coverItems: BoardLibrarySummaryCoverItem[]
+  tierCount: number
   tierColors: TierColorSpec[]
   tierBreakdown: LibraryBoardTierBreakdown[]
 }
@@ -42,6 +43,7 @@ export interface BoardLibrarySummaryItem
 
 export const EMPTY_BOARD_LIBRARY_SUMMARY: BoardLibrarySummary = {
   coverItems: [],
+  tierCount: 0,
   tierColors: [],
   tierBreakdown: [],
 }
@@ -115,6 +117,7 @@ export const buildBoardLibrarySummary = (params: {
         externalId: item.externalId,
         storageId: item.storageId,
       })),
+    tierCount: tiers.length,
     tierColors: tiers
       .slice(0, LIBRARY_BOARD_TIER_LIMIT)
       .map((tier) => tier.colorSpec),

@@ -24,6 +24,7 @@ const board: LibraryBoardListItem = {
   sourceTemplateCoverFraming: null,
   coverItems: [],
   paletteId: 'classic',
+  tierCount: 1,
   tierColors: [{ kind: 'palette', index: 0 }],
   tierBreakdown: [
     { tierIndex: 0, itemCount: 1, colorSpec: { kind: 'palette', index: 0 } },

@@ -157,6 +157,7 @@ export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
     sourceTemplateCoverFraming: snapshot?.sourceTemplateCoverFraming ?? null,
     coverItems: buildCoverItems(snapshot),
     paletteId: snapshot?.paletteId ?? DEFAULT_LOCAL_PALETTE_ID,
+    tierCount: tiers.length,
     tierColors,
     tierBreakdown,
     pinned: false,

@@ -84,7 +84,7 @@ convex/
     storage.ts        # _storage helpers (read URL, delete, size probe)
     uploadToken.ts    # sign & verify upload tokens bound to purpose + owner
     userUpsert.ts     # populates app-owned user fields on first sign-in
-    validators.ts     # v.object() shapes mirroring packages/contracts
+    validators/       # v.object() shapes mirroring packages/contracts (common, platform, workspace, marketplace, seedPipeline)
   platform/
     media/            # mediaAssets uploads (signed envelopes), queries, GC
     preferences/      # userPreferences get/upsert

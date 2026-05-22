@@ -263,6 +263,7 @@ const seedSourceBoard = async (
             storageId: null,
           },
         ],
+        tierCount: 1,
         tierColors: [{ kind: 'palette', index: 1 }],
         tierBreakdown: [
           {

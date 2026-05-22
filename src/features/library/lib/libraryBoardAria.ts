@@ -19,7 +19,7 @@ export const getLibraryBoardAriaLabel = (board: LibraryBoardListItem): string =>
   [
     board.title,
     formatCountedWord(board.activeItemCount, 'item'),
-    formatCountedWord(board.tierColors.length, 'tier'),
+    formatCountedWord(board.tierCount, 'tier'),
     VISIBILITY_LABELS[board.visibility],
     PUBLISH_STATE_META[board.publishState].label,
     LIBRARY_SYNC_META[board.syncState].label,

@@ -97,6 +97,7 @@ export const boardLibrarySummaryValidator = v.object({
       storageId: v.union(v.id('_storage'), v.null()),
     })
   ),
+  tierCount: v.number(),
   tierColors: v.array(tierColorSpecValidator),
   tierBreakdown: v.array(libraryBoardTierBreakdownValidator),
 })
@@ -119,6 +120,7 @@ export const libraryBoardListItemValidator = v.object({
   sourceTemplateCoverFraming: v.union(templateCoverFramingValidator, v.null()),
   coverItems: v.array(libraryBoardCoverItemValidator),
   paletteId: paletteIdValidator,
+  tierCount: v.number(),
   tierColors: v.array(tierColorSpecValidator),
   tierBreakdown: v.array(libraryBoardTierBreakdownValidator),
   pinned: v.boolean(),

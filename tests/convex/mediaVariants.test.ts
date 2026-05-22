@@ -483,6 +483,7 @@ describe('media variants', () =>
         templateProgressState: 'none',
         librarySummary: {
           coverItems: [],
+          tierCount: 0,
           tierColors: [],
           tierBreakdown: [],
         },

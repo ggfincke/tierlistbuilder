@@ -176,6 +176,7 @@ const defaultSuggestedTiers = (): Doc<'templates'>['suggestedTiers'] => [
 
 const defaultBoardLibrarySummary = (): Doc<'boards'>['librarySummary'] => ({
   coverItems: [],
+  tierCount: 1,
   tierColors: [{ kind: 'palette', index: 0 }],
   tierBreakdown: [],
 })

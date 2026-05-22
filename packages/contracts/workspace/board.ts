@@ -670,6 +670,9 @@ export interface LibraryBoardListItem extends BoardListItem
     | null
   coverItems: LibraryBoardCoverItem[]
   paletteId: import('../lib/theme').PaletteId
+  // total tier count; tierColors/tierBreakdown are capped at
+  // LIBRARY_BOARD_TIER_LIMIT, so this is the source of truth for the count
+  tierCount: number
   tierColors: import('../lib/theme').TierColorSpec[]
   tierBreakdown: LibraryBoardTierBreakdown[]
   // forward-compat slot for a "pin to top" feature; always false today

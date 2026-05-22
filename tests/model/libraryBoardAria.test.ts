@@ -24,6 +24,9 @@ const board: LibraryBoardListItem = {
   sourceTemplateCoverFraming: null,
   coverItems: [],
   paletteId: 'classic',
+  // tierCount is the untruncated total; tierColors stays capped at
+  // LIBRARY_BOARD_TIER_LIMIT, so the two diverge for >5-tier boards
+  tierCount: 6,
   tierColors: [{ kind: 'palette', index: 0 }],
   tierBreakdown: [
     { tierIndex: 0, itemCount: 1, colorSpec: { kind: 'palette', index: 0 } },
@@ -36,7 +39,7 @@ describe('getLibraryBoardAriaLabel', () =>
   it('includes title, counts, visibility, publish state, and sync state', () =>
   {
     expect(getLibraryBoardAriaLabel(board)).toBe(
-      'Summer rankings, 2 items, 1 tier, Private, WIP, Local only'
+      'Summer rankings, 2 items, 6 tiers, Private, WIP, Local only'
     )
   })
 })

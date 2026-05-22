@@ -83,11 +83,11 @@ const BoardListRow = memo(
               <span className="truncate">
                 {board.activeItemCount}{' '}
                 {formatCountedWord(board.activeItemCount, 'item')}
-                {board.tierColors.length > 0 && (
+                {board.tierCount > 0 && (
                   <>
                     {' · '}
-                    {board.tierColors.length}{' '}
-                    {formatCountedWord(board.tierColors.length, 'tier')}
+                    {board.tierCount}{' '}
+                    {formatCountedWord(board.tierCount, 'tier')}
                   </>
                 )}
               </span>
