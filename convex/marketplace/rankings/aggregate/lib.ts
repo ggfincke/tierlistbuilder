@@ -4,6 +4,7 @@
 import { internal } from '../../../_generated/api'
 import type { Doc, Id } from '../../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../../_generated/server'
+import { clamp } from '@tierlistbuilder/contracts/lib/math'
 import { BATCH_LIMITS, MAX_SYNC_TIERS } from '../../../lib/limits'
 import {
   DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
@@ -604,8 +605,8 @@ export const toTemplateRankingAggregateItem = async (
   }
 }
 
-const clampScore = (value: number): number =>
-  Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0))
+export const clampUnitScore = (value: number): number =>
+  clamp(Number.isFinite(value) ? value : 0, 0, 1)
 
 export const isTopAggregateBucket = (bucketIndex: number | null): boolean =>
   bucketIndex !== null &&
@@ -653,7 +654,7 @@ export const buildAggregateItemMetrics = (params: {
   const maxVariance =
     params.bucketCount <= 1 ? 0 : (params.bucketCount - 1) ** 2 / 4
   const controversyScore =
-    maxVariance > 0 ? clampScore(variance / maxVariance) : 0
+    maxVariance > 0 ? clampUnitScore(variance / maxVariance) : 0
   const isTopBucket = isTopAggregateBucket(top.bucketIndex)
   const isBottomBucket = isBottomAggregateBucket(top.bucketIndex)
 

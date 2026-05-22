@@ -4,6 +4,7 @@
 import { ConvexError } from 'convex/values'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
+import { clamp } from '@tierlistbuilder/contracts/lib/math'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
   DEFAULT_RANKING_LIST_LIMIT,
@@ -52,7 +53,7 @@ export const normalizeRankingLimit = (raw: number | undefined): number =>
 {
   if (raw === undefined) return DEFAULT_RANKING_LIST_LIMIT
   if (!Number.isFinite(raw)) return DEFAULT_RANKING_LIST_LIMIT
-  return Math.max(1, Math.min(MAX_RANKING_LIST_LIMIT, Math.floor(raw)))
+  return clamp(Math.floor(raw), 1, MAX_RANKING_LIST_LIMIT)
 }
 
 export const rankingTopScore = (

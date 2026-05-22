@@ -3,6 +3,7 @@
 // histogram, split-bar — each w/ a distinct visual language
 
 import { formatCount } from '~/shared/catalog/formatters'
+import { clamp } from '~/shared/lib/math'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 
 import { CompareCard, COMPARE_EYEBROW_CLASS } from './CompareCard'
@@ -160,7 +161,7 @@ const InsightFraction = ({
       : pct > 0.25
         ? 'var(--t-warning, #facc15)'
         : 'var(--t-text)'
-  const segCount = Math.min(Math.max(denominator, 1), 24)
+  const segCount = clamp(denominator, 1, 24)
   const filled = Math.round((numerator / Math.max(denominator, 1)) * segCount)
   return (
     <CompareCard>

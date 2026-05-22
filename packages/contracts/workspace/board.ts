@@ -706,5 +706,5 @@ export const computeLibraryBoardProgress = (
   if (row.activeItemCount <= 0) return 0
   const ratio = row.rankedItemCount / row.activeItemCount
   if (!Number.isFinite(ratio)) return 0
-  return Math.max(0, Math.min(1, ratio))
+  return clamp(ratio, 0, 1)
 }

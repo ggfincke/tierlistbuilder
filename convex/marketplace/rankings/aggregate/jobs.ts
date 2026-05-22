@@ -14,6 +14,7 @@ import { isDevResetActive } from '../../../dev/resetLock'
 import { isPublicRankingRow } from '../lib'
 import {
   buildAggregateItemMetrics,
+  clampUnitScore,
   clearTemplateRankingAggregateJobAdmission,
   deleteTemplateRankingAggregateParentRows,
   deleteTemplateRankingAggregateParentRowsPage,
@@ -267,9 +268,6 @@ const applyBucketSpreadDelta = (
   }
 }
 
-const clampPercentile = (value: number): number =>
-  Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0))
-
 const buildPercentiles = (
   rows: readonly Doc<'templateRankingAggregateItems'>[],
   score: (row: Doc<'templateRankingAggregateItems'>) => number
@@ -298,7 +296,7 @@ const buildPercentiles = (
     }
 
     const equalCount = nextIndex - index
-    const percentile = clampPercentile(
+    const percentile = clampUnitScore(
       (lowerCount + (equalCount - 1) / 2) / (sampled.length - 1)
     )
     for (let groupIndex = index; groupIndex < nextIndex; groupIndex++)

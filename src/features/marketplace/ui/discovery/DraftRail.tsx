@@ -7,6 +7,7 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 import type { MarketplaceTemplateDraft } from '@tierlistbuilder/contracts/marketplace/template'
 
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
+import { clamp } from '~/shared/lib/math'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { Cover as MarketplaceCover } from '../cover/Cover'
 import { MediaMatteFrame } from '../cover/MediaMatteFrame'
@@ -22,7 +23,7 @@ const CARD_WIDTH = 360
 const STRIP_TILES = 4
 
 const clampProgress = (progress: number): number =>
-  Math.max(0, Math.min(100, Math.round(progress)))
+  clamp(Math.round(progress), 0, 100)
 
 const statusLabel = (progress: number): string =>
 {

@@ -5,6 +5,7 @@ import { v } from 'convex/values'
 import { paginationOptsValidator } from 'convex/server'
 import { query, type QueryCtx } from '../../_generated/server'
 import type { Doc } from '../../_generated/dataModel'
+import { clamp } from '@tierlistbuilder/contracts/lib/math'
 import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateDraftListResult,
@@ -87,7 +88,7 @@ const defaultGalleryRailLimit = (rail: TemplateGalleryRail): number =>
 const normalizeTemplateItemPageSize = (raw: number): number =>
 {
   if (!Number.isFinite(raw)) return DEFAULT_TEMPLATE_ITEM_PAGE_SIZE
-  return Math.max(1, Math.min(MAX_TEMPLATE_ITEM_PAGE_SIZE, Math.floor(raw)))
+  return clamp(Math.floor(raw), 1, MAX_TEMPLATE_ITEM_PAGE_SIZE)
 }
 
 const emptyTemplateItemsResult = (
