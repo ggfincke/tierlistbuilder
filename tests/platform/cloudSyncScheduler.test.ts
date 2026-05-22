@@ -9,6 +9,7 @@ import {
   type FlushResult,
   type PendingBoardSync,
 } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
+import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
 import { flushPromises } from '../shared-lib/async'
 import { makeBoardSnapshot } from '../fixtures'
 
@@ -18,11 +19,7 @@ const makeWork = (boardId: BoardId, title: string): PendingBoardSync =>
   return {
     boardId,
     snapshot,
-    syncState: {
-      lastSyncedRevision: null,
-      cloudBoardExternalId: null,
-      pendingSyncAt: null,
-    },
+    syncState: EMPTY_BOARD_SYNC_STATE,
   }
 }
 

@@ -13,6 +13,7 @@ import {
   createLocalBoardFromTemplate,
 } from '~/features/workspace/boards/model/localBoardFork'
 import { loadBoardFromStorage } from '~/features/workspace/boards/data/local/boardStorage'
+import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
@@ -152,9 +153,7 @@ const resetStores = (): void =>
     itemsManuallyMoved: false,
     activeItemCount: 0,
     runtimeError: null,
-    lastSyncedRevision: null,
-    cloudBoardExternalId: null,
-    pendingSyncAt: null,
+    ...EMPTY_BOARD_SYNC_STATE,
   })
 }
 

@@ -8,6 +8,7 @@ import {
   runFirstLoginBoardMerge,
   type FirstLoginBoardMergeDeps,
 } from '~/features/workspace/boards/data/cloud/firstLoginBoardMerge'
+import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { makeBoardMeta, makeBoardSnapshot } from '../fixtures'
 
@@ -34,11 +35,7 @@ const createDeps = (
   flushBoardToCloud: async () => ({ kind: 'synced', revision: 1 }),
   readBoardStateForCloudSync: (boardId) => ({
     snapshot: makeBoardSnapshot({ title: boardId }),
-    syncState: {
-      lastSyncedRevision: null,
-      cloudBoardExternalId: null,
-      pendingSyncAt: null,
-    },
+    syncState: EMPTY_BOARD_SYNC_STATE,
   }),
   persistBoardSyncState: vi.fn(),
   notify: vi.fn(),
@@ -104,11 +101,7 @@ describe('firstLoginBoardMerge', () =>
                 cloudBoardExternalId: 'cloud-c',
                 pendingSyncAt: 456,
               }
-            : {
-                lastSyncedRevision: null,
-                cloudBoardExternalId: null,
-                pendingSyncAt: null,
-              },
+            : EMPTY_BOARD_SYNC_STATE,
       }),
       persistBoardSyncState,
     })
