@@ -1,7 +1,6 @@
 // tests/convex/shortLinksIntegration.test.ts
 // Convex short-link listing query limit behavior
 
-import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
@@ -9,11 +8,14 @@ import {
   DEFAULT_SHARE_LINK_TTL_MS,
   MAX_OWNED_SHORT_LINKS,
 } from '@tierlistbuilder/contracts/platform/shortLink'
-import schema from '../../convex/schema'
-import { modules } from './convexTestHelpers'
+import {
+  asUser,
+  type ConvexTestHandle,
+  makeTest,
+} from './convexTestHelpers'
 
 const seedUser = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   name = 'Test User'
 ): Promise<Id<'users'>> =>
   await t.run(
@@ -28,20 +30,11 @@ const seedUser = async (
       })
   )
 
-const asUser = (
-  t: ReturnType<typeof convexTest<typeof schema>>,
-  userId: Id<'users'>
-) =>
-  t.withIdentity({
-    subject: `${userId}|test-session`,
-    issuer: 'https://convex.test',
-  })
-
 describe('short link Convex listing', () =>
 {
   it('returns capped live rows even when newer expired rows exist', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const userId = await seedUser(t)
     const now = Date.now()
 

@@ -3,8 +3,11 @@
 
 import type { Id, Doc } from '@convex/_generated/dataModel'
 import type { MutationCtx } from '@convex/_generated/server'
-import type { convexTest } from 'convex-test'
-import type schema from '../../convex/schema'
+import rateLimiter from '@convex-dev/rate-limiter/test'
+import { convexTest } from 'convex-test'
+import { ConvexError } from 'convex/values'
+import { expect } from 'vitest'
+import schema from '../../convex/schema'
 import {
   buildDefaultTemplateCriteria,
   buildDefaultTemplateCriterionSnapshot,
@@ -24,9 +27,44 @@ import {
 import { RANKING_TOP_SCORE_REMIX_WEIGHT } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 
-export const modules = import.meta.glob('../../convex/**/*.*s')
+const modules = import.meta.glob('../../convex/**/*.*s')
 
-type ConvexTestHandle = ReturnType<typeof convexTest<typeof schema>>
+export type ConvexTestHandle = ReturnType<typeof convexTest<typeof schema>>
+
+export const makeTest = (): ConvexTestHandle =>
+  convexTest({ schema, modules, transactionLimits: true })
+
+export const makeRateLimitedTest = (): ConvexTestHandle =>
+{
+  const t = makeTest()
+  rateLimiter.register(t)
+  return t
+}
+
+export const asUser = (
+  t: ConvexTestHandle,
+  userId: Id<'users'>,
+  sessionId: string | Id<'authSessions'> = 'test-session'
+): ReturnType<ConvexTestHandle['withIdentity']> =>
+  t.withIdentity({
+    subject: `${userId}|${sessionId}`,
+    issuer: 'https://convex.test',
+  })
+
+export const expectConvexCode = async (
+  promise: Promise<unknown>,
+  code: string
+): Promise<void> =>
+{
+  await expect(promise).rejects.toSatisfy(
+    (error: unknown) =>
+      error instanceof ConvexError &&
+      typeof error.data === 'object' &&
+      error.data !== null &&
+      'code' in error.data &&
+      error.data.code === code
+  )
+}
 
 export const seedUser = async (
   t: ConvexTestHandle,

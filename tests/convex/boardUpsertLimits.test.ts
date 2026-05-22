@@ -1,8 +1,6 @@
 // tests/convex/boardUpsertLimits.test.ts
 // Convex board upsert behavior at sync caps & validation boundaries
 
-import { convexTest } from 'convex-test'
-import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
@@ -17,12 +15,17 @@ import {
   IMAGE_PADDING_MAX,
   IMAGE_PADDING_MIN,
 } from '@tierlistbuilder/contracts/workspace/board'
-import schema from '../../convex/schema'
 import { BOARD_ITEM_TAKE_LIMIT } from '../../convex/lib/limits'
-import { modules, seedCloudBoard } from './convexTestHelpers'
+import {
+  asUser,
+  type ConvexTestHandle,
+  expectConvexCode,
+  makeTest,
+  seedCloudBoard,
+} from './convexTestHelpers'
 
 const seedUser = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   plan: 'free' | 'plus' = 'free'
 ): Promise<Id<'users'>> =>
   await t.run(
@@ -36,15 +39,6 @@ const seedUser = async (
         plan,
       })
   )
-
-const asUser = (
-  t: ReturnType<typeof convexTest<typeof schema>>,
-  userId: Id<'users'>
-) =>
-  t.withIdentity({
-    subject: `${userId}|test-session`,
-    issuer: 'https://convex.test',
-  })
 
 const makeMediaExternalIds = (count: number): string[] =>
   Array.from({ length: count }, (_, i) => `media-${i}`)
@@ -89,23 +83,8 @@ const makeBoardPayload = (options: {
   return { title: 'Limit Board', tiers, items, deletedItemIds }
 }
 
-const expectConvexCode = async (
-  promise: Promise<unknown>,
-  code: string
-): Promise<void> =>
-{
-  await expect(promise).rejects.toSatisfy(
-    (error: unknown) =>
-      error instanceof ConvexError &&
-      typeof error.data === 'object' &&
-      error.data !== null &&
-      'code' in error.data &&
-      error.data.code === code
-  )
-}
-
 const seedMediaAssets = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   userId: Id<'users'>,
   mediaExternalIds: readonly string[]
 ): Promise<void> =>
@@ -151,7 +130,7 @@ describe('upsertBoardState', () =>
 {
   it('does not bump the revision for omitted optional style fields', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const userId = await seedUser(t)
     const caller = asUser(t, userId)
     const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
@@ -179,7 +158,7 @@ describe('upsertBoardState', () =>
 
   it('maintains library summary fields w/ ranked/unranked counts & cover items', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const userId = await seedUser(t)
     await seedMediaAssets(t, userId, ['media-ranked'])
     const caller = asUser(t, userId)
@@ -242,7 +221,7 @@ describe('upsertBoardState', () =>
 
   it('rejects multi-board state pulls so each query stays within read budget', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const userId = await seedUser(t)
     const caller = asUser(t, userId)
 
@@ -268,7 +247,7 @@ describe('upsertBoardState', () =>
 
   it('enforces standard and large cloud item limits by plan', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const freeUserId = await seedUser(t)
     const plusUserId = await seedUser(t, 'plus')
 
@@ -317,7 +296,7 @@ describe('upsertBoardState', () =>
 
   it('accepts max-size Plus boards (incl. all-tombstone updates) within tx budget', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const userId = await seedUser(t, 'plus')
     const mediaIds = makeMediaExternalIds(MAX_LARGE_CLOUD_BOARD_ITEMS)
     await seedMediaAssets(t, userId, mediaIds)
@@ -361,7 +340,7 @@ describe('upsertBoardState', () =>
 
   it('loads max-size boards even when recent tombstone churn exceeds the row window', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const userId = await seedUser(t, 'plus')
     const boardId = await t.run(
       async (ctx) =>
@@ -409,7 +388,7 @@ describe('upsertBoardState', () =>
 
   it('rejects payloads above tier/item caps & invalid label coordinates or font sizes', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const userId = await seedUser(t)
     const caller = asUser(t, userId)
     const itemPayload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
@@ -467,7 +446,7 @@ describe('upsertBoardState', () =>
 
   it('rejects non-finite or out-of-range image padding before writing rows', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const userId = await seedUser(t)
     const caller = asUser(t, userId)
     const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
@@ -531,7 +510,7 @@ describe('upsertBoardState', () =>
 
   it('rejects duplicate externalIds and invalid aspect ratios before writing rows', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const userId = await seedUser(t)
     const caller = asUser(t, userId)
     const payload = makeBoardPayload({ tierCount: 2, itemCount: 2 })
@@ -597,7 +576,7 @@ describe('upsertBoardState', () =>
 
   it('rejects oversized board text fields before writing rows', async () =>
   {
-    const t = convexTest({ schema, modules, transactionLimits: true })
+    const t = makeTest()
     const userId = await seedUser(t)
     const caller = asUser(t, userId)
     const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })

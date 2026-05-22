@@ -1,9 +1,6 @@
 // tests/convex/marketplaceTemplates.test.ts
 // Convex marketplace template publish, listing, clone, & draft progress
 
-import { convexTest } from 'convex-test'
-import rateLimiter from '@convex-dev/rate-limiter/test'
-import { ConvexError } from 'convex/values'
 import { describe, expect, it, vi } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
@@ -37,21 +34,16 @@ import type {
   CloudBoardStateItem,
   CloudBoardTierWire,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
-import schema from '../../convex/schema'
 import {
-  modules,
+  asUser,
+  type ConvexTestHandle,
+  expectConvexCode,
+  makeRateLimitedTest as makeTest,
   seedCloudBoard,
   seedPublishedRanking,
   seedPublishedTemplate,
   withSeedEnv,
 } from './convexTestHelpers'
-
-const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
-{
-  const t = convexTest({ schema, modules, transactionLimits: true })
-  rateLimiter.register(t)
-  return t
-}
 
 const SEED_SECRET = 'test-seed-secret'
 
@@ -121,7 +113,7 @@ const testCriterionSnapshot = (
 }
 
 const setTemplateCriteria = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   slug: string,
   criteria: MarketplaceTemplateCriterion[] = MULTI_CRITERION_TEST_CRITERIA
 ) =>
@@ -134,7 +126,7 @@ const setTemplateCriteria = async (
   )
 
 const seedUser = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   name: string,
   email: string,
   plan: 'free' | 'plus' = 'free'
@@ -150,15 +142,6 @@ const seedUser = async (
         plan,
       })
   )
-
-const asUser = (
-  t: ReturnType<typeof convexTest<typeof schema>>,
-  userId: Id<'users'>
-) =>
-  t.withIdentity({
-    subject: `${userId}|test-session`,
-    issuer: 'https://convex.test',
-  })
 
 const withLargeTemplateJobsEnabled = async (
   run: () => Promise<void>
@@ -184,7 +167,7 @@ const withLargeTemplateJobsEnabled = async (
 }
 
 const readPublicTemplateCount = async (
-  t: ReturnType<typeof convexTest<typeof schema>>
+  t: ConvexTestHandle
 ): Promise<MarketplaceTemplateCount> =>
   (await t.query(api.marketplace.templates.queries.getTemplatesGallery, {}))
     .templateCount
@@ -203,7 +186,7 @@ interface SeedSourceBoardOptions
 }
 
 const seedSourceBoard = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   ownerId: Id<'users'>,
   options: SeedSourceBoardOptions = {}
 ): Promise<{ mediaExternalId: string }> =>
@@ -320,7 +303,7 @@ const seedSourceBoard = async (
   })
 
 const addMediaPreviewVariant = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   externalId: string,
   contentHash = 'hash-source-preview'
 ): Promise<void> =>
@@ -354,7 +337,7 @@ const addMediaPreviewVariant = async (
   })
 
 const seedTierPreset = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   ownerId: Id<'users'>
 ): Promise<string> =>
   await t.run(async (ctx) =>
@@ -408,7 +391,7 @@ interface AggregateRankingSeed
 }
 
 const seedAggregateRanking = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   args: AggregateRankingSeed
 ): Promise<Id<'publishedRankings'>> =>
   await t.run(async (ctx) =>
@@ -478,7 +461,7 @@ const seedAggregateRanking = async (
   })
 
 const seedAggregateTemplate = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   authorId: Id<'users'>,
   args: {
     slug?: string
@@ -528,7 +511,7 @@ const seedAggregateTemplate = async (
   })
 
 const seedLargeSourceBoard = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   ownerId: Id<'users'>,
   externalId: string
 ): Promise<void> =>
@@ -559,7 +542,7 @@ const seedLargeSourceBoard = async (
   })
 
 const seedLargeTemplate = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   authorId: Id<'users'>
 ): Promise<string> =>
   await t.run(async (ctx) =>
@@ -592,7 +575,7 @@ const seedLargeTemplate = async (
   })
 
 const seedLargeCompletedRankingBoard = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   ownerId: Id<'users'>
 ): Promise<string> =>
   await t.run(async (ctx) =>
@@ -623,7 +606,7 @@ const seedLargeCompletedRankingBoard = async (
   })
 
 const seedRankingMediaSnapshot = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   ownerId: Id<'users'>
 ): Promise<Id<'mediaAssets'>> =>
   await t.run(async (ctx) =>
@@ -719,21 +702,6 @@ const seedRankingMediaSnapshot = async (
     return mediaAssetId
   })
 
-const expectConvexCode = async (
-  promise: Promise<unknown>,
-  code: string
-): Promise<void> =>
-{
-  await expect(promise).rejects.toSatisfy(
-    (error: unknown) =>
-      error instanceof ConvexError &&
-      typeof error.data === 'object' &&
-      error.data !== null &&
-      'code' in error.data &&
-      error.data.code === code
-  )
-}
-
 const toWireTier = (
   tier: CloudBoardState['tiers'][number],
   itemIds: string[]
@@ -779,7 +747,7 @@ interface CompletedRankingBoard
 }
 
 const completeTemplateRankingBoard = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   rankerId: Id<'users'>,
   templateSlug: string,
   title: string,

@@ -1,21 +1,19 @@
 // tests/convex/seedRuns.test.ts
 // Convex seed-run precheck API authorization & state resolution
 
-import { convexTest } from 'convex-test'
-import rateLimiter from '@convex-dev/rate-limiter/test'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
-import schema from '../../convex/schema'
 import { sha256Hex } from '../../convex/lib/sha256'
 import { computeVariantDedupeHash } from '../../convex/lib/mediaVariants'
 import {
   buildPngHeader,
   captureSeedEnv,
+  type ConvexTestHandle,
   enableSeedApi,
-  modules,
+  makeRateLimitedTest as makeTest,
   restoreSeedEnv,
   seedPublishedTemplate,
   seedUser,
@@ -26,13 +24,6 @@ const DATASET = 'marketplace-core'
 const RELEASE = '2026-05-templates-v1'
 const AUTHOR_EMAIL = 'seed@example.com'
 
-const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
-{
-  const t = convexTest({ schema, modules, transactionLimits: true })
-  rateLimiter.register(t)
-  return t
-}
-
 const originalEnv = captureSeedEnv()
 
 const restoreEnv = (): void =>
@@ -41,7 +32,7 @@ const restoreEnv = (): void =>
 }
 
 const seedHttpPost = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   path: string,
   body: Record<string, unknown>,
   secret = SEED_SECRET
@@ -78,7 +69,7 @@ const withCriteriaContentHash = <
   rows.map((row) => ({ ...row, criteriaContentHash }))
 
 const seedTemplateWithItem = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   authorId: Id<'users'>,
   externalId: string,
   itemExternalIds: readonly string[],
@@ -122,7 +113,7 @@ const seedTemplateWithItem = async (
   })
 
 const seedMediaVariant = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   ownerId: Id<'users'>,
   contentHash: string
 ): Promise<Doc<'mediaVariants'>> =>
@@ -162,7 +153,7 @@ const seedMediaVariant = async (
   })
 
 const seedMediaAssetWithTileAndPreview = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   ownerId: Id<'users'>,
   externalId: string,
   tileHash: string,
@@ -234,7 +225,7 @@ const seedMediaAssetWithTileAndPreview = async (
   })
 
 const runChunkedSeedVerification = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   args: {
     datasetKey: string
     releaseId: string
@@ -283,7 +274,7 @@ const runChunkedSeedVerification = async (
 }
 
 const seedRunRow = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   releaseId: string,
   status: Doc<'seedRuns'>['status'],
   runId = `${releaseId}-run`
@@ -305,7 +296,7 @@ const seedRunRow = async (
   )
 
 const storeImageBytes = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   bytes: Uint8Array
 ): Promise<Id<'_storage'>> =>
   await t.run(
@@ -314,7 +305,7 @@ const storeImageBytes = async (
   )
 
 const expectStorageMissing = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   storageId: Id<'_storage'>
 ): Promise<void> =>
 {

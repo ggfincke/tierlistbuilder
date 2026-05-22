@@ -1,16 +1,15 @@
 // tests/convex/userCascade.test.ts
 // Convex account-deletion & template-cascade cleanup paths
 
-import { convexTest } from 'convex-test'
-import rateLimiter from '@convex-dev/rate-limiter/test'
 import { describe, expect, it, vi } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { classifyItemCount } from '../../convex/lib/entitlements'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
-import schema from '../../convex/schema'
 import {
-  modules,
+  asUser,
+  type ConvexTestHandle,
+  makeRateLimitedTest as makeTest,
   seedCloudBoard,
   seedPublishedRanking,
   seedPublishedTemplate,
@@ -18,15 +17,8 @@ import {
 
 const TEMPLATE_SLUG = 'Cascade001'
 
-const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
-{
-  const t = convexTest({ schema, modules, transactionLimits: true })
-  rateLimiter.register(t)
-  return t
-}
-
 const seedUser = async (
-  t: ReturnType<typeof convexTest<typeof schema>>
+  t: ConvexTestHandle
 ): Promise<Id<'users'>> =>
   await t.run(
     async (ctx) =>
@@ -40,18 +32,8 @@ const seedUser = async (
       })
   )
 
-const asUser = (
-  t: ReturnType<typeof convexTest<typeof schema>>,
-  userId: Id<'users'>,
-  sessionId: Id<'authSessions'>
-) =>
-  t.withIdentity({
-    subject: `${userId}|${sessionId}`,
-    issuer: 'https://convex.test',
-  })
-
 const seedAuthRows = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   userId: Id<'users'>
 ): Promise<Id<'authSessions'>> =>
   await t.run(async (ctx) =>
@@ -93,7 +75,7 @@ const seedAuthRows = async (
   })
 
 const seedAuthSessionWithTokens = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   userId: Id<'users'>,
   tokenCount: number
 ): Promise<Id<'authSessions'>> =>
@@ -114,7 +96,7 @@ const seedAuthSessionWithTokens = async (
   })
 
 const seedAuthAccountWithCodes = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   userId: Id<'users'>,
   codeCount: number
 ): Promise<Id<'authAccounts'>> =>
@@ -138,7 +120,7 @@ const seedAuthAccountWithCodes = async (
   })
 
 const readAuthState = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   userId: Id<'users'>
 ) =>
   await t.run(async (ctx) => ({
@@ -156,7 +138,7 @@ const readAuthState = async (
   }))
 
 const seedTemplate = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   authorId: Id<'users'>,
   itemCount: number
 ): Promise<Id<'templates'>> =>
@@ -207,7 +189,7 @@ const seedTemplate = async (
   })
 
 const seedRanking = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   ownerId: Id<'users'>,
   templateId: Id<'templates'>,
   itemCount: number

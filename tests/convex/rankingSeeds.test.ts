@@ -1,8 +1,6 @@
 // tests/convex/rankingSeeds.test.ts
 // Convex ranking seed preflight & release lifecycle coverage
 
-import { convexTest } from 'convex-test'
-import rateLimiter from '@convex-dev/rate-limiter/test'
 import { describe, expect, it } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
@@ -13,10 +11,10 @@ import {
 } from '@convex/marketplace/rankings/seed/naming'
 import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import type { MediaPlate } from '@tierlistbuilder/contracts/workspace/board'
-import schema from '../../convex/schema'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
 import {
-  modules,
+  type ConvexTestHandle,
+  makeRateLimitedTest as makeTest,
   seedCloudBoard,
   seedPublishedRanking,
   seedPublishedTemplate,
@@ -27,13 +25,6 @@ import {
 const DATASET = 'marketplace-core'
 const RELEASE = '2026-05-templates-v2'
 const OLD_RELEASE = '2026-04-templates-v1'
-
-const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
-{
-  const t = convexTest({ schema, modules, transactionLimits: true })
-  rateLimiter.register(t)
-  return t
-}
 
 const criteria: Doc<'templates'>['criteria'] = [
   {
@@ -811,7 +802,7 @@ const rankingManifest = (args: {
 })
 
 const seedSeedTemplate = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   args: {
     releaseId: string
     templateExternalId: string
@@ -862,7 +853,7 @@ const seedSeedTemplate = async (
 }
 
 const seedRankingRow = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   args: {
     templateId: Id<'templates'>
     templateExternalId: string
@@ -929,7 +920,7 @@ const seedRankingRow = async (
 }
 
 const seedRankingRowsWithoutBoards = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   args: {
     templateId: Id<'templates'>
     templateExternalId: string
@@ -985,7 +976,7 @@ const seedRankingRowsWithoutBoards = async (
 }
 
 const seedActiveRun = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   releaseId: string
 ): Promise<void> =>
   await t.run(async (ctx) =>
@@ -1005,7 +996,7 @@ const seedActiveRun = async (
   })
 
 const loadSampleSeedRows = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   args: {
     templateExternalId: string
     criterionExternalId: string

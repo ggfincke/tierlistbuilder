@@ -1,29 +1,26 @@
 // tests/convex/mediaVariants.test.ts
 // Convex media variant finalization, exact lookup, & reachability GC
 
-import { convexTest } from 'convex-test'
-import { ConvexError } from 'convex/values'
 import { describe, expect, it, vi } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import schema from '../../convex/schema'
 import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
 import {
   EMPTY_BOARD_SOURCE_RANKING,
   EMPTY_BOARD_SOURCE_TEMPLATE,
 } from '../../convex/workspace/boards/sourceFields'
 import {
-  modules,
+  asUser,
+  type ConvexTestHandle,
+  expectConvexCode,
+  makeTest,
   seedCloudBoard,
   seedPublishedTemplate,
 } from './convexTestHelpers'
 
-const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
-  convexTest({ schema, modules, transactionLimits: true })
-
 const seedUser = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   name = 'Media User'
 ): Promise<Id<'users'>> =>
   await t.run(
@@ -38,32 +35,8 @@ const seedUser = async (
       })
   )
 
-const asUser = (
-  t: ReturnType<typeof convexTest<typeof schema>>,
-  userId: Id<'users'>
-) =>
-  t.withIdentity({
-    subject: `${userId}|test-session`,
-    issuer: 'https://convex.test',
-  })
-
-const expectConvexCode = async (
-  promise: Promise<unknown>,
-  code: string
-): Promise<void> =>
-{
-  await expect(promise).rejects.toSatisfy(
-    (error: unknown) =>
-      error instanceof ConvexError &&
-      typeof error.data === 'object' &&
-      error.data !== null &&
-      'code' in error.data &&
-      error.data.code === code
-  )
-}
-
 const storeImageBlob = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   bytes: number[]
 ): Promise<Id<'_storage'>> =>
   await t.run(
@@ -74,7 +47,7 @@ const storeImageBlob = async (
   )
 
 const finalizeTileAsset = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
+  t: ConvexTestHandle,
   userId: Id<'users'>,
   contentHash: string,
   bytes: number[]
