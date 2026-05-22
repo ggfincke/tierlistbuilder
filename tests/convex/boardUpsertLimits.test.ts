@@ -94,6 +94,41 @@ const seedMediaAssets = async (
   })
 }
 
+const setupCaller = async (): Promise<ReturnType<typeof asUser>> =>
+{
+  const t = makeTest()
+  const userId = await seedUser(t)
+  return asUser(t, userId)
+}
+
+const expectUpsertRejected = async (
+  caller: ReturnType<typeof asUser>,
+  boardExternalId: string,
+  payload: CloudBoardPayload,
+  code = CONVEX_ERROR_CODES.invalidInput
+): Promise<void> =>
+{
+  await expectConvexCode(
+    caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+      boardExternalId,
+      baseRevision: null,
+      ...payload,
+    }),
+    code
+  )
+}
+
+const expectNoLibraryBoards = async (
+  caller: ReturnType<typeof asUser>
+): Promise<void> =>
+{
+  const boards = await caller.query(
+    api.workspace.boards.queries.getMyLibraryBoards,
+    {}
+  )
+  expect(boards).toEqual([])
+}
+
 describe('upsertBoardState', () =>
 {
   it('does not bump the revision for omitted optional style fields', async () =>
@@ -354,235 +389,220 @@ describe('upsertBoardState', () =>
     expect(state?.items).toHaveLength(BOARD_ITEM_TAKE_LIMIT)
   }, 20_000)
 
-  it('rejects payloads above tier/item caps & invalid label coordinates or font sizes', async () =>
+  describe('validation rejections', () =>
   {
-    const t = makeTest()
-    const userId = await seedUser(t)
-    const caller = asUser(t, userId)
-    const itemPayload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
-    const boardPayload = makeBoardPayload({ tierCount: 1, itemCount: 0 })
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-too-many-tiers',
-        baseRevision: null,
-        ...makeBoardPayload({
-          tierCount: MAX_CLOUD_BOARD_TIERS + 1,
-          itemCount: 0,
+    it.each([
+      [
+        'payload above tier cap',
+        'board-too-many-tiers',
+        () =>
+          makeBoardPayload({
+            tierCount: MAX_CLOUD_BOARD_TIERS + 1,
+            itemCount: 0,
+          }),
+        CONVEX_ERROR_CODES.syncLimitExceeded,
+      ],
+      [
+        'item label overlay coordinate is non-finite',
+        'board-bad-item-label',
+        () =>
+        {
+          const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+          return {
+            ...payload,
+            items: [
+              {
+                ...payload.items[0]!,
+                labelOptions: {
+                  placement: { mode: 'overlay', x: Number.NaN, y: 0.5 },
+                },
+              },
+            ],
+          }
+        },
+        CONVEX_ERROR_CODES.invalidInput,
+      ],
+      [
+        'board label font size is out of range',
+        'board-bad-board-label-size',
+        () => ({
+          ...makeBoardPayload({ tierCount: 1, itemCount: 0 }),
+          labels: { fontSizePx: 72 },
         }),
-      }),
-      CONVEX_ERROR_CODES.syncLimitExceeded
-    )
+        CONVEX_ERROR_CODES.invalidInput,
+      ],
+      [
+        'auto plate color is invalid',
+        'board-bad-auto-plate-color',
+        () => ({
+          ...makeBoardPayload({ tierCount: 1, itemCount: 0 }),
+          autoPlate: { mode: 'uniform', uniformColor: 'not-a-color' },
+        }),
+        CONVEX_ERROR_CODES.invalidInput,
+      ],
+    ])('rejects %s', async (_, boardExternalId, buildPayload, code) =>
+    {
+      const caller = await setupCaller()
+      await expectUpsertRejected(caller, boardExternalId, buildPayload(), code)
+    })
 
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-item-label',
-        baseRevision: null,
-        ...itemPayload,
-        items: [
-          {
-            ...itemPayload.items[0]!,
-            labelOptions: {
-              placement: { mode: 'overlay', x: Number.NaN, y: 0.5 },
-            },
-          },
-        ],
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
+    it.each([
+      [
+        'non-finite item image padding',
+        'board-bad-item-padding-nan',
+        () =>
+        {
+          const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+          return {
+            ...payload,
+            items: [{ ...payload.items[0]!, imagePadding: Number.NaN }],
+          }
+        },
+      ],
+      [
+        'item image padding above maximum',
+        'board-bad-item-padding-high',
+        () =>
+        {
+          const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+          return {
+            ...payload,
+            items: [
+              {
+                ...payload.items[0]!,
+                imagePadding: IMAGE_PADDING_MAX + 0.01,
+              },
+            ],
+          }
+        },
+      ],
+      [
+        'non-finite default image padding',
+        'board-bad-default-padding-infinity',
+        () => ({
+          ...makeBoardPayload({ tierCount: 1, itemCount: 1 }),
+          defaultItemImagePadding: Number.POSITIVE_INFINITY,
+        }),
+      ],
+      [
+        'default image padding below minimum',
+        'board-bad-default-padding-low',
+        () => ({
+          ...makeBoardPayload({ tierCount: 1, itemCount: 1 }),
+          defaultItemImagePadding: IMAGE_PADDING_MIN - 0.01,
+        }),
+      ],
+    ])('rejects %s before writing rows', async (_, boardExternalId, buildPayload) =>
+    {
+      const caller = await setupCaller()
+      await expectUpsertRejected(caller, boardExternalId, buildPayload())
+      await expectNoLibraryBoards(caller)
+    })
 
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-board-label-size',
-        baseRevision: null,
-        ...boardPayload,
-        labels: { fontSizePx: 72 },
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
+    it.each([
+      [
+        'duplicate tier external ids',
+        'board-duplicate-tiers',
+        () =>
+        {
+          const payload = makeBoardPayload({ tierCount: 2, itemCount: 2 })
+          return {
+            ...payload,
+            tiers: [
+              payload.tiers[0]!,
+              {
+                ...payload.tiers[1]!,
+                externalId: payload.tiers[0]!.externalId,
+              },
+            ],
+          }
+        },
+      ],
+      [
+        'duplicate item external ids',
+        'board-duplicate-items',
+        () =>
+        {
+          const payload = makeBoardPayload({ tierCount: 2, itemCount: 2 })
+          return {
+            ...payload,
+            items: [
+              payload.items[0]!,
+              {
+                ...payload.items[1]!,
+                externalId: payload.items[0]!.externalId,
+              },
+            ],
+          }
+        },
+      ],
+      [
+        'non-finite item aspect ratio',
+        'board-bad-item-aspect-ratio',
+        () =>
+        {
+          const payload = makeBoardPayload({ tierCount: 2, itemCount: 2 })
+          return {
+            ...payload,
+            items: [{ ...payload.items[0]!, aspectRatio: Number.NaN }],
+          }
+        },
+      ],
+      [
+        'non-finite board aspect ratio',
+        'board-bad-board-aspect-ratio',
+        () => ({
+          ...makeBoardPayload({ tierCount: 2, itemCount: 2 }),
+          itemAspectRatio: Number.POSITIVE_INFINITY,
+        }),
+      ],
+    ])('rejects %s before writing rows', async (_, boardExternalId, buildPayload) =>
+    {
+      const caller = await setupCaller()
+      await expectUpsertRejected(caller, boardExternalId, buildPayload())
+      await expectNoLibraryBoards(caller)
+    })
 
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-auto-plate-color',
-        baseRevision: null,
-        ...boardPayload,
-        autoPlate: { mode: 'uniform', uniformColor: 'not-a-color' },
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-  })
-
-  it('rejects non-finite or out-of-range image padding before writing rows', async () =>
-  {
-    const t = makeTest()
-    const userId = await seedUser(t)
-    const caller = asUser(t, userId)
-    const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-item-padding-nan',
-        baseRevision: null,
-        ...payload,
-        items: [
-          {
-            ...payload.items[0]!,
-            imagePadding: Number.NaN,
-          },
-        ],
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-item-padding-high',
-        baseRevision: null,
-        ...payload,
-        items: [
-          {
-            ...payload.items[0]!,
-            imagePadding: IMAGE_PADDING_MAX + 0.01,
-          },
-        ],
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-default-padding-infinity',
-        baseRevision: null,
-        ...payload,
-        defaultItemImagePadding: Number.POSITIVE_INFINITY,
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-default-padding-low',
-        baseRevision: null,
-        ...payload,
-        defaultItemImagePadding: IMAGE_PADDING_MIN - 0.01,
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    const boards = await caller.query(
-      api.workspace.boards.queries.getMyLibraryBoards,
-      {}
-    )
-    expect(boards).toEqual([])
-  })
-
-  it('rejects duplicate externalIds and invalid aspect ratios before writing rows', async () =>
-  {
-    const t = makeTest()
-    const userId = await seedUser(t)
-    const caller = asUser(t, userId)
-    const payload = makeBoardPayload({ tierCount: 2, itemCount: 2 })
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-duplicate-tiers',
-        baseRevision: null,
-        ...payload,
-        tiers: [
-          payload.tiers[0]!,
-          {
-            ...payload.tiers[1]!,
-            externalId: payload.tiers[0]!.externalId,
-          },
-        ],
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-duplicate-items',
-        baseRevision: null,
-        ...payload,
-        items: [
-          payload.items[0]!,
-          {
-            ...payload.items[1]!,
-            externalId: payload.items[0]!.externalId,
-          },
-        ],
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-item-aspect-ratio',
-        baseRevision: null,
-        ...payload,
-        items: [{ ...payload.items[0]!, aspectRatio: Number.NaN }],
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-board-aspect-ratio',
-        baseRevision: null,
-        ...payload,
-        itemAspectRatio: Number.POSITIVE_INFINITY,
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    const boards = await caller.query(
-      api.workspace.boards.queries.getMyLibraryBoards,
-      {}
-    )
-    expect(boards).toEqual([])
-  })
-
-  it('rejects oversized board text fields before writing rows', async () =>
-  {
-    const t = makeTest()
-    const userId = await seedUser(t)
-    const caller = asUser(t, userId)
-    const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-tier-name-too-long',
-        baseRevision: null,
-        ...payload,
-        tiers: [
-          {
-            ...payload.tiers[0]!,
-            name: 'x'.repeat(101),
-          },
-        ],
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-notes-too-long',
-        baseRevision: null,
-        ...payload,
-        items: [
-          {
-            ...payload.items[0]!,
-            notes: 'x'.repeat(2001),
-          },
-        ],
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    const boards = await caller.query(
-      api.workspace.boards.queries.getMyLibraryBoards,
-      {}
-    )
-    expect(boards).toEqual([])
+    it.each([
+      [
+        'tier name above maximum length',
+        'board-tier-name-too-long',
+        () =>
+        {
+          const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+          return {
+            ...payload,
+            tiers: [
+              {
+                ...payload.tiers[0]!,
+                name: 'x'.repeat(101),
+              },
+            ],
+          }
+        },
+      ],
+      [
+        'item notes above maximum length',
+        'board-notes-too-long',
+        () =>
+        {
+          const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+          return {
+            ...payload,
+            items: [
+              {
+                ...payload.items[0]!,
+                notes: 'x'.repeat(2001),
+              },
+            ],
+          }
+        },
+      ],
+    ])('rejects %s before writing rows', async (_, boardExternalId, buildPayload) =>
+    {
+      const caller = await setupCaller()
+      await expectUpsertRejected(caller, boardExternalId, buildPayload())
+      await expectNoLibraryBoards(caller)
+    })
   })
 })
