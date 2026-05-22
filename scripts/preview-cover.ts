@@ -63,6 +63,16 @@ interface SurfacePreview
   height: number
 }
 
+interface TextBlockSvgSpec
+{
+  height: number
+  titleY: number
+  titleFontSize: number
+  titleFontWeight: number
+  subtitleY: number
+  subtitleFontSize: number
+}
+
 const MATTE_HEX = AUTO_PLATE_UNIFORM_DARK_DEFAULT
 const CANVAS_HEX = '#ffffff'
 const LABEL_TEXT_HEX = '#1f2937'
@@ -75,6 +85,22 @@ const SIDE_PAD = 32
 const TOP_PAD = 28
 const BOTTOM_PAD = 32
 const FONT_STACK = '-apple-system, BlinkMacSystemFont, Roboto, sans-serif'
+const HEADER_TEXT_BLOCK: TextBlockSvgSpec = {
+  height: HEADER_HEIGHT,
+  titleY: 26,
+  titleFontSize: 22,
+  titleFontWeight: 700,
+  subtitleY: 54,
+  subtitleFontSize: 14,
+}
+const LABEL_TEXT_BLOCK: TextBlockSvgSpec = {
+  height: LABEL_HEIGHT,
+  titleY: 22,
+  titleFontSize: 16,
+  titleFontWeight: 600,
+  subtitleY: 42,
+  subtitleFontSize: 12,
+}
 
 // covers are auto-detected as _cover.<ext> in each template's folder; the build
 // pipeline accepts the same extension list, so we mirror it here for parity
@@ -377,37 +403,34 @@ const escapeXml = (s: string): string =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 
-const buildHeaderSvg = (
+const buildTextBlockSvg = (
   title: string,
   subtitle: string,
-  width: number
+  width: number,
+  spec: TextBlockSvgSpec
 ): Buffer =>
   Buffer.from(
     [
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${HEADER_HEIGHT}">`,
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${spec.height}">`,
       `<rect width="100%" height="100%" fill="${CANVAS_HEX}"/>`,
-      `<text x="0" y="26" font-family="${FONT_STACK}" font-size="22" font-weight="700" fill="${LABEL_TEXT_HEX}">${escapeXml(title)}</text>`,
-      `<text x="0" y="54" font-family="${FONT_STACK}" font-size="14" fill="${SUBTLE_TEXT_HEX}">${escapeXml(subtitle)}</text>`,
+      `<text x="0" y="${spec.titleY}" font-family="${FONT_STACK}" font-size="${spec.titleFontSize}" font-weight="${spec.titleFontWeight}" fill="${LABEL_TEXT_HEX}">${escapeXml(title)}</text>`,
+      `<text x="0" y="${spec.subtitleY}" font-family="${FONT_STACK}" font-size="${spec.subtitleFontSize}" fill="${SUBTLE_TEXT_HEX}">${escapeXml(subtitle)}</text>`,
       '</svg>',
     ].join(''),
     'utf-8'
   )
 
+const buildHeaderSvg = (
+  title: string,
+  subtitle: string,
+  width: number
+): Buffer => buildTextBlockSvg(title, subtitle, width, HEADER_TEXT_BLOCK)
+
 const buildLabelSvg = (
   title: string,
   subtitle: string,
   width: number
-): Buffer =>
-  Buffer.from(
-    [
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${LABEL_HEIGHT}">`,
-      `<rect width="100%" height="100%" fill="${CANVAS_HEX}"/>`,
-      `<text x="0" y="22" font-family="${FONT_STACK}" font-size="16" font-weight="600" fill="${LABEL_TEXT_HEX}">${escapeXml(title)}</text>`,
-      `<text x="0" y="42" font-family="${FONT_STACK}" font-size="12" fill="${SUBTLE_TEXT_HEX}">${escapeXml(subtitle)}</text>`,
-      '</svg>',
-    ].join(''),
-    'utf-8'
-  )
+): Buffer => buildTextBlockSvg(title, subtitle, width, LABEL_TEXT_BLOCK)
 
 const formatZoom = (zoom: number): string =>
   Number.isInteger(zoom) ? zoom.toString() : zoom.toFixed(2).replace(/0+$/, '')
