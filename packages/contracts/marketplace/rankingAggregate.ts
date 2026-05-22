@@ -2,9 +2,8 @@
 // public template-ranking consensus contracts shared by Convex & future UI
 
 import type { TierColorSpec } from '../lib/theme'
-import type { ImageFit, ItemTransform, MediaPlate } from '../workspace/board'
 import type { TemplateCategory } from './category'
-import type { TemplateMediaRef } from './template'
+import type { MarketplaceItemRenderFields } from './template'
 import type { PaginationResult } from '../lib/pagination'
 import type { MarketplaceTemplateCriterion } from './templateCriterion'
 
@@ -107,20 +106,10 @@ export interface MarketplaceTemplateRankingAggregateDistributionCell
   share: number
 }
 
-export interface MarketplaceTemplateRankingAggregateItem
+export interface MarketplaceTemplateRankingAggregateItem extends MarketplaceItemRenderFields
 {
   externalId: string
   templateItemExternalId: string
-  label: string | null
-  backgroundColor: string | null
-  mediaPlate: MediaPlate | null
-  altText: string | null
-  media: TemplateMediaRef | null
-  order: number
-  aspectRatio: number | null
-  imageFit: ImageFit | null
-  transform: ItemTransform | null
-  imagePadding: number | null
   sampleCount: number
   averageBucket: number | null
   topBucketIndex: number | null

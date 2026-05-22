@@ -85,33 +85,39 @@ export const generateMediaAssetExternalId = (): MediaAssetExternalId =>
 export const generateUserExternalId = (): string =>
   `user-${crypto.randomUUID()}`
 
-// base62 alphabet for short link slug generation
+// base62 alphabet for public slug generation
 const BASE62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+const BASE62_REJECTION_LIMIT = Math.floor(256 / BASE62.length) * BASE62.length
 const SHORT_LINK_SLUG_LENGTH = 8
-const SHORT_LINK_SLUG_PATTERN = new RegExp(
-  `^[0-9A-Za-z]{${SHORT_LINK_SLUG_LENGTH}}$`
-)
+
+export const isBase62Slug = (value: unknown, length: number): value is string =>
+  typeof value === 'string' &&
+  value.length === length &&
+  [...value].every((char) => BASE62.includes(char))
+
+export const generateBase62Slug = (length: number): string =>
+{
+  let out = ''
+  const buf = new Uint8Array(length)
+  while (out.length < length)
+  {
+    crypto.getRandomValues(buf)
+    for (const byte of buf)
+    {
+      if (byte >= BASE62_REJECTION_LIMIT) continue
+      out += BASE62[byte % BASE62.length]
+      if (out.length === length) break
+    }
+  }
+  return out
+}
 
 // narrow an unknown to the canonical short-link slug shape
 export const isShortLinkSlug = (value: unknown): value is string =>
-  typeof value === 'string' && SHORT_LINK_SLUG_PATTERN.test(value)
+  isBase62Slug(value, SHORT_LINK_SLUG_LENGTH)
 
 // fresh short-link slug — 8 chars of base62 (~218T combos); mutation checks
 // collisions before inserting. rejection-sample bytes >= 248 so `byte % 62`
 // stays uniform (248..255 would skew toward 0..7)
 export const generateShortLinkSlug = (): string =>
-{
-  let out = ''
-  const buf = new Uint8Array(SHORT_LINK_SLUG_LENGTH)
-  while (out.length < SHORT_LINK_SLUG_LENGTH)
-  {
-    crypto.getRandomValues(buf)
-    for (const byte of buf)
-    {
-      if (byte >= 248) continue
-      out += BASE62[byte % 62]
-      if (out.length === SHORT_LINK_SLUG_LENGTH) break
-    }
-  }
-  return out
-}
+  generateBase62Slug(SHORT_LINK_SLUG_LENGTH)

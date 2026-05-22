@@ -2,13 +2,9 @@
 // public ranking contracts shared by Convex & future marketplace UI
 
 import type { TierColorSpec } from '../lib/theme'
-import type {
-  BoardAutoPlateSettings,
-  ImageFit,
-  ItemTransform,
-  MediaPlate,
-} from '../workspace/board'
-import type { TemplateAuthor, TemplateMediaRef } from './template'
+import { generateBase62Slug, isBase62Slug } from '../lib/ids'
+import type { BoardAutoPlateSettings } from '../workspace/board'
+import type { MarketplaceItemRenderFields, TemplateAuthor } from './template'
 import type { TemplateCategory } from './category'
 import type { PaginationResult } from '../lib/pagination'
 import type {
@@ -72,29 +68,11 @@ export const MAX_RANKING_LIST_LIMIT = 48
 export const RANKING_TOP_SCORE_REMIX_WEIGHT = 5
 const RANKING_SLUG_LENGTH = 10
 
-const RANKING_SLUG_PATTERN = new RegExp(`^[0-9A-Za-z]{${RANKING_SLUG_LENGTH}}$`)
-
-const BASE62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
 export const isRankingSlug = (value: unknown): value is string =>
-  typeof value === 'string' && RANKING_SLUG_PATTERN.test(value)
+  isBase62Slug(value, RANKING_SLUG_LENGTH)
 
 export const generateRankingSlug = (): string =>
-{
-  let out = ''
-  const buf = new Uint8Array(RANKING_SLUG_LENGTH)
-  while (out.length < RANKING_SLUG_LENGTH)
-  {
-    crypto.getRandomValues(buf)
-    for (const byte of buf)
-    {
-      if (byte >= 248) continue
-      out += BASE62[byte % 62]
-      if (out.length === RANKING_SLUG_LENGTH) break
-    }
-  }
-  return out
-}
+  generateBase62Slug(RANKING_SLUG_LENGTH)
 
 interface MarketplaceRankingTemplateRef
 {
@@ -134,21 +112,11 @@ export interface MarketplaceRankingTier
   order: number
 }
 
-export interface MarketplaceRankingItem
+export interface MarketplaceRankingItem extends MarketplaceItemRenderFields
 {
   externalId: string
   templateItemExternalId: string
   tierExternalId: string | null
-  label: string | null
-  backgroundColor: string | null
-  mediaPlate: MediaPlate | null
-  altText: string | null
-  media: TemplateMediaRef | null
-  order: number
-  aspectRatio: number | null
-  imageFit: ImageFit | null
-  transform: ItemTransform | null
-  imagePadding: number | null
 }
 
 export interface MarketplaceRankingDetail extends MarketplaceRankingSummary

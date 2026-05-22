@@ -4,6 +4,8 @@
 import type { BoardId, ItemId, TierId } from '../lib/ids'
 import type { PaletteId, TextStyleId, TierColorSpec } from '../lib/theme'
 import { clamp } from '../lib/math'
+import { isFiniteNumber } from '../lib/typeGuards'
+import { normalizeStringInput } from '../lib/strings'
 
 // default board title used across local & cloud-backed board creation
 export const DEFAULT_BOARD_TITLE = 'My Tier List'
@@ -19,15 +21,13 @@ export const BOARD_TOMBSTONE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 // trim board titles & fall back to the shared default
 export const normalizeBoardTitle = (raw: string): string =>
 {
-  const trimmed = raw.trim()
-  if (!trimmed)
+  const normalized = normalizeStringInput(raw, MAX_BOARD_TITLE_LENGTH)
+  if (!normalized)
   {
     return DEFAULT_BOARD_TITLE
   }
 
-  return trimmed.length > MAX_BOARD_TITLE_LENGTH
-    ? trimmed.slice(0, MAX_BOARD_TITLE_LENGTH)
-    : trimmed
+  return normalized
 }
 
 // how an image fills its slot when aspect ratios differ; also the canonical
@@ -51,9 +51,7 @@ export const clampImagePadding = (value: number): number =>
 // validate untrusted padding input; non-finite/wrong-type -> undefined so a
 // no-override item roundtrips without a phantom value
 export const normalizeImagePadding = (value: unknown): number | undefined =>
-  typeof value === 'number' && Number.isFinite(value)
-    ? clampImagePadding(value)
-    : undefined
+  isFiniteNumber(value) ? clampImagePadding(value) : undefined
 
 // transparent logos that would be low-contrast on a solid backdrop get a plate
 // so they stay readable anywhere: 'light' rescues a dark logo, 'dark' a white
@@ -250,22 +248,19 @@ const clampLabelFontSizePx = (value: number): number =>
   Math.round(clamp(value, LABEL_FONT_SIZE_PX_MIN, LABEL_FONT_SIZE_PX_MAX))
 
 export const normalizeLabelFontSizePx = (value: unknown): number | undefined =>
-  typeof value === 'number' && Number.isFinite(value)
-    ? clampLabelFontSizePx(value)
-    : undefined
+  isFiniteNumber(value) ? clampLabelFontSizePx(value) : undefined
 
 export const isValidLabelFontSizePx = (value: number | undefined): boolean =>
   value === undefined ||
-  (Number.isFinite(value) &&
+  (isFiniteNumber(value) &&
     value >= LABEL_FONT_SIZE_PX_MIN &&
     value <= LABEL_FONT_SIZE_PX_MAX)
 
 // per-board label defaults — absent fields fall back to global/built-in
 // defaults. `show` overrides AppPreferences.showLabels at the board level.
 // `textStyleId` overrides the board font for label captions only
-export interface BoardLabelSettings
+interface LabelSharedOptions
 {
-  show?: boolean
   placement?: LabelPlacement
   scrim?: LabelScrim
   fontSizePx?: number
@@ -274,16 +269,16 @@ export interface BoardLabelSettings
   textColor?: LabelTextColor
 }
 
+export interface BoardLabelSettings extends LabelSharedOptions
+{
+  show?: boolean
+}
+
 // per-tile label override layered over board/global defaults. `visible`
 // undefined -> inherit; explicit boolean wins regardless of board settings
-export interface ItemLabelOptions
+export interface ItemLabelOptions extends LabelSharedOptions
 {
   visible?: boolean
-  placement?: LabelPlacement
-  scrim?: LabelScrim
-  fontSizePx?: number
-  textStyleId?: TextStyleId
-  textColor?: LabelTextColor
 }
 
 const labelPlacementsEqual = (
@@ -430,14 +425,11 @@ export interface Tier
   itemIds: ItemId[]
 }
 
-// full serializable board snapshot — persisted per board & exchanged across import/export
-export interface BoardSnapshot
+interface BoardSnapshotBase
 {
   title: string
   tiers: Tier[]
   unrankedItemIds: ItemId[]
-  items: Record<ItemId, TierItem>
-  deletedItems: TierItem[]
   // slot aspect ratio (w/h); absent -> 1 (square)
   itemAspectRatio?: number
   // 'auto' tracks content, 'manual' pins to itemAspectRatio; absent -> 'auto'
@@ -478,6 +470,13 @@ export interface BoardSnapshot
   preferredCriterionExternalId?: string
 }
 
+// full serializable board snapshot — persisted per board & exchanged across import/export
+export interface BoardSnapshot extends BoardSnapshotBase
+{
+  items: Record<ItemId, TierItem>
+  deletedItems: TierItem[]
+}
+
 // payload for adding new items before IDs are assigned. image import writes
 // preview, tile, & editor blobs to IndexedDB before passing refs here
 export interface NewTierItem
@@ -513,32 +512,10 @@ export interface TierItemWire
 
 // wire-format variant of `BoardSnapshot` — same shape as in-memory but
 // items carry inline base64 image bytes instead of IndexedDB references
-export interface BoardSnapshotWire
+export interface BoardSnapshotWire extends BoardSnapshotBase
 {
-  title: string
-  tiers: Tier[]
-  unrankedItemIds: ItemId[]
   items: Record<ItemId, TierItemWire>
   deletedItems: TierItemWire[]
-  itemAspectRatio?: number
-  itemAspectRatioMode?: ItemAspectRatioMode
-  aspectRatioPromptDismissed?: boolean
-  defaultItemImageFit?: ImageFit
-  defaultItemImagePadding?: number
-  paletteId?: PaletteId
-  textStyleId?: TextStyleId
-  pageBackground?: string
-  labels?: BoardLabelSettings
-  autoPlate?: BoardAutoPlateSettings
-  sourceTemplateId?: string
-  sourceRankingId?: string
-  sourceTemplateTitle?: string
-  sourceRankingTitle?: string
-  sourceTemplateCoverMedia?: import('../marketplace/template').TemplateMediaRef
-  sourceTemplateCoverFraming?:
-    | import('../marketplace/template').TemplateCoverFraming
-    | null
-  preferredCriterionExternalId?: string
 }
 
 // metadata entry for a single board in the multi-board registry

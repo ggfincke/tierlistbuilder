@@ -3,6 +3,8 @@
 
 import type { PaletteId, TextStyleId, ThemeId } from '../lib/theme'
 import type { LabelPlacementMode } from '../workspace/board'
+import { clamp } from '../lib/math'
+import { isFiniteNumber } from '../lib/typeGuards'
 
 // item display size presets
 export const ITEM_SIZES = ['small', 'medium', 'large'] as const
@@ -36,14 +38,15 @@ export const EXPORT_ITEMS_PER_ROW_DEFAULT = 10
 
 export const normalizeExportItemsPerRow = (value: unknown): number =>
 {
-  if (typeof value !== 'number' || !Number.isFinite(value))
+  if (!isFiniteNumber(value))
   {
     return EXPORT_ITEMS_PER_ROW_DEFAULT
   }
 
-  return Math.min(
-    EXPORT_ITEMS_PER_ROW_MAX,
-    Math.max(EXPORT_ITEMS_PER_ROW_MIN, Math.round(value))
+  return clamp(
+    Math.round(value),
+    EXPORT_ITEMS_PER_ROW_MIN,
+    EXPORT_ITEMS_PER_ROW_MAX
   )
 }
 
