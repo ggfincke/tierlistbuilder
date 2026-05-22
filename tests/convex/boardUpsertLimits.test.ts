@@ -22,6 +22,7 @@ import {
   expectConvexCode,
   makeTest,
   seedCloudBoard,
+  seedTileMediaAsset,
   seedUser,
 } from './convexTestHelpers'
 
@@ -78,35 +79,17 @@ const seedMediaAssets = async (
   {
     await Promise.all(
       mediaExternalIds.map(async (externalId, i) =>
-      {
-        const now = Date.now()
-        const storageId = await ctx.storage.store(new Blob(['image-bytes']))
-        const mediaAssetId = await ctx.db.insert('mediaAssets', {
+        await seedTileMediaAsset(ctx, {
           ownerId: userId,
           externalId,
           dedupeHash: `hash-${i}`,
-          tileVariant: {
-            storageId,
-            width: 100,
-            height: 100,
-            byteSize: 10,
-            mimeType: 'image/png',
-            contentHash: `hash-${i}`,
-          },
-          createdAt: now,
-        })
-        await ctx.db.insert('mediaVariants', {
-          mediaAssetId,
-          kind: 'tile',
-          storageId,
+          contentHash: `hash-${i}`,
+          blob: new Blob(['image-bytes']),
           width: 100,
           height: 100,
           byteSize: 10,
-          mimeType: 'image/png',
-          contentHash: `hash-${i}`,
-          createdAt: now,
         })
-      })
+      )
     )
   })
 }

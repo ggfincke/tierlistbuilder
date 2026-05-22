@@ -184,6 +184,61 @@ export const buildPngHeader = (width: number, height: number): Uint8Array =>
   return bytes
 }
 
+interface SeedTileMediaAssetArgs
+{
+  ownerId: Id<'users'>
+  externalId: string
+  contentHash: string
+  dedupeHash?: string
+  storageId?: Id<'_storage'>
+  blob?: Blob
+  width?: number
+  height?: number
+  byteSize?: number
+  mimeType?: string
+  createdAt?: number
+}
+
+export const seedTileMediaAsset = async (
+  ctx: MutationCtx,
+  args: SeedTileMediaAssetArgs
+): Promise<{
+  mediaAssetId: Id<'mediaAssets'>
+  mediaVariantId: Id<'mediaVariants'>
+  storageId: Id<'_storage'>
+}> =>
+{
+  const mimeType = args.mimeType ?? 'image/png'
+  const storageId =
+    args.storageId ??
+    (await ctx.storage.store(
+      args.blob ?? new Blob([new Uint8Array([1, 2, 3])], { type: mimeType })
+    ))
+  const now = args.createdAt ?? Date.now()
+  const tileVariant = {
+    storageId,
+    width: args.width ?? 32,
+    height: args.height ?? 32,
+    byteSize: args.byteSize ?? 3,
+    mimeType,
+    contentHash: args.contentHash,
+  }
+  const mediaAssetId = await ctx.db.insert('mediaAssets', {
+    ownerId: args.ownerId,
+    externalId: args.externalId,
+    dedupeHash: args.dedupeHash ?? args.contentHash,
+    tileVariant,
+    createdAt: now,
+  })
+  const mediaVariantId = await ctx.db.insert('mediaVariants', {
+    mediaAssetId,
+    kind: 'tile',
+    ...tileVariant,
+    createdAt: now,
+  })
+  return { mediaAssetId, mediaVariantId, storageId }
+}
+
 interface SeedEnvSnapshot
 {
   enabled: string | undefined

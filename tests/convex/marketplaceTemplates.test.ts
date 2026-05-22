@@ -42,6 +42,7 @@ import {
   seedCloudBoard,
   seedPublishedRanking,
   seedPublishedTemplate,
+  seedTileMediaAsset,
   seedUser,
   TEST_CRITERIA,
   toCriterionSnapshot,
@@ -116,32 +117,13 @@ const seedSourceBoard = async (
   await t.run(async (ctx) =>
   {
     const now = Date.now()
-    const storageId = await ctx.storage.store(
-      new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' })
-    )
-    const mediaAssetId = await ctx.db.insert('mediaAssets', {
+    const { mediaAssetId, storageId } = await seedTileMediaAsset(ctx, {
       ownerId,
       externalId: 'media-source',
       dedupeHash: 'hash-source',
-      tileVariant: {
-        storageId,
-        width: 64,
-        height: 64,
-        byteSize: 3,
-        mimeType: 'image/png',
-        contentHash: 'hash-source',
-      },
-      createdAt: now,
-    })
-    await ctx.db.insert('mediaVariants', {
-      mediaAssetId,
-      kind: 'tile',
-      storageId,
+      contentHash: 'hash-source',
       width: 64,
       height: 64,
-      byteSize: 3,
-      mimeType: 'image/png',
-      contentHash: 'hash-source',
       createdAt: now,
     })
     const boardId = await seedCloudBoard(ctx, {
@@ -535,32 +517,14 @@ const seedRankingMediaSnapshot = async (
   await t.run(async (ctx) =>
   {
     const now = Date.now() - 2 * 60 * 60 * 1000
-    const storageId = await ctx.storage.store(
-      new Blob([new Uint8Array([4, 5, 6])], { type: 'image/png' })
-    )
-    const mediaAssetId = await ctx.db.insert('mediaAssets', {
+    const { mediaAssetId } = await seedTileMediaAsset(ctx, {
       ownerId,
       externalId: 'ranking-media',
       dedupeHash: 'ranking-media-hash',
-      tileVariant: {
-        storageId,
-        width: 64,
-        height: 64,
-        byteSize: 3,
-        mimeType: 'image/png',
-        contentHash: 'ranking-media-hash',
-      },
-      createdAt: now,
-    })
-    await ctx.db.insert('mediaVariants', {
-      mediaAssetId,
-      kind: 'tile',
-      storageId,
+      contentHash: 'ranking-media-hash',
+      blob: new Blob([new Uint8Array([4, 5, 6])], { type: 'image/png' }),
       width: 64,
       height: 64,
-      byteSize: 3,
-      mimeType: 'image/png',
-      contentHash: 'ranking-media-hash',
       createdAt: now,
     })
     const templateId = await seedPublishedTemplate(ctx, {

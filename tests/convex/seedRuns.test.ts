@@ -15,6 +15,7 @@ import {
   makeRateLimitedTest as makeTest,
   restoreSeedEnv,
   seedPublishedTemplate,
+  seedTileMediaAsset,
   seedUser,
   TEST_CRITERIA,
 } from './convexTestHelpers'
@@ -228,35 +229,13 @@ const seedMediaVariant = async (
 ): Promise<Doc<'mediaVariants'>> =>
   await t.run(async (ctx) =>
   {
-    const storageId = await ctx.storage.store(
-      new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' })
-    )
-    const mediaAssetId = await ctx.db.insert('mediaAssets', {
+    const { mediaVariantId } = await seedTileMediaAsset(ctx, {
       ownerId,
       externalId: `media-${contentHash}`,
       dedupeHash: computeVariantDedupeHash([{ kind: 'tile', contentHash }]),
-      tileVariant: {
-        storageId,
-        width: 32,
-        height: 32,
-        byteSize: 3,
-        mimeType: 'image/png',
-        contentHash,
-      },
-      createdAt: Date.now(),
-    })
-    const variantId = await ctx.db.insert('mediaVariants', {
-      mediaAssetId,
-      kind: 'tile',
-      storageId,
-      width: 32,
-      height: 32,
-      byteSize: 3,
-      mimeType: 'image/png',
       contentHash,
-      createdAt: Date.now(),
     })
-    const variant = await ctx.db.get(variantId)
+    const variant = await ctx.db.get(mediaVariantId)
     if (!variant) throw new Error('media variant missing')
     return variant
   })
@@ -284,49 +263,28 @@ const seedMediaAssetWithTileAndPreview = async (
     ]
     const dedupeHash = computeVariantDedupeHash(variants)
     const now = Date.now()
-    const mediaAssetId = await ctx.db.insert('mediaAssets', {
+    const { mediaAssetId } = await seedTileMediaAsset(ctx, {
       ownerId,
       externalId,
       dedupeHash,
-      tileVariant: {
-        storageId: tileStorageId,
-        width: 32,
-        height: 32,
-        byteSize: 3,
-        mimeType: 'image/png',
-        contentHash: tileHash,
-      },
-      previewVariant: {
-        storageId: previewStorageId,
-        width: 64,
-        height: 64,
-        byteSize: 3,
-        mimeType: 'image/jpeg',
-        contentHash: previewHash,
-      },
+      storageId: tileStorageId,
+      contentHash: tileHash,
       createdAt: now,
     })
+    const previewVariant = {
+      storageId: previewStorageId,
+      width: 64,
+      height: 64,
+      byteSize: 3,
+      mimeType: 'image/jpeg',
+      contentHash: previewHash,
+    }
     await Promise.all([
-      ctx.db.insert('mediaVariants', {
-        mediaAssetId,
-        kind: 'tile',
-        storageId: tileStorageId,
-        width: 32,
-        height: 32,
-        byteSize: 3,
-        mimeType: 'image/png',
-        contentHash: tileHash,
-        createdAt: now,
-      }),
+      ctx.db.patch(mediaAssetId, { previewVariant }),
       ctx.db.insert('mediaVariants', {
         mediaAssetId,
         kind: 'preview',
-        storageId: previewStorageId,
-        width: 64,
-        height: 64,
-        byteSize: 3,
-        mimeType: 'image/jpeg',
-        contentHash: previewHash,
+        ...previewVariant,
         createdAt: now,
       }),
     ])

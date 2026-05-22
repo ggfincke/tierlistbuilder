@@ -17,6 +17,7 @@ import {
   makeTest,
   seedCloudBoard,
   seedPublishedTemplate,
+  seedTileMediaAsset,
   seedUser,
 } from './convexTestHelpers'
 
@@ -398,29 +399,15 @@ describe('media variants', () =>
 
     const ids = await t.run(async (ctx) =>
     {
-      const mediaAssetId = await ctx.db.insert('mediaAssets', {
+      const { mediaAssetId } = await seedTileMediaAsset(ctx, {
         ownerId: userId,
         externalId: 'media-shared',
         dedupeHash: 'tile-shared',
-        tileVariant: {
-          storageId,
-          width: 120,
-          height: 120,
-          byteSize: 1,
-          mimeType: 'image/png',
-          contentHash: 'tile-shared',
-        },
-        createdAt: 0,
-      })
-      await ctx.db.insert('mediaVariants', {
-        mediaAssetId,
-        kind: 'tile',
+        contentHash: 'tile-shared',
         storageId,
         width: 120,
         height: 120,
         byteSize: 1,
-        mimeType: 'image/png',
-        contentHash: 'tile-shared',
         createdAt: 0,
       })
       const boardId = await ctx.db.insert('boards', {
