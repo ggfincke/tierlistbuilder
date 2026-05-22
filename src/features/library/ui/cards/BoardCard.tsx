@@ -12,6 +12,7 @@ import type {
 
 import { LIBRARY_SYNC_META } from '~/features/library/lib/statusMeta'
 import { makeBoardClickHandler } from '~/features/library/lib/boardClickHandler'
+import { LIBRARY_COVER_HEIGHT_BY_DENSITY } from '~/features/library/lib/densityLayout'
 import { PUBLISH_STATE_META } from '~/shared/board-ui/publishStateMeta'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { formatCountedWord } from '~/shared/lib/pluralize'
@@ -47,21 +48,21 @@ interface DensityCfg
 
 const DENSITY_CFG: Record<LibraryBoardDensity, DensityCfg> = {
   dense: {
-    coverHeight: 'h-36',
+    coverHeight: LIBRARY_COVER_HEIGHT_BY_DENSITY.dense,
     bodyPadding: 'px-3 py-2.5',
     titleSize: 'text-[13px]',
     coverDensity: 'dense',
     showMeta: false,
   },
   default: {
-    coverHeight: 'h-44',
+    coverHeight: LIBRARY_COVER_HEIGHT_BY_DENSITY.default,
     bodyPadding: 'px-3.5 py-3',
     titleSize: 'text-[15px]',
     coverDensity: 'default',
     showMeta: true,
   },
   loose: {
-    coverHeight: 'h-56',
+    coverHeight: LIBRARY_COVER_HEIGHT_BY_DENSITY.loose,
     bodyPadding: 'px-4 py-3.5',
     titleSize: 'text-[16px]',
     coverDensity: 'loose',

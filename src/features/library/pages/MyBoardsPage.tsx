@@ -15,6 +15,7 @@ import { LibrarySignedOutState } from '~/features/library/ui/chrome/LibrarySigne
 import { LibrarySkeleton } from '~/features/library/ui/chrome/LibrarySkeleton'
 import { NewBoardTile } from '~/features/library/ui/cards/NewBoardTile'
 import { getLibraryFilterStatusLabel } from '~/features/library/lib/statusMeta'
+import { LIBRARY_GRID_COLUMNS_BY_DENSITY } from '~/features/library/lib/densityLayout'
 import {
   countLibraryPublishStates,
   filterLibraryBoards,
@@ -34,10 +35,6 @@ import { LivePulse } from '~/shared/ui/LivePulse'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { foldForSearch } from '~/shared/lib/text'
-
-// columns per density for the grid view. dense packs 4 across, default 3,
-// loose 2 — large covers feel hero-ish at 2-up
-const COLUMNS_BY_DENSITY = { dense: 4, default: 3, loose: 2 } as const
 
 // contextual section title per active filter
 const SECTION_HEADING: Record<LibraryBoardFilter, string> = {
@@ -125,7 +122,7 @@ export const MyBoardsPage = () =>
 
   const gridStyle = useMemo(
     () => ({
-      gridTemplateColumns: `repeat(${COLUMNS_BY_DENSITY[filters.density]}, minmax(0, 1fr))`,
+      gridTemplateColumns: `repeat(${LIBRARY_GRID_COLUMNS_BY_DENSITY[filters.density]}, minmax(0, 1fr))`,
     }),
     [filters.density]
   )
@@ -247,7 +244,7 @@ export const MyBoardsPage = () =>
             count={
               filters.view === 'list'
                 ? 6
-                : COLUMNS_BY_DENSITY[filters.density] * 2
+                : LIBRARY_GRID_COLUMNS_BY_DENSITY[filters.density] * 2
             }
           />
         ) : showEmptyState ? (
