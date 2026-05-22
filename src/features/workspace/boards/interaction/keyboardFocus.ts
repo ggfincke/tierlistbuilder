@@ -44,26 +44,20 @@ const focusItemById = (itemId: ItemId) =>
 // from rapid arrow key presses
 let pendingFocusFrame = 0
 
-export const scheduleKeyboardFocusRestore = (itemId: ItemId) =>
+const scheduleFocusFrame = (run: () => void) =>
 {
   if (typeof requestAnimationFrame === 'undefined')
   {
-    focusItemById(itemId)
+    run()
     return
   }
 
   cancelAnimationFrame(pendingFocusFrame)
-  pendingFocusFrame = requestAnimationFrame(() => focusItemById(itemId))
+  pendingFocusFrame = requestAnimationFrame(run)
 }
+
+export const scheduleKeyboardFocusRestore = (itemId: ItemId) =>
+  scheduleFocusFrame(() => focusItemById(itemId))
 
 export const focusKeyboardBoardRegion = () =>
-{
-  if (typeof requestAnimationFrame === 'undefined')
-  {
-    focusBoardRegion()
-    return
-  }
-
-  cancelAnimationFrame(pendingFocusFrame)
-  pendingFocusFrame = requestAnimationFrame(() => focusBoardRegion())
-}
+  scheduleFocusFrame(focusBoardRegion)
