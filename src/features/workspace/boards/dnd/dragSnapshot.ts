@@ -27,6 +27,19 @@ interface MoveItemToIndexInSnapshotArgs
   toIndex: number
 }
 
+interface SpliceItemInSnapshotArgs
+{
+  snapshot: ContainerSnapshot
+  itemId: ItemId
+  fromContainerId: string
+  toContainerId: string
+  resolveInsertionIndex: (args: {
+    sameContainer: boolean
+    sourceIndex: number
+    targetItemsLength: number
+  }) => number
+}
+
 type ContainerState = Pick<BoardSnapshot, 'tiers' | 'unrankedItemIds'>
 
 const hasContainer = (
@@ -278,13 +291,13 @@ export const resolveStoreInsertionIndex = ({
   return clamp(normalizedTargetIndex, 0, targetItemsLength)
 }
 
-export const moveItemInSnapshot = (
-  snapshot: ContainerSnapshot,
-  itemId: ItemId,
-  fromContainerId: string,
-  toContainerId: string,
-  toIndex: number
-): ContainerSnapshot =>
+const spliceItemInSnapshot = ({
+  snapshot,
+  itemId,
+  fromContainerId,
+  toContainerId,
+  resolveInsertionIndex,
+}: SpliceItemInSnapshotArgs): ContainerSnapshot =>
 {
   if (
     !hasContainer(snapshot, fromContainerId) ||
@@ -313,14 +326,14 @@ export const moveItemInSnapshot = (
       ? sourceItems
       : [...getItemsInContainer(sourcePatchedSnapshot, toContainerId)]
 
-  const insertionIndex = resolveStoreInsertionIndex({
-    sameContainer: fromContainerId === toContainerId,
+  const sameContainer = fromContainerId === toContainerId
+  const insertionIndex = resolveInsertionIndex({
+    sameContainer,
     sourceIndex,
-    targetIndex: toIndex,
     targetItemsLength: targetItems.length,
   })
 
-  if (fromContainerId === toContainerId && insertionIndex === sourceIndex)
+  if (sameContainer && insertionIndex === sourceIndex)
   {
     return snapshot
   }
@@ -329,6 +342,31 @@ export const moveItemInSnapshot = (
 
   return withContainerItems(sourcePatchedSnapshot, toContainerId, targetItems)
 }
+
+export const moveItemInSnapshot = (
+  snapshot: ContainerSnapshot,
+  itemId: ItemId,
+  fromContainerId: string,
+  toContainerId: string,
+  toIndex: number
+): ContainerSnapshot =>
+  spliceItemInSnapshot({
+    snapshot,
+    itemId,
+    fromContainerId,
+    toContainerId,
+    resolveInsertionIndex: ({
+      sameContainer,
+      sourceIndex,
+      targetItemsLength,
+    }) =>
+      resolveStoreInsertionIndex({
+        sameContainer,
+        sourceIndex,
+        targetIndex: toIndex,
+        targetItemsLength,
+      }),
+  })
 
 export const moveItemToIndexInSnapshot = ({
   snapshot,
@@ -339,41 +377,17 @@ export const moveItemToIndexInSnapshot = ({
 {
   const fromContainerId = findContainer(snapshot, itemId)
 
-  if (
-    !fromContainerId ||
-    !hasContainer(snapshot, fromContainerId) ||
-    !hasContainer(snapshot, toContainerId)
-  )
+  if (!fromContainerId || !hasContainer(snapshot, toContainerId))
   {
     return snapshot
   }
 
-  const sourceItems = [...getItemsInContainer(snapshot, fromContainerId)]
-  const sourceIndex = sourceItems.indexOf(itemId)
-
-  if (sourceIndex < 0)
-  {
-    return snapshot
-  }
-
-  sourceItems.splice(sourceIndex, 1)
-  const sourcePatchedSnapshot = withContainerItems(
+  return spliceItemInSnapshot({
     snapshot,
+    itemId,
     fromContainerId,
-    sourceItems
-  )
-  const targetItems =
-    fromContainerId === toContainerId
-      ? sourceItems
-      : [...getItemsInContainer(sourcePatchedSnapshot, toContainerId)]
-  const insertionIndex = clamp(toIndex, 0, targetItems.length)
-
-  if (fromContainerId === toContainerId && insertionIndex === sourceIndex)
-  {
-    return snapshot
-  }
-
-  targetItems.splice(insertionIndex, 0, itemId)
-
-  return withContainerItems(sourcePatchedSnapshot, toContainerId, targetItems)
+    toContainerId,
+    resolveInsertionIndex: ({ targetItemsLength }) =>
+      clamp(toIndex, 0, targetItemsLength),
+  })
 }

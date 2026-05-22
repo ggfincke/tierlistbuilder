@@ -12,12 +12,12 @@ import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useImageImport } from '~/features/workspace/settings/model/useImageImport'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useBoardItemRenderSettings } from '~/features/workspace/boards/model/useBoardItemRenderSettings'
 import {
   filterItemIdsByLabel,
   selectActiveItemCount,
 } from '~/features/workspace/boards/model/slices/selectors'
 import { useEffectiveUnrankedItemIds } from '~/features/workspace/boards/model/useEffectiveBoard'
-import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { UNRANKED_CONTAINER_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
@@ -65,15 +65,7 @@ export const UnrankedPool = () =>
     boardDefaultPadding,
     boardLabels,
     boardAutoPlate,
-  } = useActiveBoardStore(
-    useShallow((state) => ({
-      boardAspectRatio: getBoardItemAspectRatio(state),
-      boardDefaultFit: state.defaultItemImageFit,
-      boardDefaultPadding: state.defaultItemImagePadding,
-      boardLabels: state.labels,
-      boardAutoPlate: state.autoPlate,
-    }))
-  )
+  } = useBoardItemRenderSettings()
   const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
     itemSize,
     boardAspectRatio

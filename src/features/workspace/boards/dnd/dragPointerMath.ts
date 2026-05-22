@@ -64,7 +64,6 @@ export const getDraggedItemRect = ({
 }
 
 // preserve the normal between-item threshold while honoring explicit front/back drops
-
 export const resolveDragTargetIndex = ({
   draggedRect,
   overRect,

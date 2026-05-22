@@ -16,7 +16,7 @@ import {
 import { animateDropDistribute } from '~/features/workspace/boards/dnd/dragDropAnimation'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { announce } from '~/shared/a11y/announce'
-import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
+import { announceItemsDropped } from '~/features/workspace/boards/lib/containerLabel'
 import { resolveDragCollisions } from '~/features/workspace/boards/dnd/dragCollision'
 import { resolveDragEndDecision } from '~/features/workspace/boards/dnd/dragEndDecision'
 import {
@@ -28,10 +28,7 @@ import { syncDraggedItemPosition } from '~/features/workspace/boards/dnd/dragPre
 import { useDragSensors } from '~/features/workspace/boards/dnd/dragSensors'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { getItemElementById } from '~/features/workspace/boards/lib/dndIds'
-import {
-  findContainer,
-  getEffectiveContainerSnapshot,
-} from '~/features/workspace/boards/dnd/dragSnapshot'
+import { getEffectiveContainerSnapshot } from '~/features/workspace/boards/dnd/dragSnapshot'
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 import { captureRenderedContainerSnapshot } from '~/features/workspace/boards/dnd/dragDomCapture'
 import { formatCountedWord } from '~/shared/lib/pluralize'
@@ -145,14 +142,19 @@ export const useDragAndDrop = () =>
     })
   }
 
+  const applyPendingPreview = (pending: ContainerSnapshot) =>
+  {
+    currentPreviewRef.current = pending
+    updateDragPreview(pending)
+    scheduleMovedReset()
+  }
+
   const flushPendingPreviewUpdate = () =>
   {
     const pending = consumePendingPreview()
     if (!pending) return
 
-    currentPreviewRef.current = pending
-    updateDragPreview(pending)
-    scheduleMovedReset()
+    applyPendingPreview(pending)
   }
 
   const getCurrentDragPreview = (): ContainerSnapshot =>
@@ -173,9 +175,7 @@ export const useDragAndDrop = () =>
       const pending = consumePendingPreview()
       if (!pending) return
 
-      currentPreviewRef.current = pending
-      updateDragPreview(pending)
-      scheduleMovedReset()
+      applyPendingPreview(pending)
     })
   }
 
@@ -405,15 +405,7 @@ export const useDragAndDrop = () =>
     commitDragPreview()
 
     const state = useActiveBoardStore.getState()
-    const label = state.items[decision.itemId]?.label ?? 'item'
-    const committedPreview = getEffectiveContainerSnapshot(state)
-    const containerId = findContainer(committedPreview, decision.itemId)
-    const dest = getContainerLabel(containerId, state.tiers)
-    announce(
-      groupCountBeforeCommit > 1
-        ? `Dropped ${formatCountedWord(groupCountBeforeCommit, 'item')} in ${dest}`
-        : `Dropped ${label} in ${dest}`
-    )
+    announceItemsDropped(state, decision.itemId, groupCountBeforeCommit)
 
     resetDragState()
 

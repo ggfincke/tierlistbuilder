@@ -8,11 +8,9 @@ import type { TierItem as TierItemType } from '@tierlistbuilder/contracts/worksp
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useBoardItemRenderSettings } from '~/features/workspace/boards/model/useBoardItemRenderSettings'
 import { createSelectBoardItemById } from '~/features/workspace/boards/model/slices/selectors'
-import {
-  getBoardItemAspectRatio,
-  getEffectiveImageFit,
-} from '~/shared/board-ui/aspectRatio'
+import { getEffectiveImageFit } from '~/shared/board-ui/aspectRatio'
 import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
@@ -71,15 +69,7 @@ const DragOverlayItem = memo(
       boardDefaultPadding,
       boardLabels,
       boardAutoPlate,
-    } = useActiveBoardStore(
-      useShallow((state) => ({
-        boardAspectRatio: getBoardItemAspectRatio(state),
-        boardDefaultFit: state.defaultItemImageFit,
-        boardDefaultPadding: state.defaultItemImagePadding,
-        boardLabels: state.labels,
-        boardAutoPlate: state.autoPlate,
-      }))
-    )
+    } = useBoardItemRenderSettings()
     const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
       itemSize,
       boardAspectRatio
