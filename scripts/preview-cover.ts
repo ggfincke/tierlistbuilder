@@ -284,14 +284,15 @@ const renderSurface = async (
     sourceWidth,
     sourceHeight,
   })
+  const blankSurface = async (): Promise<SurfacePreview> => ({
+    surface,
+    buffer: await matteCanvas(width, height).png().toBuffer(),
+    width,
+    height,
+  })
   if (!placement)
   {
-    return {
-      surface,
-      buffer: await matteCanvas(width, height).png().toBuffer(),
-      width,
-      height,
-    }
+    return blankSurface()
   }
   const drawW = Math.max(1, Math.round(placement.width))
   const drawH = Math.max(1, Math.round(placement.height))
@@ -305,12 +306,7 @@ const renderSurface = async (
   const visibleH = visibleSrcBottom - visibleSrcTop
   if (visibleW <= 0 || visibleH <= 0)
   {
-    return {
-      surface,
-      buffer: await matteCanvas(width, height).png().toBuffer(),
-      width,
-      height,
-    }
+    return blankSurface()
   }
   const drawn = await sharp(coverPath)
     .rotate()

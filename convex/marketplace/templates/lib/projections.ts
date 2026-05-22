@@ -617,11 +617,11 @@ export const toTemplateBase = async (
     requireTemplateStats(ctx, template._id, cache),
     findTemplateCardByTemplateId(ctx, template._id),
   ])
+  const counters = readTemplateCounters(stats)
   const metrics = card
     ? getTemplateCardMetrics(card)
-    : getInitialTemplateCardMetrics(readTemplateCounters(stats))
+    : getInitialTemplateCardMetrics(counters)
 
-  const counters = readTemplateCounters(stats)
   return {
     slug: template.slug,
     title: template.title,

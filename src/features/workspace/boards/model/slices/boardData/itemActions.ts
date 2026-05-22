@@ -14,7 +14,10 @@ import {
   getBoardAspectRatioMode,
 } from '~/shared/board-ui/aspectRatio'
 import { generateItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { MAX_DELETED_ITEMS } from '~/features/workspace/boards/model/slices/helpers'
+import {
+  getAllBoardItemIds,
+  MAX_DELETED_ITEMS,
+} from '~/features/workspace/boards/model/slices/helpers'
 import { withUndo } from '~/features/workspace/boards/model/slices/undoSlice'
 import { buildRemoveItemsPatch } from '~/features/workspace/boards/model/slices/boardData/itemRemoval'
 import type {
@@ -197,10 +200,7 @@ export const createItemActions = (
   clearAllItems: () =>
     set((state) =>
     {
-      const allItemIds: ItemId[] = [
-        ...state.tiers.flatMap((tier) => tier.itemIds),
-        ...state.unrankedItemIds,
-      ]
+      const allItemIds = getAllBoardItemIds(state)
 
       if (allItemIds.length === 0)
       {

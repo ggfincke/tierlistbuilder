@@ -22,18 +22,6 @@ export const selectMediaVariantSummary = (
   return asset.editorVariant
 }
 
-export const loadMediaVariantStorageId = async (
-  ctx: DbCtx,
-  mediaAssetId: Id<'mediaAssets'> | null,
-  kind: MediaVariantKind = 'tile'
-): Promise<Id<'_storage'> | null> =>
-{
-  if (!mediaAssetId) return null
-  const asset = await ctx.db.get(mediaAssetId)
-  if (!asset) return null
-  return selectMediaVariantSummary(asset, kind)?.storageId ?? null
-}
-
 // preview-first storage lookup for surfaces that render the asset at hero
 // scale (board card mosaics, marketplace covers). tile fallback covers
 // assets predating the preview pipeline so callers can swap in unconditionally

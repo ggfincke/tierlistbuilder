@@ -33,10 +33,6 @@ const normalizeLargeTemplateFeatureState = (
 export const classifyItemCount = (itemCount: number): TemplateSizeClass =>
   itemCount <= MAX_STANDARD_CLOUD_BOARD_ITEMS ? 'standard' : 'large'
 
-export const requiredPlanForSizeClass = (
-  sizeClass: TemplateSizeClass
-): UserPlan => (sizeClass === 'large' ? 'plus' : 'free')
-
 export const getLargeTemplateFeatureState = (): LargeTemplateFeatureState =>
   normalizeLargeTemplateFeatureState(process.env.LARGE_TEMPLATE_FEATURE_STATE)
 
