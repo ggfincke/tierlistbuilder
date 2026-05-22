@@ -10,7 +10,7 @@ import {
   type MutationCtx,
 } from './_generated/server'
 import { internal } from './_generated/api'
-import type { Id, TableNames } from './_generated/dataModel'
+import type { Doc, Id, TableNames } from './_generated/dataModel'
 import {
   HANDLE_REGEX,
   MAX_BIO_LENGTH,
@@ -302,6 +302,66 @@ interface AuthAccountCleanupState
 }
 
 type CleanupStep<TState> = { isDone: true } | ({ isDone: false } & TState)
+
+type OwnedAuthParentTable = 'authSessions' | 'authAccounts'
+
+interface OwnedAuthParentCascadeState<
+  TParentTable extends OwnedAuthParentTable,
+>
+{
+  cursor: string | null
+  targetParentId?: Id<TParentTable>
+  childCursor?: string | null
+}
+
+type AuthSessionCascadeConfig = {
+  parentTable: 'authSessions'
+  parentIndex: 'userId'
+  childTable: 'authRefreshTokens'
+  childIndex: 'sessionId'
+  childForeignKey: 'sessionId'
+}
+
+type AuthAccountCascadeConfig = {
+  parentTable: 'authAccounts'
+  parentIndex: 'userIdAndProvider'
+  childTable: 'authVerificationCodes'
+  childIndex: 'accountId'
+  childForeignKey: 'accountId'
+}
+
+type OwnedAuthParentCascadeConfig =
+  | AuthSessionCascadeConfig
+  | AuthAccountCascadeConfig
+
+type OwnedAuthParentId = Id<'authSessions'> | Id<'authAccounts'>
+
+type OwnedAuthParentPage = {
+  page: Array<{ _id: OwnedAuthParentId }>
+  isDone: boolean
+  continueCursor: string
+}
+
+type OwnedAuthChildPage = {
+  isDone: boolean
+  continueCursor: string
+}
+
+const AUTH_SESSION_CASCADE_CONFIG = {
+  parentTable: 'authSessions',
+  parentIndex: 'userId',
+  childTable: 'authRefreshTokens',
+  childIndex: 'sessionId',
+  childForeignKey: 'sessionId',
+} as const satisfies AuthSessionCascadeConfig
+
+const AUTH_ACCOUNT_CASCADE_CONFIG = {
+  parentTable: 'authAccounts',
+  parentIndex: 'userIdAndProvider',
+  childTable: 'authVerificationCodes',
+  childIndex: 'accountId',
+  childForeignKey: 'accountId',
+} as const satisfies AuthAccountCascadeConfig
 
 interface CascadeMutationArgs
 {
@@ -707,52 +767,106 @@ const scheduleCascadeAuthAccounts = async (
   await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, args)
 }
 
-const deleteAuthSessionCleanupStep = async (
+const paginateOwnedAuthParentPage = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
-  state: AuthSessionCleanupState
-): Promise<CleanupStep<AuthSessionCleanupState>> =>
+  cursor: string | null,
+  config: OwnedAuthParentCascadeConfig
+): Promise<OwnedAuthParentPage> =>
 {
-  const session = state.targetSessionId
-    ? await ctx.db.get(state.targetSessionId)
+  if (config.parentTable === 'authSessions')
+  {
+    const page = await ctx.db
+      .query('authSessions')
+      .withIndex(config.parentIndex, (q) => q.eq('userId', userId))
+      .paginate({ numItems: 1, cursor })
+    return page
+  }
+
+  const page = await ctx.db
+    .query('authAccounts')
+    .withIndex(config.parentIndex, (q) => q.eq('userId', userId))
+    .paginate({ numItems: 1, cursor })
+  return page
+}
+
+const deleteOwnedAuthChildPage = async <
+  TParentTable extends OwnedAuthParentTable,
+>(
+  ctx: MutationCtx,
+  parentId: Id<TParentTable>,
+  cursor: string | null,
+  config: Extract<OwnedAuthParentCascadeConfig, { parentTable: TParentTable }>
+): Promise<OwnedAuthChildPage> =>
+{
+  if (config.childTable === 'authRefreshTokens')
+  {
+    const page = await ctx.db
+      .query(config.childTable)
+      .withIndex(config.childIndex, (q) =>
+        q.eq(config.childForeignKey, parentId as Id<'authSessions'>)
+      )
+      .paginate({ numItems: CASCADE_PAGE_SIZE, cursor })
+    await Promise.all(page.page.map((token) => ctx.db.delete(token._id)))
+    return page
+  }
+
+  const page = await ctx.db
+    .query(config.childTable)
+    .withIndex(config.childIndex, (q) =>
+      q.eq(config.childForeignKey, parentId as Id<'authAccounts'>)
+    )
+    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor })
+  await Promise.all(page.page.map((code) => ctx.db.delete(code._id)))
+  return page
+}
+
+const deleteOwnedParentCascadeStep = async <
+  TParentTable extends OwnedAuthParentTable,
+>(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  config: Extract<OwnedAuthParentCascadeConfig, { parentTable: TParentTable }>,
+  state: OwnedAuthParentCascadeState<TParentTable>
+): Promise<CleanupStep<OwnedAuthParentCascadeState<TParentTable>>> =>
+{
+  const parent = state.targetParentId
+    ? ((await ctx.db.get(state.targetParentId)) as
+        | (Doc<TParentTable> & { userId: Id<'users'> })
+        | null)
     : null
   const cursor = state.cursor
 
-  if (session && session.userId !== userId)
+  if (parent && parent.userId !== userId)
   {
     return { isDone: false, cursor }
   }
 
-  const targetSessionId = state.targetSessionId
-  if (!session && targetSessionId)
+  const targetParentId = state.targetParentId
+  if (!parent && targetParentId)
   {
-    const tokenPage = await ctx.db
-      .query('authRefreshTokens')
-      .withIndex('sessionId', (q) => q.eq('sessionId', targetSessionId))
-      .paginate({
-        numItems: CASCADE_PAGE_SIZE,
-        cursor: state.tokenCursor ?? null,
-      })
-    await Promise.all(tokenPage.page.map((token) => ctx.db.delete(token._id)))
+    const childPage = await deleteOwnedAuthChildPage(
+      ctx,
+      targetParentId,
+      state.childCursor ?? null,
+      config
+    )
 
-    if (!tokenPage.isDone)
+    if (!childPage.isDone)
     {
       return {
         isDone: false,
         cursor,
-        targetSessionId,
-        tokenCursor: tokenPage.continueCursor,
+        targetParentId,
+        childCursor: childPage.continueCursor,
       }
     }
     return { isDone: false, cursor }
   }
 
-  if (!session)
+  if (!parent)
   {
-    const page = await ctx.db
-      .query('authSessions')
-      .withIndex('userId', (q) => q.eq('userId', userId))
-      .paginate({ numItems: 1, cursor })
+    const page = await paginateOwnedAuthParentPage(ctx, userId, cursor, config)
     if (page.page.length === 0)
     {
       return { isDone: true }
@@ -760,32 +874,58 @@ const deleteAuthSessionCleanupStep = async (
     return {
       isDone: false,
       cursor: page.continueCursor,
-      targetSessionId: page.page[0]._id,
-      tokenCursor: null,
+      targetParentId: page.page[0]._id as Id<TParentTable>,
+      childCursor: null,
     }
   }
 
-  const tokenPage = await ctx.db
-    .query('authRefreshTokens')
-    .withIndex('sessionId', (q) => q.eq('sessionId', session._id))
-    .paginate({
-      numItems: CASCADE_PAGE_SIZE,
-      cursor: state.tokenCursor ?? null,
-    })
-  await Promise.all(tokenPage.page.map((token) => ctx.db.delete(token._id)))
-
-  if (!tokenPage.isDone)
+  const childPage = await deleteOwnedAuthChildPage(
+    ctx,
+    parent._id,
+    state.childCursor ?? null,
+    config
+  )
+  if (!childPage.isDone)
   {
     return {
       isDone: false,
       cursor,
-      targetSessionId: session._id,
-      tokenCursor: tokenPage.continueCursor,
+      targetParentId: parent._id,
+      childCursor: childPage.continueCursor,
     }
   }
 
-  await ctx.db.delete(session._id)
+  await ctx.db.delete(parent._id)
   return { isDone: false, cursor }
+}
+
+const deleteAuthSessionCleanupStep = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  state: AuthSessionCleanupState
+): Promise<CleanupStep<AuthSessionCleanupState>> =>
+{
+  const result = await deleteOwnedParentCascadeStep(
+    ctx,
+    userId,
+    AUTH_SESSION_CASCADE_CONFIG,
+    {
+      cursor: state.cursor,
+      targetParentId: state.targetSessionId,
+      childCursor: state.tokenCursor,
+    }
+  )
+
+  if (result.isDone)
+  {
+    return result
+  }
+  return {
+    isDone: false,
+    cursor: result.cursor,
+    targetSessionId: result.targetParentId,
+    tokenCursor: result.childCursor,
+  }
 }
 
 const deleteAuthAccountCleanupStep = async (
@@ -794,74 +934,25 @@ const deleteAuthAccountCleanupStep = async (
   state: AuthAccountCleanupState
 ): Promise<CleanupStep<AuthAccountCleanupState>> =>
 {
-  const account = state.targetAccountId
-    ? await ctx.db.get(state.targetAccountId)
-    : null
-  const cursor = state.cursor
-
-  if (account && account.userId !== userId)
-  {
-    return { isDone: false, cursor }
-  }
-
-  const targetAccountId = state.targetAccountId
-  if (!account && targetAccountId)
-  {
-    const codePage = await ctx.db
-      .query('authVerificationCodes')
-      .withIndex('accountId', (q) => q.eq('accountId', targetAccountId))
-      .paginate({
-        numItems: CASCADE_PAGE_SIZE,
-        cursor: state.codeCursor ?? null,
-      })
-    await Promise.all(codePage.page.map((code) => ctx.db.delete(code._id)))
-
-    if (!codePage.isDone)
+  const result = await deleteOwnedParentCascadeStep(
+    ctx,
+    userId,
+    AUTH_ACCOUNT_CASCADE_CONFIG,
     {
-      return {
-        isDone: false,
-        cursor,
-        targetAccountId,
-        codeCursor: codePage.continueCursor,
-      }
+      cursor: state.cursor,
+      targetParentId: state.targetAccountId,
+      childCursor: state.codeCursor,
     }
-    return { isDone: false, cursor }
-  }
+  )
 
-  if (!account)
+  if (result.isDone)
   {
-    const page = await ctx.db
-      .query('authAccounts')
-      .withIndex('userIdAndProvider', (q) => q.eq('userId', userId))
-      .paginate({ numItems: 1, cursor })
-    if (page.page.length === 0)
-    {
-      return { isDone: true }
-    }
-    return {
-      isDone: false,
-      cursor: page.continueCursor,
-      targetAccountId: page.page[0]._id,
-      codeCursor: null,
-    }
+    return result
   }
-
-  const codePage = await ctx.db
-    .query('authVerificationCodes')
-    .withIndex('accountId', (q) => q.eq('accountId', account._id))
-    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: state.codeCursor ?? null })
-  await Promise.all(codePage.page.map((code) => ctx.db.delete(code._id)))
-
-  if (!codePage.isDone)
-  {
-    return {
-      isDone: false,
-      cursor,
-      targetAccountId: account._id,
-      codeCursor: codePage.continueCursor,
-    }
+  return {
+    isDone: false,
+    cursor: result.cursor,
+    targetAccountId: result.targetParentId,
+    codeCursor: result.childCursor,
   }
-
-  await ctx.db.delete(account._id)
-  return { isDone: false, cursor }
 }
