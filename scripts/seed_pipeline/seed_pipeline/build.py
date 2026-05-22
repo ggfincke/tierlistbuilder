@@ -288,9 +288,7 @@ def _compile_item(
 	# uniform fills one color behind every tile), so drop the detector verdict to
 	# keep compiled data honest & stale recommendations out of the editor swatch
 	media_plate = (
-		None
-		if auto_plate_mode in AUTO_PLATE_MEDIA_PLATE_SUPPRESSING_MODES
-		else source.media_plate
+		None if auto_plate_mode in AUTO_PLATE_MEDIA_PLATE_SUPPRESSING_MODES else source.media_plate
 	)
 	# transform is null when natural rendering already matches the template ratio
 	compiled_item = {
@@ -370,7 +368,7 @@ def _try_compile_cache_hit(
 		return None
 	try:
 		current_fingerprint = _compute_compile_fingerprint(manifest_path, raw_manifest, repo_root)
-	except (OSError, KeyError, TypeError, ValueError):
+	except OSError, KeyError, TypeError, ValueError:
 		# malformed manifest or missing source — fall through to validation,
 		# which will produce a real diagnostic instead of a generic exception
 		return None
@@ -381,7 +379,7 @@ def _try_compile_cache_hit(
 		raise ManifestValidationError(cached_warnings)
 	try:
 		compiled = read_json(compiled_path)
-	except (OSError, json.JSONDecodeError):
+	except OSError, json.JSONDecodeError:
 		return None
 	# the upload phase reads each compiled variant by path. if a cleanup
 	# script or a user removed individual variant files but left the
@@ -448,7 +446,7 @@ def _peek_manifest(manifest_path: Path) -> JsonObject | None:
 	try:
 		with manifest_path.open("r", encoding="utf-8") as file:
 			value = json.load(file)
-	except (FileNotFoundError, json.JSONDecodeError, OSError):
+	except FileNotFoundError, json.JSONDecodeError, OSError:
 		return None
 	return value if isinstance(value, dict) else None
 
@@ -527,27 +525,28 @@ def _compute_compile_fingerprint(
 	}
 
 
-def _hashed_path_entries(paths: list[Path], repo_resolved: Path) -> list[JsonObject]:
+def _hashed_entries(
+	paths: list[Path], key: str, repo_resolved: Path | None = None
+) -> list[JsonObject]:
 	entries: list[JsonObject] = []
 	for raw in paths:
 		resolved = raw.resolve()
-		entries.append(
-			{
-				"path": resolved.relative_to(repo_resolved).as_posix(),
-				"sha256": sha256_file(resolved),
-			}
+		value = (
+			resolved.relative_to(repo_resolved).as_posix()
+			if repo_resolved is not None
+			else resolved.name
 		)
-	entries.sort(key=lambda entry: entry["path"])
+		entries.append({key: value, "sha256": sha256_file(resolved)})
+	entries.sort(key=lambda entry: entry[key])
 	return entries
+
+
+def _hashed_path_entries(paths: list[Path], repo_resolved: Path) -> list[JsonObject]:
+	return _hashed_entries(paths, "path", repo_resolved)
 
 
 def _hashed_package_files(paths: list[Path]) -> list[JsonObject]:
-	entries: list[JsonObject] = []
-	for raw in paths:
-		resolved = raw.resolve()
-		entries.append({"name": resolved.name, "sha256": sha256_file(resolved)})
-	entries.sort(key=lambda entry: entry["name"])
-	return entries
+	return _hashed_entries(paths, "name")
 
 
 def _fingerprint_inputs_match(cached: JsonObject, current: JsonObject) -> bool:
@@ -576,7 +575,7 @@ def _restore_validation_warnings(
 					severity=str(entry["severity"]),
 				)
 			)
-		except (KeyError, TypeError):
+		except KeyError, TypeError:
 			# drop malformed warnings rather than failing the whole cache hit;
 			# at worst the user sees a stale warning count, never a crash
 			continue

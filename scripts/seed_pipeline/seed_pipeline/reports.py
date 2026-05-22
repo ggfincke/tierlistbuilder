@@ -63,8 +63,9 @@ def write_preflight_report(
 	path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def write_diff_report(
-	context: SeedRunContext,
+def write_diff_report_file(
+	compiled_path: Path,
+	compiled: JsonObject,
 	state: JsonObject,
 	diff: JsonObject,
 	env_name: str,
@@ -73,13 +74,22 @@ def write_diff_report(
 	# diff is only needed inside this function, so import lazily here
 	from .diff import render_diff_report
 
-	report_path = context.compiled_path.parent / "reports" / "diff.md"
+	report_path = compiled_path.parent / "reports" / "diff.md"
 	report_path.parent.mkdir(parents=True, exist_ok=True)
 	report_path.write_text(
-		render_diff_report(context.compiled, state, diff, env_name),
+		render_diff_report(compiled, state, diff, env_name),
 		encoding="utf-8",
 	)
 	return report_path
+
+
+def write_diff_report(
+	context: SeedRunContext,
+	state: JsonObject,
+	diff: JsonObject,
+	env_name: str,
+) -> Path:
+	return write_diff_report_file(context.compiled_path, context.compiled, state, diff, env_name)
 
 
 def write_upload_report(

@@ -55,9 +55,9 @@ def write_diff_report_for_manifest(
 		state = resolve_seed_state(ConvexSeedClient(settings), compiled, progress)
 	progress.log("building diff report")
 	diff = build_seed_diff(compiled, state)
-	report_path = compiled_path.parent / "reports" / "diff.md"
-	report_path.parent.mkdir(parents=True, exist_ok=True)
-	report_path.write_text(render_diff_report(compiled, state, diff, env_name), encoding="utf-8")
+	from .reports import write_diff_report_file
+
+	report_path = write_diff_report_file(compiled_path, compiled, state, diff, env_name)
 	progress.log(f"diff report written: {report_path}")
 	return report_path
 
