@@ -12,14 +12,10 @@ import {
   TEMPLATE_VISIBILITIES,
   type TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import {
-  TEMPLATE_CATEGORIES,
-  type TemplateCategory,
-} from '@tierlistbuilder/contracts/marketplace/category'
+import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 import { CATEGORY_LIST } from '~/features/marketplace/model/categories'
 import { usePublishTemplate } from '~/features/marketplace/model/publish/usePublishTemplate'
@@ -34,10 +30,13 @@ import {
   type CoverImageInputValue,
 } from '../cover/CoverImageInput'
 import {
+  LabeledSelect,
   LabeledTextArea,
   LabeledTextField,
   PublishSubmitFooter,
+  type LabeledSelectOption,
 } from './PublishFormFields'
+import { buildVisibilityOptions } from './publishVisibilityOptions'
 import {
   createInitialPublishBoardSelection,
   resolveSelectedPublishBoard,
@@ -70,10 +69,15 @@ interface PublishModalProps
   initialBoardExternalId?: string | null
 }
 
-const VISIBILITY_LABELS: Record<TemplateVisibility, string> = {
-  public: 'Public — listed in the gallery',
-  unlisted: 'Unlisted — direct link only',
-}
+const CATEGORY_OPTIONS = CATEGORY_LIST.map(({ id, label }) => ({
+  value: id,
+  label,
+})) satisfies readonly LabeledSelectOption<TemplateCategory>[]
+
+const TEMPLATE_VISIBILITY_OPTIONS = buildVisibilityOptions(
+  TEMPLATE_VISIBILITIES,
+  'Public — listed in the gallery'
+)
 
 interface PublishFormProps
 {
@@ -127,14 +131,6 @@ const PublishForm = ({
   )
   const [removeCover, setRemoveCover] = useState(false)
   const [coverError, setCoverError] = useState<string | null>(null)
-  const handleCategoryChange = createTypedSelectChangeHandler(
-    TEMPLATE_CATEGORIES,
-    setCategory
-  )
-  const handleVisibilityChange = createTypedSelectChangeHandler(
-    TEMPLATE_VISIBILITIES,
-    setVisibility
-  )
 
   const board = isEdit
     ? null
@@ -281,48 +277,22 @@ const PublishForm = ({
           />
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor={categoryFieldId}
-                className="block text-xs font-medium text-[var(--t-text-secondary)]"
-              >
-                Category
-              </label>
-              <select
-                id={categoryFieldId}
-                value={category}
-                onChange={handleCategoryChange}
-                disabled={isPending}
-                className="focus-custom mt-1 w-full rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] focus:border-[var(--t-border-hover)]"
-              >
-                {CATEGORY_LIST.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor={visibilityFieldId}
-                className="block text-xs font-medium text-[var(--t-text-secondary)]"
-              >
-                Visibility
-              </label>
-              <select
-                id={visibilityFieldId}
-                value={visibility}
-                onChange={handleVisibilityChange}
-                disabled={isPending}
-                className="focus-custom mt-1 w-full rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] focus:border-[var(--t-border-hover)]"
-              >
-                {TEMPLATE_VISIBILITIES.map((v) => (
-                  <option key={v} value={v}>
-                    {VISIBILITY_LABELS[v]}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <LabeledSelect
+              id={categoryFieldId}
+              label="Category"
+              value={category}
+              onChange={setCategory}
+              options={CATEGORY_OPTIONS}
+              disabled={isPending}
+            />
+            <LabeledSelect
+              id={visibilityFieldId}
+              label="Visibility"
+              value={visibility}
+              onChange={setVisibility}
+              options={TEMPLATE_VISIBILITY_OPTIONS}
+              disabled={isPending}
+            />
           </div>
 
           <div>

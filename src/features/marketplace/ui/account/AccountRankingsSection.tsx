@@ -3,77 +3,60 @@
 // public ranking page
 
 import { ExternalLink, Eye, Sparkles } from 'lucide-react'
-import { Link } from 'react-router-dom'
 
-import type {
-  MarketplaceRankingSummary,
-  RankingVisibility,
-} from '@tierlistbuilder/contracts/marketplace/ranking'
+import type { MarketplaceRankingSummary } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { useMyRankings } from '~/features/marketplace/model/detail/useRankingDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { CriterionBadge } from '~/features/marketplace/ui/consensus/criterion/CriterionBadge'
-import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { RANKINGS_ROUTE_PATH } from '~/shared/routes/pathname'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
-
-const VisibilityBadge = ({ visibility }: { visibility: RankingVisibility }) =>
-{
-  if (visibility === 'unlisted')
-  {
-    return (
-      <span className="rounded-full border border-[var(--t-border)] bg-[var(--t-bg-page)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-        Unlisted
-      </span>
-    )
-  }
-  return (
-    <span className="rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
-      Public
-    </span>
-  )
-}
+import {
+  AccountIconLink,
+  AccountRow,
+  AccountStat,
+  AccountVisibilityBadge,
+} from './accountBadges'
 
 const RankingRow = ({ ranking }: { ranking: MarketplaceRankingSummary }) =>
 {
   const categoryLabel = CATEGORY_META[ranking.template.category].label
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3 sm:flex-row sm:items-center sm:gap-4">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="truncate text-sm font-semibold text-[var(--t-text)]">
-            {ranking.title}
-          </span>
-          <VisibilityBadge visibility={ranking.visibility} />
+    <AccountRow
+      title={ranking.title}
+      badges={
+        <>
+          <AccountVisibilityBadge visibility={ranking.visibility} />
           <CriterionBadge criterion={ranking.criterion} />
-        </div>
-        <p className="mt-0.5 text-[11px] text-[var(--t-text-faint)]">
+        </>
+      }
+      meta={
+        <>
           {categoryLabel} · From {ranking.template.title} · Updated{' '}
           {formatRelativeTime(ranking.updatedAt)}
-        </p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[11px] text-[var(--t-text-muted)]">
-          <span className="inline-flex items-center gap-1">
-            <Sparkles className="h-3 w-3" strokeWidth={1.8} />
-            {formatCount(ranking.remixCount)} remixes
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Eye className="h-3 w-3" strokeWidth={1.8} />
-            {formatCount(ranking.viewCount)} views
-          </span>
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5 self-end sm:self-center">
-        <Link
+        </>
+      }
+      stats={
+        <>
+          <AccountStat
+            icon={Sparkles}
+            value={ranking.remixCount}
+            label="remixes"
+          />
+          <AccountStat icon={Eye} value={ranking.viewCount} label="views" />
+        </>
+      }
+      actions={
+        <AccountIconLink
           to={`${RANKINGS_ROUTE_PATH}/${ranking.slug}`}
-          aria-label={`View ${ranking.title}`}
+          ariaLabel={`View ${ranking.title}`}
           title="View ranking"
-          className="focus-custom inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--t-border)] text-[var(--t-text-muted)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
         >
           <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.8} />
-        </Link>
-      </div>
-    </div>
+        </AccountIconLink>
+      }
+    />
   )
 }
 

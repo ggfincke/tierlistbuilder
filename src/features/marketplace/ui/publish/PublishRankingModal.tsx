@@ -14,16 +14,17 @@ import {
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
-import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 import { usePublishRanking } from '~/features/marketplace/model/publish/usePublishRanking'
 import { useRankingPublishAvailability } from '~/features/marketplace/model/publish/useRankingPublishAvailability'
 import { pickInitialCriterionExternalId } from '~/features/marketplace/model/detail/criterionSelection'
 import {
+  LabeledSelect,
   LabeledTextArea,
   LabeledTextField,
   PublishSubmitFooter,
 } from './PublishFormFields'
+import { buildVisibilityOptions } from './publishVisibilityOptions'
 
 interface PublishRankingModalProps
 {
@@ -33,10 +34,10 @@ interface PublishRankingModalProps
   defaultTitle: string
 }
 
-const VISIBILITY_LABELS: Record<RankingVisibility, string> = {
-  public: 'Public — listed under the source template',
-  unlisted: 'Unlisted — direct link only',
-}
+const RANKING_VISIBILITY_OPTIONS = buildVisibilityOptions(
+  RANKING_VISIBILITIES,
+  'Public — listed under the source template'
+)
 
 interface PublishRankingFormProps
 {
@@ -187,10 +188,6 @@ const PublishRankingForm = ({
   const [title, setTitle] = useState(defaultTitle)
   const [description, setDescription] = useState('')
   const [visibility, setVisibility] = useState<RankingVisibility>('public')
-  const handleVisibilityChange = createTypedSelectChangeHandler(
-    RANKING_VISIBILITIES,
-    setVisibility
-  )
 
   const fallbackCriterionExternalId = pickInitialCriterionExternalId(
     sourceCriteria,
@@ -311,27 +308,14 @@ const PublishRankingForm = ({
         </div>
       )}
 
-      <div>
-        <label
-          htmlFor={visibilityFieldId}
-          className="block text-xs font-medium text-[var(--t-text-secondary)]"
-        >
-          Visibility
-        </label>
-        <select
-          id={visibilityFieldId}
-          value={visibility}
-          onChange={handleVisibilityChange}
-          disabled={isPending}
-          className="focus-custom mt-1 w-full rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] focus:border-[var(--t-border-hover)]"
-        >
-          {RANKING_VISIBILITIES.map((v) => (
-            <option key={v} value={v}>
-              {VISIBILITY_LABELS[v]}
-            </option>
-          ))}
-        </select>
-      </div>
+      <LabeledSelect
+        id={visibilityFieldId}
+        label="Visibility"
+        value={visibility}
+        onChange={setVisibility}
+        options={RANKING_VISIBILITY_OPTIONS}
+        disabled={isPending}
+      />
 
       {availabilityMessage && (
         <p role="status" className="text-xs text-[var(--t-text-muted)]">

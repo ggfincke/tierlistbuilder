@@ -3,12 +3,8 @@
 
 import { useState } from 'react'
 import { ExternalLink, Eye, Layers, Loader2, Pencil } from 'lucide-react'
-import { Link } from 'react-router-dom'
 
-import type {
-  MarketplaceTemplateManagementItem,
-  TemplateVisibility,
-} from '@tierlistbuilder/contracts/marketplace/template'
+import type { MarketplaceTemplateManagementItem } from '@tierlistbuilder/contracts/marketplace/template'
 import {
   useMyTemplateManagementList,
   useRepublishMyTemplateMutation,
@@ -36,41 +32,15 @@ import {
 } from '~/features/marketplace/ui/publish/loadPublishModal'
 import type { PublishModalEditInitialValues } from '~/features/marketplace/ui/publish/PublishModal'
 import { lazyNamed } from '~/shared/lib/lazyNamed'
+import {
+  ACCOUNT_ICON_BUTTON_CLASS,
+  AccountIconLink,
+  AccountRow,
+  AccountStat,
+  AccountVisibilityBadge,
+} from './accountBadges'
 
 const PublishModal = lazyNamed(loadPublishModal, 'PublishModal')
-
-interface VisibilityBadgeProps
-{
-  visibility: TemplateVisibility
-  publicationState: MarketplaceTemplateManagementItem['publicationState']
-}
-
-const FaintBadge = ({ label }: { label: string }) => (
-  <span className="rounded-full border border-[var(--t-border)] bg-[var(--t-bg-page)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-    {label}
-  </span>
-)
-
-const VisibilityBadge = ({
-  visibility,
-  publicationState,
-}: VisibilityBadgeProps) =>
-{
-  // publication state is the source of truth, not stored visibility (preserved
-  // across unpublish/republish so re-publish restores the listing). pending/
-  // failed are surfaced distinctly so a failed publish isn't read as unpublished
-  if (publicationState === 'publishPending')
-    return <FaintBadge label="Publishing" />
-  if (publicationState === 'publishFailed') return <FaintBadge label="Failed" />
-  if (publicationState === 'unpublished')
-    return <FaintBadge label="Unpublished" />
-  if (visibility === 'unlisted') return <FaintBadge label="Unlisted" />
-  return (
-    <span className="rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
-      Public
-    </span>
-  )
-}
 
 interface RowProps
 {
@@ -129,70 +99,65 @@ const TemplateRow = ({ template, busy, onEdit, onTogglePublish }: RowProps) =>
         ? 'Publish failed'
         : PUBLISH_TOGGLE_LABEL[control.action]
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3 sm:flex-row sm:items-center sm:gap-4">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="truncate text-sm font-semibold text-[var(--t-text)]">
-            {template.title}
-          </span>
-          <VisibilityBadge
-            visibility={template.visibility}
-            publicationState={template.publicationState}
-          />
-        </div>
-        <p className="mt-0.5 text-[11px] text-[var(--t-text-faint)]">
+    <AccountRow
+      title={template.title}
+      badges={
+        <AccountVisibilityBadge
+          visibility={template.visibility}
+          publicationState={template.publicationState}
+        />
+      }
+      meta={
+        <>
           {categoryLabel} · Updated {formatRelativeTime(template.updatedAt)}
-        </p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[11px] text-[var(--t-text-muted)]">
-          <span className="inline-flex items-center gap-1">
-            <Layers className="h-3 w-3" strokeWidth={1.8} />
-            {formatCount(template.forkCount)} forks
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Eye className="h-3 w-3" strokeWidth={1.8} />
-            {formatCount(template.viewCount)} views
-          </span>
+        </>
+      }
+      stats={
+        <>
+          <AccountStat icon={Layers} value={template.forkCount} label="forks" />
+          <AccountStat icon={Eye} value={template.viewCount} label="views" />
           <span className="text-[var(--t-text-faint)]">
             {formatCount(template.weeklyForkCount)} this week
           </span>
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5 self-end sm:self-center">
-        {showGalleryLink && (
-          <Link
-            to={`${TEMPLATES_ROUTE_PATH}/${template.slug}`}
-            aria-label={`View ${template.title}`}
-            title="View in gallery"
-            className="focus-custom inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--t-border)] text-[var(--t-text-muted)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-          >
-            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.8} />
-          </Link>
-        )}
-        <button
-          type="button"
-          onClick={onEdit}
-          onMouseEnter={preloadPublishModal}
-          onFocus={preloadPublishModal}
-          aria-label={`Edit ${template.title}`}
-          title="Edit"
-          disabled={busy}
-          className="focus-custom inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--t-border)] text-[var(--t-text-muted)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} />
-        </button>
-        <button
-          type="button"
-          onClick={control.kind === 'toggle' ? onTogglePublish : undefined}
-          disabled={toggleDisabled}
-          className="focus-custom inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--t-border)] px-2.5 text-xs font-medium text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          {toggleSpinning && (
-            <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />
+        </>
+      }
+      actions={
+        <>
+          {showGalleryLink && (
+            <AccountIconLink
+              to={`${TEMPLATES_ROUTE_PATH}/${template.slug}`}
+              ariaLabel={`View ${template.title}`}
+              title="View in gallery"
+            >
+              <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.8} />
+            </AccountIconLink>
           )}
-          {toggleLabel}
-        </button>
-      </div>
-    </div>
+          <button
+            type="button"
+            onClick={onEdit}
+            onMouseEnter={preloadPublishModal}
+            onFocus={preloadPublishModal}
+            aria-label={`Edit ${template.title}`}
+            title="Edit"
+            disabled={busy}
+            className={`${ACCOUNT_ICON_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={control.kind === 'toggle' ? onTogglePublish : undefined}
+            disabled={toggleDisabled}
+            className="focus-custom inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--t-border)] px-2.5 text-xs font-medium text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          >
+            {toggleSpinning && (
+              <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />
+            )}
+            {toggleLabel}
+          </button>
+        </>
+      }
+    />
   )
 }
 
