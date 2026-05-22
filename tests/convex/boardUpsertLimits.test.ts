@@ -22,23 +22,8 @@ import {
   expectConvexCode,
   makeTest,
   seedCloudBoard,
+  seedUser,
 } from './convexTestHelpers'
-
-const seedUser = async (
-  t: ConvexTestHandle,
-  plan: 'free' | 'plus' = 'free'
-): Promise<Id<'users'>> =>
-  await t.run(
-    async (ctx) =>
-      await ctx.db.insert('users', {
-        name: 'Board User',
-        displayName: 'Board User',
-        email: 'board@example.com',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        plan,
-      })
-  )
 
 const makeMediaExternalIds = (count: number): string[] =>
   Array.from({ length: count }, (_, i) => `media-${i}`)
@@ -249,7 +234,7 @@ describe('upsertBoardState', () =>
   {
     const t = makeTest()
     const freeUserId = await seedUser(t)
-    const plusUserId = await seedUser(t, 'plus')
+    const plusUserId = await seedUser(t, undefined, { plan: 'plus' })
 
     await expectConvexCode(
       asUser(t, freeUserId).mutation(
@@ -297,7 +282,7 @@ describe('upsertBoardState', () =>
   it('accepts max-size Plus boards (incl. all-tombstone updates) within tx budget', async () =>
   {
     const t = makeTest()
-    const userId = await seedUser(t, 'plus')
+    const userId = await seedUser(t, undefined, { plan: 'plus' })
     const mediaIds = makeMediaExternalIds(MAX_LARGE_CLOUD_BOARD_ITEMS)
     await seedMediaAssets(t, userId, mediaIds)
     const caller = asUser(t, userId)
@@ -341,7 +326,7 @@ describe('upsertBoardState', () =>
   it('loads max-size boards even when recent tombstone churn exceeds the row window', async () =>
   {
     const t = makeTest()
-    const userId = await seedUser(t, 'plus')
+    const userId = await seedUser(t, undefined, { plan: 'plus' })
     const boardId = await t.run(
       async (ctx) =>
         await seedCloudBoard(ctx, {

@@ -42,6 +42,7 @@ import {
   seedCloudBoard,
   seedPublishedRanking,
   seedPublishedTemplate,
+  seedUser,
   withSeedEnv,
 } from './convexTestHelpers'
 
@@ -123,24 +124,6 @@ const setTemplateCriteria = async (
       slug,
       criteria,
     })
-  )
-
-const seedUser = async (
-  t: ConvexTestHandle,
-  name: string,
-  email: string,
-  plan: 'free' | 'plus' = 'free'
-): Promise<Id<'users'>> =>
-  await t.run(
-    async (ctx) =>
-      await ctx.db.insert('users', {
-        name,
-        displayName: name,
-        email,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        plan,
-      })
   )
 
 const withLargeTemplateJobsEnabled = async (

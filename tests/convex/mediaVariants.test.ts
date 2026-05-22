@@ -17,23 +17,8 @@ import {
   makeTest,
   seedCloudBoard,
   seedPublishedTemplate,
+  seedUser,
 } from './convexTestHelpers'
-
-const seedUser = async (
-  t: ConvexTestHandle,
-  name = 'Media User'
-): Promise<Id<'users'>> =>
-  await t.run(
-    async (ctx) =>
-      await ctx.db.insert('users', {
-        name,
-        displayName: name,
-        email: 'media@example.com',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        plan: 'free',
-      })
-  )
 
 const storeImageBlob = async (
   t: ConvexTestHandle,
@@ -79,7 +64,11 @@ describe('media variants', () =>
   {
     const t = makeTest()
     const userId = await seedUser(t)
-    const otherUserId = await seedUser(t, 'Other Media User')
+    const otherUserId = await seedUser(
+      t,
+      'Other Media User',
+      'other-media@example.com'
+    )
     const owned = await finalizeTileAsset(t, userId, 'owned-hash', [1, 2, 3])
     const other = await finalizeTileAsset(
       t,
@@ -128,7 +117,7 @@ describe('media variants', () =>
   {
     const t = makeTest()
     const ownerId = await seedUser(t)
-    const viewerId = await seedUser(t, 'Viewer')
+    const viewerId = await seedUser(t, 'Viewer', 'media-viewer@example.com')
     const asset = await finalizeTileAsset(
       t,
       ownerId,

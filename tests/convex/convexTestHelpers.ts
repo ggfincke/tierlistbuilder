@@ -66,12 +66,30 @@ export const expectConvexCode = async (
   )
 }
 
-export const seedUser = async (
+export function seedUser(
   t: ConvexTestHandle,
-  email: string = `user-${Math.random().toString(36).slice(2)}@example.com`,
-  patch: Partial<Doc<'users'>> = {}
-): Promise<Id<'users'>> =>
-  await t.run(async (ctx) =>
+  email?: string,
+  patch?: Partial<Doc<'users'>>
+): Promise<Id<'users'>>
+export function seedUser(
+  t: ConvexTestHandle,
+  name: string,
+  email: string,
+  plan?: Doc<'users'>['plan']
+): Promise<Id<'users'>>
+export async function seedUser(
+  t: ConvexTestHandle,
+  emailOrName: string = `user-${Math.random().toString(36).slice(2)}@example.com`,
+  patchOrEmail: Partial<Doc<'users'>> | string = {},
+  plan: Doc<'users'>['plan'] = 'free'
+): Promise<Id<'users'>>
+{
+  const isNamedUser = typeof patchOrEmail === 'string'
+  const email = isNamedUser ? patchOrEmail : emailOrName
+  const patch: Partial<Doc<'users'>> = isNamedUser
+    ? { name: emailOrName, displayName: emailOrName, plan }
+    : patchOrEmail
+  return await t.run(async (ctx) =>
   {
     const now = Date.now()
     return await ctx.db.insert('users', {
@@ -84,6 +102,7 @@ export const seedUser = async (
       ...patch,
     })
   })
+}
 
 export const buildPngHeader = (width: number, height: number): Uint8Array =>
 {

@@ -3,32 +3,11 @@
 
 import { describe, expect, it } from 'vitest'
 import { api } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
 import {
   DEFAULT_SHARE_LINK_TTL_MS,
   MAX_OWNED_SHORT_LINKS,
 } from '@tierlistbuilder/contracts/platform/shortLink'
-import {
-  asUser,
-  type ConvexTestHandle,
-  makeTest,
-} from './convexTestHelpers'
-
-const seedUser = async (
-  t: ConvexTestHandle,
-  name = 'Test User'
-): Promise<Id<'users'>> =>
-  await t.run(
-    async (ctx) =>
-      await ctx.db.insert('users', {
-        name,
-        displayName: name,
-        email: 'test@example.com',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        plan: 'free',
-      })
-  )
+import { asUser, makeTest, seedUser } from './convexTestHelpers'
 
 describe('short link Convex listing', () =>
 {

@@ -13,24 +13,10 @@ import {
   seedCloudBoard,
   seedPublishedRanking,
   seedPublishedTemplate,
+  seedUser,
 } from './convexTestHelpers'
 
 const TEMPLATE_SLUG = 'Cascade001'
-
-const seedUser = async (
-  t: ConvexTestHandle
-): Promise<Id<'users'>> =>
-  await t.run(
-    async (ctx) =>
-      await ctx.db.insert('users', {
-        name: 'Cascade User',
-        displayName: 'Cascade User',
-        email: 'cascade@example.com',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        plan: 'free',
-      })
-  )
 
 const seedAuthRows = async (
   t: ConvexTestHandle,
