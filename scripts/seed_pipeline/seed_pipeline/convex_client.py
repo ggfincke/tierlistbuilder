@@ -7,6 +7,7 @@ import json
 import os
 import re
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -22,6 +23,19 @@ HTTP_ATTEMPTS = 4
 HTTP_RETRY_BASE_SECONDS = 0.5
 HTTP_TIMEOUT_SECONDS = 600
 CONVEX_CLIENT_HEADER = "python-1.0.0"
+CONVEX_SITE_URL_ENV_NAMES = (
+	"CONVEX_SITE_URL",
+	"VITE_CONVEX_SITE_URL",
+	"CONVEX_URL",
+	"VITE_CONVEX_URL",
+)
+# substrings Convex emits when per-deployment write-rate caps trip. mirror
+# convex/lib/retry.ts isConvexWriteThrottleError when markers change
+CONVEX_WRITE_RATE_ERROR_MARKERS: tuple[str, ...] = (
+	"Too many writes per second",
+	"Too many concurrent commits",
+	"bytes written per 1 second",
+)
 
 SEED_HTTP_ROUTES = {
 	("query", "marketplace/seedRuns:resolveSeedState"): "/api/seed/state",
@@ -266,17 +280,7 @@ def read_seed_settings(
 ) -> ConvexSeedSettings:
 	# resolve explicit CLI args first, then shell env, then repo-local dotenv
 	env = load_dotenv(repo_root / ".env.local")
-	resolved_url = (
-		convex_url
-		or os.environ.get("CONVEX_SITE_URL")
-		or os.environ.get("VITE_CONVEX_SITE_URL")
-		or os.environ.get("CONVEX_URL")
-		or os.environ.get("VITE_CONVEX_URL")
-		or env.get("CONVEX_SITE_URL")
-		or env.get("VITE_CONVEX_SITE_URL")
-		or env.get("CONVEX_URL")
-		or env.get("VITE_CONVEX_URL")
-	)
+	resolved_url = resolve_convex_site_url(repo_root, convex_url)
 	resolved_secret = (
 		seed_secret or os.environ.get("CONVEX_SEED_SECRET") or env.get("CONVEX_SEED_SECRET")
 	)
@@ -297,6 +301,18 @@ def read_seed_settings(
 		author_password=resolved_author_password,
 		env_name=env_name,
 	)
+
+
+def resolve_convex_site_url(repo_root: Path, cli_override: str | None = None) -> str | None:
+	env = load_dotenv(repo_root / ".env.local")
+	value = _first_string(
+		(
+			cli_override,
+			*(os.environ.get(name) for name in CONVEX_SITE_URL_ENV_NAMES),
+			*(env.get(name) for name in CONVEX_SITE_URL_ENV_NAMES),
+		)
+	)
+	return normalize_convex_site_url(value) if value else None
 
 
 def normalize_convex_site_url(url: str) -> str:
@@ -323,6 +339,15 @@ def _replace_url_port(netloc: str, old_port: str, new_port: str) -> str:
 	if netloc.endswith(suffix):
 		return f"{netloc[: -len(suffix)]}:{new_port}"
 	return netloc
+
+
+def is_convex_write_rate_error(error: BaseException) -> bool:
+	message = str(error)
+	return any(marker in message for marker in CONVEX_WRITE_RATE_ERROR_MARKERS)
+
+
+def _first_string(values: Iterable[str | None]) -> str | None:
+	return next((value for value in values if value), None)
 
 
 def load_dotenv(path: Path) -> dict[str, str]:

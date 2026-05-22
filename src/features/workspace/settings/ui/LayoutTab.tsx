@@ -38,16 +38,11 @@ import { NumberStepper } from '~/shared/ui/NumberStepper'
 import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
 import { SettingRow } from '~/shared/ui/settings/SettingRow'
 import { Toggle } from '~/shared/ui/settings/Toggle'
-
-const LABEL_PLACEMENT_MODE_LABEL: Record<LabelPlacementMode, string> = {
-  overlay: 'Overlay',
-  captionAbove: 'Above',
-  captionBelow: 'Below',
-}
+import { PLACEMENT_MODE_LABELS_SHORT } from '~/features/workspace/imageEditor/lib/labelEditorOptions'
 
 const CAPTION_PLACEMENT_OPTIONS = (
-  Object.keys(LABEL_PLACEMENT_MODE_LABEL) as LabelPlacementMode[]
-).map((value) => ({ value, label: LABEL_PLACEMENT_MODE_LABEL[value] }))
+  Object.keys(PLACEMENT_MODE_LABELS_SHORT) as LabelPlacementMode[]
+).map((value) => ({ value, label: PLACEMENT_MODE_LABELS_SHORT[value] }))
 
 type AutoPlateStyle = 'auto' | 'white' | 'black' | 'custom'
 
@@ -339,7 +334,7 @@ export const LayoutTab = () =>
                 {
                   setDefaultLabelPlacementMode(mode)
                   announce(
-                    `Caption placement set to ${LABEL_PLACEMENT_MODE_LABEL[mode].toLowerCase()}`
+                    `Caption placement set to ${PLACEMENT_MODE_LABELS_SHORT[mode].toLowerCase()}`
                   )
                 }}
               />

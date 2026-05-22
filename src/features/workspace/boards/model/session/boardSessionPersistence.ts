@@ -65,7 +65,7 @@ const handleBoardPersistError = (boardId: BoardId, message: string): void =>
   useActiveBoardStore.getState().setRuntimeError(message)
 }
 
-const persistBoardSyncStateToStorage = (
+export const persistBoardSyncStateToStorageOnly = (
   boardId: BoardId,
   syncState: BoardSyncState
 ): void =>
@@ -171,7 +171,7 @@ export const persistBoardSyncState = (
 ): void =>
 {
   setActiveBoardSyncState(boardId, syncState)
-  persistBoardSyncStateToStorage(boardId, syncState)
+  persistBoardSyncStateToStorageOnly(boardId, syncState)
 }
 
 export const persistBoardStateForSync = (
@@ -191,12 +191,4 @@ export const persistBoardStateForSync = (
     syncState,
     onError: (message) => handleBoardPersistError(boardId, message),
   }).ok
-}
-
-export const persistBoardSyncStateToStorageOnly = (
-  boardId: BoardId,
-  syncState: BoardSyncState
-): void =>
-{
-  persistBoardSyncStateToStorage(boardId, syncState)
 }

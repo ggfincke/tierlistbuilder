@@ -179,8 +179,7 @@ export const templateCoverFramingValidator = v.object({
   card: v.union(coverFrameValidator, v.null()),
 })
 
-export const templateCardCoverItemValidator = v.object({
-  media: templateCardMediaValidator,
+const templateCoverItemBaseFields = {
   label: v.union(v.string(), v.null()),
   backgroundColor: v.union(v.string(), v.null()),
   mediaPlate: mediaPlateNullableValidator,
@@ -188,6 +187,11 @@ export const templateCardCoverItemValidator = v.object({
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
   imagePadding: v.union(v.number(), v.null()),
+}
+
+export const templateCardCoverItemValidator = v.object({
+  media: templateCardMediaValidator,
+  ...templateCoverItemBaseFields,
 })
 
 export const templateAuthorValidator = v.object({
@@ -198,14 +202,21 @@ export const templateAuthorValidator = v.object({
 
 export const templateCoverItemValidator = v.object({
   media: templateMediaRefValidator,
+  ...templateCoverItemBaseFields,
+})
+
+const marketplaceItemRenderFields = {
   label: v.union(v.string(), v.null()),
   backgroundColor: v.union(v.string(), v.null()),
   mediaPlate: mediaPlateNullableValidator,
+  altText: v.union(v.string(), v.null()),
+  media: v.union(templateMediaRefValidator, v.null()),
+  order: v.number(),
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: imageFitNullableValidator,
   transform: v.union(itemTransformValidator, v.null()),
   imagePadding: v.union(v.number(), v.null()),
-})
+}
 
 export const templateCriterionValidator = v.object({
   externalId: v.string(),
@@ -314,16 +325,7 @@ export const marketplaceTemplateDraftTemplateValidator = v.object({
 
 export const marketplaceTemplateItemValidator = v.object({
   externalId: v.string(),
-  label: v.union(v.string(), v.null()),
-  backgroundColor: v.union(v.string(), v.null()),
-  mediaPlate: mediaPlateNullableValidator,
-  altText: v.union(v.string(), v.null()),
-  media: v.union(templateMediaRefValidator, v.null()),
-  order: v.number(),
-  aspectRatio: v.union(v.number(), v.null()),
-  imageFit: imageFitNullableValidator,
-  transform: v.union(itemTransformValidator, v.null()),
-  imagePadding: v.union(v.number(), v.null()),
+  ...marketplaceItemRenderFields,
 })
 
 export const marketplaceTemplateDetailValidator = v.object({
@@ -412,16 +414,7 @@ export const marketplaceRankingItemValidator = v.object({
   externalId: v.string(),
   templateItemExternalId: v.string(),
   tierExternalId: v.union(v.string(), v.null()),
-  label: v.union(v.string(), v.null()),
-  backgroundColor: v.union(v.string(), v.null()),
-  mediaPlate: mediaPlateNullableValidator,
-  altText: v.union(v.string(), v.null()),
-  media: v.union(templateMediaRefValidator, v.null()),
-  order: v.number(),
-  aspectRatio: v.union(v.number(), v.null()),
-  imageFit: imageFitNullableValidator,
-  transform: v.union(itemTransformValidator, v.null()),
-  imagePadding: v.union(v.number(), v.null()),
+  ...marketplaceItemRenderFields,
 })
 
 export const marketplaceRankingDetailValidator = v.object({
@@ -516,16 +509,7 @@ export const marketplaceTemplateRankingAggregateDistributionCellValidator =
 export const marketplaceTemplateRankingAggregateItemValidator = v.object({
   externalId: v.string(),
   templateItemExternalId: v.string(),
-  label: v.union(v.string(), v.null()),
-  backgroundColor: v.union(v.string(), v.null()),
-  mediaPlate: mediaPlateNullableValidator,
-  altText: v.union(v.string(), v.null()),
-  media: v.union(templateMediaRefValidator, v.null()),
-  order: v.number(),
-  aspectRatio: v.union(v.number(), v.null()),
-  imageFit: imageFitNullableValidator,
-  transform: v.union(itemTransformValidator, v.null()),
-  imagePadding: v.union(v.number(), v.null()),
+  ...marketplaceItemRenderFields,
   sampleCount: v.number(),
   averageBucket: v.union(v.number(), v.null()),
   topBucketIndex: v.union(v.number(), v.null()),

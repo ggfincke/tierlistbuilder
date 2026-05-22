@@ -8,7 +8,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 
-import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { resolveItemLabel } from '~/shared/board-ui/labelDisplay'
 
 // font family can change caption line-height; keep it in the variant key
 export interface LabelBandVariant
@@ -35,12 +35,7 @@ export const getItemLabelBandVariant = ({
   globalLabelDefaults,
 }: VariantInput): LabelBandVariant | null =>
 {
-  const display = resolveLabelDisplay({
-    itemLabel: item.label,
-    itemOptions: item.labelOptions,
-    boardSettings: boardLabels,
-    globalLabelDefaults,
-  })
+  const display = resolveItemLabel(item, boardLabels, globalLabelDefaults)
   if (!display) return null
   if (
     display.placement.mode !== 'captionAbove' &&

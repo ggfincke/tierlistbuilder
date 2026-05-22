@@ -2,7 +2,7 @@
 // modal that publishes the active board: title + description + visibility +
 // criterion (when the template has multiple curated criteria)
 
-import { Clock, Loader2, Tag } from 'lucide-react'
+import { Clock, Tag } from 'lucide-react'
 import { useId, useMemo, useState, type FormEvent } from 'react'
 
 import {
@@ -14,14 +14,16 @@ import {
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
-import { PrimaryButton } from '~/shared/ui/PrimaryButton'
-import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { TextInput } from '~/shared/ui/TextInput'
 import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 import { usePublishRanking } from '~/features/marketplace/model/publish/usePublishRanking'
 import { useRankingPublishAvailability } from '~/features/marketplace/model/publish/useRankingPublishAvailability'
 import { pickInitialCriterionExternalId } from '~/features/marketplace/model/detail/criterionSelection'
+import {
+  LabeledTextArea,
+  LabeledTextField,
+  PublishSubmitFooter,
+} from './PublishFormFields'
 
 interface PublishRankingModalProps
 {
@@ -243,60 +245,33 @@ const PublishRankingForm = ({
 
   return (
     <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-      <div>
-        <label
-          htmlFor={titleFieldId}
-          className="block text-xs font-medium text-[var(--t-text-secondary)]"
-        >
-          Title
-        </label>
-        <TextInput
-          id={titleFieldId}
-          size="md"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          maxLength={MAX_RANKING_TITLE_LENGTH + 1}
-          placeholder="My personal Pokémon ranking"
-          className="mt-1 w-full"
-          disabled={isPending}
-          required
-        />
-        <div className="mt-1 flex justify-end text-[10px] text-[var(--t-text-faint)]">
-          <span
-            className={titleTooLong ? 'text-[var(--t-destructive-hover)]' : ''}
-          >
-            {trimmedTitle.length}/{MAX_RANKING_TITLE_LENGTH}
-          </span>
-        </div>
-      </div>
+      <LabeledTextField
+        id={titleFieldId}
+        label="Title"
+        value={title}
+        onChange={setTitle}
+        maxLength={MAX_RANKING_TITLE_LENGTH + 1}
+        placeholder="My personal Pokémon ranking"
+        disabled={isPending}
+        required
+        count={trimmedTitle.length}
+        max={MAX_RANKING_TITLE_LENGTH}
+        tooLong={titleTooLong}
+      />
 
-      <div>
-        <label
-          htmlFor={descFieldId}
-          className="block text-xs font-medium text-[var(--t-text-secondary)]"
-        >
-          Description
-        </label>
-        <textarea
-          id={descFieldId}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          maxLength={MAX_RANKING_DESCRIPTION_LENGTH + 1}
-          rows={3}
-          disabled={isPending}
-          placeholder="Optional — share your reasoning or hot takes."
-          className="focus-custom mt-1 w-full rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] placeholder:text-[var(--t-text-faint)] focus:border-[var(--t-border-hover)]"
-        />
-        <div className="mt-1 flex justify-end text-[10px] text-[var(--t-text-faint)]">
-          <span
-            className={
-              descriptionTooLong ? 'text-[var(--t-destructive-hover)]' : ''
-            }
-          >
-            {trimmedDescription.length}/{MAX_RANKING_DESCRIPTION_LENGTH}
-          </span>
-        </div>
-      </div>
+      <LabeledTextArea
+        id={descFieldId}
+        label="Description"
+        value={description}
+        onChange={setDescription}
+        maxLength={MAX_RANKING_DESCRIPTION_LENGTH + 1}
+        rows={3}
+        disabled={isPending}
+        placeholder="Optional — share your reasoning or hot takes."
+        count={trimmedDescription.length}
+        max={MAX_RANKING_DESCRIPTION_LENGTH}
+        tooLong={descriptionTooLong}
+      />
 
       {showCriterionPicker && (
         <CriterionPicker
@@ -370,21 +345,14 @@ const PublishRankingForm = ({
         </p>
       )}
 
-      <div className="flex items-center justify-end gap-2 border-t border-[var(--t-border)] pt-4">
-        <SecondaryButton type="button" disabled={isPending} onClick={onClose}>
-          Cancel
-        </SecondaryButton>
-        <PrimaryButton type="submit" size="md" disabled={!canSubmit}>
-          {isPending ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-              Publishing…
-            </>
-          ) : (
-            'Publish ranking'
-          )}
-        </PrimaryButton>
-      </div>
+      <PublishSubmitFooter
+        isPending={isPending}
+        canSubmit={canSubmit}
+        onCancel={onClose}
+        pendingLabel="Publishing…"
+        submitLabel="Publish ranking"
+        className="flex items-center justify-end gap-2 border-t border-[var(--t-border)] pt-4"
+      />
     </form>
   )
 }

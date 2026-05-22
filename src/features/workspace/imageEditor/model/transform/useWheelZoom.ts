@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 
 import type { ItemRotation } from '@tierlistbuilder/contracts/workspace/board'
 import { getPaddingFrameScale } from '~/shared/board-ui/aspectRatio'
+import { clamp } from '~/shared/lib/math'
 import {
   getDisplayZoomBounds,
   WHEEL_ZOOM_SENSITIVITY,
@@ -28,7 +29,7 @@ const normalizeCursorFraction = (
 ): number =>
 {
   const raw = (cursorPos - frameStart) / frameSize - 0.5
-  return Math.max(-0.5, Math.min(0.5, raw))
+  return clamp(raw, -0.5, 0.5)
 }
 
 export const useWheelZoom = ({

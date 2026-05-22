@@ -1,5 +1,6 @@
 // src/shared/lib/sha256.ts
-// sha256 helper — hex digest via SubtleCrypto, no external dependency
+// sha256 helper — hex digest via SubtleCrypto, no external dependency.
+// mirrors convex/lib/sha256.ts; runtime import graphs keep copies separate
 
 // compute sha256 of a BufferSource & return a lowercase hex string
 export const sha256Hex = async (bytes: BufferSource): Promise<string> =>

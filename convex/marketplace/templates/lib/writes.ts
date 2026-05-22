@@ -19,6 +19,7 @@ import {
   readTemplateCounters,
   MARKETPLACE_STATS_KEY,
   type TemplateCounterSource,
+  type TemplateProjectionCache,
   type TemplateStatsCounters,
 } from './trending'
 import { failState } from './normalize'
@@ -157,10 +158,49 @@ export const setSourceBoardLivePublicTemplate = async (
   })
 }
 
+export const creditTemplateAsPublic = async (
+  ctx: MutationCtx,
+  template: Pick<Doc<'templates'>, '_id' | 'category'>,
+  sourceBoard: Doc<'boards'> | null,
+  now: number
+): Promise<void> =>
+{
+  await adjustPublicTemplateCount(ctx, [
+    { category: template.category, delta: 1 },
+  ])
+  await setSourceBoardLivePublicTemplate(ctx, sourceBoard, template._id, now)
+}
+
 export interface PublicCategoryDelta
 {
   category: TemplateCategory
   delta: number
+}
+
+export const upsertMarketplaceStats = async (
+  ctx: MutationCtx,
+  stats: {
+    publicTemplateCount: number
+    publicTemplateCountByCategory: Record<string, number>
+    updatedAt: number
+  }
+): Promise<void> =>
+{
+  const existing = await ctx.db
+    .query('marketplaceStats')
+    .withIndex('byKey', (q) => q.eq('key', MARKETPLACE_STATS_KEY))
+    .unique()
+
+  if (existing)
+  {
+    await ctx.db.patch(existing._id, stats)
+    return
+  }
+
+  await ctx.db.insert('marketplaceStats', {
+    key: MARKETPLACE_STATS_KEY,
+    ...stats,
+  })
 }
 
 // batch-update both the total & per-category breakdown in a single read+write.
@@ -176,7 +216,7 @@ export const adjustPublicTemplateCount = async (
     return
   }
   const totalDelta = changes.reduce((sum, change) => sum + change.delta, 0)
-  if (totalDelta === 0 && changes.every((change) => change.delta === 0))
+  if (changes.every((change) => change.delta === 0))
   {
     return
   }
@@ -203,22 +243,10 @@ export const adjustPublicTemplateCount = async (
     }
   }
 
-  const now = Date.now()
-  if (stats)
-  {
-    await ctx.db.patch(stats._id, {
-      publicTemplateCount: nextCount,
-      publicTemplateCountByCategory: nextByCategory,
-      updatedAt: now,
-    })
-    return
-  }
-
-  await ctx.db.insert('marketplaceStats', {
-    key: MARKETPLACE_STATS_KEY,
+  await upsertMarketplaceStats(ctx, {
     publicTemplateCount: nextCount,
     publicTemplateCountByCategory: nextByCategory,
-    updatedAt: now,
+    updatedAt: Date.now(),
   })
 }
 
@@ -333,13 +361,20 @@ const incrementTemplateMetric = async (
 
 export const incrementTemplateForkStats = async (
   ctx: MutationCtx,
+  template: Doc<'templates'>,
+  now: number
+): Promise<TemplateStatsCounters> =>
+  await incrementTemplateMetric(ctx, template, now, 'forkCount')
+
+export const incrementTemplateForkStatsById = async (
+  ctx: MutationCtx,
   templateId: Id<'templates'>,
   now: number
 ): Promise<TemplateStatsCounters> =>
 {
   const template = await ctx.db.get(templateId)
   if (!template) return failState(`template missing: ${templateId}`)
-  return await incrementTemplateMetric(ctx, template, now, 'forkCount')
+  return await incrementTemplateForkStats(ctx, template, now)
 }
 
 export const incrementTemplateViewStats = async (
@@ -379,13 +414,15 @@ export const deleteTemplateParentForCascade = async (
 export const writeTemplateCard = async (
   ctx: MutationCtx,
   template: TemplateCardSource,
-  stats: TemplateCounterSource
+  stats: TemplateCounterSource,
+  cache?: TemplateProjectionCache
 ): Promise<void> =>
 {
   const fields = await buildTemplateCardFields(
     ctx,
     template,
-    getInitialTemplateCardMetrics(readTemplateCounters(stats))
+    getInitialTemplateCardMetrics(readTemplateCounters(stats)),
+    cache
   )
   const existing = await findTemplateCardByTemplateId(ctx, template._id)
   if (existing)
@@ -401,7 +438,8 @@ export const writeTemplateCard = async (
 // must not zero them. falls back to templateStats only on first insert
 export const writeTemplateCardPreservingCounters = async (
   ctx: MutationCtx,
-  template: TemplateCardSource
+  template: TemplateCardSource,
+  cache?: TemplateProjectionCache
 ): Promise<void> =>
 {
   const card = await findTemplateCardByTemplateId(ctx, template._id)
@@ -410,7 +448,7 @@ export const writeTemplateCardPreservingCounters = async (
     : getInitialTemplateCardMetrics(
         readTemplateCounters(await requireTemplateStats(ctx, template._id))
       )
-  const fields = await buildTemplateCardFields(ctx, template, metrics)
+  const fields = await buildTemplateCardFields(ctx, template, metrics, cache)
   if (card)
   {
     await ctx.db.patch(card._id, fields)

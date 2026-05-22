@@ -9,6 +9,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import { selectMediaVariantSummary } from '../../../lib/mediaVariants'
 import { memoizePromise } from '../../../lib/cache'
+import { findTemplateBySlug } from '../../../lib/marketplaceLookups'
 import type {
   MarketplaceTemplateDraftTemplate,
   MarketplaceTemplateBase,
@@ -33,7 +34,7 @@ import {
   type TemplateProjectionCache,
 } from './trending'
 import { buildSearchText, failState } from './normalize'
-import { getTemplateAccessState } from './state'
+import { getTemplateAccessState, isPublishedTemplateRow } from './state'
 import { resolveTemplateCriteria } from '../criteria'
 
 type DbCtx = QueryCtx | MutationCtx
@@ -68,6 +69,28 @@ export type TemplateCardSource = Pick<
 >
 
 type TemplateCardMedia = NonNullable<Doc<'templateCards'>['coverMedia']>
+
+type CoverItemPresentationSource = {
+  label?: TemplateCoverItem['label']
+  backgroundColor?: TemplateCoverItem['backgroundColor']
+  mediaPlate?: TemplateCoverItem['mediaPlate']
+  aspectRatio?: TemplateCoverItem['aspectRatio']
+  imageFit?: TemplateCoverItem['imageFit']
+  transform?: TemplateCoverItem['transform']
+  imagePadding?: TemplateCoverItem['imagePadding']
+}
+
+export const pickCoverItemPresentationFields = (
+  item: CoverItemPresentationSource
+): Omit<TemplateCoverItem, 'media'> => ({
+  label: item.label ?? null,
+  backgroundColor: item.backgroundColor ?? null,
+  mediaPlate: item.mediaPlate ?? null,
+  aspectRatio: item.aspectRatio ?? null,
+  imageFit: item.imageFit ?? null,
+  transform: item.transform ?? null,
+  imagePadding: item.imagePadding ?? null,
+})
 
 export interface PublicTemplateStats
 {
@@ -197,15 +220,7 @@ export const toTemplateMediaRef = async (
   kind: MediaVariantKind,
   cache?: TemplateProjectionCache
 ): Promise<TemplateMediaRef | null> =>
-{
-  if (!mediaAssetId) return null
-  const asset = await loadAsset(ctx, mediaAssetId, cache)
-  if (!asset)
-  {
-    return failState(`dangling template media reference: ${mediaAssetId}`)
-  }
-  return await buildMediaRef(ctx, asset, kind, cache)
-}
+  await toTemplateMediaRefWithFallback(ctx, mediaAssetId, [kind], cache)
 
 export const toTemplateMediaRefWithFallback = async (
   ctx: DbCtx,
@@ -256,13 +271,7 @@ export const loadCoverItems = async (
       return media
         ? {
             media,
-            label: item.label,
-            backgroundColor: item.backgroundColor,
-            mediaPlate: item.mediaPlate ?? null,
-            aspectRatio: item.aspectRatio,
-            imageFit: item.imageFit,
-            transform: item.transform,
-            imagePadding: item.imagePadding ?? null,
+            ...pickCoverItemPresentationFields(item),
           }
         : null
     })
@@ -366,13 +375,7 @@ const toTemplateCardCoverItems = async (
       return media
         ? {
             media,
-            label: item.label,
-            backgroundColor: item.backgroundColor,
-            mediaPlate: item.mediaPlate ?? null,
-            aspectRatio: item.aspectRatio,
-            imageFit: item.imageFit,
-            transform: item.transform,
-            imagePadding: item.imagePadding ?? null,
+            ...pickCoverItemPresentationFields(item),
           }
         : null
     })
@@ -412,11 +415,11 @@ const toTemplateCardAuthorFields = async (
 export const buildTemplateCardFields = async (
   ctx: DbCtx,
   template: TemplateCardSource,
-  metrics: TemplateCardMetrics
+  metrics: TemplateCardMetrics,
+  cache: TemplateProjectionCache = createTemplateProjectionCache()
 ): Promise<Omit<Doc<'templateCards'>, '_id' | '_creationTime'>> =>
 {
   const author = await toTemplateCardAuthorFields(ctx, template.authorId)
-  const cache = createTemplateProjectionCache()
   const [coverMedia, coverItems] = await Promise.all([
     toTemplateCardMedia(
       ctx,
@@ -536,13 +539,7 @@ const toTemplateCardCoverItem = async (
   return media
     ? {
         media,
-        label: item.label,
-        backgroundColor: item.backgroundColor,
-        mediaPlate: item.mediaPlate ?? null,
-        aspectRatio: item.aspectRatio,
-        imageFit: item.imageFit,
-        transform: item.transform,
-        imagePadding: item.imagePadding ?? null,
+        ...pickCoverItemPresentationFields(item),
       }
     : null
 }
@@ -790,11 +787,11 @@ export const toTemplateDraft = async (
   }
 }
 
-export const findTemplateBySlug = async (
+export const loadPublishedTemplateBySlug = async (
   ctx: DbCtx,
   slug: string
 ): Promise<Doc<'templates'> | null> =>
-  await ctx.db
-    .query('templates')
-    .withIndex('bySlug', (q) => q.eq('slug', slug))
-    .unique()
+{
+  const template = await findTemplateBySlug(ctx, slug)
+  return template && isPublishedTemplateRow(template) ? template : null
+}

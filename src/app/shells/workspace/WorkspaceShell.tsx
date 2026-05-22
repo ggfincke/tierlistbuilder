@@ -102,32 +102,25 @@ export const WorkspaceShell = () =>
     undefined,
     cloudEnabled && activeBoardId !== null
   )
-  const handleOpenPublishRanking = useCallback(() =>
+  const canPublishRanking =
+    cloudEnabled &&
+    activeBoardId !== null &&
+    Boolean(rankingPublishAvailability?.canPublish)
+  const handlePublishRanking = useCallback(() =>
   {
-    if (!activeBoardId) return
+    if (!canPublishRanking || activeBoardId === null) return
     openModal('publishRanking', {
       boardExternalId: activeBoardId,
       defaultTitle: activeBoardTitle,
     })
-  }, [activeBoardId, activeBoardTitle, openModal])
-  const handleOpenPublishTemplate = useCallback(() =>
+  }, [activeBoardId, activeBoardTitle, canPublishRanking, openModal])
+  const handlePublishTemplate = useCallback(() =>
   {
+    if (!cloudEnabled) return
     openModal('publishTemplate', {
       initialBoardExternalId: activeBoardId ?? null,
     })
-  }, [activeBoardId, openModal])
-  // mirror the mutation gate before surfacing the ranking publish entry
-  const handlePublishRanking =
-    cloudEnabled &&
-    activeBoardId !== null &&
-    rankingPublishAvailability?.canPublish
-      ? handleOpenPublishRanking
-      : undefined
-  // template publish needs sign-in too; PublishModal itself handles the empty
-  // boards list (BoardPicker shows a placeholder + the submit guard catches it)
-  const handlePublishTemplate = cloudEnabled
-    ? handleOpenPublishTemplate
-    : undefined
+  }, [activeBoardId, cloudEnabled, openModal])
   if (!appReady)
   {
     return (
@@ -185,8 +178,15 @@ export const WorkspaceShell = () =>
                       onPreviewExport: exportActions.handlePreviewExport,
                     }}
                     publish={{
-                      ranking: handlePublishRanking,
-                      template: handlePublishTemplate,
+                      // mirror the mutation gate before surfacing ranking publish
+                      ranking: canPublishRanking
+                        ? handlePublishRanking
+                        : undefined,
+                      // template publish needs sign-in too; PublishModal handles
+                      // the empty-board placeholder + submit guard
+                      template: cloudEnabled
+                        ? handlePublishTemplate
+                        : undefined,
                       signInRequired: !cloudEnabled,
                     }}
                     onReset={handleResetBoard}

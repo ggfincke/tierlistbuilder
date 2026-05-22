@@ -45,6 +45,7 @@ import { CompareDivergenceTable } from '~/features/marketplace/ui/consensus/comp
 import { CompareInsightStrip } from '~/features/marketplace/ui/consensus/compare/CompareInsightStrip'
 import { CompareLaneHeader } from '~/features/marketplace/ui/consensus/compare/CompareLaneHeader'
 import { CompareNarrativeCards } from '~/features/marketplace/ui/consensus/compare/CompareNarrativeCards'
+import { CompareSectionHeading } from '~/features/marketplace/ui/consensus/compare/CompareSectionHeading'
 import { CompareScatter } from '~/features/marketplace/ui/consensus/compare/CompareScatter'
 import { CompareSideBySideTiers } from '~/features/marketplace/ui/consensus/compare/CompareSideBySideTiers'
 import { CompareTierFlow } from '~/features/marketplace/ui/consensus/compare/CompareTierFlow'
@@ -273,7 +274,6 @@ const CompareBody = ({
   )
 
   const frame = templateFrame(detail)
-  const displaySettings = detail
   const leftShortName = leftCriterion.shortName ?? leftCriterion.name
   const rightShortName = rightCriterion.shortName ?? rightCriterion.name
 
@@ -398,53 +398,53 @@ const CompareBody = ({
               mostDivergent={insights.mostDivergent}
               buckets={buckets}
               frame={frame}
-              displaySettings={displaySettings}
+              displaySettings={detail}
               leftShortName={leftShortName}
               rightShortName={rightShortName}
             />
           </section>
 
           <section className="mt-8">
-            <div className="mb-3">
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-                Side by side
-              </p>
-              <h2 className="mt-0.5 text-xl font-semibold tracking-tight text-[var(--t-text)]">
-                Both rosters, ranked
-              </h2>
-              <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-                Each lane laid out as its own tier list. Compare tiers across
-                the two for a quick read on where the rankings diverge.
-              </p>
-            </div>
+            <CompareSectionHeading
+              eyebrow="Side by side"
+              title="Both rosters, ranked"
+              body={
+                <>
+                  Each lane laid out as its own tier list. Compare tiers across
+                  the two for a quick read on where the rankings diverge.
+                </>
+              }
+            />
             <CompareSideBySideTiers
               rows={joinedRows}
               buckets={buckets}
               frame={frame}
-              displaySettings={displaySettings}
+              displaySettings={detail}
               leftShortName={leftShortName}
               rightShortName={rightShortName}
             />
           </section>
 
           <section className="mt-8">
-            <div className="mb-3">
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-                Where the lanes disagree
-              </p>
-              <h2 className="mt-0.5 text-xl font-semibold tracking-tight text-[var(--t-text)]">
-                Biggest gaps between {leftShortName} and {rightShortName}
-              </h2>
-              <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-                Sorted by absolute tier distance. Direction shows which lane
-                rates the item higher.
-              </p>
-            </div>
+            <CompareSectionHeading
+              eyebrow="Where the lanes disagree"
+              title={
+                <>
+                  Biggest gaps between {leftShortName} and {rightShortName}
+                </>
+              }
+              body={
+                <>
+                  Sorted by absolute tier distance. Direction shows which lane
+                  rates the item higher.
+                </>
+              }
+            />
             <CompareDivergenceTable
               rows={joinedRows}
               buckets={buckets}
               frame={frame}
-              displaySettings={displaySettings}
+              displaySettings={detail}
               leftShortName={leftShortName}
               rightShortName={rightShortName}
             />

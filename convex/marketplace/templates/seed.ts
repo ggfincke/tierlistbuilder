@@ -25,6 +25,7 @@ import {
   patchTemplateAndSyncCard,
   patchTemplateAndSyncCardById,
   syncTemplateTagRows,
+  upsertMarketplaceStats,
   writeTemplateCard,
 } from './lib/writes'
 import { requireSeedAuthorized } from '../seedAuth'
@@ -479,28 +480,12 @@ export const recomputeMarketplaceStatsImpl = internalMutation({
       countByCategory[card.category] = (countByCategory[card.category] ?? 0) + 1
     }
 
-    const stats = await ctx.db
-      .query('marketplaceStats')
-      .withIndex('byKey', (q) => q.eq('key', MARKETPLACE_STATS_KEY))
-      .unique()
     const now = Date.now()
-    if (stats)
-    {
-      await ctx.db.patch(stats._id, {
-        publicTemplateCount: count,
-        publicTemplateCountByCategory: countByCategory,
-        updatedAt: now,
-      })
-    }
-    else
-    {
-      await ctx.db.insert('marketplaceStats', {
-        key: MARKETPLACE_STATS_KEY,
-        publicTemplateCount: count,
-        publicTemplateCountByCategory: countByCategory,
-        updatedAt: now,
-      })
-    }
+    await upsertMarketplaceStats(ctx, {
+      publicTemplateCount: count,
+      publicTemplateCountByCategory: countByCategory,
+      updatedAt: now,
+    })
     return { count, countByCategory }
   },
 })
@@ -739,8 +724,31 @@ const wipePhaseValidator = v.union(
 )
 type WipePhase = Infer<typeof wipePhaseValidator>
 
-const emptyWipeMutationResult = (isDone: boolean) => ({
-  isDone,
+interface WipeBatchResult
+{
+  templatesDeleted: number
+  itemsDeleted: number
+  tagsDeleted: number
+  cardsDeleted: number
+  statsDeleted: number
+  boardsDeleted: number
+  boardItemsDeleted: number
+  boardTiersDeleted: number
+  marketplaceStatsCleared: boolean
+}
+
+const NUMERIC_WIPE_KEYS = [
+  'templatesDeleted',
+  'itemsDeleted',
+  'tagsDeleted',
+  'cardsDeleted',
+  'statsDeleted',
+  'boardsDeleted',
+  'boardItemsDeleted',
+  'boardTiersDeleted',
+] as const satisfies readonly (keyof WipeBatchResult)[]
+
+const emptyWipeBatchResult = (): WipeBatchResult => ({
   templatesDeleted: 0,
   itemsDeleted: 0,
   tagsDeleted: 0,
@@ -750,6 +758,11 @@ const emptyWipeMutationResult = (isDone: boolean) => ({
   boardItemsDeleted: 0,
   boardTiersDeleted: 0,
   marketplaceStatsCleared: false,
+})
+
+const emptyWipeMutationResult = (isDone: boolean) => ({
+  isDone,
+  ...emptyWipeBatchResult(),
 })
 
 export const wipeSeededDataBatchImpl = internalMutation({
@@ -866,32 +879,11 @@ export const wipeSeededDataBatchImpl = internalMutation({
       await ctx.db.delete(marketplaceStats._id)
     }
     return {
-      isDone: true,
-      templatesDeleted: 0,
-      itemsDeleted: 0,
-      tagsDeleted: 0,
-      cardsDeleted: 0,
-      statsDeleted: 0,
-      boardsDeleted: 0,
-      boardItemsDeleted: 0,
-      boardTiersDeleted: 0,
+      ...emptyWipeMutationResult(true),
       marketplaceStatsCleared: marketplaceStats !== null,
     }
   },
 })
-
-interface WipeBatchResult
-{
-  templatesDeleted: number
-  itemsDeleted: number
-  tagsDeleted: number
-  cardsDeleted: number
-  statsDeleted: number
-  boardsDeleted: number
-  boardItemsDeleted: number
-  boardTiersDeleted: number
-  marketplaceStatsCleared: boolean
-}
 
 export const wipeSeededDataBatch = action({
   args: { seedSecret: v.string() },
@@ -909,17 +901,7 @@ export const wipeSeededDataBatch = action({
   handler: async (ctx, args): Promise<WipeBatchResult> =>
   {
     requireSeedAuthorized(args.seedSecret)
-    const totals: WipeBatchResult = {
-      templatesDeleted: 0,
-      itemsDeleted: 0,
-      tagsDeleted: 0,
-      cardsDeleted: 0,
-      statsDeleted: 0,
-      boardsDeleted: 0,
-      boardItemsDeleted: 0,
-      boardTiersDeleted: 0,
-      marketplaceStatsCleared: false,
-    }
+    const totals = emptyWipeBatchResult()
     const phases: WipePhase[] = [
       'templates',
       'forkedBoards',
@@ -933,14 +915,10 @@ export const wipeSeededDataBatch = action({
           internal.marketplace.templates.seed.wipeSeededDataBatchImpl,
           { phase }
         )
-        totals.templatesDeleted += result.templatesDeleted
-        totals.itemsDeleted += result.itemsDeleted
-        totals.tagsDeleted += result.tagsDeleted
-        totals.cardsDeleted += result.cardsDeleted
-        totals.statsDeleted += result.statsDeleted
-        totals.boardsDeleted += result.boardsDeleted
-        totals.boardItemsDeleted += result.boardItemsDeleted
-        totals.boardTiersDeleted += result.boardTiersDeleted
+        for (const key of NUMERIC_WIPE_KEYS)
+        {
+          totals[key] += result[key]
+        }
         totals.marketplaceStatsCleared =
           totals.marketplaceStatsCleared || result.marketplaceStatsCleared
         if (result.isDone) break

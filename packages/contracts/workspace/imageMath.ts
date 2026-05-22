@@ -1,5 +1,6 @@
 // packages/contracts/workspace/imageMath.ts
 // pure image-transform & auto-crop math shared by browser-facing modules
+// mirrored by scripts/seed_pipeline/seed_pipeline/crop.py for seed-time assets
 
 import type { ImageFit, ItemTransform } from './board'
 import {

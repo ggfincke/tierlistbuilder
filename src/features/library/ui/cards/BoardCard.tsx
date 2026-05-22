@@ -11,6 +11,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 
 import { LIBRARY_SYNC_META } from '~/features/library/lib/statusMeta'
+import { makeBoardClickHandler } from '~/features/library/lib/boardClickHandler'
 import { PUBLISH_STATE_META } from '~/shared/board-ui/publishStateMeta'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { formatCountedWord } from '~/shared/lib/pluralize'
@@ -83,19 +84,14 @@ const BoardCardImpl = ({
   const isLive = board.publishState === 'live'
   const publishMeta = PUBLISH_STATE_META[board.publishState]
   const syncMeta = LIBRARY_SYNC_META[board.syncState]
-
-  const handleClick = () =>
-  {
-    if (!onOpen || isPending) return
-    onOpen(board)
-  }
+  const openAction = makeBoardClickHandler(onOpen, isPending, board)
 
   return (
     <div className="group relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] transition focus-within:border-[var(--t-border-secondary)] hover:-translate-y-0.5 hover:border-[var(--t-border-secondary)] hover:shadow-lg">
       <button
         type="button"
-        onClick={handleClick}
-        disabled={!onOpen || isPending}
+        onClick={openAction.onClick}
+        disabled={openAction.disabled}
         aria-label={`${board.title} — ${publishMeta.label}, ${syncMeta.label}`}
         aria-busy={isPending || undefined}
         className="focus-custom relative flex h-full w-full min-w-0 flex-col text-left focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] disabled:cursor-progress disabled:opacity-70"

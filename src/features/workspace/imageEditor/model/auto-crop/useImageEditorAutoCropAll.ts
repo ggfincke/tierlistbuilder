@@ -9,7 +9,6 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
-  areCachedAutoCropsApplied,
   getAutoCropImageRef,
   isCachedAutoCropApplied,
 } from '~/shared/lib/autoCrop/pipeline'
@@ -39,6 +38,7 @@ export const useImageEditorAutoCropAll = ({
   useAutoCropCacheVersion()
   const {
     abort: cancelAutoCropAll,
+    areCachedTransformsApplied,
     progress: autoCropProgress,
     run: runAutoCropTransforms,
   } = useCollectAutoCropTransformsRunner()
@@ -73,13 +73,11 @@ export const useImageEditorAutoCropAll = ({
     ]
   )
 
-  const autoCropAllApplied =
-    !autoCropProgress.running &&
-    areCachedAutoCropsApplied(
-      filteredItems,
-      getBoardAspectRatioForItem,
-      trimSoftShadows
-    )
+  const autoCropAllApplied = areCachedTransformsApplied({
+    targets: filteredItems,
+    getBoardAspectRatio: getBoardAspectRatioForItem,
+    trimSoftShadows,
+  })
 
   const getPendingManualTarget = useCallback(
     (pendingEdit: PendingImageEditorPaneEdit | null): TierItem | null =>

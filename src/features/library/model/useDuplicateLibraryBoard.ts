@@ -37,7 +37,7 @@ export const useDuplicateLibraryBoard = (): DuplicateLibraryBoardAction =>
         {
           const inRegistry = useWorkspaceBoardRegistryStore
             .getState()
-            .boards.some((b) => b.id === externalId)
+            .isBoardInRegistry(externalId)
 
           // duplicateBoardSession reads the snapshot via the registry & the
           // copy ends up active anyway, so activating here is fine

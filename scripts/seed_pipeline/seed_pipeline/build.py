@@ -22,7 +22,6 @@ from .concurrency import run_in_parallel
 from .crop import RatioDecision, resolve_item_transform, resolve_ratio_decision
 from .manifest import (
 	JsonObject,
-	iter_compiled_assets,
 	read_json,
 	repo_relative,
 	write_json,
@@ -413,17 +412,20 @@ def _compiled_variants_present(compiled: JsonObject) -> bool:
 	for template in templates:
 		if not isinstance(template, dict):
 			return False
+		cover = template.get("coverImage")
+		if cover is not None:
+			if not isinstance(cover, dict):
+				return False
+			if not _asset_variants_present(cover):
+				return False
 		for item in template.get("items") or []:
 			if not isinstance(item, dict):
 				return False
-			if not isinstance(item.get("asset"), dict):
+			asset = item.get("asset")
+			if not isinstance(asset, dict):
 				return False
-		cover = template.get("coverImage")
-		if cover is not None and not isinstance(cover, dict):
-			return False
-	for asset in iter_compiled_assets(compiled):
-		if not _asset_variants_present(asset):
-			return False
+			if not _asset_variants_present(asset):
+				return False
 	return True
 
 

@@ -2,7 +2,10 @@
 // keyboard browse & drag state-machine helpers for tier items
 
 import { announce } from '~/shared/a11y/announce'
-import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
+import {
+  announceItemsDropped,
+  getContainerLabel,
+} from '~/features/workspace/boards/lib/containerLabel'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
@@ -191,7 +194,6 @@ const handleKeyboardPickupDropKey = (itemId: ItemId) =>
   {
     const droppedItemId = state.activeItemId
     const groupCount = state.dragGroupIds.length
-    const label = state.items[droppedItemId]?.label ?? 'item'
     state.commitDragPreview()
     state.setActiveItemId(null)
     state.setKeyboardFocusItemId(droppedItemId)
@@ -199,14 +201,7 @@ const handleKeyboardPickupDropKey = (itemId: ItemId) =>
     scheduleKeyboardFocusRestore(droppedItemId)
 
     const fresh = useActiveBoardStore.getState()
-    const snapshot = getEffectiveContainerSnapshot(fresh)
-    const containerId = findContainer(snapshot, droppedItemId)
-    const dest = getContainerLabel(containerId, fresh.tiers)
-    announce(
-      groupCount > 1
-        ? `Dropped ${formatCountedWord(groupCount, 'item')} in ${dest}`
-        : `Dropped ${label} in ${dest}`
-    )
+    announceItemsDropped(fresh, droppedItemId, groupCount)
     return
   }
 

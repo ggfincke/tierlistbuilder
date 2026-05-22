@@ -69,6 +69,26 @@ const toDeletedBoardListItem = (board: Doc<'boards'>): DeletedBoardListItem =>
   }
 }
 
+const loadOwnedBoardState = async (
+  ctx: QueryCtx,
+  userId: Id<'users'>,
+  externalId: string
+): Promise<CloudBoardState | null> =>
+{
+  const board = await findOwnedActiveBoardByExternalId(ctx, externalId, userId)
+  if (!board || board.materializationState !== 'ready')
+  {
+    return null
+  }
+
+  const { serverTiers, serverItems } = await loadBoundedBoardRows(
+    ctx,
+    board._id
+  )
+
+  return loadBoardCloudState(ctx, board, serverTiers, serverItems)
+}
+
 // list non-deleted boards, newest updated first. byOwnerDeletedUpdatedAt has
 // updatedAt trailing so order('desc') avoids a full-table scan + in-memory sort
 export const getMyBoards = query({
@@ -107,26 +127,7 @@ export const getBoardStateByExternalId = query({
       return null
     }
 
-    const board = await findOwnedActiveBoardByExternalId(
-      ctx,
-      args.boardExternalId,
-      userId
-    )
-    if (!board)
-    {
-      return null
-    }
-    if (board.materializationState !== 'ready')
-    {
-      return null
-    }
-
-    const { serverTiers, serverItems } = await loadBoundedBoardRows(
-      ctx,
-      board._id
-    )
-
-    return loadBoardCloudState(ctx, board, serverTiers, serverItems)
+    return await loadOwnedBoardState(ctx, userId, args.boardExternalId)
   },
 })
 
@@ -173,29 +174,9 @@ export const getBoardStatesByExternalIds = query({
     }
 
     return Promise.all(
-      args.boardExternalIds.map(async (boardExternalId) =>
-      {
-        const board = await findOwnedActiveBoardByExternalId(
-          ctx,
-          boardExternalId,
-          userId
-        )
-        if (!board)
-        {
-          return null
-        }
-        if (board.materializationState !== 'ready')
-        {
-          return null
-        }
-
-        const { serverTiers, serverItems } = await loadBoundedBoardRows(
-          ctx,
-          board._id
-        )
-
-        return loadBoardCloudState(ctx, board, serverTiers, serverItems)
-      })
+      args.boardExternalIds.map((boardExternalId) =>
+        loadOwnedBoardState(ctx, userId, boardExternalId)
+      )
     )
   },
 })

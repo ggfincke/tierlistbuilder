@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react'
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { resolveBucketColor } from '../lib/utils'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { clamp } from '~/shared/lib/math'
 
 import {
   compareDeltaDirectionTone,
@@ -62,8 +63,7 @@ export const CompareScatter = ({
           // color the dot by the average of both lanes' buckets so the
           // visual identity reads as "where the item lands overall"
           const avgIndex = Math.round((xValue + yValue) / 2)
-          const colorBucket =
-            buckets[Math.max(0, Math.min(bucketCount - 1, avgIndex))]
+          const colorBucket = buckets[clamp(avgIndex, 0, bucketCount - 1)]
           return {
             externalId: row.templateItemExternalId,
             label: getAggregateItemLabel(row.left),
@@ -338,7 +338,8 @@ export const CompareScatter = ({
                 : hoveredPoint.y - scaledR - labelH - 6
               const minX = labelW / 2 + 4
               const maxX = CHART_W - labelW / 2 - 4
-              const labelX = Math.min(maxX, Math.max(minX, hoveredPoint.x))
+              const labelX =
+                minX <= maxX ? clamp(hoveredPoint.x, minX, maxX) : maxX
               return (
                 <g pointerEvents="none">
                   <rect

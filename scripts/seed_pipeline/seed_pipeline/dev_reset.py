@@ -26,10 +26,11 @@ from .convex_client import (
 	ConvexSeedClient,
 	ConvexSeedSettings,
 	load_dotenv,
-	normalize_convex_site_url,
+	resolve_convex_site_url,
 )
+from .manifest import find_repo_root
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = find_repo_root(Path(__file__))
 DOTENV_PATH = REPO_ROOT / ".env.local"
 RESET_FUNCTION = "dev/reset:wipeDeployment"
 PROD_DEPLOYMENT_PREFIXES = ("prod:",)
@@ -67,27 +68,6 @@ def derive_marker(convex_url: str) -> str:
 	return marker.rstrip("/")
 
 
-def resolve_site_url(cli_override: str | None, env_file: dict[str, str]) -> str | None:
-	# http actions live behind the SITE url, not the regular convex url.
-	# convert fallback client URLs so local & cloud deployments hit the
-	# configured HTTP action host without ceremony
-	sources = (
-		cli_override,
-		os.environ.get("CONVEX_SITE_URL"),
-		os.environ.get("VITE_CONVEX_SITE_URL"),
-		env_file.get("CONVEX_SITE_URL"),
-		env_file.get("VITE_CONVEX_SITE_URL"),
-		os.environ.get("CONVEX_URL"),
-		os.environ.get("VITE_CONVEX_URL"),
-		env_file.get("CONVEX_URL"),
-		env_file.get("VITE_CONVEX_URL"),
-	)
-	value = next((value for value in sources if value), None)
-	if not value:
-		return None
-	return normalize_convex_site_url(value)
-
-
 def main() -> int:
 	args = parse_args()
 	env = load_dotenv(DOTENV_PATH)
@@ -99,7 +79,7 @@ def main() -> int:
 		)
 		return 2
 
-	convex_url = resolve_site_url(args.convex_url, env)
+	convex_url = resolve_convex_site_url(REPO_ROOT, args.convex_url)
 	seed_secret = (
 		args.seed_secret or os.environ.get("CONVEX_SEED_SECRET") or env.get("CONVEX_SEED_SECRET")
 	)

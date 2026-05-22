@@ -17,7 +17,7 @@ from .settings import (
 if TYPE_CHECKING:
 	from .run_context import SeedRunContext
 
-from .report_layout import report_header, write_report
+from .report_layout import _append_section, report_header, write_report
 
 
 def write_preflight_report(
@@ -183,25 +183,20 @@ def write_run_report(context: SeedRunContext, steps: list[str]) -> Path:
 
 
 def _append_result_summary(lines: list[str], title: str, results: list[JsonObject]) -> None:
-	lines.extend([f"## {title}", ""])
-	if not results:
-		lines.extend(["- None", ""])
-		return
 	keys = sorted({key for result in results for key in result.keys()})
-	for key in keys:
-		count = sum(len(as_list(result.get(key))) for result in results)
-		lines.append(f"- {key}: {count}")
-	lines.append("")
+	_append_section(
+		lines,
+		title,
+		keys,
+		lambda key: f"- {key}: {sum(len(as_list(result.get(key))) for result in results)}",
+	)
 
 
 def _append_report_rows(lines: list[str], title: str, rows: object, label_key: str) -> None:
-	lines.extend([f"## {title}", ""])
-	row_list = as_list(rows)
-	if not row_list:
-		lines.extend(["- None", ""])
-		return
-	for row in row_list:
-		if isinstance(row, dict):
-			label = row.get(label_key) or row
-			lines.append(f"- `{label}`")
-	lines.append("")
+	def _format(row: object) -> str | None:
+		if not isinstance(row, dict):
+			return None
+		label = row.get(label_key) or row
+		return f"- `{label}`"
+
+	_append_section(lines, title, as_list(rows), _format)

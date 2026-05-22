@@ -6,6 +6,7 @@ import { Pin } from 'lucide-react'
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 
+import { makeBoardClickHandler } from '~/features/library/lib/boardClickHandler'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { BoardCardMenu } from '../cards/BoardCardMenu'
@@ -40,11 +41,7 @@ const BoardListRow = memo(
     isPending,
   }: BoardListRowProps) =>
   {
-    const handleClick = () =>
-    {
-      if (!onOpen || isPending) return
-      onOpen(board)
-    }
+    const openAction = makeBoardClickHandler(onOpen, isPending, board)
 
     return (
       <div
@@ -53,8 +50,8 @@ const BoardListRow = memo(
       >
         <button
           type="button"
-          onClick={handleClick}
-          disabled={!onOpen || isPending}
+          onClick={openAction.onClick}
+          disabled={openAction.disabled}
           aria-label={`${board.title}`}
           aria-busy={isPending || undefined}
           className={`focus-custom grid w-full items-center gap-4 py-3 ${ROW_HORIZONTAL_PADDING} text-left transition hover:bg-[rgb(var(--t-overlay)/0.025)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] disabled:cursor-progress disabled:opacity-70`}

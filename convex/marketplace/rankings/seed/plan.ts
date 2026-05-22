@@ -2,6 +2,7 @@
 // builds the manifest-derived ranking seed tasks, authors, lane summaries, &
 // external IDs that the seed workflow consumes
 
+import { clamp } from '@tierlistbuilder/contracts/lib/math'
 import {
   curatedAuthorEmail,
   curatedSeedAuthorKey,
@@ -57,7 +58,7 @@ const normalizeProfileCount = (
 {
   const raw = target.sampleProfileCount ?? manifest.defaultProfileCount
   const count = Number.isFinite(raw) ? Math.floor(raw) : 0
-  return Math.max(0, Math.min(manifest.profiles.length, count))
+  return clamp(count, 0, manifest.profiles.length)
 }
 
 const ensureLane = (

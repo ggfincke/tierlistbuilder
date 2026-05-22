@@ -7,6 +7,7 @@ import { ArrowRight, ChevronRight, Sparkles } from 'lucide-react'
 import type { TemplateCardAccessState } from '@tierlistbuilder/contracts/marketplace/template'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { formatCountedWord } from '~/shared/lib/pluralize'
+import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
 import { UseTemplateButton } from '../../cards/UseTemplateButton'
 
 interface CriterionEmptyLaneProps
@@ -48,9 +49,7 @@ export const CriterionEmptyLane = ({
           <Sparkles className="h-5 w-5" strokeWidth={1.8} />
         </span>
         <div className="max-w-md">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-            No consensus yet for this lane
-          </p>
+          <SectionEyebrow>No consensus yet for this lane</SectionEyebrow>
           <h3 className="mt-1 text-lg font-semibold tracking-tight text-[var(--t-text)]">
             Be the first to answer “{shortName.toLowerCase()}”
           </h3>

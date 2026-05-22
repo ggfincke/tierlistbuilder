@@ -24,11 +24,13 @@ import {
   scanCoverImage,
 } from '~/features/marketplace/model/cover/coverAutoCrop'
 import { computeFramedPlacement } from '~/shared/board-ui/coverFramingPlacement'
+import { SnapGuide } from '~/shared/board-ui/SnapGuide'
 import { useCoverFramingPicker } from '~/features/marketplace/model/cover/useCoverFramingPicker'
 import { applyAxisSnap } from '~/shared/lib/axisSnap'
 import { formatError } from '~/shared/lib/errors'
 import { logger } from '~/shared/lib/logger'
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -150,8 +152,6 @@ const CoverImageEditorBody = ({
     }
     return null
   })
-  const [applying, setApplying] = useState(false)
-  const [applyError, setApplyError] = useState<string | null>(null)
   const [autoFitting, setAutoFitting] = useState(false)
   const [autoFitError, setAutoFitError] = useState<string | null>(null)
   const [trimSoftShadows, setTrimSoftShadows] = useState(true)
@@ -330,30 +330,17 @@ const CoverImageEditorBody = ({
 
   const handleApply = useCallback(() =>
   {
-    if (!meta || applying) return
-    setApplying(true)
-    setApplyError(null)
-    try
-    {
-      const file = source.kind === 'file' ? source.file : undefined
-      onApply(picker.framing, file)
-    }
-    catch (error)
-    {
-      logger.warn('marketplace', 'cover framing apply failed', error)
-      setApplyError(
-        formatError(error, 'Failed to apply framing. Please try again.')
-      )
-      setApplying(false)
-    }
-  }, [meta, applying, source, onApply, picker.framing])
+    if (!meta) return
+    const file = source.kind === 'file' ? source.file : undefined
+    onApply(picker.framing, file)
+  }, [meta, source, onApply, picker.framing])
 
   const activeLabel = SURFACE_LABELS[picker.activeSurface]
 
   return (
     <BaseModal
       open
-      onClose={applying ? undefined : onCancel}
+      onClose={onCancel}
       labelledBy={titleId}
       panelClassName="flex flex-col p-0"
       panelStyle={{
@@ -362,8 +349,6 @@ const CoverImageEditorBody = ({
         overflowY: 'hidden',
         width: 'min(1120px, calc(100vw - 4rem))',
       }}
-      closeOnBackdrop={!applying}
-      closeOnEscape={!applying}
     >
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-5 py-3">
         <div className="flex min-w-0 items-baseline gap-3">
@@ -477,51 +462,23 @@ const CoverImageEditorBody = ({
       </div>
 
       <footer className="shrink-0 border-t border-[var(--t-border)] px-5 py-3">
-        {applyError && (
-          <p
-            role="alert"
-            className="mb-2 text-xs text-[var(--t-destructive-hover)]"
-          >
-            {applyError}
-          </p>
-        )}
-        <div className="flex items-center justify-end gap-2">
-          <SecondaryButton type="button" onClick={onCancel} disabled={applying}>
+        <DialogActions className="flex items-center justify-end gap-2">
+          <SecondaryButton type="button" onClick={onCancel}>
             Cancel
           </SecondaryButton>
           <PrimaryButton
             type="button"
             size="md"
             onClick={handleApply}
-            disabled={applying || !meta}
+            disabled={!meta}
           >
-            {applying ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                Applying…
-              </>
-            ) : (
-              'Apply'
-            )}
+            Apply
           </PrimaryButton>
-        </div>
+        </DialogActions>
       </footer>
     </BaseModal>
   )
 }
-
-// thin alignment guide overlay that lights up when crop offset snaps to the
-// container center on its axis. mirrors the workspace pane's SnapGuide
-const SnapGuide = ({ axis }: { axis: 'x' | 'y' }) => (
-  <div
-    aria-hidden="true"
-    className={
-      axis === 'x'
-        ? 'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--t-accent)]'
-        : 'pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--t-accent)]'
-    }
-  />
-)
 
 // `area` is in % of the source image. w/ restrictPosition=false + minZoom<1 the
 // values may go outside [0, 100] when the crop extends past the image edges

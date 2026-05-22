@@ -20,6 +20,7 @@ import {
   rgbToHexColor,
   type RgbInputState,
 } from '~/shared/lib/color'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
@@ -258,7 +259,7 @@ export const CustomColorPicker = memo(
             theme changes.
           </p>
 
-          <div className="flex items-center justify-end gap-2">
+          <DialogActions className="flex items-center justify-end gap-2">
             <SecondaryButton variant="outline" onClick={onCancel}>
               Cancel
             </SecondaryButton>
@@ -266,7 +267,7 @@ export const CustomColorPicker = memo(
             <PrimaryButton type="submit" disabled={!draftState.isValid}>
               Apply
             </PrimaryButton>
-          </div>
+          </DialogActions>
         </div>
       </form>
     )

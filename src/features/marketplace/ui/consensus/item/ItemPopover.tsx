@@ -11,6 +11,7 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { clamp } from '~/shared/lib/math'
 import { useAnchoredPopup } from '~/shared/overlay/anchoredPopup'
 import { OverlayPanelSurface } from '~/shared/overlay/OverlaySurface'
 
@@ -64,7 +65,7 @@ export const ItemPopover = ({
       ? anchorRect.bottom + GAP
       : anchorRect.top - GAP - PANEL_H
     const desiredLeft = anchorRect.left + anchorRect.width / 2 - PANEL_W / 2
-    const left = Math.max(8, Math.min(desiredLeft, vpW - PANEL_W - 8))
+    const left = clamp(desiredLeft, 8, vpW - PANEL_W - 8)
     return {
       top,
       left,

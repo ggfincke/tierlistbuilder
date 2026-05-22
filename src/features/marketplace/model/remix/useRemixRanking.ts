@@ -9,9 +9,12 @@ import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getRankingBySlugImperative } from '~/features/marketplace/data/rankingsRepository'
 import { loadAllTemplateItemsImperative } from '~/features/marketplace/data/templatesRepository'
 import { createLocalBoardFromRanking } from '~/features/workspace/boards/model/localBoardFork'
-import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
-import { useMarketplaceAsyncAction } from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
-import { toast, toastWithAction } from '~/shared/notifications/useToastStore'
+import {
+  useMarketplaceAsyncAction,
+  useVoidRun,
+} from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
+import { notifyLocalBoardForked } from '~/features/marketplace/model/remix/localBoardForkToast'
+import { toast } from '~/shared/notifications/useToastStore'
 
 interface RemixRankingAction
 {
@@ -47,18 +50,11 @@ export const useRemixRanking = (): RemixRankingAction =>
         markPendingSync: signedIn,
       })
 
-      if (signedIn)
-      {
-        toast(`Remixed "${rankingTitle}" into a new board`, 'success')
-      }
-      else
-      {
-        toastWithAction(
-          `Remixed "${rankingTitle}" locally. Sign in to sync.`,
-          { label: 'Sign in', onClick: promptSignIn },
-          'info'
-        )
-      }
+      notifyLocalBoardForked({
+        verb: 'Remixed',
+        title: rankingTitle,
+        signedIn,
+      })
       navigate('/')
     },
     [navigate, session.status]
@@ -69,15 +65,7 @@ export const useRemixRanking = (): RemixRankingAction =>
     void
   >('remixRanking failed', remixRanking)
 
-  // collapse the action runner's Promise<void | null> back to Promise<void>;
-  // the null on error is captured by the action store, not relayed to callers
-  const run = useCallback(
-    async (slug: string, rankingTitle: string): Promise<void> =>
-    {
-      await runRemix(slug, rankingTitle)
-    },
-    [runRemix]
-  )
+  const run = useVoidRun(runRemix)
 
   return { run, isPending }
 }

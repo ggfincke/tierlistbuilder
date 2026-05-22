@@ -4,6 +4,7 @@
 import { ConvexError } from 'convex/values'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
+import { clamp } from '@tierlistbuilder/contracts/lib/math'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
   DEFAULT_RANKING_LIST_LIMIT,
@@ -19,6 +20,7 @@ import type {
   MarketplaceRankingSummary,
   MarketplaceRankingTier,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
+import type { MarketplaceItemRenderFields } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { failInput, normalizeNullableText } from '../../lib/text'
 import { createTemplateProjectionCache } from '../templates/lib/trending'
@@ -52,7 +54,7 @@ export const normalizeRankingLimit = (raw: number | undefined): number =>
 {
   if (raw === undefined) return DEFAULT_RANKING_LIST_LIMIT
   if (!Number.isFinite(raw)) return DEFAULT_RANKING_LIST_LIMIT
-  return Math.max(1, Math.min(MAX_RANKING_LIST_LIMIT, Math.floor(raw)))
+  return clamp(Math.floor(raw), 1, MAX_RANKING_LIST_LIMIT)
 }
 
 export const rankingTopScore = (
@@ -77,15 +79,6 @@ export const allocateRankingSlug = async (ctx: DbCtx): Promise<string> =>
     message: 'could not allocate a unique ranking slug',
   })
 }
-
-export const findRankingBySlug = async (
-  ctx: DbCtx,
-  slug: string
-): Promise<Doc<'publishedRankings'> | null> =>
-  await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySlug', (q) => q.eq('slug', slug))
-    .unique()
 
 export const isPublishedRankingRow = (
   ranking: Pick<Doc<'publishedRankings'>, 'publicationState'>
@@ -183,27 +176,51 @@ export const toRankingBucketPlacementItems = (
     tierExternalId: item.tierExternalId,
   }))
 
-const toRankingItem = async (
+type RankingItemRenderSource = Pick<
+  Doc<'publishedRankingItems'>,
+  | 'label'
+  | 'backgroundColor'
+  | 'mediaPlate'
+  | 'altText'
+  | 'mediaAssetId'
+  | 'order'
+  | 'aspectRatio'
+  | 'imageFit'
+  | 'transform'
+  | 'imagePadding'
+>
+
+export const toRankingItemRenderFields = async (
   ctx: DbCtx,
-  item: Doc<'publishedRankingItems'>,
+  item: RankingItemRenderSource,
   cache = createTemplateProjectionCache()
-): Promise<MarketplaceRankingItem> => ({
-  externalId: item.externalId,
-  templateItemExternalId: item.templateItemExternalId,
-  tierExternalId: item.tierExternalId,
+): Promise<MarketplaceItemRenderFields> => ({
   label: item.label,
   backgroundColor: item.backgroundColor,
   mediaPlate: item.mediaPlate ?? null,
   altText: item.altText,
-  media: item.mediaAssetId
-    ? await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache)
-    : null,
+  media: await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache),
   order: item.order,
   aspectRatio: item.aspectRatio,
   imageFit: item.imageFit,
   transform: item.transform,
   imagePadding: item.imagePadding ?? null,
 })
+
+const toRankingItem = async (
+  ctx: DbCtx,
+  item: Doc<'publishedRankingItems'>,
+  cache = createTemplateProjectionCache()
+): Promise<MarketplaceRankingItem> =>
+{
+  const renderFields = await toRankingItemRenderFields(ctx, item, cache)
+  return {
+    externalId: item.externalId,
+    templateItemExternalId: item.templateItemExternalId,
+    tierExternalId: item.tierExternalId,
+    ...renderFields,
+  }
+}
 
 export const toRankingDetail = async (
   ctx: DbCtx,

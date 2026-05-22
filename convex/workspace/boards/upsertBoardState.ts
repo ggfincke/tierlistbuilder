@@ -20,15 +20,13 @@ import {
   BOARD_ITEM_ASPECT_RATIO_MIN,
 } from '@tierlistbuilder/contracts/workspace/imageMath'
 import {
-  findTemplateBySlug,
-  loadTemplateItems,
-} from '../../marketplace/templates/lib/projections'
-import { incrementTemplateForkStats } from '../../marketplace/templates/lib/writes'
-import { findActiveTemplateCriterion } from '../../marketplace/templates/criteria'
-import {
   findRankingBySlug,
-  rankingTopScore,
-} from '../../marketplace/rankings/lib'
+  findTemplateBySlug,
+} from '../../lib/marketplaceLookups'
+import { loadTemplateItems } from '../../marketplace/templates/lib/projections'
+import { incrementTemplateForkStatsById } from '../../marketplace/templates/lib/writes'
+import { findActiveTemplateCriterion } from '../../marketplace/templates/criteria'
+import { rankingTopScore } from '../../marketplace/rankings/lib'
 import type {
   PaletteId,
   TextStyleId,
@@ -610,7 +608,7 @@ const tickForkCounterIfFirstSync = async (
   if (sourceTemplateId === null) return
 
   const now = Date.now()
-  await incrementTemplateForkStats(ctx, sourceTemplateId, now)
+  await incrementTemplateForkStatsById(ctx, sourceTemplateId, now)
 
   const sourceRankingId = getBoardSourceRankingId(board)
   if (sourceRankingId !== null)
@@ -930,8 +928,8 @@ const applyBoardState = async (
     board.paletteId !== writeFields.paletteId ||
     board.textStyleId !== writeFields.textStyleId ||
     board.pageBackground !== writeFields.pageBackground ||
-    !boardLabelSettingsEqual(board.labels, args.labels) ||
-    !boardAutoPlateSettingsEqual(board.autoPlate, args.autoPlate)
+    !boardLabelSettingsEqual(board.labels, writeFields.labels) ||
+    !boardAutoPlateSettingsEqual(board.autoPlate, writeFields.autoPlate)
   const templateProgressState = resolveTemplateProgressState(
     getBoardSourceTemplateId(board),
     progressCounts

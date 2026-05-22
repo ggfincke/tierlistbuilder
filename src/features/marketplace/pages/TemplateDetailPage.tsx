@@ -41,6 +41,7 @@ import {
 } from '~/features/marketplace/ui/template/TemplateHero'
 import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/MarketplaceNotFound'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
+import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
 
 const RELATED_LIMIT = 4
 const MAX_HERO_AGGREGATE_CACHE_ENTRIES = 32
@@ -142,9 +143,9 @@ const CreditNote = ({ template }: CreditNoteProps) =>
   return (
     <section className="mt-8">
       <p className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4 text-xs leading-relaxed text-[var(--t-text-muted)]">
-        <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
+        <SectionEyebrow as="span" className="block">
           Credit
-        </span>
+        </SectionEyebrow>
         <span className="mt-1.5 block">{credit}</span>
       </p>
     </section>

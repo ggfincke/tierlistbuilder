@@ -13,6 +13,7 @@ import { ConvexError } from 'convex/values'
 import { generateShortLinkSlug } from '@tierlistbuilder/contracts/lib/ids'
 import { enforceRateLimit } from '../../lib/rateLimiter'
 import { deleteStorageSilently } from '../../lib/storage'
+import { rescheduleIfMore } from '../../lib/scheduler'
 
 const SLUG_INSERT_MAX_ATTEMPTS = 5
 
@@ -106,14 +107,12 @@ export const gcExpiredShortLinks = internalMutation({
       })
     )
 
-    if (!page.isDone)
-    {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.platform.shortLinks.internal.gcExpiredShortLinks,
-        { cursor: page.continueCursor }
-      )
-    }
+    await rescheduleIfMore(
+      ctx,
+      page,
+      internal.platform.shortLinks.internal.gcExpiredShortLinks,
+      {}
+    )
 
     return { deleted: page.page.length }
   },

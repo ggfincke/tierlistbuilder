@@ -4,6 +4,7 @@
 import { ConvexError, v } from 'convex/values'
 import {
   type ActionCtx,
+  type QueryCtx,
   internalAction,
   internalMutation,
   internalQuery,
@@ -21,6 +22,7 @@ import {
   acquireDevResetLock,
   releaseDevResetLocks,
 } from './resetLock'
+import { literalUnion } from '../lib/validators/common'
 
 // every user table in the schema, ordered children-first so partial failures
 // leave fewer dangling foreign-id refs (convex doesn't enforce FKs, but a clean
@@ -66,12 +68,7 @@ const RESETTABLE_TABLES = [
 
 type ResettableTable = (typeof RESETTABLE_TABLES)[number]
 
-const resettableTableValidator = v.union(
-  ...(RESETTABLE_TABLES.map((name) => v.literal(name)) as [
-    ReturnType<typeof v.literal<ResettableTable>>,
-    ...ReturnType<typeof v.literal<ResettableTable>>[],
-  ])
-)
+const resettableTableValidator = literalUnion(RESETTABLE_TABLES)
 
 const RESET_HOT_TABLE_NAMES = [
   'publishedRankingItems',
@@ -85,12 +82,7 @@ type HotTableId =
   | Id<'publishedRankingTiers'>
   | Id<'publishedRankings'>
 
-const resetHotTableValidator = v.union(
-  ...(RESET_HOT_TABLE_NAMES.map((name) => v.literal(name)) as [
-    ReturnType<typeof v.literal<ResetHotTable>>,
-    ...ReturnType<typeof v.literal<ResetHotTable>>[],
-  ])
-)
+const resetHotTableValidator = literalUnion(RESET_HOT_TABLE_NAMES)
 
 const resetHotTableIdValidator = v.union(
   v.id('publishedRankingItems'),
@@ -561,17 +553,23 @@ export const cancelScheduledFunctionsPage = internalMutation({
 // direct id lookup keeps the drain poll off the table scan path — needed
 // because a filter+take(1) over _scheduled_functions can blow the 4096-read
 // limit when completed rows dominate
+const loadScheduledRows = async (
+  ctx: QueryCtx,
+  ids: readonly Id<'_scheduled_functions'>[]
+) =>
+{
+  const rows = await Promise.all(ids.map((id) => ctx.db.system.get(id)))
+  return rows.filter((row): row is NonNullable<typeof row> => row !== null)
+}
+
 export const filterStillRunningScheduledFunctions = internalQuery({
   args: { ids: v.array(v.id('_scheduled_functions')) },
   returns: v.array(v.id('_scheduled_functions')),
   handler: async (ctx, args): Promise<Id<'_scheduled_functions'>[]> =>
   {
-    const rows = await Promise.all(args.ids.map((id) => ctx.db.system.get(id)))
+    const rows = await loadScheduledRows(ctx, args.ids)
     return rows
-      .filter(
-        (row): row is NonNullable<typeof row> =>
-          row !== null && row.state.kind === 'inProgress'
-      )
+      .filter((row) => row.state.kind === 'inProgress')
       .map((row) => row._id)
   },
 })
@@ -583,10 +581,8 @@ export const getScheduledFunctionNames = internalQuery({
   returns: v.array(v.string()),
   handler: async (ctx, args): Promise<string[]> =>
   {
-    const rows = await Promise.all(args.ids.map((id) => ctx.db.system.get(id)))
-    return rows
-      .filter((row): row is NonNullable<typeof row> => row !== null)
-      .map((row) => row.name)
+    const rows = await loadScheduledRows(ctx, args.ids)
+    return rows.map((row) => row.name)
   },
 })
 

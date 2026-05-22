@@ -12,6 +12,7 @@ import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { PlateInsetFrame } from '~/shared/board-ui/PlateInsetFrame'
 import { CaptionStrip as SharedCaptionStrip } from '~/shared/board-ui/labelBlocks'
+import { SnapGuide } from '~/shared/board-ui/SnapGuide'
 import { DraggableLabelOverlay } from '~/features/workspace/imageEditor/ui/DraggableLabelOverlay'
 
 // neutral checker shown behind a transparent image when no per-item background
@@ -164,19 +165,3 @@ export const ImageEditorPreviewCanvas = ({
     </div>
   )
 }
-
-interface SnapGuideProps
-{
-  axis: 'x' | 'y'
-}
-
-const SnapGuide = ({ axis }: SnapGuideProps) => (
-  <div
-    aria-hidden="true"
-    className={
-      axis === 'x'
-        ? 'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--t-accent)]'
-        : 'pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--t-accent)]'
-    }
-  />
-)

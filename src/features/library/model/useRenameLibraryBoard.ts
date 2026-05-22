@@ -71,7 +71,7 @@ export const useRenameLibraryBoard = (): RenameLibraryBoardAction =>
         {
           const inRegistry = useWorkspaceBoardRegistryStore
             .getState()
-            .boards.some((b) => b.id === target.externalId)
+            .isBoardInRegistry(target.externalId)
 
           // cloud-only rows need a local shell so renameBoardSession can
           // patch the registry; materializing in the background avoids

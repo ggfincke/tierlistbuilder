@@ -5,11 +5,11 @@
 import { useCallback } from 'react'
 
 import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/marketplace/template'
-import { uploadCoverImage } from '~/features/marketplace/data/coverImageUpload'
 import {
   useUpdateMyTemplateMetaMutation,
   type UpdateMyTemplateMetaArgs,
 } from '~/features/marketplace/data/templatesRepository'
+import { resolveCoverMediaExternalId } from '~/features/marketplace/model/publish/coverMedia'
 import { useMarketplaceAsyncAction } from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
 import { toast } from '~/shared/notifications/useToastStore'
 
@@ -39,16 +39,10 @@ export const useUpdateTemplate = (): UpdateTemplateAction =>
   const update = useCallback(
     async (input: UpdateTemplateInput): Promise<{ slug: string }> =>
     {
-      let coverMediaExternalId: string | null | undefined
-      if (input.coverFile)
-      {
-        const uploaded = await uploadCoverImage(input.coverFile)
-        coverMediaExternalId = uploaded.externalId
-      }
-      else if (input.removeCover)
-      {
-        coverMediaExternalId = null
-      }
+      const coverMediaExternalId = await resolveCoverMediaExternalId({
+        coverFile: input.coverFile,
+        removeCover: input.removeCover,
+      })
 
       await updateMutation({
         slug: input.slug,

@@ -14,7 +14,7 @@ import type {
 import { getEffectiveImageFit } from '~/shared/board-ui/aspectRatio'
 import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { resolveItemLabel } from '~/shared/board-ui/labelDisplay'
 
 export const MISMATCH_THUMBNAIL_PREVIEW_LIMIT = 4
 
@@ -80,12 +80,7 @@ export const MismatchPreviewStrip = ({
                   pendingBulkFit ?? getEffectiveImageFit(item, boardDefaultFit)
                 }
                 frameAspectRatio={frameAspectRatio}
-                label={resolveLabelDisplay({
-                  itemLabel: item.label,
-                  itemOptions: item.labelOptions,
-                  boardSettings: boardLabels,
-                  globalLabelDefaults,
-                })}
+                label={resolveItemLabel(item, boardLabels, globalLabelDefaults)}
               />
             </div>
           </div>

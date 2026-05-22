@@ -18,6 +18,7 @@ import {
 import { itemSlotDimensions, LABEL_WIDTH_PX } from '~/shared/board-ui/constants'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { formatCountedWord } from '~/shared/lib/pluralize'
+import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
 
 import {
   AggregateItemThumb,
@@ -197,9 +198,12 @@ export const CompareSideBySideTiers = ({
               style={{ width: labelCellWidth }}
               className="shrink-0 border-r border-[var(--t-border)]"
             />
-            <div className="flex flex-1 items-center px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
+            <SectionEyebrow
+              as="div"
+              className="flex flex-1 items-center px-3 py-1.5"
+            >
               {name}
-            </div>
+            </SectionEyebrow>
           </div>
         ))}
       </div>

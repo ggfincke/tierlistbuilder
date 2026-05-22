@@ -78,9 +78,6 @@ const saveAndActivateBoard = async (
   return id
 }
 
-const markBoardStatePending = (syncState: BoardSyncState): BoardSyncState =>
-  markBoardPendingSync(syncState)
-
 const loadInactiveBoardSnapshot = (boardId: BoardId): BoardSnapshot =>
 {
   const persisted = loadBoardFromStorage(boardId)
@@ -105,7 +102,7 @@ const saveInactiveBoardTitle = (boardId: BoardId, title: string): boolean =>
     return true
   }
 
-  const nextSyncState = markBoardStatePending(syncState)
+  const nextSyncState = markBoardPendingSync(syncState)
   const saveResult = saveBoardToStorage(
     boardId,
     { ...snapshot, title },
@@ -211,7 +208,7 @@ export const duplicateBoardSession = async (
   await saveAndActivateBoard(
     source,
     source.title || DEFAULT_TITLE,
-    markBoardStatePending({
+    markBoardPendingSync({
       lastSyncedRevision: null,
       cloudBoardExternalId: null,
       pendingSyncAt: null,
@@ -242,7 +239,7 @@ export const renameBoardSession = (
       return { ok: true }
     }
 
-    const syncState = markBoardStatePending(extractBoardSyncState(state))
+    const syncState = markBoardPendingSync(extractBoardSyncState(state))
     useActiveBoardStore.setState({ title: trimmed, ...syncState })
     const saveResult = saveBoardToStorage(
       boardId,

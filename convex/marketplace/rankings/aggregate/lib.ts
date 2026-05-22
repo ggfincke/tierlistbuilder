@@ -4,6 +4,7 @@
 import { internal } from '../../../_generated/api'
 import type { Doc, Id } from '../../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../../_generated/server'
+import { clamp } from '@tierlistbuilder/contracts/lib/math'
 import { BATCH_LIMITS, MAX_SYNC_TIERS } from '../../../lib/limits'
 import {
   DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
@@ -13,21 +14,20 @@ import {
   makeEmptyBucketSpread,
   type MarketplaceTemplateRankingAggregate,
   type MarketplaceTemplateRankingAggregateBucket,
+  type MarketplaceTemplateRankingAggregateHighlight,
   type MarketplaceTemplateRankingAggregateItem,
   type TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { DEFAULT_TEMPLATE_TIERS } from '../../templates/lib/normalize'
 import { createTemplateProjectionCache } from '../../templates/lib/trending'
-import {
-  findTemplateCardByTemplateId,
-  toTemplateMediaRef,
-} from '../../templates/lib/projections'
+import { findTemplateCardByTemplateId } from '../../templates/lib/projections'
 import {
   resolveTemplateCriteria,
   resolveTemplateCriterionForHistoricalRead,
   type TemplateCriteriaSource,
 } from '../../templates/criteria'
+import { toRankingItemRenderFields } from '../lib'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -178,6 +178,27 @@ const toBuckets = (
   }))
 }
 
+export const toAggregateHighlight = (source: {
+  templateItemExternalId: string | null
+  label: string | null
+}): MarketplaceTemplateRankingAggregateHighlight | null =>
+  source.templateItemExternalId
+    ? {
+        templateItemExternalId: source.templateItemExternalId,
+        label: source.label,
+      }
+    : null
+
+export const fromAggregateHighlight = (
+  highlight: MarketplaceTemplateRankingAggregateHighlight | null
+): {
+  templateItemExternalId: string | null
+  label: string | null
+} => ({
+  templateItemExternalId: highlight?.templateItemExternalId ?? null,
+  label: highlight?.label ?? null,
+})
+
 export const toTemplateRankingAggregate = (
   template: Pick<
     Doc<'templates'>,
@@ -212,18 +233,14 @@ export const toTemplateRankingAggregate = (
     buckets: toBuckets(template, aggregate.bucketCount),
     bucketSpread:
       aggregate.bucketSpread ?? makeEmptyBucketSpread(aggregate.bucketCount),
-    mostAgreed: aggregate.mostAgreedItemExternalId
-      ? {
-          templateItemExternalId: aggregate.mostAgreedItemExternalId,
-          label: aggregate.mostAgreedItemLabel,
-        }
-      : null,
-    mostDivisive: aggregate.mostDivisiveItemExternalId
-      ? {
-          templateItemExternalId: aggregate.mostDivisiveItemExternalId,
-          label: aggregate.mostDivisiveItemLabel,
-        }
-      : null,
+    mostAgreed: toAggregateHighlight({
+      templateItemExternalId: aggregate.mostAgreedItemExternalId,
+      label: aggregate.mostAgreedItemLabel,
+    }),
+    mostDivisive: toAggregateHighlight({
+      templateItemExternalId: aggregate.mostDivisiveItemExternalId,
+      label: aggregate.mostDivisiveItemLabel,
+    }),
   }
 }
 
@@ -260,11 +277,7 @@ const findActiveAggregateJob = async (
         .take(1)
     )
   )
-  for (const match of matches)
-  {
-    if (match[0]) return match[0]
-  }
-  return null
+  return matches.flatMap((match) => match).at(0) ?? null
 }
 
 const nextAggregateGeneration = (
@@ -576,19 +589,11 @@ export const toTemplateRankingAggregateItem = async (
   cache: ReturnType<typeof createTemplateProjectionCache>
 ): Promise<MarketplaceTemplateRankingAggregateItem> =>
 {
+  const renderFields = await toRankingItemRenderFields(ctx, row, cache)
   return {
     externalId: row.templateItemExternalId,
     templateItemExternalId: row.templateItemExternalId,
-    label: row.label,
-    backgroundColor: row.backgroundColor,
-    mediaPlate: row.mediaPlate ?? null,
-    altText: row.altText,
-    media: await toTemplateMediaRef(ctx, row.mediaAssetId, 'tile', cache),
-    order: row.order,
-    aspectRatio: row.aspectRatio,
-    imageFit: row.imageFit,
-    transform: row.transform,
-    imagePadding: row.imagePadding ?? null,
+    ...renderFields,
     sampleCount: row.sampleCount,
     averageBucket: row.averageBucket,
     topBucketIndex: row.topBucketIndex,
@@ -604,8 +609,8 @@ export const toTemplateRankingAggregateItem = async (
   }
 }
 
-const clampScore = (value: number): number =>
-  Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0))
+export const clampUnitScore = (value: number): number =>
+  clamp(Number.isFinite(value) ? value : 0, 0, 1)
 
 export const isTopAggregateBucket = (bucketIndex: number | null): boolean =>
   bucketIndex !== null &&
@@ -653,7 +658,7 @@ export const buildAggregateItemMetrics = (params: {
   const maxVariance =
     params.bucketCount <= 1 ? 0 : (params.bucketCount - 1) ** 2 / 4
   const controversyScore =
-    maxVariance > 0 ? clampScore(variance / maxVariance) : 0
+    maxVariance > 0 ? clampUnitScore(variance / maxVariance) : 0
   const isTopBucket = isTopAggregateBucket(top.bucketIndex)
   const isBottomBucket = isBottomAggregateBucket(top.bucketIndex)
 

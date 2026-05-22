@@ -7,7 +7,7 @@ import type { Doc, Id } from '../../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { SeedRankingReleaseStatus } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import { assertNonemptyString } from '../../../lib/assertions'
-import { BATCH_LIMITS, SEED_LIMITS } from '../../../lib/limits'
+import { BATCH_LIMITS } from '../../../lib/limits'
 import {
   queueTemplateRankingAggregateRecompute,
   scheduleTemplateRankingAggregateJobAdmission,
@@ -16,6 +16,7 @@ import {
   seedRankingActivationResultValidator,
   type SeedRankingActivationResult,
 } from './validators'
+import { hasFeaturedSlot, takeBoundedSeedRankings } from './rows'
 
 const loadSeedRankingsForReleaseStatus = async (
   ctx: MutationCtx,
@@ -75,22 +76,12 @@ const loadSeedRankingsForAggregateQueue = async (
   datasetKey: string,
   releaseId: string
 ): Promise<Doc<'publishedRankings'>[]> =>
-{
-  const rows = await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySeedDatasetReleaseStatus', (q) =>
-      q
-        .eq('seedDatasetKey', datasetKey)
-        .eq('seedReleaseId', releaseId)
-        .eq('seedReleaseStatus', 'active')
-    )
-    .take(SEED_LIMITS.rankingSeedRowsPerRelease + 1)
-  if (rows.length <= SEED_LIMITS.rankingSeedRowsPerRelease) return rows
-  throw new ConvexError({
-    code: CONVEX_ERROR_CODES.invalidState,
-    message: `seed ranking release exceeds aggregate queue limit: ${releaseId}`,
+  await takeBoundedSeedRankings(ctx, {
+    datasetKey,
+    releaseId,
+    status: 'active',
+    overLimitMessage: `seed ranking release exceeds aggregate queue limit: ${releaseId}`,
   })
-}
 
 const ACTIVATABLE_TARGET_STATUSES: readonly SeedRankingReleaseStatus[] = [
   'applied_hidden',
@@ -237,13 +228,11 @@ export const activateSeedRankingReleaseInternal = async (
   await Promise.all(
     targetRows.map((ranking) =>
     {
-      const hasFeaturedSlot =
-        ranking.featuredRank !== null && ranking.featuredBadge !== null
       return ctx.db.patch(ranking._id, {
         visibility: 'public',
         publicationState: 'published',
         isPubliclyListable: true,
-        isFeatured: hasFeaturedSlot,
+        isFeatured: hasFeaturedSlot(ranking),
         seedReleaseStatus: 'active',
         updatedAt: now,
       })

@@ -2,6 +2,7 @@
 // share modal — renders local hash-fragment share & embed URLs
 
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, Link as LinkIcon, RefreshCw } from 'lucide-react'
@@ -204,7 +205,7 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
             </SecondaryButton>
           </div>
 
-          <div className="flex items-center justify-end">
+          <DialogActions className="flex items-center justify-end">
             <SecondaryButton
               variant="surface"
               onClick={() => void generate()}
@@ -217,7 +218,7 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
               )}
               {generating ? 'Generating…' : 'Generate new link'}
             </SecondaryButton>
-          </div>
+          </DialogActions>
         </>
       )}
     </BaseModal>

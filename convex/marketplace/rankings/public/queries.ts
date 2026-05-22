@@ -42,11 +42,14 @@ import {
   MAX_AGGREGATE_SEARCH_LENGTH,
   MAX_SYNC_ITEMS,
 } from '../../../lib/limits'
+import {
+  findRankingBySlug,
+  findTemplateBySlug,
+} from '../../../lib/marketplaceLookups'
 import { findOwnedBoardByExternalIdIncludingDeleted } from '../../../lib/permissions'
 import { getBoardSourceTemplateId } from '../../../workspace/boards/sourceFields'
 import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
 import { createTemplateProjectionCache } from '../../templates/lib/trending'
-import { findTemplateBySlug } from '../../templates/lib/projections'
 import { isPublishedTemplateRow } from '../../templates/lib/state'
 import {
   findActiveTemplateCriterion,
@@ -64,7 +67,6 @@ import {
   toTemplateRankingAggregateItem,
 } from '../aggregate/lib'
 import {
-  findRankingBySlug,
   isPublicRankingRow,
   isPublishedRankingRow,
   loadRankingItems,
@@ -254,6 +256,25 @@ const sortAggregateRows = (
         a.order - b.order
     )
 
+const paginateSortedAggregateRows = (
+  rows: AggregateItemRow[],
+  sort: TemplateRankingAggregateItemSort,
+  cursor: string | null,
+  pageSize: number
+) =>
+{
+  const sorted = sortAggregateRows(rows, sort)
+  const offset = parseSearchCursorOffset(cursor)
+  const nextOffset = offset + pageSize
+  const page = sorted.slice(offset, nextOffset)
+  const isDone = nextOffset >= sorted.length
+  return {
+    page,
+    isDone,
+    continueCursor: isDone ? '' : searchCursorForOffset(nextOffset),
+  }
+}
+
 interface AggregateItemsPageOptions
 {
   templateId: Id<'templates'>
@@ -303,16 +324,12 @@ const takeSearchAggregateItemsPage = async (
       return base
     })
     .take(MAX_SYNC_ITEMS)
-  const sorted = sortAggregateRows(rows, options.sort)
-  const offset = parseSearchCursorOffset(options.cursor)
-  const nextOffset = offset + pageSize
-  const page = sorted.slice(offset, nextOffset)
-  const isDone = nextOffset >= sorted.length
-  return {
-    page,
-    isDone,
-    continueCursor: isDone ? '' : searchCursorForOffset(nextOffset),
-  }
+  return paginateSortedAggregateRows(
+    rows,
+    options.sort,
+    options.cursor,
+    pageSize
+  )
 }
 
 const aggregateItemsOrderIndexByBand = {
@@ -382,16 +399,12 @@ const takeBandFilteredAggregateItemsPage = async (
       return base.eq('isControversial', true)
     })
     .take(MAX_SYNC_ITEMS)
-  const sorted = sortAggregateRows(rows, options.sort)
-  const offset = parseSearchCursorOffset(options.cursor)
-  const nextOffset = offset + pageSize
-  const page = sorted.slice(offset, nextOffset)
-  const isDone = nextOffset >= sorted.length
-  return {
-    page,
-    isDone,
-    continueCursor: isDone ? '' : searchCursorForOffset(nextOffset),
-  }
+  return paginateSortedAggregateRows(
+    rows,
+    options.sort,
+    options.cursor,
+    pageSize
+  )
 }
 
 const takeIndexedAggregateItemsPage = async (

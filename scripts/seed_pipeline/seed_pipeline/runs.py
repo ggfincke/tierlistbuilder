@@ -959,6 +959,7 @@ def _zoomed_cover_frame(
 	surface_aspect: float,
 	zoom: float,
 ) -> JsonObject:
+	# mirrors scripts/preview-cover.ts::zoomedFrameForSurface
 	source_aspect = source_width / source_height
 	if surface_aspect >= source_aspect:
 		base_width = 1

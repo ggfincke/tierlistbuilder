@@ -39,7 +39,10 @@ import { ConsensusBars } from '../consensus/views/ConsensusBars'
 import { ConsensusFeaturedSpotlight } from '../consensus/rail/ConsensusFeaturedSpotlight'
 import { ConsensusHeatmap } from '../consensus/views/ConsensusHeatmap'
 import { ConsensusRanked } from '../consensus/views/ConsensusRanked'
-import { ConsensusRankingsRail } from '../consensus/rail/ConsensusRankingsRail'
+import {
+  ConsensusRankingsRail,
+  type ConsensusRailTab,
+} from '../consensus/rail/ConsensusRankingsRail'
 import { ConsensusScatter } from '../consensus/views/ConsensusScatter'
 import { ConsensusTierRows } from '../consensus/views/ConsensusTierRows'
 import { ConsensusToolbar } from '../consensus/criterion/ConsensusToolbar'
@@ -61,9 +64,16 @@ import {
   useConsensusViewFrame,
   type ActiveRankingMeta,
 } from './useConsensusViewFrame'
+import { SectionEyebrow } from '../consensus/SectionEyebrow'
 
 const ACTION_PILL_CLASS =
   'focus-custom flex h-full flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-dashed border-[var(--t-border)] bg-transparent px-3 py-2 text-[12px] font-medium text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
+
+type ConsensusBodyState = ReturnType<typeof useConsensusBodyState>
+type ConsensusRailResult = ReturnType<typeof useConsensusRailData>['railResult']
+type ConsensusSpotlightRanking = ReturnType<
+  typeof useConsensusRailData
+>['spotlightRanking']
 
 interface CommunityConsensusSectionProps
 {
@@ -207,6 +217,135 @@ const LoadMoreButton = ({
   )
 }
 
+interface ConsensusToolbarSlotProps
+{
+  query: string
+  onQueryChange: ConsensusBodyState['setSearchQuery']
+  sort: ConsensusBodyState['sort']
+  onSortChange: ConsensusBodyState['setSort']
+  vizMode: ConsensusBodyState['vizMode']
+  onVizModeChange: ConsensusBodyState['setVizMode']
+  totalCount: number
+  isActiveRanking: boolean
+  sourceRowCount: number
+  filteredCount: number
+}
+
+const ConsensusToolbarSlot = ({
+  query,
+  onQueryChange,
+  sort,
+  onSortChange,
+  vizMode,
+  onVizModeChange,
+  totalCount,
+  isActiveRanking,
+  sourceRowCount,
+  filteredCount,
+}: ConsensusToolbarSlotProps) => (
+  <ConsensusToolbar
+    query={query}
+    onQueryChange={onQueryChange}
+    sort={sort}
+    onSortChange={onSortChange}
+    vizMode={vizMode}
+    onVizModeChange={onVizModeChange}
+    totalCount={isActiveRanking ? sourceRowCount : totalCount}
+    filteredCount={filteredCount}
+  />
+)
+
+interface ConsensusLaneStatsProps
+{
+  aggregate: MarketplaceTemplateRankingAggregate | null | undefined
+  fallbackCount: number
+}
+
+const ConsensusLaneStats = ({
+  aggregate,
+  fallbackCount,
+}: ConsensusLaneStatsProps) => (
+  <LaneStatsCard
+    rankingCount={aggregate?.rankingCount ?? fallbackCount}
+    mostAgreed={aggregate?.mostAgreed ?? null}
+    mostDivisive={aggregate?.mostDivisive ?? null}
+    computedAt={aggregate?.computedAt ?? null}
+  />
+)
+
+interface ConsensusRailSlotProps
+{
+  rankingCount: number
+  aggregateForStats: MarketplaceTemplateRankingAggregate | null | undefined
+  spotlightRanking: ConsensusSpotlightRanking
+  activeSlug: string | null
+  onSelectRanking: (slug: string | null) => void
+  railResult: ConsensusRailResult
+  railTab: ConsensusRailTab
+  onRailTabChange: (next: ConsensusRailTab) => void
+  forceLoading?: boolean
+}
+
+const ConsensusRailSlot = ({
+  rankingCount,
+  aggregateForStats,
+  spotlightRanking,
+  activeSlug,
+  onSelectRanking,
+  railResult,
+  railTab,
+  onRailTabChange,
+  forceLoading = false,
+}: ConsensusRailSlotProps) =>
+{
+  const railLoading =
+    forceLoading ||
+    (railResult.status === 'LoadingFirstPage' && railResult.items.length === 0)
+  const rankings = forceLoading ? [] : railResult.items
+  const loadMoreEligible =
+    !forceLoading &&
+    railTab === 'all' &&
+    (railResult.status === 'CanLoadMore' || railResult.status === 'LoadingMore')
+  const loadMoreLabel =
+    forceLoading || railResult.status === 'LoadingMore'
+      ? 'Loading…'
+      : 'Load more rankings'
+
+  return (
+    <>
+      <ConsensusLaneStats
+        aggregate={aggregateForStats}
+        fallbackCount={rankingCount}
+      />
+      {!forceLoading && spotlightRanking && (
+        <ConsensusFeaturedSpotlight
+          ranking={spotlightRanking}
+          active={activeSlug === spotlightRanking.slug}
+          onSelect={() =>
+            onSelectRanking(
+              activeSlug === spotlightRanking.slug
+                ? null
+                : spotlightRanking.slug
+            )
+          }
+        />
+      )}
+      <ConsensusRankingsRail
+        rankingCount={rankingCount}
+        rankings={rankings}
+        isLoading={railLoading}
+        activeSlug={activeSlug}
+        onSelect={onSelectRanking}
+        tab={railTab}
+        onTabChange={onRailTabChange}
+        loadMoreEligible={loadMoreEligible}
+        loadMoreLabel={loadMoreLabel}
+        onLoadMore={() => railResult.loadMore()}
+      />
+    </>
+  )
+}
+
 interface SectionHeaderProps
 {
   aggregate: MarketplaceTemplateRankingAggregate | null | undefined
@@ -238,15 +377,11 @@ const SectionHeader = ({
       : 'Individual ranking'
     return (
       <div className="mb-3">
-        <p
-          className={`font-mono text-[10px] font-semibold uppercase tracking-[0.18em] ${
-            activeRanking.featuredBadge
-              ? 'text-[var(--t-warning,#facc15)]'
-              : 'text-[var(--t-text-faint)]'
-          }`}
+        <SectionEyebrow
+          tone={activeRanking.featuredBadge ? 'warning' : 'faint'}
         >
           {eyebrow}
-        </p>
+        </SectionEyebrow>
         <h2 className="mt-0.5 text-xl font-semibold tracking-tight text-[var(--t-text)]">
           {activeRanking.title}
         </h2>
@@ -273,9 +408,9 @@ const SectionHeader = ({
   return (
     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
+        <SectionEyebrow>
           {multiCriterion ? 'Ranking by criterion' : 'The community’s verdict'}
-        </p>
+        </SectionEyebrow>
         <div className="mt-0.5 flex flex-wrap items-center gap-2">
           <h2 className="text-xl font-semibold tracking-tight text-[var(--t-text)]">
             {heading}
@@ -326,7 +461,6 @@ const VizSwitch = ({
 }: VizSwitchProps) =>
 {
   const frame = templateFrame(template)
-  const displaySettings = template
   switch (mode)
   {
     case 'tiers':
@@ -335,7 +469,7 @@ const VizSwitch = ({
           rows={rows}
           buckets={buckets}
           frame={frame}
-          displaySettings={displaySettings}
+          displaySettings={template}
           onOpenItem={onOpenItem}
           yourPlacements={yourPlacements}
         />
@@ -346,7 +480,7 @@ const VizSwitch = ({
           rows={rows}
           buckets={buckets}
           frame={frame}
-          displaySettings={displaySettings}
+          displaySettings={template}
           showControversy={showControversy}
           onOpenItem={onOpenItem}
         />
@@ -357,7 +491,7 @@ const VizSwitch = ({
           rows={rows}
           buckets={buckets}
           frame={frame}
-          displaySettings={displaySettings}
+          displaySettings={template}
           onOpenItem={onOpenItem}
         />
       )
@@ -375,7 +509,7 @@ const VizSwitch = ({
           rows={rows}
           buckets={buckets}
           frame={frame}
-          displaySettings={displaySettings}
+          displaySettings={template}
           onOpenItem={onOpenItem}
         />
       )
@@ -526,7 +660,6 @@ export const CommunityConsensusSection = ({
   const renderBody = (): ReactNode =>
   {
     const frame = templateFrame(template)
-    const displaySettings = template
 
     if (isPinFailed)
     {
@@ -601,7 +734,7 @@ export const CommunityConsensusSection = ({
             anchorRect={popover.state.anchorRect}
             onClose={popover.close}
             frame={frame}
-            displaySettings={displaySettings}
+            displaySettings={template}
           />
         )}
       </div>
@@ -619,95 +752,7 @@ export const CommunityConsensusSection = ({
   const knownRankingCount =
     aggregate?.rankingCount ?? rankingCountByCriterion[criterionExternalId] ?? 0
   const knownItemCount = aggregate?.itemCount ?? template.itemCount
-
-  const renderToolbar = (totalCount: number): ReactNode => (
-    <ConsensusToolbar
-      query={searchQuery}
-      onQueryChange={setSearchQuery}
-      sort={sort}
-      onSortChange={setSort}
-      vizMode={vizMode}
-      onVizModeChange={setVizMode}
-      totalCount={isActiveRanking ? sourceRowCount : totalCount}
-      filteredCount={renderFrame?.rows.length ?? filteredRows.length}
-    />
-  )
-
-  const renderLaneStats = (
-    aggregateForStats: MarketplaceTemplateRankingAggregate | null | undefined,
-    fallbackCount: number
-  ): ReactNode => (
-    <LaneStatsCard
-      rankingCount={aggregateForStats?.rankingCount ?? fallbackCount}
-      mostAgreed={aggregateForStats?.mostAgreed ?? null}
-      mostDivisive={aggregateForStats?.mostDivisive ?? null}
-      computedAt={aggregateForStats?.computedAt ?? null}
-    />
-  )
-
-  const renderRail = (rankingCount: number): ReactNode =>
-  {
-    const railLoading =
-      railResult.status === 'LoadingFirstPage' && railResult.items.length === 0
-    const loadMoreEligible =
-      railTab === 'all' &&
-      (railResult.status === 'CanLoadMore' ||
-        railResult.status === 'LoadingMore')
-    const loadMoreLabel =
-      railResult.status === 'LoadingMore' ? 'Loading…' : 'Load more rankings'
-    return (
-      <>
-        {renderLaneStats(
-          renderFrame?.aggregate ?? aggregate ?? null,
-          rankingCount
-        )}
-        {spotlightRanking && (
-          <ConsensusFeaturedSpotlight
-            ranking={spotlightRanking}
-            active={activeSlug === spotlightRanking.slug}
-            onSelect={() =>
-              setActiveSlug(
-                activeSlug === spotlightRanking.slug
-                  ? null
-                  : spotlightRanking.slug
-              )
-            }
-          />
-        )}
-        <ConsensusRankingsRail
-          rankingCount={rankingCount}
-          rankings={railResult.items}
-          isLoading={railLoading}
-          activeSlug={activeSlug}
-          onSelect={setActiveSlug}
-          tab={railTab}
-          onTabChange={setRailTab}
-          loadMoreEligible={loadMoreEligible}
-          loadMoreLabel={loadMoreLabel}
-          onLoadMore={() => railResult.loadMore()}
-        />
-      </>
-    )
-  }
-
-  // render the rail skeleton before the first lane frame is available
-  const renderRailLoading = (rankingCount: number): ReactNode => (
-    <>
-      {renderLaneStats(renderFrame?.aggregate ?? null, rankingCount)}
-      <ConsensusRankingsRail
-        rankingCount={rankingCount}
-        rankings={[]}
-        isLoading
-        activeSlug={activeSlug}
-        onSelect={setActiveSlug}
-        tab={railTab}
-        onTabChange={setRailTab}
-        loadMoreEligible={false}
-        loadMoreLabel="Loading…"
-        onLoadMore={() => railResult.loadMore()}
-      />
-    </>
-  )
+  const toolbarFilteredCount = renderFrame?.rows.length ?? filteredRows.length
 
   // keep compare defaults available across every aggregate state
   const compareDefaultRight = useMemo(() =>
@@ -810,7 +855,20 @@ export const CommunityConsensusSection = ({
         renderFrame?.aggregate.rankingCount ?? knownRankingCount
       return (
         <ConsensusShell
-          toolbar={renderToolbar(totalCount)}
+          toolbar={
+            <ConsensusToolbarSlot
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              sort={sort}
+              onSortChange={setSort}
+              vizMode={vizMode}
+              onVizModeChange={setVizMode}
+              totalCount={totalCount}
+              isActiveRanking={isActiveRanking}
+              sourceRowCount={sourceRowCount}
+              filteredCount={toolbarFilteredCount}
+            />
+          }
           body={
             renderFrame ? (
               renderBody()
@@ -822,9 +880,17 @@ export const CommunityConsensusSection = ({
             )
           }
           rail={
-            renderFrame
-              ? renderRail(rankingCount)
-              : renderRailLoading(rankingCount)
+            <ConsensusRailSlot
+              rankingCount={rankingCount}
+              aggregateForStats={renderFrame?.aggregate ?? null}
+              spotlightRanking={spotlightRanking}
+              activeSlug={activeSlug}
+              onSelectRanking={setActiveSlug}
+              railResult={railResult}
+              railTab={railTab}
+              onRailTabChange={setRailTab}
+              forceLoading={!renderFrame}
+            />
           }
           actions={renderConsensusActions()}
         />
@@ -851,9 +917,33 @@ export const CommunityConsensusSection = ({
     }
     return (
       <ConsensusShell
-        toolbar={renderToolbar(aggregate.itemCount)}
+        toolbar={
+          <ConsensusToolbarSlot
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            sort={sort}
+            onSortChange={setSort}
+            vizMode={vizMode}
+            onVizModeChange={setVizMode}
+            totalCount={aggregate.itemCount}
+            isActiveRanking={isActiveRanking}
+            sourceRowCount={sourceRowCount}
+            filteredCount={toolbarFilteredCount}
+          />
+        }
         body={renderBody()}
-        rail={renderRail(aggregate.rankingCount)}
+        rail={
+          <ConsensusRailSlot
+            rankingCount={aggregate.rankingCount}
+            aggregateForStats={renderFrame?.aggregate ?? aggregate ?? null}
+            spotlightRanking={spotlightRanking}
+            activeSlug={activeSlug}
+            onSelectRanking={setActiveSlug}
+            railResult={railResult}
+            railTab={railTab}
+            onRailTabChange={setRailTab}
+          />
+        }
         actions={renderConsensusActions()}
       />
     )

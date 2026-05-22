@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { classifyItemCount } from '../../convex/lib/entitlements'
+import { BATCH_LIMITS } from '../../convex/lib/limits'
 import schema from '../../convex/schema'
 import {
   modules,
@@ -89,6 +90,51 @@ const seedAuthRows = async (
       }
     }
     return sessionIds[0]
+  })
+
+const seedAuthSessionWithTokens = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  userId: Id<'users'>,
+  tokenCount: number
+): Promise<Id<'authSessions'>> =>
+  await t.run(async (ctx) =>
+  {
+    const sessionId = await ctx.db.insert('authSessions', {
+      userId,
+      expirationTime: Date.now() + 60_000,
+    })
+    for (let i = 0; i < tokenCount; i++)
+    {
+      await ctx.db.insert('authRefreshTokens', {
+        sessionId,
+        expirationTime: Date.now() + 60_000,
+      })
+    }
+    return sessionId
+  })
+
+const seedAuthAccountWithCodes = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  userId: Id<'users'>,
+  codeCount: number
+): Promise<Id<'authAccounts'>> =>
+  await t.run(async (ctx) =>
+  {
+    const accountId = await ctx.db.insert('authAccounts', {
+      userId,
+      provider: 'password',
+      providerAccountId: 'cascade-large@example.com',
+    })
+    for (let i = 0; i < codeCount; i++)
+    {
+      await ctx.db.insert('authVerificationCodes', {
+        accountId,
+        provider: 'password',
+        code: `large-code-${i}`,
+        expirationTime: Date.now() + 60_000,
+      })
+    }
+    return accountId
   })
 
 const readAuthState = async (
@@ -454,6 +500,106 @@ describe('user cascade cleanup', () =>
       expect(after.accounts).toHaveLength(2)
       expect(after.refreshTokens).toHaveLength(0)
       expect(after.codes).toHaveLength(4)
+    }
+    finally
+    {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cleanupAuthSessions keeps the parent session until refresh-token pages finish', async () =>
+  {
+    vi.useFakeTimers()
+    try
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+      const sessionId = await seedAuthSessionWithTokens(
+        t,
+        userId,
+        BATCH_LIMITS.cascadeDelete + 1
+      )
+
+      await t.mutation(internal.users.cleanupAuthSessions, {
+        userId,
+        mode: 'signOutOnly',
+        cursor: null,
+        targetSessionId: sessionId,
+        tokenCursor: null,
+      })
+
+      const intermediate = await t.run(async (ctx) => ({
+        session: await ctx.db.get(sessionId),
+        tokens: await ctx.db
+          .query('authRefreshTokens')
+          .withIndex('sessionId', (q) => q.eq('sessionId', sessionId))
+          .collect(),
+      }))
+      expect(intermediate.session).not.toBeNull()
+      expect(intermediate.tokens).toHaveLength(1)
+
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+      const remaining = await t.run(async (ctx) => ({
+        session: await ctx.db.get(sessionId),
+        tokens: await ctx.db
+          .query('authRefreshTokens')
+          .withIndex('sessionId', (q) => q.eq('sessionId', sessionId))
+          .collect(),
+      }))
+      expect(remaining.session).toBeNull()
+      expect(remaining.tokens).toHaveLength(0)
+    }
+    finally
+    {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cascadeDeleteUserData keeps the parent account until code pages finish', async () =>
+  {
+    vi.useFakeTimers()
+    try
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+      const accountId = await seedAuthAccountWithCodes(
+        t,
+        userId,
+        BATCH_LIMITS.cascadeDelete + 1
+      )
+
+      await t.mutation(internal.users.cascadeDeleteUserData, {
+        userId,
+        phase: 'authAccounts',
+        cursor: null,
+        targetAccountId: accountId,
+        codeCursor: null,
+      })
+
+      const intermediate = await t.run(async (ctx) => ({
+        account: await ctx.db.get(accountId),
+        codes: await ctx.db
+          .query('authVerificationCodes')
+          .withIndex('accountId', (q) => q.eq('accountId', accountId))
+          .collect(),
+      }))
+      expect(intermediate.account).not.toBeNull()
+      expect(intermediate.codes).toHaveLength(1)
+
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+      const remaining = await t.run(async (ctx) => ({
+        user: await ctx.db.get(userId),
+        account: await ctx.db.get(accountId),
+        codes: await ctx.db
+          .query('authVerificationCodes')
+          .withIndex('accountId', (q) => q.eq('accountId', accountId))
+          .collect(),
+      }))
+      expect(remaining.user).toBeNull()
+      expect(remaining.account).toBeNull()
+      expect(remaining.codes).toHaveLength(0)
     }
     finally
     {

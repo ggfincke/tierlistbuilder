@@ -107,24 +107,6 @@ export const RecentlyDeletedModal = ({
   const [bulkPending, setBulkPending] = useState<BulkAction | null>(null)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
 
-  const updateIdSet = (
-    setter: IdSetSetter,
-    externalId: string,
-    action: 'add' | 'delete'
-  ): void =>
-  {
-    setter((current) =>
-    {
-      const has = current.has(externalId)
-      if (action === 'add' && has) return current
-      if (action === 'delete' && !has) return current
-      const next = new Set(current)
-      if (action === 'add') next.add(externalId)
-      else next.delete(externalId)
-      return next
-    })
-  }
-
   const updateIdSets = (
     setter: IdSetSetter,
     externalIds: readonly string[],
@@ -134,18 +116,30 @@ export const RecentlyDeletedModal = ({
     setter((current) =>
     {
       const next = new Set(current)
+      let changed = false
       for (const id of externalIds)
       {
-        if (action === 'add') next.add(id)
-        else next.delete(id)
+        const has = next.has(id)
+        if (action === 'add')
+        {
+          if (has) continue
+          next.add(id)
+          changed = true
+        }
+        else
+        {
+          if (!has) continue
+          next.delete(id)
+          changed = true
+        }
       }
-      return next
+      return changed ? next : current
     })
   }
 
   const handleRestore = async (externalId: string): Promise<void> =>
   {
-    updateIdSet(setRestoringIds, externalId, 'add')
+    updateIdSets(setRestoringIds, [externalId], 'add')
     try
     {
       const result = await restoreDeletedBoardSession(externalId)
@@ -170,7 +164,7 @@ export const RecentlyDeletedModal = ({
     }
     finally
     {
-      updateIdSet(setRestoringIds, externalId, 'delete')
+      updateIdSets(setRestoringIds, [externalId], 'delete')
     }
   }
 
@@ -254,7 +248,7 @@ export const RecentlyDeletedModal = ({
     if (!confirmDelete) return
     const target = confirmDelete
     setConfirmDelete(null)
-    updateIdSet(setDeletingIds, target.externalId, 'add')
+    updateIdSets(setDeletingIds, [target.externalId], 'add')
     try
     {
       await permanentlyDeleteDeletedBoardSession(target.externalId)
@@ -267,7 +261,7 @@ export const RecentlyDeletedModal = ({
     }
     finally
     {
-      updateIdSet(setDeletingIds, target.externalId, 'delete')
+      updateIdSets(setDeletingIds, [target.externalId], 'delete')
     }
   }
 

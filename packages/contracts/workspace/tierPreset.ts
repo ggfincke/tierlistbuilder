@@ -1,8 +1,9 @@
 // packages/contracts/workspace/tierPreset.ts
-// * serializable tier-preset contract — reusable tier structure, independent of boards
+// serializable tier-preset contract — reusable tier structure, independent of boards
 
 import type { PresetId } from '../lib/ids'
 import type { TierColorSpec } from '../lib/theme'
+import { normalizeStringInput } from '../lib/strings'
 
 // hard cap for user-supplied preset names — same shape as MAX_BOARD_TITLE_LENGTH
 const MAX_TIER_PRESET_NAME_LENGTH = 80
@@ -14,17 +15,7 @@ export const PRESET_NAME_FALLBACK = 'Untitled preset'
 // so callers can decide whether to substitute the fallback (mutation paths
 // do; UI rename inputs may want to reject the empty save instead)
 export const normalizeTierPresetName = (raw: string): string =>
-{
-  const trimmed = raw.trim()
-  if (!trimmed)
-  {
-    return ''
-  }
-
-  return trimmed.length > MAX_TIER_PRESET_NAME_LENGTH
-    ? trimmed.slice(0, MAX_TIER_PRESET_NAME_LENGTH)
-    : trimmed
-}
+  normalizeStringInput(raw, MAX_TIER_PRESET_NAME_LENGTH)
 
 // tier structure within a reusable preset (no IDs or items)
 export interface TierPresetTier

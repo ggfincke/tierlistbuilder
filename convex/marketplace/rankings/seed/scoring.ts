@@ -31,11 +31,10 @@ const fnv1aHash = (value: string): number =>
 // divide by 2^32 (not 2^32-1) so the result stays in [0, 1) — dividing by
 // 0xffffffff lets a max hash land exactly on 1.0 & push downstream floor()s
 // one bucket past their intended range
-const unitHash = (value: string): number => fnv1aHash(value) / 0x100000000
+export const seedUnitHash = (value: string): number =>
+  fnv1aHash(value) / 0x100000000
 
-export const seedUnitHash = (value: string): number => unitHash(value)
-
-const normalizeTextKey = (value: string): string =>
+export const normalizeSeedTextKey = (value: string): string =>
   value
     .toLowerCase()
     .replace(/'/g, '')
@@ -46,15 +45,12 @@ const normalizeTextKey = (value: string): string =>
     .trim()
     .replace(/\s+/g, ' ')
 
-export const normalizeSeedTextKey = (value: string): string =>
-  normalizeTextKey(value)
-
 const termMatches = (label: string, terms: readonly string[]): number =>
 {
-  const normalized = normalizeTextKey(label)
+  const normalized = normalizeSeedTextKey(label)
   return terms.reduce((sum, term) =>
   {
-    const needle = normalizeTextKey(term)
+    const needle = normalizeSeedTextKey(term)
     return needle && normalized.includes(needle) ? sum + 1 : sum
   }, 0)
 }
@@ -79,10 +75,10 @@ export const scoreLaneItem = (
 ): number =>
 {
   const label = item.label ?? item.externalId
-  const crowd = unitHash(
+  const crowd = seedUnitHash(
     `crowd:${templateExternalId}:${lane.criterionExternalId}:${label}`
   )
-  const personal = unitHash(
+  const personal = seedUnitHash(
     `personal:${profile.key}:${templateExternalId}:${lane.criterionExternalId}:${label}`
   )
   const chaos = Math.min(1, profile.chaos * (lane.chaosMultiplier ?? 1))

@@ -14,15 +14,18 @@ import { isDevResetActive } from '../../../dev/resetLock'
 import { isPublicRankingRow } from '../lib'
 import {
   buildAggregateItemMetrics,
+  clampUnitScore,
   clearTemplateRankingAggregateJobAdmission,
   deleteTemplateRankingAggregateParentRows,
   deleteTemplateRankingAggregateParentRowsPage,
   findTemplateRankingAggregate,
+  fromAggregateHighlight,
   makeEmptyDistribution,
   queueTemplateRankingAggregateRecompute,
   queueTemplateRankingAggregateRecomputesForActiveCriteria,
   rollupTemplateRankingCount,
   scheduleTemplateRankingAggregateJobAdmission,
+  toAggregateHighlight,
 } from './lib'
 import { buildRankingTierBucketMap } from '@tierlistbuilder/contracts/marketplace/ranking'
 import {
@@ -222,13 +225,6 @@ const seedAggregateItemRows = async (
   return null
 }
 
-const tierBucketMap = (
-  tiers: readonly Doc<'publishedRankingTiers'>[],
-  bucketCount: number,
-  targetBucketLabels: readonly string[] | undefined
-): Map<string, number> =>
-  buildRankingTierBucketMap(tiers, bucketCount, targetBucketLabels)
-
 const loadTierBucketMap = async (
   ctx: MutationCtx,
   rankingId: Id<'publishedRankings'>,
@@ -240,7 +236,7 @@ const loadTierBucketMap = async (
     .query('publishedRankingTiers')
     .withIndex('byRanking', (q) => q.eq('rankingId', rankingId))
     .take(MAX_SYNC_TIERS)
-  return tierBucketMap(tiers, bucketCount, targetBucketLabels)
+  return buildRankingTierBucketMap(tiers, bucketCount, targetBucketLabels)
 }
 
 const serializeTierBucketMap = (
@@ -274,9 +270,6 @@ const applyBucketSpreadDelta = (
   }
 }
 
-const clampPercentile = (value: number): number =>
-  Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0))
-
 const buildPercentiles = (
   rows: readonly Doc<'templateRankingAggregateItems'>[],
   score: (row: Doc<'templateRankingAggregateItems'>) => number
@@ -305,7 +298,7 @@ const buildPercentiles = (
     }
 
     const equalCount = nextIndex - index
-    const percentile = clampPercentile(
+    const percentile = clampUnitScore(
       (lowerCount + (equalCount - 1) / 2) / (sampled.length - 1)
     )
     for (let groupIndex = index; groupIndex < nextIndex; groupIndex++)
@@ -331,13 +324,6 @@ const EMPTY_AGGREGATE_HIGHLIGHTS: AggregateHighlights = {
   mostAgreed: null,
   mostDivisive: null,
 }
-
-const toAggregateHighlight = (
-  row: Doc<'templateRankingAggregateItems'>
-): MarketplaceTemplateRankingAggregateHighlight => ({
-  templateItemExternalId: row.templateItemExternalId,
-  label: row.label,
-})
 
 const loadAggregateGenerationRows = async (
   ctx: MutationCtx,
@@ -766,13 +752,13 @@ async function finishJob(
     job.rankingCount > 0
       ? await loadAggregateHighlights(ctx, job)
       : EMPTY_AGGREGATE_HIGHLIGHTS
+  const mostAgreed = fromAggregateHighlight(highlights.mostAgreed)
+  const mostDivisive = fromAggregateHighlight(highlights.mostDivisive)
   const highlightFields = {
-    mostAgreedItemExternalId:
-      highlights.mostAgreed?.templateItemExternalId ?? null,
-    mostAgreedItemLabel: highlights.mostAgreed?.label ?? null,
-    mostDivisiveItemExternalId:
-      highlights.mostDivisive?.templateItemExternalId ?? null,
-    mostDivisiveItemLabel: highlights.mostDivisive?.label ?? null,
+    mostAgreedItemExternalId: mostAgreed.templateItemExternalId,
+    mostAgreedItemLabel: mostAgreed.label,
+    mostDivisiveItemExternalId: mostDivisive.templateItemExternalId,
+    mostDivisiveItemLabel: mostDivisive.label,
   }
   const aggregateState: Doc<'templateRankingAggregates'>['state'] =
     job.rankingCount > 0 ? 'ready' : 'empty'

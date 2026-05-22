@@ -14,8 +14,12 @@ import {
 import { importCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
 import { createLocalBoardFromTemplate } from '~/features/workspace/boards/model/localBoardFork'
 import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
-import { useMarketplaceAsyncAction } from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
-import { toast, toastWithAction } from '~/shared/notifications/useToastStore'
+import {
+  useMarketplaceAsyncAction,
+  useVoidRun,
+} from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
+import { notifyLocalBoardForked } from '~/features/marketplace/model/remix/localBoardForkToast'
+import { toast } from '~/shared/notifications/useToastStore'
 import { BOARDS_ROUTE_PATH } from '~/shared/routes/pathname'
 
 interface UseTemplateOptions
@@ -108,18 +112,11 @@ export const useUseTemplate = (): UseTemplateAction =>
         preferredCriterionExternalId: options?.preferredCriterionExternalId,
       })
 
-      if (signedIn)
-      {
-        toast(`Forked "${templateTitle}" into a new board`, 'success')
-      }
-      else
-      {
-        toastWithAction(
-          `Forked "${templateTitle}" locally. Sign in to sync.`,
-          { label: 'Sign in', onClick: promptSignIn },
-          'info'
-        )
-      }
+      notifyLocalBoardForked({
+        verb: 'Forked',
+        title: templateTitle,
+        signedIn,
+      })
       navigate('/')
     },
     [cloneTemplate, navigate, session.status]
@@ -130,20 +127,7 @@ export const useUseTemplate = (): UseTemplateAction =>
     void
   >('useTemplate failed', useTemplate)
 
-  // tighten the run signature back to Promise<void> — the action runner widens
-  // to Promise<void | null> on error to give callers a discriminant, but
-  // we only care about pending state here
-  const run = useCallback(
-    async (
-      slug: string,
-      templateTitle: string,
-      options?: UseTemplateOptions
-    ): Promise<void> =>
-    {
-      await runUseTemplate(slug, templateTitle, options)
-    },
-    [runUseTemplate]
-  )
+  const run = useVoidRun(runUseTemplate)
 
   return { run, isPending }
 }

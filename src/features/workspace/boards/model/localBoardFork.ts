@@ -139,6 +139,26 @@ interface ForkableMarketplaceItem
   imagePadding: number | null
 }
 
+type DefinedFields<T> = {
+  [K in keyof T]?: NonNullable<T[K]>
+}
+
+const definedSpread = <T extends Record<string, unknown>>(
+  fields: T
+): DefinedFields<T> =>
+{
+  const result: DefinedFields<T> = {}
+  for (const key of Object.keys(fields) as Array<keyof T>)
+  {
+    const value = fields[key]
+    if (value !== null && value !== undefined)
+    {
+      result[key] = value as NonNullable<T[typeof key]>
+    }
+  }
+  return result
+}
+
 // build a local TierItem from a marketplace template or ranking item. fields
 // land via conditional spread so absent/null upstream values don't surface as
 // explicit `undefined` keys on the local snapshot
@@ -153,30 +173,16 @@ const toTierItemFromMarketplaceItem = (
     id,
     sourceTemplateItemExternalId,
     ...(imageRef ? { imageRef, tileImageRef: imageRef } : {}),
-    ...(item.label !== null && item.label !== undefined
-      ? { label: item.label }
-      : {}),
-    ...(item.backgroundColor !== null && item.backgroundColor !== undefined
-      ? { backgroundColor: item.backgroundColor }
-      : {}),
-    ...(item.mediaPlate !== null && item.mediaPlate !== undefined
-      ? { mediaPlate: item.mediaPlate }
-      : {}),
-    ...(item.altText !== null && item.altText !== undefined
-      ? { altText: item.altText }
-      : {}),
-    ...(item.aspectRatio !== null && item.aspectRatio !== undefined
-      ? { aspectRatio: item.aspectRatio }
-      : {}),
-    ...(item.imageFit !== null && item.imageFit !== undefined
-      ? { imageFit: item.imageFit }
-      : {}),
-    ...(item.transform !== null && item.transform !== undefined
-      ? { transform: item.transform }
-      : {}),
-    ...(item.imagePadding !== null && item.imagePadding !== undefined
-      ? { imagePadding: item.imagePadding }
-      : {}),
+    ...definedSpread({
+      label: item.label,
+      backgroundColor: item.backgroundColor,
+      mediaPlate: item.mediaPlate,
+      altText: item.altText,
+      aspectRatio: item.aspectRatio,
+      imageFit: item.imageFit,
+      transform: item.transform,
+      imagePadding: item.imagePadding,
+    }),
   }
   return { id, tierItem }
 }

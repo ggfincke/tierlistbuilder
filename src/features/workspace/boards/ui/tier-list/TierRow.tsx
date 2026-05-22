@@ -30,8 +30,8 @@ import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurr
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useBoardItemRenderSettings } from '~/features/workspace/boards/model/useBoardItemRenderSettings'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
-import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { tierContainerTestId } from '~/shared/board-ui/boardTestIds'
 import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '~/shared/overlay/uiMeasurements'
 import {
@@ -92,15 +92,7 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
     boardDefaultPadding,
     boardLabels,
     boardAutoPlate,
-  } = useActiveBoardStore(
-    useShallow((state) => ({
-      boardAspectRatio: getBoardItemAspectRatio(state),
-      boardDefaultFit: state.defaultItemImageFit,
-      boardDefaultPadding: state.defaultItemImagePadding,
-      boardLabels: state.labels,
-      boardAutoPlate: state.autoPlate,
-    }))
-  )
+  } = useBoardItemRenderSettings()
 
   const { itemSize, compactMode, boardLocked, hideRowControls } =
     usePreferencesStore(

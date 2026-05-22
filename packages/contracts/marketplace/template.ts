@@ -2,6 +2,7 @@
 // public template marketplace contracts shared by frontend slices
 
 import type { TierPresetTier } from '../workspace/tierPreset'
+import { generateBase62Slug, isBase62Slug } from '../lib/ids'
 import type {
   BoardAutoPlateSettings,
   BoardLabelSettings,
@@ -101,31 +102,11 @@ const TEMPLATE_SLUG_LENGTH = 10
 // so big rosters fill the card instead of leaving empty cells
 export const MAX_TEMPLATE_COVER_ITEMS = 24
 
-const TEMPLATE_SLUG_PATTERN = new RegExp(
-  `^[0-9A-Za-z]{${TEMPLATE_SLUG_LENGTH}}$`
-)
-
-const BASE62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
 export const isTemplateSlug = (value: unknown): value is string =>
-  typeof value === 'string' && TEMPLATE_SLUG_PATTERN.test(value)
+  isBase62Slug(value, TEMPLATE_SLUG_LENGTH)
 
 export const generateTemplateSlug = (): string =>
-{
-  let out = ''
-  const buf = new Uint8Array(TEMPLATE_SLUG_LENGTH)
-  while (out.length < TEMPLATE_SLUG_LENGTH)
-  {
-    crypto.getRandomValues(buf)
-    for (const byte of buf)
-    {
-      if (byte >= 248) continue
-      out += BASE62[byte % 62]
-      if (out.length === TEMPLATE_SLUG_LENGTH) break
-    }
-  }
-  return out
-}
+  generateBase62Slug(TEMPLATE_SLUG_LENGTH)
 
 export interface TemplateAuthor
 {
@@ -194,6 +175,20 @@ export interface TemplateCoverItem
   label: string | null
   backgroundColor: string | null
   mediaPlate: MediaPlate | null
+  aspectRatio: number | null
+  imageFit: ImageFit | null
+  transform: ItemTransform | null
+  imagePadding: number | null
+}
+
+export interface MarketplaceItemRenderFields
+{
+  label: string | null
+  backgroundColor: string | null
+  mediaPlate: MediaPlate | null
+  altText: string | null
+  media: TemplateMediaRef | null
+  order: number
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
@@ -309,19 +304,9 @@ export interface MarketplaceTemplateDraftTemplate
   coverItems: TemplateCoverItem[]
 }
 
-export interface MarketplaceTemplateItem
+export interface MarketplaceTemplateItem extends MarketplaceItemRenderFields
 {
   externalId: string
-  label: string | null
-  backgroundColor: string | null
-  mediaPlate: MediaPlate | null
-  altText: string | null
-  media: TemplateMediaRef | null
-  order: number
-  aspectRatio: number | null
-  imageFit: ImageFit | null
-  transform: ItemTransform | null
-  imagePadding: number | null
 }
 
 export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary

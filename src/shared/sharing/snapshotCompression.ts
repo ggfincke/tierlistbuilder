@@ -7,6 +7,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_INFLATED_SNAPSHOT_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
 import { loadCompressionLib } from '~/shared/lib/lazyDependencies'
+import { inflateDeflatedJson } from './inflateJson'
 
 type CompressionWorkerRequestInput =
   | {
@@ -141,36 +142,10 @@ const inflateSnapshotJsonInline = async (
 ): Promise<string> =>
 {
   const { Inflate } = await loadCompressionLib()
-  const inflator = new Inflate()
-  const defaultOnData = inflator.onData.bind(inflator)
-  let totalLength = 0
-  let abortedForSize = false
-
-  inflator.onData = (chunk: Uint8Array) =>
-  {
-    if (abortedForSize) return
-    totalLength += chunk.length
-    if (totalLength > MAX_INFLATED_SNAPSHOT_BYTES)
-    {
-      abortedForSize = true
-      return
-    }
-    defaultOnData(chunk)
-  }
-  inflator.push(compressed, true)
-
-  if (abortedForSize)
-  {
-    throw new Error(
-      `inflated snapshot exceeds the ${MAX_INFLATED_SNAPSHOT_BYTES}-byte cap`
-    )
-  }
-  if (inflator.err)
-  {
-    throw new Error(`snapshot decompression failed: ${inflator.msg}`)
-  }
-
-  return new TextDecoder().decode(inflator.result as Uint8Array)
+  return inflateDeflatedJson(compressed, {
+    Inflate,
+    maxInflatedBytes: MAX_INFLATED_SNAPSHOT_BYTES,
+  })
 }
 
 export const compressSnapshotPayloadBytes = async (

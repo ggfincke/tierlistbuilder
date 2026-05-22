@@ -127,12 +127,15 @@ const ConflictResolverDialog = ({
   )
 
   const userId = getUserStableId(user)
-  const ctx: ResolveContext = {
-    boardId: current.boardId,
-    cloudBoardExternalId: current.cloudBoardExternalId,
-    serverState: current.serverState,
-    userId,
-  }
+  const ctx = useMemo<ResolveContext>(
+    () => ({
+      boardId: current.boardId,
+      cloudBoardExternalId: current.cloudBoardExternalId,
+      serverState: current.serverState,
+      userId,
+    }),
+    [current.boardId, current.cloudBoardExternalId, current.serverState, userId]
+  )
 
   const isBusy = busy !== null
 
