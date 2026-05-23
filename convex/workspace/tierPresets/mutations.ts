@@ -11,6 +11,7 @@ import {
 import { requireCurrentUserId } from '../../lib/auth'
 import { findOwnedTierPresetByExternalId } from '../../lib/permissions'
 import { tierPresetTiersValidator } from '../../lib/validators/common'
+import { validateTierSpecList } from '../../lib/validators/tierSpec'
 import { isUserPresetId } from '@tierlistbuilder/contracts/lib/ids'
 import { assertExternalIdShape } from '../../lib/assertions'
 
@@ -40,6 +41,7 @@ export const createTierPreset = mutation({
   {
     const userId = await requireCurrentUserId(ctx)
     validatePresetExternalId(args.externalId)
+    validateTierSpecList(args.tiers)
     const now = Date.now()
     const name = normalizeTierPresetName(args.name) || PRESET_NAME_FALLBACK
 

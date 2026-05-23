@@ -17,8 +17,8 @@ import {
   MAX_TEMPLATE_DESCRIPTION_LENGTH,
   MAX_TEMPLATE_CREDIT_LINE_LENGTH,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { validateHexColor } from '../../../lib/hexColor'
 import { failInput, normalizeNullableText } from '../../../lib/text'
+import { validateTierSpecList } from '../../../lib/validators/tierSpec'
 
 const MAX_SEARCH_QUERY_LENGTH = 120
 
@@ -186,19 +186,8 @@ export const validateTemplateTiers = (
   tiers: readonly TierPresetTier[]
 ): void =>
 {
-  for (const tier of tiers)
-  {
-    if (!tier.name.trim())
-    {
-      failInput('template tier name is required')
-    }
-    if (tier.colorSpec.kind === 'custom')
-    {
-      validateHexColor(tier.colorSpec.hex, 'tier.colorSpec.hex')
-    }
-    if (tier.rowColorSpec?.kind === 'custom')
-    {
-      validateHexColor(tier.rowColorSpec.hex, 'tier.rowColorSpec.hex')
-    }
-  }
+  validateTierSpecList(tiers, {
+    requireName: true,
+    requiredNameMessage: 'template tier name is required',
+  })
 }

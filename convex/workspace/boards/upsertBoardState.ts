@@ -53,6 +53,7 @@ import {
   textStyleIdValidator,
   tierColorSpecValidator,
 } from '../../lib/validators/common'
+import { validateTierSpec } from '../../lib/validators/tierSpec'
 import type {
   BoardAutoPlateSettings,
   BoardLabelSettings,
@@ -95,8 +96,6 @@ import {
 const MAX_LABEL_LEN = 200
 const MAX_ALT_LEN = 500
 const MAX_NOTES_LEN = 2000
-const MAX_TIER_NAME_LEN = 100
-const MAX_TIER_DESCRIPTION_LEN = 500
 const MAX_BACKGROUND_COLOR_LEN = 32
 
 // validator shapes mirror CloudBoard{Tier,Item}Wire contracts; runtime length
@@ -330,27 +329,7 @@ const validateInputs = (args: UpsertArgs): void =>
   for (const tier of args.tiers)
   {
     assertExternalIdShape('tierExternalId', tier.externalId, isTierId, 'tier-')
-    assertStringLength(
-      'tier name',
-      tier.name,
-      MAX_TIER_NAME_LEN,
-      ({ length, maxLength }) =>
-        `tier name too long: ${length} exceeds ${maxLength}`
-    )
-    assertStringLength(
-      'tier description',
-      tier.description,
-      MAX_TIER_DESCRIPTION_LEN,
-      ({ maxLength }) => `tier description too long: exceeds ${maxLength}`
-    )
-    if (tier.colorSpec.kind === 'custom')
-    {
-      validateHexColor(tier.colorSpec.hex, 'tier.colorSpec.hex')
-    }
-    if (tier.rowColorSpec?.kind === 'custom')
-    {
-      validateHexColor(tier.rowColorSpec.hex, 'tier.rowColorSpec.hex')
-    }
+    validateTierSpec(tier)
   }
 
   for (const item of args.items)
