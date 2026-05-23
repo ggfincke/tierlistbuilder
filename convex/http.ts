@@ -142,6 +142,7 @@ const seedRuns = internal.marketplace.seedRuns
 const storageUploads = internal.marketplace.seedPipeline.storageUploads
 const rankingSeeds = internal.marketplace.rankings.seed.actions
 const rankingSeedLifecycle = internal.marketplace.rankings.seed.lifecycle
+const templateSeeds = internal.marketplace.templates.seed
 
 const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
   ['/api/seed/ensure-author', 'action', seedRuns.ensureSeedAuthor],
@@ -194,6 +195,11 @@ const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
     '/api/seed/rankings/rollback',
     'mutation',
     rankingSeedLifecycle.rollbackSeedRankings,
+  ],
+  [
+    '/api/seed/featured-trio',
+    'mutation',
+    templateSeeds.setFeaturedTrioByExternalIdsImpl,
   ],
   ['/api/seed/status', 'query', seedRuns.getSeedRunStatus],
 ] as const

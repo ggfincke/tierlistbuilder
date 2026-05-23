@@ -91,6 +91,10 @@ an HTTP bearer authorization header to `/api/seed/*`, not in the Convex function
 body. When omitted, the pipeline reads the target from local environment files
 and process environment.
 
+`npm run seed:featured` uses the same bearer-header transport and posts to
+`/api/seed/featured-trio`; it does not pass `CONVEX_SEED_SECRET` in a Convex
+function argument.
+
 ## Write Commands
 
 Convex write commands require `CONVEX_SEED_ENABLED=true` and the matching

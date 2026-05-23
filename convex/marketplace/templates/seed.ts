@@ -382,43 +382,6 @@ export const setFeaturedTrioByExternalIdsImpl = internalMutation({
   },
 })
 
-export const setFeaturedTrioByExternalIds = action({
-  args: {
-    seedSecret: v.string(),
-    datasetKey: v.string(),
-    releaseId: v.string(),
-    externalIds: v.array(v.string()),
-  },
-  returns: v.object({
-    cleared: v.number(),
-    promoted: v.array(
-      v.object({
-        externalId: v.string(),
-        slug: v.string(),
-        featuredRank: v.number(),
-      })
-    ),
-  }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{
-    cleared: number
-    promoted: { externalId: string; slug: string; featuredRank: number }[]
-  }> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.setFeaturedTrioByExternalIdsImpl,
-      {
-        datasetKey: args.datasetKey,
-        releaseId: args.releaseId,
-        externalIds: args.externalIds,
-      }
-    )
-  },
-})
-
 export const getSeedUserStatus = action({
   args: { seedSecret: v.string(), email: v.string() },
   returns: v.object({ accountExists: v.boolean() }),
