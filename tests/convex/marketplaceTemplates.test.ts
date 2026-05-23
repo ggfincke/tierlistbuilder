@@ -6,7 +6,9 @@ import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
+  DEFAULT_TEMPLATE_LIST_LIMIT,
   MAX_TEMPLATE_ITEM_PAGE_SIZE,
+  MAX_TEMPLATE_LIST_LIMIT,
   type MarketplaceTemplateCount,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import {
@@ -875,6 +877,68 @@ describe('marketplace template Convex functions', () =>
     })
   })
 
+  it('does not expose private author identifiers on public template reads', async () =>
+  {
+    const t = makeTest()
+    const { authorId, slug } = await t.run(async (ctx) =>
+    {
+      const now = Date.now()
+      const authorId = await ctx.db.insert('users', {
+        name: 'private-author-name@example.com',
+        email: 'private-author-email@example.com',
+        createdAt: now,
+        updatedAt: now,
+        plan: 'free',
+      })
+      const slug = 'PrivAuth01'
+      await seedPublishedTemplate(ctx, {
+        authorId,
+        slug,
+        title: 'Private Author Template',
+        itemCount: 1,
+        sizeClass: 'standard',
+        now,
+      })
+      return { authorId, slug }
+    })
+
+    const detail = await t.query(
+      api.marketplace.templates.queries.getTemplateBySlug,
+      { slug }
+    )
+    expect(detail?.author).toEqual({
+      id: 'unknown-author',
+      displayName: 'Tier list creator',
+      avatarUrl: null,
+    })
+
+    const list = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { limit: 10 }
+    )
+    const summary = list.items.find((item) => item.slug === slug)
+    expect(summary?.author).toEqual({
+      id: 'unknown-author',
+      displayName: 'Tier list creator',
+      avatarUrl: null,
+    })
+
+    const serializedPublicPayload = JSON.stringify({ detail, summary })
+    expect(serializedPublicPayload).not.toContain(
+      'private-author-name@example.com'
+    )
+    expect(serializedPublicPayload).not.toContain(
+      'private-author-email@example.com'
+    )
+    expect(serializedPublicPayload).not.toContain(authorId)
+
+    const emailSearch = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { search: 'private-author-email@example.com', limit: 10 }
+    )
+    expect(emailSearch.items).toEqual([])
+  })
+
   it('normalizes related-template limits before reading the rail', async () =>
   {
     const t = makeTest()
@@ -927,6 +991,58 @@ describe('marketplace template Convex functions', () =>
       }),
       CONVEX_ERROR_CODES.invalidInput
     )
+  })
+
+  it('bounds bookmark pagination sizes before paginating saved templates', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    const viewerId = await seedUser(t, 'Bookmark User', 'viewer@example.com')
+    await t.run(async (ctx) =>
+    {
+      const now = Date.now()
+      for (let index = 0; index < MAX_TEMPLATE_LIST_LIMIT + 5; index++)
+      {
+        const templateId = await seedPublishedTemplate(ctx, {
+          authorId,
+          slug: `Bkmk${String(index).padStart(6, '0')}`,
+          title: `Bookmark Template ${index}`,
+          itemCount: 1,
+          sizeClass: 'standard',
+          now: now + index,
+        })
+        await ctx.db.insert('userTemplateBookmarks', {
+          userId: viewerId,
+          templateId,
+          createdAt: now + index,
+          updatedAt: now + index,
+        })
+      }
+    })
+
+    const oversized = await asUser(t, viewerId).query(
+      api.marketplace.templates.bookmarks.listMyTemplateBookmarks,
+      {
+        paginationOpts: {
+          cursor: null,
+          numItems: MAX_TEMPLATE_LIST_LIMIT * 10,
+        },
+      }
+    )
+    expect(oversized.page).toHaveLength(MAX_TEMPLATE_LIST_LIMIT)
+    expect(oversized.isDone).toBe(false)
+
+    const nonFinite = await asUser(t, viewerId).query(
+      api.marketplace.templates.bookmarks.listMyTemplateBookmarks,
+      {
+        paginationOpts: {
+          cursor: null,
+          numItems: Number.POSITIVE_INFINITY,
+        },
+      }
+    )
+    expect(nonFinite.page).toHaveLength(DEFAULT_TEMPLATE_LIST_LIMIT)
+    expect(nonFinite.isDone).toBe(false)
   })
 
   it('uses preview cover media for template draft thumbnails', async () =>
