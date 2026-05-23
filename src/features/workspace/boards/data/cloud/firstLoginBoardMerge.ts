@@ -5,6 +5,7 @@ import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
+  clearBoardPendingSync,
   markBoardPendingSync,
   markBoardSynced,
   type BoardSyncState,
@@ -77,15 +78,16 @@ const syncStateAfterFailedPush = (
   syncState: BoardSyncState,
   permanent: boolean,
   now: number,
-  preserveLocalRetry: boolean
+  preserveLocalRetry: boolean,
+  ownerUserId: string
 ): BoardSyncState =>
 {
   if (!permanent || preserveLocalRetry)
   {
-    return markBoardPendingSync(syncState, now)
+    return markBoardPendingSync(syncState, now, ownerUserId)
   }
 
-  return { ...syncState, pendingSyncAt: null }
+  return clearBoardPendingSync(syncState)
 }
 
 // push all local boards to the cloud (first-login, cloud-empty case)
@@ -151,7 +153,8 @@ export const pushAllLocalBoards = async (
               syncState,
               true,
               deps.now(),
-              outcome.error.kind === 'local-permanent'
+              outcome.error.kind === 'local-permanent',
+              userId
             )
           )
           return {
@@ -164,7 +167,7 @@ export const pushAllLocalBoards = async (
 
       deps.persistBoardSyncState(
         meta.id,
-        syncStateAfterFailedPush(syncState, false, deps.now(), false)
+        syncStateAfterFailedPush(syncState, false, deps.now(), false, userId)
       )
 
       return {

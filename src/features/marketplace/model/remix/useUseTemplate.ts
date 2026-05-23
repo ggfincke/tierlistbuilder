@@ -6,6 +6,7 @@ import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
 import {
   getTemplateBySlugImperative,
   loadAllTemplateItemsImperative,
@@ -50,6 +51,9 @@ export const useUseTemplate = (): UseTemplateAction =>
   const session = useAuthSession()
   const navigate = useNavigate()
   const cloneTemplate = useUseTemplateMutation()
+  const syncOwnerUserId =
+    session.status === 'signed-in' ? getUserStableId(session.user) : null
+  const signedIn = syncOwnerUserId !== null
 
   const useTemplate = useCallback(
     async (
@@ -64,8 +68,6 @@ export const useUseTemplate = (): UseTemplateAction =>
         toast('That template is no longer available.', 'error')
         return
       }
-
-      const signedIn = session.status === 'signed-in'
 
       // large templates: queued server-side clone. signed-out viewers can't
       // fork these locally (storage budget) so we route to a sign-in prompt
@@ -109,6 +111,7 @@ export const useUseTemplate = (): UseTemplateAction =>
         templateItems,
         title: templateTitle,
         markPendingSync: signedIn,
+        pendingSyncOwnerUserId: syncOwnerUserId,
         preferredCriterionExternalId: options?.preferredCriterionExternalId,
       })
 
@@ -119,7 +122,7 @@ export const useUseTemplate = (): UseTemplateAction =>
       })
       navigate('/')
     },
-    [cloneTemplate, navigate, session.status]
+    [cloneTemplate, navigate, signedIn, syncOwnerUserId]
   )
 
   const { run: runUseTemplate, isPending } = useMarketplaceAsyncAction<

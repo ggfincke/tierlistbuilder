@@ -16,6 +16,11 @@ import { loadPreferencesSyncMetaForUser } from '~/features/platform/preferences/
 import { loadTierPresetSyncMetaMapForUser } from '~/features/workspace/tier-presets/data/local/tierPresetSyncMeta'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { readBoardStateForCloudSync } from '~/features/workspace/boards/data/cloud/cloudFlush'
+import { persistBoardSyncState } from '~/features/workspace/boards/model/boardSession'
+import {
+  clearBoardPendingSync,
+  isBoardPendingSyncOwnedBy,
+} from '~/features/workspace/boards/model/sync'
 import type { PendingBoardSync } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 import type { TierPresetSyncWork } from '~/features/workspace/tier-presets/data/cloud/cloudSync'
 
@@ -51,6 +56,11 @@ const resumeBoards = (options: ResumePendingSyncsOptions): BoardId[] =>
 
     const { snapshot, syncState } = readBoardStateForCloudSync(meta.id)
     if (syncState.pendingSyncAt === null) continue
+    if (!isBoardPendingSyncOwnedBy(syncState, options.userId))
+    {
+      persistBoardSyncState(meta.id, clearBoardPendingSync(syncState))
+      continue
+    }
 
     options.queueBoard({
       boardId: meta.id,

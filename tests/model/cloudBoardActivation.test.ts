@@ -206,6 +206,7 @@ describe('activateCloudBoardAsActive', () =>
       syncState: {
         ...markBoardSynced(1, CLOUD_BOARD_EXTERNAL_ID),
         pendingSyncAt: 123,
+        pendingSyncOwnerUserId: 'user-a',
       },
     })
     saveBoardToStorage(OTHER_BOARD_ID, otherSnapshot)

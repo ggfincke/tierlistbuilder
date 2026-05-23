@@ -29,6 +29,7 @@ const synced = (revision: number, externalId: string): FlushResult => ({
     lastSyncedRevision: revision,
     cloudBoardExternalId: externalId,
     pendingSyncAt: null,
+    pendingSyncOwnerUserId: null,
   },
 })
 
@@ -59,6 +60,7 @@ describe('cloud sync scheduler', () =>
       .mockResolvedValueOnce(synced(2, 'cloud-a'))
 
     const scheduler = createCloudSyncScheduler({
+      ownerUserId: 'user-a',
       debounceMs: 10,
       hasBoard: () => true,
       flush,
@@ -81,7 +83,57 @@ describe('cloud sync scheduler', () =>
       lastSyncedRevision: 2,
       cloudBoardExternalId: 'cloud-a',
       pendingSyncAt: null,
+      pendingSyncOwnerUserId: null,
     })
+
+    await scheduler.dispose()
+  })
+
+  it('persists pending markers with the current auth owner before flushing', async () =>
+  {
+    vi.setSystemTime(1_000)
+    const deps = noOpDeps()
+    const flush = vi.fn().mockResolvedValue(synced(1, 'cloud-a'))
+    const scheduler = createCloudSyncScheduler({
+      ownerUserId: 'user-a',
+      debounceMs: 10,
+      hasBoard: () => true,
+      flush,
+      ...deps,
+    })
+
+    scheduler.queue(makeWork('board-a' as BoardId, 'Fresh edit'))
+    expect(deps.persistPendingWork).toHaveBeenCalledWith(
+      expect.objectContaining({
+        boardId: 'board-a',
+        syncState: expect.objectContaining({
+          pendingSyncAt: 1_000,
+          pendingSyncOwnerUserId: 'user-a',
+        }),
+      })
+    )
+
+    vi.setSystemTime(2_000)
+    scheduler.queue({
+      ...makeWork('board-b' as BoardId, 'Fresh edit after user switch'),
+      syncState: {
+        lastSyncedRevision: 2,
+        cloudBoardExternalId: 'cloud-b',
+        pendingSyncAt: 500,
+        pendingSyncOwnerUserId: 'user-b',
+      },
+    })
+    expect(deps.persistPendingWork).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        boardId: 'board-b',
+        syncState: expect.objectContaining({
+          lastSyncedRevision: 2,
+          cloudBoardExternalId: 'cloud-b',
+          pendingSyncAt: 2_000,
+          pendingSyncOwnerUserId: 'user-a',
+        }),
+      })
+    )
 
     await scheduler.dispose()
   })
@@ -109,6 +161,7 @@ describe('cloud sync scheduler', () =>
       })
 
     const scheduler = createCloudSyncScheduler({
+      ownerUserId: 'user-a',
       debounceMs: 5,
       hasBoard: () => true,
       flush,
@@ -152,6 +205,7 @@ describe('cloud sync scheduler', () =>
     })
 
     const permScheduler = createCloudSyncScheduler({
+      ownerUserId: 'user-a',
       debounceMs: 5,
       hasBoard: () => true,
       flush: permFlush,
@@ -165,6 +219,7 @@ describe('cloud sync scheduler', () =>
         lastSyncedRevision: 4,
         cloudBoardExternalId: 'cloud-a',
         pendingSyncAt: 123,
+        pendingSyncOwnerUserId: 'user-a',
       },
     })
     vi.advanceTimersByTime(5)
@@ -175,6 +230,7 @@ describe('cloud sync scheduler', () =>
       lastSyncedRevision: 4,
       cloudBoardExternalId: 'cloud-a',
       pendingSyncAt: null,
+      pendingSyncOwnerUserId: null,
     })
     await permScheduler.dispose()
 
@@ -194,6 +250,7 @@ describe('cloud sync scheduler', () =>
       .mockResolvedValueOnce(synced(8, 'cloud-a'))
 
     const rateScheduler = createCloudSyncScheduler({
+      ownerUserId: 'user-a',
       debounceMs: 5,
       hasBoard: () => true,
       flush: rateFlush,

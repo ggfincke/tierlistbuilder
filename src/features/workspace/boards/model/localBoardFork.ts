@@ -193,6 +193,7 @@ interface LocalForkOptions
   // subscriber picks it up. signed-out callers pass false; signed-in callers
   // pass true so the upsert (& first-sync fork-counter tick) fires promptly
   markPendingSync: boolean
+  pendingSyncOwnerUserId?: string | null
 }
 
 // shared finishing logic — persist the snapshot, register in the workspace
@@ -201,11 +202,15 @@ interface LocalForkOptions
 const finalizeLocalBoard = async (
   boardId: BoardId,
   snapshot: BoardSnapshot,
-  { markPendingSync }: LocalForkOptions
+  { markPendingSync, pendingSyncOwnerUserId = null }: LocalForkOptions
 ): Promise<void> =>
 {
   const syncState: BoardSyncState = markPendingSync
-    ? markBoardPendingSync(EMPTY_BOARD_SYNC_STATE)
+    ? markBoardPendingSync(
+        EMPTY_BOARD_SYNC_STATE,
+        Date.now(),
+        pendingSyncOwnerUserId
+      )
     : EMPTY_BOARD_SYNC_STATE
 
   const saveResult = saveBoardToStorage(boardId, snapshot, { syncState })
@@ -285,6 +290,7 @@ interface CreateLocalBoardFromTemplateArgs
   // user-overridable title; defaults to the template title when blank
   title?: string
   markPendingSync: boolean
+  pendingSyncOwnerUserId?: string | null
   preferredCriterionExternalId?: string
 }
 
@@ -299,6 +305,7 @@ export const createLocalBoardFromTemplate = async (
     template,
     templateItems,
     markPendingSync,
+    pendingSyncOwnerUserId,
     preferredCriterionExternalId,
   } = args
 
@@ -335,7 +342,10 @@ export const createLocalBoardFromTemplate = async (
     ...(preferredCriterionExternalId ? { preferredCriterionExternalId } : {}),
   }
 
-  await finalizeLocalBoard(boardId, snapshot, { markPendingSync })
+  await finalizeLocalBoard(boardId, snapshot, {
+    markPendingSync,
+    pendingSyncOwnerUserId,
+  })
   return boardId
 }
 
@@ -428,6 +438,7 @@ interface CreateLocalBoardFromRankingArgs
   templateItems: readonly MarketplaceTemplateItem[]
   title?: string
   markPendingSync: boolean
+  pendingSyncOwnerUserId?: string | null
 }
 
 // build a local board snapshot from a ranking + its source-template items.
@@ -437,7 +448,8 @@ export const createLocalBoardFromRanking = async (
   args: CreateLocalBoardFromRankingArgs
 ): Promise<BoardId> =>
 {
-  const { ranking, templateItems, markPendingSync } = args
+  const { ranking, templateItems, markPendingSync, pendingSyncOwnerUserId } =
+    args
 
   const boardExternalId = generateBoardId()
   const boardId = asBoardId(boardExternalId)
@@ -470,6 +482,9 @@ export const createLocalBoardFromRanking = async (
     preferredCriterionExternalId: ranking.criterion.externalId,
   }
 
-  await finalizeLocalBoard(boardId, snapshot, { markPendingSync })
+  await finalizeLocalBoard(boardId, snapshot, {
+    markPendingSync,
+    pendingSyncOwnerUserId,
+  })
   return boardId
 }

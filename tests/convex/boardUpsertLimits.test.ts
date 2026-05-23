@@ -78,17 +78,18 @@ const seedMediaAssets = async (
   await t.run(async (ctx) =>
   {
     await Promise.all(
-      mediaExternalIds.map(async (externalId, i) =>
-        await seedTileMediaAsset(ctx, {
-          ownerId: userId,
-          externalId,
-          dedupeHash: `hash-${i}`,
-          contentHash: `hash-${i}`,
-          blob: new Blob(['image-bytes']),
-          width: 100,
-          height: 100,
-          byteSize: 10,
-        })
+      mediaExternalIds.map(
+        async (externalId, i) =>
+          await seedTileMediaAsset(ctx, {
+            ownerId: userId,
+            externalId,
+            dedupeHash: `hash-${i}`,
+            contentHash: `hash-${i}`,
+            blob: new Blob(['image-bytes']),
+            width: 100,
+            height: 100,
+            byteSize: 10,
+          })
       )
     )
   })
@@ -492,12 +493,15 @@ describe('upsertBoardState', () =>
           defaultItemImagePadding: IMAGE_PADDING_MIN - 0.01,
         }),
       ],
-    ])('rejects %s before writing rows', async (_, boardExternalId, buildPayload) =>
-    {
-      const caller = await setupCaller()
-      await expectUpsertRejected(caller, boardExternalId, buildPayload())
-      await expectNoLibraryBoards(caller)
-    })
+    ])(
+      'rejects %s before writing rows',
+      async (_, boardExternalId, buildPayload) =>
+      {
+        const caller = await setupCaller()
+        await expectUpsertRejected(caller, boardExternalId, buildPayload())
+        await expectNoLibraryBoards(caller)
+      }
+    )
 
     it.each([
       [
@@ -549,6 +553,30 @@ describe('upsertBoardState', () =>
         },
       ],
       [
+        'non-finite item order',
+        'board-bad-item-order-nan',
+        () =>
+        {
+          const payload = makeBoardPayload({ tierCount: 2, itemCount: 2 })
+          return {
+            ...payload,
+            items: [{ ...payload.items[0]!, order: Number.NaN }],
+          }
+        },
+      ],
+      [
+        'item order outside payload range',
+        'board-bad-item-order-range',
+        () =>
+        {
+          const payload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+          return {
+            ...payload,
+            items: [{ ...payload.items[0]!, order: 1 }],
+          }
+        },
+      ],
+      [
         'non-finite board aspect ratio',
         'board-bad-board-aspect-ratio',
         () => ({
@@ -556,12 +584,15 @@ describe('upsertBoardState', () =>
           itemAspectRatio: Number.POSITIVE_INFINITY,
         }),
       ],
-    ])('rejects %s before writing rows', async (_, boardExternalId, buildPayload) =>
-    {
-      const caller = await setupCaller()
-      await expectUpsertRejected(caller, boardExternalId, buildPayload())
-      await expectNoLibraryBoards(caller)
-    })
+    ])(
+      'rejects %s before writing rows',
+      async (_, boardExternalId, buildPayload) =>
+      {
+        const caller = await setupCaller()
+        await expectUpsertRejected(caller, boardExternalId, buildPayload())
+        await expectNoLibraryBoards(caller)
+      }
+    )
 
     it.each([
       [
@@ -598,11 +629,14 @@ describe('upsertBoardState', () =>
           }
         },
       ],
-    ])('rejects %s before writing rows', async (_, boardExternalId, buildPayload) =>
-    {
-      const caller = await setupCaller()
-      await expectUpsertRejected(caller, boardExternalId, buildPayload())
-      await expectNoLibraryBoards(caller)
-    })
+    ])(
+      'rejects %s before writing rows',
+      async (_, boardExternalId, buildPayload) =>
+      {
+        const caller = await setupCaller()
+        await expectUpsertRejected(caller, boardExternalId, buildPayload())
+        await expectNoLibraryBoards(caller)
+      }
+    )
   })
 })

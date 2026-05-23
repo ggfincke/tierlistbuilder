@@ -5,7 +5,12 @@ import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { boardDataFieldsEqual } from '~/shared/board-data/boardSnapshot'
-import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
+import {
+  clearBoardPendingSync,
+  isBoardPendingSyncOwnedBy,
+  markBoardPendingSync,
+  type BoardSyncState,
+} from '~/features/workspace/boards/model/sync'
 import {
   announceBoardLock,
   getPeerLockRemainingMs,
@@ -47,6 +52,7 @@ export type SchedulerBoardStatus = 'syncing' | 'idle' | 'error'
 
 interface CreateCloudSyncSchedulerOptions
 {
+  ownerUserId: string
   debounceMs: number
   hasBoard: (boardId: BoardId) => boolean
   flush: (work: PendingBoardSync) => Promise<FlushResult>
@@ -90,17 +96,18 @@ export const createCloudSyncScheduler = (
     work: PendingBoardSync
   ): PendingBoardSync =>
   {
-    if (work.syncState.pendingSyncAt !== null)
+    if (isBoardPendingSyncOwnedBy(work.syncState, options.ownerUserId))
     {
       return work
     }
 
     const dirtiedWork: PendingBoardSync = {
       ...work,
-      syncState: {
-        ...work.syncState,
-        pendingSyncAt: Date.now(),
-      },
+      syncState: markBoardPendingSync(
+        clearBoardPendingSync(work.syncState),
+        Date.now(),
+        options.ownerUserId
+      ),
     }
     options.persistPendingWork(dirtiedWork)
     return dirtiedWork
@@ -116,6 +123,7 @@ export const createCloudSyncScheduler = (
     const cleanSyncState: BoardSyncState = {
       ...work.syncState,
       pendingSyncAt: null,
+      pendingSyncOwnerUserId: null,
     }
     options.persistSyncState(work.boardId, cleanSyncState)
     return { ...work, syncState: cleanSyncState }
@@ -183,6 +191,7 @@ export const createCloudSyncScheduler = (
       syncState: {
         ...syncState,
         pendingSyncAt: queuedWork.syncState.pendingSyncAt,
+        pendingSyncOwnerUserId: queuedWork.syncState.pendingSyncOwnerUserId,
       },
     }
 

@@ -119,6 +119,7 @@ export const resolveKeepBoth = async (
       lastSyncedRevision: null,
       cloudBoardExternalId: duplicateId,
       pendingSyncAt: Date.now(),
+      pendingSyncOwnerUserId: ctx.userId,
     },
   })
   if (!saveResult.ok)

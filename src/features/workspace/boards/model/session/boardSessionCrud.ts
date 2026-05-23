@@ -117,6 +117,11 @@ const saveInactiveBoardTitle = (boardId: BoardId, title: string): boolean =>
   return true
 }
 
+interface DuplicateBoardSessionOptions
+{
+  pendingSyncOwnerUserId?: string | null
+}
+
 export const createBoardSession = async (): Promise<void> =>
 {
   saveActiveBoardSnapshot()
@@ -188,7 +193,8 @@ export const deleteBoardSession = async (boardId: BoardId): Promise<void> =>
 }
 
 export const duplicateBoardSession = async (
-  boardId: BoardId
+  boardId: BoardId,
+  options: DuplicateBoardSessionOptions = {}
 ): Promise<void> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
@@ -208,11 +214,16 @@ export const duplicateBoardSession = async (
   await saveAndActivateBoard(
     source,
     source.title || DEFAULT_TITLE,
-    markBoardPendingSync({
-      lastSyncedRevision: null,
-      cloudBoardExternalId: null,
-      pendingSyncAt: null,
-    })
+    markBoardPendingSync(
+      {
+        lastSyncedRevision: null,
+        cloudBoardExternalId: null,
+        pendingSyncAt: null,
+        pendingSyncOwnerUserId: null,
+      },
+      Date.now(),
+      options.pendingSyncOwnerUserId ?? null
+    )
   )
 }
 

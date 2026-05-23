@@ -6,6 +6,7 @@ import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
 import { getRankingBySlugImperative } from '~/features/marketplace/data/rankingsRepository'
 import { loadAllTemplateItemsImperative } from '~/features/marketplace/data/templatesRepository'
 import { createLocalBoardFromRanking } from '~/features/workspace/boards/model/localBoardFork'
@@ -26,6 +27,9 @@ export const useRemixRanking = (): RemixRankingAction =>
 {
   const session = useAuthSession()
   const navigate = useNavigate()
+  const syncOwnerUserId =
+    session.status === 'signed-in' ? getUserStableId(session.user) : null
+  const signedIn = syncOwnerUserId !== null
 
   const remixRanking = useCallback(
     async (slug: string, rankingTitle: string): Promise<void> =>
@@ -41,13 +45,12 @@ export const useRemixRanking = (): RemixRankingAction =>
         ranking.template.slug
       )
 
-      const signedIn = session.status === 'signed-in'
-
       await createLocalBoardFromRanking({
         ranking,
         templateItems,
         title: rankingTitle,
         markPendingSync: signedIn,
+        pendingSyncOwnerUserId: syncOwnerUserId,
       })
 
       notifyLocalBoardForked({
@@ -57,7 +60,7 @@ export const useRemixRanking = (): RemixRankingAction =>
       })
       navigate('/')
     },
-    [navigate, session.status]
+    [navigate, signedIn, syncOwnerUserId]
   )
 
   const { run: runRemix, isPending } = useMarketplaceAsyncAction<

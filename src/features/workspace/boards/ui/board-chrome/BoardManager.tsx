@@ -37,6 +37,8 @@ import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPi
 import { TextInput } from '~/shared/ui/TextInput'
 import { BoardSyncBadge } from '~/features/workspace/boards/ui/board-chrome/BoardSyncBadge'
 import { lazyNamed } from '~/shared/lib/lazyNamed'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
 
 const RecentlyDeletedModal = lazyNamed(
   () => import('~/features/workspace/boards/ui/modals/RecentlyDeletedModal'),
@@ -61,6 +63,9 @@ export const BoardManager = ({
   onSwitchBoard,
 }: BoardManagerProps) =>
 {
+  const session = useAuthSession()
+  const pendingSyncOwnerUserId =
+    session.status === 'signed-in' ? getUserStableId(session.user) : null
   const { boards, activeBoardId } = useWorkspaceBoardRegistryStore(
     useShallow((s) => ({
       boards: s.boards,
@@ -223,7 +228,9 @@ export const BoardManager = ({
                         aria-label={`Duplicate ${board.title}`}
                         onClick={() =>
                           {
-                          duplicateBoardSession(board.id)
+                          duplicateBoardSession(board.id, {
+                            pendingSyncOwnerUserId,
+                          })
                           setOpen(false)
                         }}
                         className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] max-sm:p-1.5"

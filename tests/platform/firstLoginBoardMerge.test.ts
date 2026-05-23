@@ -100,6 +100,7 @@ describe('firstLoginBoardMerge', () =>
                 lastSyncedRevision: 4,
                 cloudBoardExternalId: 'cloud-c',
                 pendingSyncAt: 456,
+                pendingSyncOwnerUserId: 'user-a',
               }
             : EMPTY_BOARD_SYNC_STATE,
       }),
@@ -117,16 +118,19 @@ describe('firstLoginBoardMerge', () =>
       lastSyncedRevision: 7,
       cloudBoardExternalId: 'board-a',
       pendingSyncAt: null,
+      pendingSyncOwnerUserId: null,
     })
     expect(persistBoardSyncState).toHaveBeenCalledWith('board-b', {
       lastSyncedRevision: null,
       cloudBoardExternalId: null,
       pendingSyncAt: 1234,
+      pendingSyncOwnerUserId: 'user-a',
     })
     expect(persistBoardSyncState).toHaveBeenCalledWith('board-c', {
       lastSyncedRevision: 4,
       cloudBoardExternalId: 'cloud-c',
       pendingSyncAt: 456,
+      pendingSyncOwnerUserId: 'user-a',
     })
   })
 
@@ -158,6 +162,7 @@ describe('firstLoginBoardMerge', () =>
             lastSyncedRevision: 4,
             cloudBoardExternalId: 'cloud-a',
             pendingSyncAt: 456,
+            pendingSyncOwnerUserId: 'user-a',
           },
         }),
         persistBoardSyncState,
@@ -173,6 +178,7 @@ describe('firstLoginBoardMerge', () =>
       lastSyncedRevision: 4,
       cloudBoardExternalId: 'cloud-a',
       pendingSyncAt: null,
+      pendingSyncOwnerUserId: null,
     })
   })
 

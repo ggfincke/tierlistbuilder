@@ -75,6 +75,7 @@ export const createWorkspaceSyncSession = ({
   const handles = createWorkspaceSyncHandleRegistry()
 
   const scheduler: CloudSyncScheduler = createCloudSyncScheduler({
+    ownerUserId: userId,
     debounceMs: CLOUD_SYNC_DEBOUNCE_MS,
     hasBoard,
     shouldProceed,

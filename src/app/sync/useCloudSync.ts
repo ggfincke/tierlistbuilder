@@ -53,6 +53,7 @@ export const useCloudSync = (user: PublicUserMe | null): void =>
     sessionRef.current?.workspace ?? null
 
   useWorkspaceBoardSyncSubscriber({
+    ownerUserId: epoch?.capturedUserId ?? null,
     shouldProceed: epoch?.shouldProceed ?? null,
     isMergePending: () => getWorkspaceSession()?.isMergePending() ?? false,
     onEdit: (work) => getWorkspaceSession()?.queueBoard(work),

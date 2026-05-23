@@ -356,6 +356,12 @@ const validateInputs = (args: UpsertArgs): void =>
   for (const item of args.items)
   {
     assertExternalIdLength('itemExternalId', item.externalId)
+    assertFiniteRange(
+      'item.order',
+      item.order,
+      -1,
+      Math.max(args.items.length - 1, -1)
+    )
     assertStringLength(
       'item label',
       item.label,

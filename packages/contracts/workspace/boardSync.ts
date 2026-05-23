@@ -6,4 +6,5 @@ export interface BoardSyncState
   lastSyncedRevision: number | null
   cloudBoardExternalId: string | null
   pendingSyncAt: number | null
+  pendingSyncOwnerUserId: string | null
 }

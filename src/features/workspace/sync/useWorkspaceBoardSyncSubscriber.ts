@@ -19,12 +19,14 @@ import type { PendingBoardSync } from '~/features/workspace/boards/data/cloud/cl
 
 interface WorkspaceBoardSyncSubscriberOptions
 {
+  ownerUserId: string | null
   shouldProceed: (() => boolean) | null
   isMergePending: () => boolean
   onEdit: (work: PendingBoardSync) => void
 }
 
 export const useWorkspaceBoardSyncSubscriber = ({
+  ownerUserId,
   shouldProceed,
   isMergePending,
   onEdit,
@@ -32,6 +34,7 @@ export const useWorkspaceBoardSyncSubscriber = ({
 {
   const isMergePendingRef = useRef(isMergePending)
   const onEditRef = useRef(onEdit)
+  const ownerUserIdRef = useRef(ownerUserId)
   const shouldProceedRef = useRef(shouldProceed)
   const lastLoadedBoardIdRef = useRef(
     useWorkspaceBoardRegistryStore.getState().activeBoardId
@@ -39,6 +42,7 @@ export const useWorkspaceBoardSyncSubscriber = ({
 
   useEffect(() =>
   {
+    ownerUserIdRef.current = ownerUserId
     shouldProceedRef.current = shouldProceed
     isMergePendingRef.current = isMergePending
     onEditRef.current = onEdit
@@ -58,6 +62,13 @@ export const useWorkspaceBoardSyncSubscriber = ({
 
       const { snapshot, syncState } = readBoardStateForCloudSync(boardId)
       if (syncState.pendingSyncAt === null) return
+      if (
+        markLoaded &&
+        syncState.pendingSyncOwnerUserId !== ownerUserIdRef.current
+      )
+      {
+        return
+      }
 
       onEditRef.current({
         boardId,
