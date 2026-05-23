@@ -13,6 +13,19 @@ export const DEFAULT_BOARD_TITLE = 'My Tier List'
 // hard cap for user-supplied board titles
 export const MAX_BOARD_TITLE_LENGTH = 200
 
+// tier text caps shared by local import, cloud sync, tier presets, &
+// marketplace template normalization
+export const MAX_TIER_NAME_LEN = 100
+export const MAX_TIER_DESCRIPTION_LEN = 500
+
+// item text caps shared by local import & cloud sync. Convex also caps total
+// document size, but these field-level limits keep malformed local JSON from
+// persisting megabyte strings into browser storage first
+export const MAX_BOARD_ITEM_LABEL_LEN = 200
+export const MAX_BOARD_ITEM_ALT_TEXT_LEN = 500
+export const MAX_BOARD_ITEM_NOTES_LEN = 2000
+export const MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN = 32
+
 // soft-delete retention window before the daily hard-delete cron purges a board.
 // exposed in contracts (not just Convex-internal) so the "Recently deleted" UI
 // can compute the permanent-deletion date w/o a server round trip
