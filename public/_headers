@@ -1,0 +1,19 @@
+# public/_headers — Cloudflare Workers static-asset response headers (security baseline, F8)
+# 5a baseline + 5b-i framing (ENFORCED) + 5b-ii resource CSP (Report-Only while validating).
+# Cumulative rules: /embed* inherits /*, drops the enforced framing, & swaps in a Report-Only
+# policy w/ open frame-ancestors so the embed iframe still loads on 3rd-party pages.
+# 5b-ii enforce flip: fold each Content-Security-Policy-Report-Only into Content-Security-Policy
+# (keeping frame-ancestors) & delete the framing-only CSP + the *-Report-Only lines.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+  Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' blob: data: https://*.convex.cloud wss://*.convex.cloud https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'; frame-src 'none'; frame-ancestors 'none'
+
+/embed*
+  ! X-Frame-Options
+  ! Content-Security-Policy
+  ! Content-Security-Policy-Report-Only
+  Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' blob: data: https://*.convex.cloud wss://*.convex.cloud https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'; frame-src 'none'; frame-ancestors *

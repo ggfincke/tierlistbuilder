@@ -8,6 +8,10 @@ import '~/app/index.css'
 import App from '~/app/App.tsx'
 import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
+import { activateFontStylesheet } from '~/app/fonts'
+
+// apply Google Fonts once the preloaded sheet is ready (no inline onload — CSP)
+activateFontStylesheet()
 
 const convexClient = getConvexClient()
 
