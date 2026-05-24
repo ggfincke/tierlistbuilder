@@ -513,9 +513,19 @@ const toTemplateCardAuthor = async (
   cache?: TemplateProjectionCache
 ): Promise<TemplateAuthor> =>
 {
-  // Resolve through the canonical public author projection so stale cards
-  // cannot keep exposing legacy email/raw-user-id fallbacks.
-  return await toTemplateAuthor(ctx, card.authorId, cache)
+  // card author fields are the public projection, written only via
+  // toTemplateCardAuthorFields (PII-free by construction); read them directly
+  // so list rows stay fan-out-free instead of refetching the users row per card
+  const avatarUrl =
+    card.authorImageUrl ??
+    (card.authorAvatarStorageId
+      ? await loadAssetUrl(ctx, card.authorAvatarStorageId, cache)
+      : null)
+  return {
+    id: card.authorExternalId,
+    displayName: card.authorDisplayName,
+    avatarUrl,
+  }
 }
 
 const toTemplateCardMediaRef = async (

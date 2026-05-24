@@ -104,9 +104,7 @@ const buildSeedTemplate = (
   visibility: 'public',
   coverMediaDedupeHash: null,
   coverFraming: null,
-  suggestedTiers: [
-    { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-  ],
+  suggestedTiers: [{ name: 'S', colorSpec: { kind: 'palette', index: 0 } }],
   itemAspectRatio: 1,
   defaultItemImagePadding: null,
   itemCount: 1,

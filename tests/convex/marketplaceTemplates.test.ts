@@ -49,11 +49,12 @@ import {
   seedUser,
   TEST_CRITERIA,
   toCriterionSnapshot,
+  withSeedEnv,
   withFakeTimers,
 } from './convexTestHelpers'
 
-// seed maintenance fns are internal-only (auth lives on the /api/seed/* routes);
-// call the impls directly here rather than through the HTTP dispatcher
+// seed maintenance fns are internal-only; auth lives on /api/seed/* routes.
+// most tests call impls directly; route regressions use HTTP when dispatch matters
 const setTemplateCriteria = async (
   t: ConvexTestHandle,
   slug: string,
@@ -63,6 +64,9 @@ const setTemplateCriteria = async (
     internal.marketplace.templates.seed.setTemplateCriteriaImpl,
     { slug, criteria }
   )
+
+const SEED_SECRET = 'test-seed-secret'
+const BACKFILL_RANKING_COUNT_ROUTE = '/api/seed/backfill-ranking-count'
 
 const withLargeTemplateJobsEnabled = async (
   run: () => Promise<void>
@@ -1303,10 +1307,10 @@ describe('marketplace template Convex functions', () =>
   })
 
   it('publishes and clones large templates through scheduled jobs', async () =>
-  await withFakeTimers(async () =>
-  {
-    await withLargeTemplateJobsEnabled(async () =>
+    await withFakeTimers(async () =>
     {
+      await withLargeTemplateJobsEnabled(async () =>
+      {
         const t = makeTest()
         const authorId = await seedUser(
           t,
@@ -1415,8 +1419,8 @@ describe('marketplace template Convex functions', () =>
             expect.objectContaining({ label: 'Large Item 200' }),
           ]),
         })
-    })
-  }))
+      })
+    }))
 
   it('rejects large ranking publish until ranking jobs exist', async () =>
   {
@@ -1459,10 +1463,10 @@ describe('marketplace template Convex functions', () =>
   })
 
   it('keeps large job failures and cancelation out of public listings', async () =>
-  await withFakeTimers(async () =>
-  {
-    await withLargeTemplateJobsEnabled(async () =>
+    await withFakeTimers(async () =>
     {
+      await withLargeTemplateJobsEnabled(async () =>
+      {
         const t = makeTest()
         const authorId = await seedUser(
           t,
@@ -1530,8 +1534,8 @@ describe('marketplace template Convex functions', () =>
         expect(
           await t.query(api.marketplace.templates.queries.listTemplates, {})
         ).toMatchObject({ items: [] })
-    })
-  }))
+      })
+    }))
 
   it('reflects publish state in library boards & filters listings by tag', async () =>
   {
@@ -1722,12 +1726,21 @@ describe('marketplace template Convex functions', () =>
     )
     expect(before?.rankingCount).toBe(0)
 
-    await expect(
-      t.mutation(
-        internal.marketplace.templates.internal.backfillTemplateCardRankingCount,
-        { cursor: null }
-      )
-    ).resolves.toEqual({ processed: 1, isDone: true })
+    const response = await withSeedEnv(SEED_SECRET, () =>
+      t.fetch(BACKFILL_RANKING_COUNT_ROUTE, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${SEED_SECRET}`,
+        },
+        body: JSON.stringify({}),
+      })
+    )
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      status: 'success',
+      value: { processed: 1, isDone: true },
+    })
 
     const after = await t.run(
       async (ctx) =>
@@ -1740,93 +1753,93 @@ describe('marketplace template Convex functions', () =>
   })
 
   it('continues aggregate parent cleanup after bounded parent pages', async () =>
-  await withFakeTimers(async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(
-      t,
-      'Aggregate Cleanup Author',
-      'aggregate-cleanup@example.com'
-    )
-    const { templateId } = await seedAggregateTemplate(t, authorId)
-    await t.run(async (ctx) =>
+    await withFakeTimers(async () =>
     {
-      await Promise.all(
-        Array.from({ length: 260 }, async (_, index) =>
-        {
-          const criterionExternalId = `legacy-${index}`
-          await ctx.db.insert('templateRankingAggregates', {
-            templateId,
-            criterionExternalId,
-            state: 'ready',
-            activeGeneration: 1,
-            bucketCount: 3,
-            rankingCount: 1,
-            itemCount: 0,
-            computedAt: 1_000,
-            staleAt: null,
-            bucketSpread: [1, 0, 0],
-            mostAgreedItemExternalId: null,
-            mostAgreedItemLabel: null,
-            mostDivisiveItemExternalId: null,
-            mostDivisiveItemLabel: null,
-            updatedAt: 1_000 + index,
-          })
-          await ctx.db.insert('templateRankingAggregateJobs', {
-            templateId,
-            criterionExternalId,
-            status: 'queued',
-            admittedAt: null,
-            phase: 'seedItems',
-            generation: 1,
-            bucketCount: 3,
-            targetBucketLabels: ['Top', 'Middle', 'Bottom'],
-            itemCount: 0,
-            rankingCount: 1,
-            publicRankingCount: 1,
-            templateCursor: null,
-            rankingCursor: null,
-            rankingScanDone: false,
-            activeRankingId: null,
-            activeRankingTierBucketMap: null,
-            activeRankingItemCursor: null,
-            bucketSpread: [1, 0, 0],
-            restartRequestedAt: null,
-            retryCount: 0,
-            lastError: null,
-            failedAt: null,
-            createdAt: 1_000 + index,
-            updatedAt: 1_000 + index,
-          })
-        })
+      const t = makeTest()
+      const authorId = await seedUser(
+        t,
+        'Aggregate Cleanup Author',
+        'aggregate-cleanup@example.com'
       )
-    })
-
-    await t.mutation(
-      internal.marketplace.rankings.aggregate.jobs
-        .deleteTemplateRankingAggregateParentRowBatch,
+      const { templateId } = await seedAggregateTemplate(t, authorId)
+      await t.run(async (ctx) =>
       {
-        templateId,
-        phase: 'aggregates',
-        cursor: null,
-        rollupOnComplete: false,
-      }
-    )
-    await runScheduled(t)
+        await Promise.all(
+          Array.from({ length: 260 }, async (_, index) =>
+          {
+            const criterionExternalId = `legacy-${index}`
+            await ctx.db.insert('templateRankingAggregates', {
+              templateId,
+              criterionExternalId,
+              state: 'ready',
+              activeGeneration: 1,
+              bucketCount: 3,
+              rankingCount: 1,
+              itemCount: 0,
+              computedAt: 1_000,
+              staleAt: null,
+              bucketSpread: [1, 0, 0],
+              mostAgreedItemExternalId: null,
+              mostAgreedItemLabel: null,
+              mostDivisiveItemExternalId: null,
+              mostDivisiveItemLabel: null,
+              updatedAt: 1_000 + index,
+            })
+            await ctx.db.insert('templateRankingAggregateJobs', {
+              templateId,
+              criterionExternalId,
+              status: 'queued',
+              admittedAt: null,
+              phase: 'seedItems',
+              generation: 1,
+              bucketCount: 3,
+              targetBucketLabels: ['Top', 'Middle', 'Bottom'],
+              itemCount: 0,
+              rankingCount: 1,
+              publicRankingCount: 1,
+              templateCursor: null,
+              rankingCursor: null,
+              rankingScanDone: false,
+              activeRankingId: null,
+              activeRankingTierBucketMap: null,
+              activeRankingItemCursor: null,
+              bucketSpread: [1, 0, 0],
+              restartRequestedAt: null,
+              retryCount: 0,
+              lastError: null,
+              failedAt: null,
+              createdAt: 1_000 + index,
+              updatedAt: 1_000 + index,
+            })
+          })
+        )
+      })
 
-    const remaining = await t.run(async (ctx) => ({
-      aggregates: await ctx.db
-        .query('templateRankingAggregates')
-        .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-        .collect(),
-      jobs: await ctx.db
-        .query('templateRankingAggregateJobs')
-        .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-        .collect(),
+      await t.mutation(
+        internal.marketplace.rankings.aggregate.jobs
+          .deleteTemplateRankingAggregateParentRowBatch,
+        {
+          templateId,
+          phase: 'aggregates',
+          cursor: null,
+          rollupOnComplete: false,
+        }
+      )
+      await runScheduled(t)
+
+      const remaining = await t.run(async (ctx) => ({
+        aggregates: await ctx.db
+          .query('templateRankingAggregates')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .collect(),
+        jobs: await ctx.db
+          .query('templateRankingAggregateJobs')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .collect(),
+      }))
+      expect(remaining.aggregates).toEqual([])
+      expect(remaining.jobs).toEqual([])
     }))
-    expect(remaining.aggregates).toEqual([])
-    expect(remaining.jobs).toEqual([])
-  }))
 
   it('wipes template and forked-board children in bounded batches', async () =>
   {
@@ -2767,101 +2780,101 @@ describe('marketplace template Convex functions', () =>
   })
 
   it('continues public ranking supersession after the first bounded page', async () =>
-  await withFakeTimers(async () =>
-  {
-    const t = makeTest()
-    const ownerId = await seedUser(
-      t,
-      'Ranking Owner',
-      'ranking-owner@example.com'
-    )
-    const templateId = await t.run(
-      async (ctx) =>
-        await seedPublishedTemplate(ctx, {
-          authorId: ownerId,
-          slug: 'paged-supersede-template',
-          title: 'Paged Supersede Template',
-          itemCount: 1,
-          sizeClass: 'standard',
-          now: 1_000,
-        })
-    )
-    const replacementRankingId = await t.run(
-      async (ctx) =>
-        await seedPublishedRanking(ctx, {
-          ownerId,
-          slug: 'paged-supersede-replacement',
-          sourceTemplateId: templateId,
-          sourceBoardId: null,
-          sourceTemplateSlug: 'paged-supersede-template',
-          sourceTemplateTitle: 'Paged Supersede Template',
-          title: 'Replacement',
-          itemCount: 1,
-          now: 2_000,
-        })
-    )
-    await t.run(async (ctx) =>
+    await withFakeTimers(async () =>
     {
-      await Promise.all(
-        Array.from(
-          { length: 260 },
-          async (_, index) =>
-            await seedPublishedRanking(ctx, {
-              ownerId,
-              slug: `paged-supersede-old-${index}`,
-              sourceTemplateId: templateId,
-              sourceBoardId: null,
-              sourceTemplateSlug: 'paged-supersede-template',
-              sourceTemplateTitle: 'Paged Supersede Template',
-              title: `Old ${index}`,
-              itemCount: 1,
-              now: 1_100 + index,
-            })
-        )
+      const t = makeTest()
+      const ownerId = await seedUser(
+        t,
+        'Ranking Owner',
+        'ranking-owner@example.com'
       )
-    })
-
-    await t.mutation(
-      internal.marketplace.rankings.public.mutations
-        .supersedePublicRankingsInLaneBatch,
+      const templateId = await t.run(
+        async (ctx) =>
+          await seedPublishedTemplate(ctx, {
+            authorId: ownerId,
+            slug: 'paged-supersede-template',
+            title: 'Paged Supersede Template',
+            itemCount: 1,
+            sizeClass: 'standard',
+            now: 1_000,
+          })
+      )
+      const replacementRankingId = await t.run(
+        async (ctx) =>
+          await seedPublishedRanking(ctx, {
+            ownerId,
+            slug: 'paged-supersede-replacement',
+            sourceTemplateId: templateId,
+            sourceBoardId: null,
+            sourceTemplateSlug: 'paged-supersede-template',
+            sourceTemplateTitle: 'Paged Supersede Template',
+            title: 'Replacement',
+            itemCount: 1,
+            now: 2_000,
+          })
+      )
+      await t.run(async (ctx) =>
       {
-        ownerId,
-        templateId,
-        criterionExternalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
-        replacementRankingId,
-        now: 3_000,
-        cursor: null,
-      }
-    )
-    await runScheduled(t)
-
-    const rankings = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query('publishedRankings')
-          .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
-            q
-              .eq('sourceTemplateId', templateId)
-              .eq(
-                'sourceCriterionExternalId',
-                DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID
-              )
-              .eq('ownerId', ownerId)
-              .eq('isPubliclyListable', false)
+        await Promise.all(
+          Array.from(
+            { length: 260 },
+            async (_, index) =>
+              await seedPublishedRanking(ctx, {
+                ownerId,
+                slug: `paged-supersede-old-${index}`,
+                sourceTemplateId: templateId,
+                sourceBoardId: null,
+                sourceTemplateSlug: 'paged-supersede-template',
+                sourceTemplateTitle: 'Paged Supersede Template',
+                title: `Old ${index}`,
+                itemCount: 1,
+                now: 1_100 + index,
+              })
           )
-          .collect()
-    )
-    expect(rankings).toHaveLength(260)
+        )
+      })
 
-    const replacement = await t.run(
-      async (ctx) => await ctx.db.get(replacementRankingId)
-    )
-    expect(replacement).toMatchObject({
-      isPubliclyListable: true,
-      supersededAt: null,
-      supersededByRankingId: null,
-    })
-  }))
+      await t.mutation(
+        internal.marketplace.rankings.public.mutations
+          .supersedePublicRankingsInLaneBatch,
+        {
+          ownerId,
+          templateId,
+          criterionExternalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+          replacementRankingId,
+          now: 3_000,
+          cursor: null,
+        }
+      )
+      await runScheduled(t)
+
+      const rankings = await t.run(
+        async (ctx) =>
+          await ctx.db
+            .query('publishedRankings')
+            .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
+              q
+                .eq('sourceTemplateId', templateId)
+                .eq(
+                  'sourceCriterionExternalId',
+                  DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID
+                )
+                .eq('ownerId', ownerId)
+                .eq('isPubliclyListable', false)
+            )
+            .collect()
+      )
+      expect(rankings).toHaveLength(260)
+
+      const replacement = await t.run(
+        async (ctx) => await ctx.db.get(replacementRankingId)
+      )
+      expect(replacement).toMatchObject({
+        isPubliclyListable: true,
+        supersededAt: null,
+        supersededByRankingId: null,
+      })
+    }))
 
   it('admits aggregate recompute jobs through bounded running slots', async () =>
   {
@@ -2936,774 +2949,758 @@ describe('marketplace template Convex functions', () =>
   })
 
   it('recomputes and reads template ranking aggregates by criterion', async () =>
-  await withFakeTimers(async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(
-      t,
-      'Aggregate Criteria Author',
-      'aggregate-criteria-author@example.com'
-    )
-    const rankerAId = await seedUser(
-      t,
-      'Aggregate Criteria Ranker A',
-      'aggregate-criteria-a@example.com'
-    )
-    const rankerBId = await seedUser(
-      t,
-      'Aggregate Criteria Ranker B',
-      'aggregate-criteria-b@example.com'
-    )
-    const rankerCId = await seedUser(
-      t,
-      'Aggregate Criteria Ranker C',
-      'aggregate-criteria-c@example.com'
-    )
-    const {
-      templateId,
-      itemIds,
-      slug: templateSlug,
-    } = await seedAggregateTemplate(t, authorId, {
-      criteria: TEST_CRITERIA,
-    })
-
-    await seedAggregateRanking(t, {
-      ownerId: rankerAId,
-      templateId,
-      templateSlug,
-      templateTitle: 'Aggregate Template',
-      slug: 'AggCrit001',
-      title: 'Competitive Ranker A',
-      now: 1_000,
-      criterion: toCriterionSnapshot('competitive'),
-      tiers: STANDARD_AGGREGATE_TIERS,
-      items: makeAggregateItemsForBuckets(
-        itemIds,
-        'criterion-ranking-item',
-        [0, 2, 2]
-      ),
-    })
-    await seedAggregateRanking(t, {
-      ownerId: rankerBId,
-      templateId,
-      templateSlug,
-      templateTitle: 'Aggregate Template',
-      slug: 'AggCrit002',
-      title: 'Competitive Ranker B',
-      now: 2_000,
-      criterion: toCriterionSnapshot('competitive'),
-      tiers: STANDARD_AGGREGATE_TIERS,
-      items: makeAggregateItemsForBuckets(
-        itemIds,
-        'criterion-ranking-item',
-        [0, 1, 2]
-      ),
-    })
-    await seedAggregateRanking(t, {
-      ownerId: rankerCId,
-      templateId,
-      templateSlug,
-      templateTitle: 'Aggregate Template',
-      slug: 'AggCrit003',
-      title: 'Favorites Ranker C',
-      now: 3_000,
-      criterion: toCriterionSnapshot('favorites'),
-      tiers: STANDARD_AGGREGATE_TIERS,
-      items: makeAggregateItemsForBuckets(
-        itemIds,
-        'criterion-ranking-item',
-        [2, 0, 2]
-      ),
-    })
-
-    vi.setSystemTime(10_000)
-    await t.mutation(
-      internal.marketplace.rankings.aggregate.jobs
-        .queueTemplateRankingAggregateRecomputeForCriterion,
-      { templateId, criterionExternalId: 'competitive' }
-    )
-    await runScheduled(t)
-    await t.mutation(
-      internal.marketplace.rankings.aggregate.jobs
-        .queueTemplateRankingAggregateRecomputeForCriterion,
-      { templateId, criterionExternalId: 'favorites' }
-    )
-    await runScheduled(t)
-
-    const competitive = await t.query(
-      api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
-      { templateSlug }
-    )
-    const favorites = await t.query(
-      api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
-      { templateSlug, criterionExternalId: 'favorites' }
-    )
-    expect(competitive).toMatchObject({
-      criterion: { externalId: 'competitive' },
-      state: 'ready',
-      rankingCount: 2,
-      bucketSpread: [1, 1, 1],
-    })
-    expect(favorites).toMatchObject({
-      criterion: { externalId: 'favorites' },
-      state: 'ready',
-      rankingCount: 1,
-      bucketSpread: [1, 0, 2],
-    })
-    await expect(
-      t.query(
-        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
-        {
-          templateSlug,
-          criterionExternalId: 'missing',
-        }
-      )
-    ).resolves.toBeNull()
-
-    const competitiveGeneration = competitive?.activeGeneration
-    const favoritesGeneration = favorites?.activeGeneration
-    expect(competitiveGeneration).toEqual(expect.any(Number))
-    expect(favoritesGeneration).toEqual(expect.any(Number))
-    if (
-      typeof competitiveGeneration !== 'number' ||
-      typeof favoritesGeneration !== 'number'
-    )
+    await withFakeTimers(async () =>
     {
-      throw new Error('Expected aggregate generations')
-    }
-
-    const competitiveItems = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
-      {
-        templateSlug,
-        criterionExternalId: 'competitive',
-        generation: competitiveGeneration,
-        sort: 'templateOrder',
-        paginationOpts: { cursor: null, numItems: 10 },
-      }
-    )
-    expect(
-      competitiveItems.page.map((row) => row.distribution.map((d) => d.count))
-    ).toEqual([
-      [2, 0, 0],
-      [0, 1, 1],
-      [0, 0, 2],
-    ])
-    expect(
-      competitiveItems.page.find(
-        (row) => row.templateItemExternalId === 'aggregate-item-1'
-      )?.mediaPlate
-    ).toBe('light')
-
-    const remixUserId = await seedUser(
-      t,
-      'Aggregate Criteria Remix User',
-      'aggregate-remix@example.com'
-    )
-    const remix = await asUser(t, remixUserId).mutation(
-      api.marketplace.rankings.public.mutations.remixTemplateConsensus,
-      {
-        templateSlug,
-        criterionExternalId: 'competitive',
-        title: 'Consensus Remix',
-      }
-    )
-    const remixBoard = await asUser(t, remixUserId).query(
-      api.workspace.boards.queries.getBoardStateByExternalId,
-      { boardExternalId: remix.boardExternalId }
-    )
-    expect(
-      remixBoard?.items.find(
-        (item) => item.sourceTemplateItemExternalId === 'aggregate-item-1'
-      )?.mediaPlate
-    ).toBe('light')
-
-    const favoritesSearch = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
-      {
-        templateSlug,
-        criterionExternalId: 'favorites',
-        generation: favoritesGeneration,
-        search: 'Aggregate Item 1',
-        paginationOpts: { cursor: null, numItems: 10 },
-      }
-    )
-    expect(
-      favoritesSearch.page.find(
-        (row) => row.templateItemExternalId === 'aggregate-item-1'
+      const t = makeTest()
+      const authorId = await seedUser(
+        t,
+        'Aggregate Criteria Author',
+        'aggregate-criteria-author@example.com'
       )
-    ).toMatchObject({
-      sampleCount: 1,
-      topBucketIndex: 0,
-    })
-
-    vi.setSystemTime(20_000)
-    await t.mutation(
-      internal.marketplace.rankings.aggregate.jobs
-        .queueTemplateRankingAggregateRecomputeForCriterion,
-      { templateId, criterionExternalId: 'competitive' }
-    )
-    await runScheduled(t)
-
-    const recomputedCompetitive = await t.query(
-      api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
-      { templateSlug, criterionExternalId: 'competitive' }
-    )
-    const stableFavorites = await t.query(
-      api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
-      { templateSlug, criterionExternalId: 'favorites' }
-    )
-    expect(recomputedCompetitive?.activeGeneration).not.toBe(
-      competitiveGeneration
-    )
-    expect(stableFavorites?.activeGeneration).toBe(favoritesGeneration)
-
-    const crossedItems = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
-      {
-        templateSlug,
-        criterionExternalId: 'favorites',
-        generation: recomputedCompetitive?.activeGeneration ?? 0,
-        paginationOpts: { cursor: null, numItems: 10 },
-      }
-    )
-    expect(crossedItems.page).toEqual([])
-  }))
-
-  it('finalizes relative controversy metrics per criterion lane', async () =>
-  await withFakeTimers(async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(
-      t,
-      'Relative Metrics Author',
-      'relative-metrics-author@example.com'
-    )
-    const rankerIds: Id<'users'>[] = []
-    for (
-      let index = 0;
-      index < MIN_RANKINGS_FOR_CONTROVERSY_BADGES;
-      index++
-    )
-    {
-      rankerIds.push(
-        await seedUser(
-          t,
-          `Relative Metrics Ranker ${index}`,
-          `relative-metrics-${index}@example.com`
-        )
+      const rankerAId = await seedUser(
+        t,
+        'Aggregate Criteria Ranker A',
+        'aggregate-criteria-a@example.com'
       )
-    }
-    const criteria: MarketplaceTemplateCriterion[] = [
-      ...TEST_CRITERIA.slice(0, 2),
-      {
-        externalId: 'consistency',
-        name: 'Consistency',
-        shortName: 'Cons',
-        prompt: 'Rank by stable consensus.',
-        axisTop: 'Most consistent',
-        axisBottom: 'Least consistent',
-        order: 2,
-        isPrimary: false,
-        status: 'active',
-      },
-    ]
-    const {
-      templateId,
-      itemIds,
-      slug: templateSlug,
-    } = await seedAggregateTemplate(t, authorId, { criteria })
+      const rankerBId = await seedUser(
+        t,
+        'Aggregate Criteria Ranker B',
+        'aggregate-criteria-b@example.com'
+      )
+      const rankerCId = await seedUser(
+        t,
+        'Aggregate Criteria Ranker C',
+        'aggregate-criteria-c@example.com'
+      )
+      const {
+        templateId,
+        itemIds,
+        slug: templateSlug,
+      } = await seedAggregateTemplate(t, authorId, {
+        criteria: TEST_CRITERIA,
+      })
 
-    for (let index = 0; index < rankerIds.length; index++)
-    {
       await seedAggregateRanking(t, {
-        ownerId: rankerIds[index],
+        ownerId: rankerAId,
         templateId,
         templateSlug,
         templateTitle: 'Aggregate Template',
-        slug: `RelComp${String(index).padStart(3, '0')}`,
-        title: `Competitive Relative ${index}`,
-        now: 1_000 + index,
+        slug: 'AggCrit001',
+        title: 'Competitive Ranker A',
+        now: 1_000,
         criterion: toCriterionSnapshot('competitive'),
         tiers: STANDARD_AGGREGATE_TIERS,
-        items: makeAggregateItemsForBuckets(itemIds, `comp-${index}-item`, [
-          index < 5 ? 0 : 2,
-          index < 6 ? 0 : 1,
-          2,
-        ]),
+        items: makeAggregateItemsForBuckets(
+          itemIds,
+          'criterion-ranking-item',
+          [0, 2, 2]
+        ),
       })
       await seedAggregateRanking(t, {
-        ownerId: rankerIds[index],
+        ownerId: rankerBId,
         templateId,
         templateSlug,
         templateTitle: 'Aggregate Template',
-        slug: `RelCons${String(index).padStart(3, '0')}`,
-        title: `Consistency Relative ${index}`,
-        now: 2_000 + index,
-        criterion: {
-          externalId: 'consistency',
-          name: 'Consistency',
-          prompt: 'Rank by stable consensus.',
-        },
+        slug: 'AggCrit002',
+        title: 'Competitive Ranker B',
+        now: 2_000,
+        criterion: toCriterionSnapshot('competitive'),
         tiers: STANDARD_AGGREGATE_TIERS,
-        items: makeAggregateItemsForBuckets(itemIds, `cons-${index}-item`, [
-          0,
-          1,
-          2,
-        ]),
+        items: makeAggregateItemsForBuckets(
+          itemIds,
+          'criterion-ranking-item',
+          [0, 1, 2]
+        ),
       })
-    }
-    for (let index = 0; index < 3; index++)
-    {
       await seedAggregateRanking(t, {
-        ownerId: rankerIds[index],
+        ownerId: rankerCId,
         templateId,
         templateSlug,
         templateTitle: 'Aggregate Template',
-        slug: `RelFav${String(index).padStart(3, '0')}`,
-        title: `Favorites Relative ${index}`,
-        now: 3_000 + index,
+        slug: 'AggCrit003',
+        title: 'Favorites Ranker C',
+        now: 3_000,
         criterion: toCriterionSnapshot('favorites'),
         tiers: STANDARD_AGGREGATE_TIERS,
-        items: makeAggregateItemsForBuckets(itemIds, `fav-${index}-item`, [
-          index === 0 ? 0 : 2,
-          0,
-          1,
-        ]),
+        items: makeAggregateItemsForBuckets(
+          itemIds,
+          'criterion-ranking-item',
+          [2, 0, 2]
+        ),
       })
-    }
 
-    for (const criterionExternalId of [
-      'competitive',
-      'favorites',
-      'consistency',
-    ])
-    {
       vi.setSystemTime(10_000)
       await t.mutation(
         internal.marketplace.rankings.aggregate.jobs
           .queueTemplateRankingAggregateRecomputeForCriterion,
-        { templateId, criterionExternalId }
+        { templateId, criterionExternalId: 'competitive' }
       )
       await runScheduled(t)
-    }
-
-    const competitive = await t.query(
-      api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
-      { templateSlug, criterionExternalId: 'competitive' }
-    )
-    expect(competitive).toMatchObject({
-      criterion: { externalId: 'competitive' },
-      state: 'ready',
-      rankingCount: MIN_RANKINGS_FOR_CONTROVERSY_BADGES,
-      mostAgreed: {
-        templateItemExternalId: 'aggregate-item-2',
-        label: 'Aggregate Item 2',
-      },
-      mostDivisive: {
-        templateItemExternalId: 'aggregate-item-0',
-        label: 'Aggregate Item 0',
-      },
-    })
-    const competitiveGeneration = competitive?.activeGeneration
-    expect(competitiveGeneration).toEqual(expect.any(Number))
-    if (typeof competitiveGeneration !== 'number')
-    {
-      throw new Error('Expected competitive aggregate generation')
-    }
-
-    const competitiveItems = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
-      {
-        templateSlug,
-        criterionExternalId: 'competitive',
-        generation: competitiveGeneration,
-        sort: 'templateOrder',
-        paginationOpts: { cursor: null, numItems: 10 },
-      }
-    )
-    const [splitItem, mixedItem, agreedItem] = competitiveItems.page
-    expect(splitItem).toMatchObject({
-      templateItemExternalId: 'aggregate-item-0',
-      isControversial: true,
-      controversyScore: 1,
-      controversyPercentile: 1,
-      agreementPercentile: 0,
-    })
-    expect(mixedItem).toMatchObject({
-      templateItemExternalId: 'aggregate-item-1',
-      isControversial: false,
-    })
-    expect(mixedItem.controversyPercentile).toBeCloseTo(0.5)
-    expect(agreedItem).toMatchObject({
-      templateItemExternalId: 'aggregate-item-2',
-      isControversial: false,
-      controversyScore: 0,
-      agreementPercentile: 1,
-    })
-
-    const competitiveControversial = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
-      {
-        templateSlug,
-        criterionExternalId: 'competitive',
-        generation: competitiveGeneration,
-        band: 'controversial',
-        paginationOpts: { cursor: null, numItems: 10 },
-      }
-    )
-    expect(
-      competitiveControversial.page.map((row) => row.templateItemExternalId)
-    ).toEqual(['aggregate-item-0'])
-
-    const favorites = await t.query(
-      api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
-      { templateSlug, criterionExternalId: 'favorites' }
-    )
-    expect(favorites).toMatchObject({
-      criterion: { externalId: 'favorites' },
-      state: 'ready',
-      rankingCount: 3,
-      mostAgreed: null,
-      mostDivisive: null,
-    })
-    const favoritesGeneration = favorites?.activeGeneration
-    expect(favoritesGeneration).toEqual(expect.any(Number))
-    if (typeof favoritesGeneration !== 'number')
-    {
-      throw new Error('Expected favorites aggregate generation')
-    }
-    const favoritesItems = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
-      {
-        templateSlug,
-        criterionExternalId: 'favorites',
-        generation: favoritesGeneration,
-        sort: 'templateOrder',
-        paginationOpts: { cursor: null, numItems: 10 },
-      }
-    )
-    expect(favoritesItems.page[0].controversyScore).toBeGreaterThan(0)
-    expect(favoritesItems.page[0]).toMatchObject({
-      isControversial: false,
-      controversyPercentile: 1,
-    })
-    const favoritesControversial = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
-      {
-        templateSlug,
-        criterionExternalId: 'favorites',
-        generation: favoritesGeneration,
-        band: 'controversial',
-        paginationOpts: { cursor: null, numItems: 10 },
-      }
-    )
-    expect(favoritesControversial.page).toEqual([])
-
-    const consistency = await t.query(
-      api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
-      { templateSlug, criterionExternalId: 'consistency' }
-    )
-    expect(consistency).toMatchObject({
-      criterion: { externalId: 'consistency' },
-      state: 'ready',
-      rankingCount: MIN_RANKINGS_FOR_CONTROVERSY_BADGES,
-    })
-    const consistencyGeneration = consistency?.activeGeneration
-    expect(consistencyGeneration).toEqual(expect.any(Number))
-    if (typeof consistencyGeneration !== 'number')
-    {
-      throw new Error('Expected consistency aggregate generation')
-    }
-    const consistencyItems = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
-      {
-        templateSlug,
-        criterionExternalId: 'consistency',
-        generation: consistencyGeneration,
-        sort: 'templateOrder',
-        paginationOpts: { cursor: null, numItems: 10 },
-      }
-    )
-    expect(consistencyItems.page.map((row) => row.controversyScore)).toEqual([
-      0, 0, 0,
-    ])
-    expect(
-      Math.max(
-        ...consistencyItems.page.map((row) => row.controversyPercentile)
+      await t.mutation(
+        internal.marketplace.rankings.aggregate.jobs
+          .queueTemplateRankingAggregateRecomputeForCriterion,
+        { templateId, criterionExternalId: 'favorites' }
       )
-    ).toBeLessThan(CONTROVERSY_PERCENTILE_MIN)
-  }))
+      await runScheduled(t)
 
-  it('recomputes template ranking aggregates from latest public rankings per user', async () =>
-  await withFakeTimers(async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(
-      t,
-      'Template Author',
-      'author@example.com'
-    )
-    const rankerAId = await seedUser(t, 'Ranker A', 'ranker-a@example.com')
-    const rankerBId = await seedUser(t, 'Ranker B', 'ranker-b@example.com')
-    const rankerCId = await seedUser(t, 'Ranker C', 'ranker-c@example.com')
-    const rankerDId = await seedUser(t, 'Ranker D', 'ranker-d@example.com')
-    const rankerEId = await seedUser(t, 'Ranker E', 'ranker-e@example.com')
-    const rankerFId = await seedUser(t, 'Ranker F', 'ranker-f@example.com')
-    const { templateId, itemIds } = await seedAggregateTemplate(t, authorId)
-    const otherTemplateId = await t.run(
-      async (ctx) =>
-        await seedPublishedTemplate(ctx, {
-          slug: 'OtherAgg01',
-          authorId,
-          title: 'Other Aggregate Template',
-          sizeClass: 'standard',
-          itemCount: 1,
-        })
-    )
-    const otherItemId = await t.run(
-      async (ctx) =>
-        await ctx.db.insert('templateItems', {
-          templateId: otherTemplateId,
-          externalId: 'other-item',
-          label: 'Other Item',
-          backgroundColor: null,
-          altText: null,
-          mediaAssetId: null,
-          order: 0,
-          aspectRatio: null,
-          imageFit: null,
-          transform: null,
-          imagePadding: null,
-        })
-    )
-    const wideTiers = Array.from({ length: 7 }, (_, index) => ({
-      externalId: `wide-tier-${index}`,
-      name: `Wide ${index}`,
-      order: index,
+      const competitive = await t.query(
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
+        { templateSlug }
+      )
+      const favorites = await t.query(
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
+        { templateSlug, criterionExternalId: 'favorites' }
+      )
+      expect(competitive).toMatchObject({
+        criterion: { externalId: 'competitive' },
+        state: 'ready',
+        rankingCount: 2,
+        bucketSpread: [1, 1, 1],
+      })
+      expect(favorites).toMatchObject({
+        criterion: { externalId: 'favorites' },
+        state: 'ready',
+        rankingCount: 1,
+        bucketSpread: [1, 0, 2],
+      })
+      await expect(
+        t.query(
+          api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
+          {
+            templateSlug,
+            criterionExternalId: 'missing',
+          }
+        )
+      ).resolves.toBeNull()
+
+      const competitiveGeneration = competitive?.activeGeneration
+      const favoritesGeneration = favorites?.activeGeneration
+      expect(competitiveGeneration).toEqual(expect.any(Number))
+      expect(favoritesGeneration).toEqual(expect.any(Number))
+      if (
+        typeof competitiveGeneration !== 'number' ||
+        typeof favoritesGeneration !== 'number'
+      )
+      {
+        throw new Error('Expected aggregate generations')
+      }
+
+      const competitiveItems = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'competitive',
+          generation: competitiveGeneration,
+          sort: 'templateOrder',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(
+        competitiveItems.page.map((row) => row.distribution.map((d) => d.count))
+      ).toEqual([
+        [2, 0, 0],
+        [0, 1, 1],
+        [0, 0, 2],
+      ])
+      expect(
+        competitiveItems.page.find(
+          (row) => row.templateItemExternalId === 'aggregate-item-1'
+        )?.mediaPlate
+      ).toBe('light')
+
+      const remixUserId = await seedUser(
+        t,
+        'Aggregate Criteria Remix User',
+        'aggregate-remix@example.com'
+      )
+      const remix = await asUser(t, remixUserId).mutation(
+        api.marketplace.rankings.public.mutations.remixTemplateConsensus,
+        {
+          templateSlug,
+          criterionExternalId: 'competitive',
+          title: 'Consensus Remix',
+        }
+      )
+      const remixBoard = await asUser(t, remixUserId).query(
+        api.workspace.boards.queries.getBoardStateByExternalId,
+        { boardExternalId: remix.boardExternalId }
+      )
+      expect(
+        remixBoard?.items.find(
+          (item) => item.sourceTemplateItemExternalId === 'aggregate-item-1'
+        )?.mediaPlate
+      ).toBe('light')
+
+      const favoritesSearch = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'favorites',
+          generation: favoritesGeneration,
+          search: 'Aggregate Item 1',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(
+        favoritesSearch.page.find(
+          (row) => row.templateItemExternalId === 'aggregate-item-1'
+        )
+      ).toMatchObject({
+        sampleCount: 1,
+        topBucketIndex: 0,
+      })
+
+      vi.setSystemTime(20_000)
+      await t.mutation(
+        internal.marketplace.rankings.aggregate.jobs
+          .queueTemplateRankingAggregateRecomputeForCriterion,
+        { templateId, criterionExternalId: 'competitive' }
+      )
+      await runScheduled(t)
+
+      const recomputedCompetitive = await t.query(
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
+        { templateSlug, criterionExternalId: 'competitive' }
+      )
+      const stableFavorites = await t.query(
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
+        { templateSlug, criterionExternalId: 'favorites' }
+      )
+      expect(recomputedCompetitive?.activeGeneration).not.toBe(
+        competitiveGeneration
+      )
+      expect(stableFavorites?.activeGeneration).toBe(favoritesGeneration)
+
+      const crossedItems = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'favorites',
+          generation: recomputedCompetitive?.activeGeneration ?? 0,
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(crossedItems.page).toEqual([])
     }))
 
-    await seedAggregateRanking(t, {
-      ownerId: rankerAId,
-      templateId,
-      templateSlug: 'AggTpl0001',
-      templateTitle: 'Aggregate Template',
-      slug: 'AggRank001',
-      title: 'Older Ranker A Ranking',
-      now: 1_000,
-      tiers: STANDARD_AGGREGATE_TIERS,
-      items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [
-        2,
-        1,
-        0,
-      ]),
-    })
-    await seedAggregateRanking(t, {
-      ownerId: rankerAId,
-      templateId,
-      templateSlug: 'AggTpl0001',
-      templateTitle: 'Aggregate Template',
-      slug: 'AggRank002',
-      title: 'Latest Ranker A Ranking',
-      now: 2_000,
-      tiers: STANDARD_AGGREGATE_TIERS,
-      items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [
-        0,
-        0,
-        1,
-      ]),
-    })
-    vi.setSystemTime(5_000)
-    await asUser(t, rankerAId).mutation(
-      api.marketplace.rankings.public.mutations.recordRankingView,
-      {
-        slug: 'AggRank001',
-      }
-    )
-    await seedAggregateRanking(t, {
-      ownerId: rankerBId,
-      templateId,
-      templateSlug: 'AggTpl0001',
-      templateTitle: 'Aggregate Template',
-      slug: 'AggRank003',
-      title: 'Ranker B Ranking',
-      now: 1_500,
-      tiers: [
-        { externalId: 'love', name: 'Love', order: 0 },
-        { externalId: 'fine', name: 'Fine', order: 1 },
-        { externalId: 'nope', name: 'Nope', order: 2 },
-      ],
-      items: [
-        makeAggregateItem(itemIds, 0, 'fine'),
-        makeAggregateItem(itemIds, 1, 'nope'),
-        makeAggregateItem(itemIds, 2, 'nope'),
-      ],
-    })
-    await seedAggregateRanking(t, {
-      ownerId: rankerCId,
-      templateId,
-      templateSlug: 'AggTpl0001',
-      templateTitle: 'Aggregate Template',
-      slug: 'AggRank004',
-      title: 'Unlisted Ranking',
-      now: 3_000,
-      visibility: 'unlisted',
-      isPubliclyListable: false,
-      tiers: STANDARD_AGGREGATE_TIERS,
-      items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [
-        2,
-        2,
-        2,
-      ]),
-    })
-    await seedAggregateRanking(t, {
-      ownerId: rankerDId,
-      templateId,
-      templateSlug: 'AggTpl0001',
-      templateTitle: 'Aggregate Template',
-      slug: 'AggRank005',
-      title: 'Unpublished Ranking',
-      now: 3_500,
-      publicationState: 'unpublished',
-      isPubliclyListable: true,
-      tiers: STANDARD_AGGREGATE_TIERS,
-      items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [
-        2,
-        2,
-        2,
-      ]),
-    })
-    await seedAggregateRanking(t, {
-      ownerId: rankerEId,
-      templateId,
-      templateSlug: 'AggTpl0001',
-      templateTitle: 'Aggregate Template',
-      slug: 'AggRank006',
-      title: 'Partially Corrupt Ranking',
-      now: 4_000,
-      tiers: STANDARD_AGGREGATE_TIERS,
-      items: [
-        makeAggregateItem(itemIds, 0, 'tier-top'),
-        makeAggregateItem(itemIds, 1, 'missing-tier'),
-        {
-          templateItemId: otherItemId,
-          templateItemExternalId: 'other-item',
-          tierExternalId: 'tier-low',
-          externalId: 'ranking-item-other',
-          label: 'Other Item',
-          order: 2,
-        },
-      ],
-    })
-    await seedAggregateRanking(t, {
-      ownerId: rankerFId,
-      templateId,
-      templateSlug: 'AggTpl0001',
-      templateTitle: 'Aggregate Template',
-      slug: 'AggRank007',
-      title: 'Ranker F Wide-Tier Ranking',
-      now: 4_500,
-      tiers: wideTiers,
-      items: [
-        makeAggregateItem(itemIds, 0, 'wide-tier-0'),
-        makeAggregateItem(itemIds, 1, 'wide-tier-6'),
-        makeAggregateItem(itemIds, 2, 'wide-tier-6'),
-      ],
-    })
-
-    await t.mutation(
-      internal.marketplace.rankings.aggregate.jobs
-        .queueTemplateRankingAggregateRecomputeForTemplate,
-      { templateId }
-    )
-    await runScheduled(t)
-
-    const aggregate = await t.query(
-      api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
-      { templateSlug: 'AggTpl0001' }
-    )
-    expect(aggregate).toMatchObject({
-      criterion: {
-        externalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
-        name: DEFAULT_TEMPLATE_CRITERION_NAME,
-        prompt: DEFAULT_TEMPLATE_CRITERION_PROMPT,
-      },
-      state: 'ready',
-      bucketCount: 3,
-      rankingCount: 4,
-      itemCount: 3,
-      buckets: [
-        expect.objectContaining({ index: 0, label: 'S' }),
-        expect.objectContaining({ index: 1, label: 'A' }),
-        expect.objectContaining({ index: 2, label: 'B' }),
-      ],
-      bucketSpread: [1, 0, 2],
-    })
-    const activeGeneration = aggregate?.activeGeneration
-    expect(activeGeneration).toEqual(expect.any(Number))
-    if (typeof activeGeneration !== 'number')
+  it('finalizes relative controversy metrics per criterion lane', async () =>
+    await withFakeTimers(async () =>
     {
-      throw new Error('Expected aggregate generation')
-    }
+      const t = makeTest()
+      const authorId = await seedUser(
+        t,
+        'Relative Metrics Author',
+        'relative-metrics-author@example.com'
+      )
+      const rankerIds: Id<'users'>[] = []
+      for (
+        let index = 0;
+        index < MIN_RANKINGS_FOR_CONTROVERSY_BADGES;
+        index++
+      )
+      {
+        rankerIds.push(
+          await seedUser(
+            t,
+            `Relative Metrics Ranker ${index}`,
+            `relative-metrics-${index}@example.com`
+          )
+        )
+      }
+      const criteria: MarketplaceTemplateCriterion[] = [
+        ...TEST_CRITERIA.slice(0, 2),
+        {
+          externalId: 'consistency',
+          name: 'Consistency',
+          shortName: 'Cons',
+          prompt: 'Rank by stable consensus.',
+          axisTop: 'Most consistent',
+          axisBottom: 'Least consistent',
+          order: 2,
+          isPrimary: false,
+          status: 'active',
+        },
+      ]
+      const {
+        templateId,
+        itemIds,
+        slug: templateSlug,
+      } = await seedAggregateTemplate(t, authorId, { criteria })
 
-    const items = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
+      for (let index = 0; index < rankerIds.length; index++)
       {
-        templateSlug: 'AggTpl0001',
-        generation: activeGeneration,
-        sort: 'templateOrder',
-        paginationOpts: { cursor: null, numItems: 10 },
+        await seedAggregateRanking(t, {
+          ownerId: rankerIds[index],
+          templateId,
+          templateSlug,
+          templateTitle: 'Aggregate Template',
+          slug: `RelComp${String(index).padStart(3, '0')}`,
+          title: `Competitive Relative ${index}`,
+          now: 1_000 + index,
+          criterion: toCriterionSnapshot('competitive'),
+          tiers: STANDARD_AGGREGATE_TIERS,
+          items: makeAggregateItemsForBuckets(itemIds, `comp-${index}-item`, [
+            index < 5 ? 0 : 2,
+            index < 6 ? 0 : 1,
+            2,
+          ]),
+        })
+        await seedAggregateRanking(t, {
+          ownerId: rankerIds[index],
+          templateId,
+          templateSlug,
+          templateTitle: 'Aggregate Template',
+          slug: `RelCons${String(index).padStart(3, '0')}`,
+          title: `Consistency Relative ${index}`,
+          now: 2_000 + index,
+          criterion: {
+            externalId: 'consistency',
+            name: 'Consistency',
+            prompt: 'Rank by stable consensus.',
+          },
+          tiers: STANDARD_AGGREGATE_TIERS,
+          items: makeAggregateItemsForBuckets(
+            itemIds,
+            `cons-${index}-item`,
+            [0, 1, 2]
+          ),
+        })
       }
-    )
-    expect(items.page.map((row) => row.sampleCount)).toEqual([4, 3, 3])
-    expect(
-      items.page.map((row) => row.distribution.map((d) => d.count))
-    ).toEqual([
-      [3, 1, 0],
-      [1, 0, 2],
-      [0, 1, 2],
-    ])
-    expect(items.page[0]).toMatchObject({
-      averageBucket: 1 / 4,
-      topBucketIndex: 0,
-      consensusScore: 3 / 4,
-    })
+      for (let index = 0; index < 3; index++)
+      {
+        await seedAggregateRanking(t, {
+          ownerId: rankerIds[index],
+          templateId,
+          templateSlug,
+          templateTitle: 'Aggregate Template',
+          slug: `RelFav${String(index).padStart(3, '0')}`,
+          title: `Favorites Relative ${index}`,
+          now: 3_000 + index,
+          criterion: toCriterionSnapshot('favorites'),
+          tiers: STANDARD_AGGREGATE_TIERS,
+          items: makeAggregateItemsForBuckets(itemIds, `fav-${index}-item`, [
+            index === 0 ? 0 : 2,
+            0,
+            1,
+          ]),
+        })
+      }
 
-    const byConsensus = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
+      for (const criterionExternalId of [
+        'competitive',
+        'favorites',
+        'consistency',
+      ])
       {
-        templateSlug: 'AggTpl0001',
-        generation: activeGeneration,
-        sort: 'consensus',
-        paginationOpts: { cursor: null, numItems: 1 },
+        vi.setSystemTime(10_000)
+        await t.mutation(
+          internal.marketplace.rankings.aggregate.jobs
+            .queueTemplateRankingAggregateRecomputeForCriterion,
+          { templateId, criterionExternalId }
+        )
+        await runScheduled(t)
       }
-    )
-    expect(byConsensus.page[0]).toMatchObject({
-      templateItemExternalId: 'aggregate-item-0',
-      consensusScore: 3 / 4,
-    })
-    const byTopConsensus = await t.query(
-      api.marketplace.rankings.public.queries
-        .listTemplateRankingAggregateItems,
+
+      const competitive = await t.query(
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
+        { templateSlug, criterionExternalId: 'competitive' }
+      )
+      expect(competitive).toMatchObject({
+        criterion: { externalId: 'competitive' },
+        state: 'ready',
+        rankingCount: MIN_RANKINGS_FOR_CONTROVERSY_BADGES,
+        mostAgreed: {
+          templateItemExternalId: 'aggregate-item-2',
+          label: 'Aggregate Item 2',
+        },
+        mostDivisive: {
+          templateItemExternalId: 'aggregate-item-0',
+          label: 'Aggregate Item 0',
+        },
+      })
+      const competitiveGeneration = competitive?.activeGeneration
+      expect(competitiveGeneration).toEqual(expect.any(Number))
+      if (typeof competitiveGeneration !== 'number')
       {
-        templateSlug: 'AggTpl0001',
-        generation: activeGeneration,
-        sort: 'consensusTop',
-        paginationOpts: { cursor: null, numItems: 10 },
+        throw new Error('Expected competitive aggregate generation')
       }
-    )
-    expect(
-      byTopConsensus.page.map((row) => row.templateItemExternalId)
-    ).toEqual(['aggregate-item-0'])
-  }))
+
+      const competitiveItems = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'competitive',
+          generation: competitiveGeneration,
+          sort: 'templateOrder',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      const [splitItem, mixedItem, agreedItem] = competitiveItems.page
+      expect(splitItem).toMatchObject({
+        templateItemExternalId: 'aggregate-item-0',
+        isControversial: true,
+        controversyScore: 1,
+        controversyPercentile: 1,
+        agreementPercentile: 0,
+      })
+      expect(mixedItem).toMatchObject({
+        templateItemExternalId: 'aggregate-item-1',
+        isControversial: false,
+      })
+      expect(mixedItem.controversyPercentile).toBeCloseTo(0.5)
+      expect(agreedItem).toMatchObject({
+        templateItemExternalId: 'aggregate-item-2',
+        isControversial: false,
+        controversyScore: 0,
+        agreementPercentile: 1,
+      })
+
+      const competitiveControversial = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'competitive',
+          generation: competitiveGeneration,
+          band: 'controversial',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(
+        competitiveControversial.page.map((row) => row.templateItemExternalId)
+      ).toEqual(['aggregate-item-0'])
+
+      const favorites = await t.query(
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
+        { templateSlug, criterionExternalId: 'favorites' }
+      )
+      expect(favorites).toMatchObject({
+        criterion: { externalId: 'favorites' },
+        state: 'ready',
+        rankingCount: 3,
+        mostAgreed: null,
+        mostDivisive: null,
+      })
+      const favoritesGeneration = favorites?.activeGeneration
+      expect(favoritesGeneration).toEqual(expect.any(Number))
+      if (typeof favoritesGeneration !== 'number')
+      {
+        throw new Error('Expected favorites aggregate generation')
+      }
+      const favoritesItems = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'favorites',
+          generation: favoritesGeneration,
+          sort: 'templateOrder',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(favoritesItems.page[0].controversyScore).toBeGreaterThan(0)
+      expect(favoritesItems.page[0]).toMatchObject({
+        isControversial: false,
+        controversyPercentile: 1,
+      })
+      const favoritesControversial = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'favorites',
+          generation: favoritesGeneration,
+          band: 'controversial',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(favoritesControversial.page).toEqual([])
+
+      const consistency = await t.query(
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
+        { templateSlug, criterionExternalId: 'consistency' }
+      )
+      expect(consistency).toMatchObject({
+        criterion: { externalId: 'consistency' },
+        state: 'ready',
+        rankingCount: MIN_RANKINGS_FOR_CONTROVERSY_BADGES,
+      })
+      const consistencyGeneration = consistency?.activeGeneration
+      expect(consistencyGeneration).toEqual(expect.any(Number))
+      if (typeof consistencyGeneration !== 'number')
+      {
+        throw new Error('Expected consistency aggregate generation')
+      }
+      const consistencyItems = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'consistency',
+          generation: consistencyGeneration,
+          sort: 'templateOrder',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(consistencyItems.page.map((row) => row.controversyScore)).toEqual([
+        0, 0, 0,
+      ])
+      expect(
+        Math.max(
+          ...consistencyItems.page.map((row) => row.controversyPercentile)
+        )
+      ).toBeLessThan(CONTROVERSY_PERCENTILE_MIN)
+    }))
+
+  it('recomputes template ranking aggregates from latest public rankings per user', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const authorId = await seedUser(
+        t,
+        'Template Author',
+        'author@example.com'
+      )
+      const rankerAId = await seedUser(t, 'Ranker A', 'ranker-a@example.com')
+      const rankerBId = await seedUser(t, 'Ranker B', 'ranker-b@example.com')
+      const rankerCId = await seedUser(t, 'Ranker C', 'ranker-c@example.com')
+      const rankerDId = await seedUser(t, 'Ranker D', 'ranker-d@example.com')
+      const rankerEId = await seedUser(t, 'Ranker E', 'ranker-e@example.com')
+      const rankerFId = await seedUser(t, 'Ranker F', 'ranker-f@example.com')
+      const { templateId, itemIds } = await seedAggregateTemplate(t, authorId)
+      const otherTemplateId = await t.run(
+        async (ctx) =>
+          await seedPublishedTemplate(ctx, {
+            slug: 'OtherAgg01',
+            authorId,
+            title: 'Other Aggregate Template',
+            sizeClass: 'standard',
+            itemCount: 1,
+          })
+      )
+      const otherItemId = await t.run(
+        async (ctx) =>
+          await ctx.db.insert('templateItems', {
+            templateId: otherTemplateId,
+            externalId: 'other-item',
+            label: 'Other Item',
+            backgroundColor: null,
+            altText: null,
+            mediaAssetId: null,
+            order: 0,
+            aspectRatio: null,
+            imageFit: null,
+            transform: null,
+            imagePadding: null,
+          })
+      )
+      const wideTiers = Array.from({ length: 7 }, (_, index) => ({
+        externalId: `wide-tier-${index}`,
+        name: `Wide ${index}`,
+        order: index,
+      }))
+
+      await seedAggregateRanking(t, {
+        ownerId: rankerAId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank001',
+        title: 'Older Ranker A Ranking',
+        now: 1_000,
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [2, 1, 0]),
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerAId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank002',
+        title: 'Latest Ranker A Ranking',
+        now: 2_000,
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [0, 0, 1]),
+      })
+      vi.setSystemTime(5_000)
+      await asUser(t, rankerAId).mutation(
+        api.marketplace.rankings.public.mutations.recordRankingView,
+        {
+          slug: 'AggRank001',
+        }
+      )
+      await seedAggregateRanking(t, {
+        ownerId: rankerBId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank003',
+        title: 'Ranker B Ranking',
+        now: 1_500,
+        tiers: [
+          { externalId: 'love', name: 'Love', order: 0 },
+          { externalId: 'fine', name: 'Fine', order: 1 },
+          { externalId: 'nope', name: 'Nope', order: 2 },
+        ],
+        items: [
+          makeAggregateItem(itemIds, 0, 'fine'),
+          makeAggregateItem(itemIds, 1, 'nope'),
+          makeAggregateItem(itemIds, 2, 'nope'),
+        ],
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerCId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank004',
+        title: 'Unlisted Ranking',
+        now: 3_000,
+        visibility: 'unlisted',
+        isPubliclyListable: false,
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [2, 2, 2]),
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerDId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank005',
+        title: 'Unpublished Ranking',
+        now: 3_500,
+        publicationState: 'unpublished',
+        isPubliclyListable: true,
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: makeAggregateItemsForBuckets(itemIds, 'ranking-item', [2, 2, 2]),
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerEId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank006',
+        title: 'Partially Corrupt Ranking',
+        now: 4_000,
+        tiers: STANDARD_AGGREGATE_TIERS,
+        items: [
+          makeAggregateItem(itemIds, 0, 'tier-top'),
+          makeAggregateItem(itemIds, 1, 'missing-tier'),
+          {
+            templateItemId: otherItemId,
+            templateItemExternalId: 'other-item',
+            tierExternalId: 'tier-low',
+            externalId: 'ranking-item-other',
+            label: 'Other Item',
+            order: 2,
+          },
+        ],
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerFId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank007',
+        title: 'Ranker F Wide-Tier Ranking',
+        now: 4_500,
+        tiers: wideTiers,
+        items: [
+          makeAggregateItem(itemIds, 0, 'wide-tier-0'),
+          makeAggregateItem(itemIds, 1, 'wide-tier-6'),
+          makeAggregateItem(itemIds, 2, 'wide-tier-6'),
+        ],
+      })
+
+      await t.mutation(
+        internal.marketplace.rankings.aggregate.jobs
+          .queueTemplateRankingAggregateRecomputeForTemplate,
+        { templateId }
+      )
+      await runScheduled(t)
+
+      const aggregate = await t.query(
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
+        { templateSlug: 'AggTpl0001' }
+      )
+      expect(aggregate).toMatchObject({
+        criterion: {
+          externalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+          name: DEFAULT_TEMPLATE_CRITERION_NAME,
+          prompt: DEFAULT_TEMPLATE_CRITERION_PROMPT,
+        },
+        state: 'ready',
+        bucketCount: 3,
+        rankingCount: 4,
+        itemCount: 3,
+        buckets: [
+          expect.objectContaining({ index: 0, label: 'S' }),
+          expect.objectContaining({ index: 1, label: 'A' }),
+          expect.objectContaining({ index: 2, label: 'B' }),
+        ],
+        bucketSpread: [1, 0, 2],
+      })
+      const activeGeneration = aggregate?.activeGeneration
+      expect(activeGeneration).toEqual(expect.any(Number))
+      if (typeof activeGeneration !== 'number')
+      {
+        throw new Error('Expected aggregate generation')
+      }
+
+      const items = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug: 'AggTpl0001',
+          generation: activeGeneration,
+          sort: 'templateOrder',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(items.page.map((row) => row.sampleCount)).toEqual([4, 3, 3])
+      expect(
+        items.page.map((row) => row.distribution.map((d) => d.count))
+      ).toEqual([
+        [3, 1, 0],
+        [1, 0, 2],
+        [0, 1, 2],
+      ])
+      expect(items.page[0]).toMatchObject({
+        averageBucket: 1 / 4,
+        topBucketIndex: 0,
+        consensusScore: 3 / 4,
+      })
+
+      const byConsensus = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug: 'AggTpl0001',
+          generation: activeGeneration,
+          sort: 'consensus',
+          paginationOpts: { cursor: null, numItems: 1 },
+        }
+      )
+      expect(byConsensus.page[0]).toMatchObject({
+        templateItemExternalId: 'aggregate-item-0',
+        consensusScore: 3 / 4,
+      })
+      const byTopConsensus = await t.query(
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
+        {
+          templateSlug: 'AggTpl0001',
+          generation: activeGeneration,
+          sort: 'consensusTop',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(
+        byTopConsensus.page.map((row) => row.templateItemExternalId)
+      ).toEqual(['aggregate-item-0'])
+    }))
 })

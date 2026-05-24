@@ -63,9 +63,8 @@ describe('short-link decode', () =>
     })
     vi.stubGlobal(
       'fetch',
-      vi.fn(
-        async () =>
-          mockSnapshotResponse(null, MAX_SNAPSHOT_COMPRESSED_BYTES + 1)
+      vi.fn(async () =>
+        mockSnapshotResponse(null, MAX_SNAPSHOT_COMPRESSED_BYTES + 1)
       )
     )
 
@@ -83,10 +82,7 @@ describe('short-link decode', () =>
     })
     vi.stubGlobal(
       'fetch',
-      vi.fn(
-        async () =>
-          mockSnapshotResponse(new Uint8Array([1, 2, 3]), 3)
-      )
+      vi.fn(async () => mockSnapshotResponse(new Uint8Array([1, 2, 3]), 3))
     )
 
     await expect(decodeBoardFromShortLink('AbCd1234')).rejects.toMatchObject({

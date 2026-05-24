@@ -537,6 +537,16 @@ export const recomputeTemplateCards = internalAction({
   },
 })
 
+export const startTemplateCardRankingCountBackfill = internalAction({
+  args: {},
+  returns: v.object({ processed: v.number(), isDone: v.boolean() }),
+  handler: async (ctx): Promise<{ processed: number; isDone: boolean }> =>
+    await ctx.runMutation(
+      internal.marketplace.templates.internal.backfillTemplateCardRankingCount,
+      { cursor: null }
+    ),
+})
+
 // dev-only — paginated batch wipe of seeded marketplace data. keep batches
 // below the 4096-read txn cap; action loops phases & skips identity/auth
 // tables
