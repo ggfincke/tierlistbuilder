@@ -26,6 +26,7 @@ import {
 import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import { MAX_TEMPLATE_TITLE_LENGTH } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_RANKING_TITLE_LENGTH } from '@tierlistbuilder/contracts/marketplace/ranking'
+import { HEX_COLOR_PATTERN } from '@tierlistbuilder/contracts/lib/hexColor'
 import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 import {
   itemUsesLocalImageRef,
@@ -66,6 +67,17 @@ const assertStringLengthAtMost = (
   if (typeof value === 'string' && value.length > max)
   {
     throw new Error(`${label} exceeds import limit of ${max} characters.`)
+  }
+}
+
+// mirror the cloud upsert's color validation so a hand-edited JSON can't seed
+// invalid CSS into local storage; empty/absent values are skipped (optional)
+const assertHexColor = (label: string, value: unknown): void =>
+{
+  if (typeof value !== 'string' || value.length === 0) return
+  if (!HEX_COLOR_PATTERN.test(value))
+  {
+    throw new Error(`${label} must be a #rrggbb hex color.`)
   }
 }
 
@@ -175,6 +187,17 @@ const validateTierEntry = (tier: unknown, index: number): void =>
       `Tier "${tier.name}" is missing a valid "colorSpec" object.`
     )
   }
+  if (tier.colorSpec.kind === 'custom')
+  {
+    assertHexColor(`Tier "${tier.name}" colorSpec.hex`, tier.colorSpec.hex)
+  }
+  if (isRecord(tier.rowColorSpec) && tier.rowColorSpec.kind === 'custom')
+  {
+    assertHexColor(
+      `Tier "${tier.name}" rowColorSpec.hex`,
+      tier.rowColorSpec.hex
+    )
+  }
 
   if (!Array.isArray(tier.itemIds))
   {
@@ -233,6 +256,7 @@ const validateItemEntry = (
     item.backgroundColor,
     MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN
   )
+  assertHexColor(`Item "${id}" backgroundColor`, item.backgroundColor)
   assertStringLengthAtMost(
     `Item "${id}" sourceTemplateItemExternalId`,
     item.sourceTemplateItemExternalId,

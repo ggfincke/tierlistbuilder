@@ -162,7 +162,7 @@ export const listMyTemplateBookmarks = query({
       .withIndex('byUserCreatedAt', (q) => q.eq('userId', userId))
       .order('desc')
       .paginate({
-        cursor: args.paginationOpts.cursor,
+        ...args.paginationOpts,
         numItems: normalizeBookmarkPageSize(args.paginationOpts.numItems),
       })
     const cache = createTemplateProjectionCache()

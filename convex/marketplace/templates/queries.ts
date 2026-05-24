@@ -621,7 +621,7 @@ export const listTemplateItems = query({
       .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
       .order('asc')
       .paginate({
-        cursor: args.paginationOpts.cursor,
+        ...args.paginationOpts,
         numItems: normalizeTemplateItemPageSize(args.paginationOpts.numItems),
       })
     const cache = createTemplateProjectionCache()

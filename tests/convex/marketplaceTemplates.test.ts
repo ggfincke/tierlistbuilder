@@ -50,25 +50,18 @@ import {
   TEST_CRITERIA,
   toCriterionSnapshot,
   withFakeTimers,
-  withSeedEnv,
 } from './convexTestHelpers'
 
-const SEED_SECRET = 'test-seed-secret'
-
-const withSeedActionsEnabled = async <T>(run: () => Promise<T>): Promise<T> =>
-  await withSeedEnv(SEED_SECRET, run)
-
+// seed maintenance fns are internal-only (auth lives on the /api/seed/* routes);
+// call the impls directly here rather than through the HTTP dispatcher
 const setTemplateCriteria = async (
   t: ConvexTestHandle,
   slug: string,
   criteria: MarketplaceTemplateCriterion[] = TEST_CRITERIA
 ) =>
-  await withSeedActionsEnabled(() =>
-    t.action(api.marketplace.templates.seed.setTemplateCriteria, {
-      seedSecret: SEED_SECRET,
-      slug,
-      criteria,
-    })
+  await t.mutation(
+    internal.marketplace.templates.seed.setTemplateCriteriaImpl,
+    { slug, criteria }
   )
 
 const withLargeTemplateJobsEnabled = async (
@@ -1730,11 +1723,9 @@ describe('marketplace template Convex functions', () =>
     expect(before?.rankingCount).toBe(0)
 
     await expect(
-      withSeedActionsEnabled(() =>
-        t.action(
-          api.marketplace.templates.seed.startTemplateCardRankingCountBackfill,
-          { seedSecret: SEED_SECRET }
-        )
+      t.mutation(
+        internal.marketplace.templates.internal.backfillTemplateCardRankingCount,
+        { cursor: null }
       )
     ).resolves.toEqual({ processed: 1, isDone: true })
 
@@ -1944,11 +1935,7 @@ describe('marketplace template Convex functions', () =>
     })
 
     await expect(
-      withSeedActionsEnabled(() =>
-        t.action(api.marketplace.templates.seed.wipeSeededDataBatch, {
-          seedSecret: SEED_SECRET,
-        })
-      )
+      t.action(internal.marketplace.templates.seed.wipeSeededDataBatch, {})
     ).resolves.toEqual({
       templatesDeleted: 1,
       itemsDeleted: 260,
