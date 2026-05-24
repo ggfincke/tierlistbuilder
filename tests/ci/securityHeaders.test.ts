@@ -1,6 +1,6 @@
 // tests/ci/securityHeaders.test.ts
-// deployment hardening guard for public/_headers (F8) — 5a baseline, enforced 5b-i
-// framing, & the Report-Only 5b-ii resource CSP, w/ the /embed carve-out
+// deployment hardening guard for public/_headers (F8)
+// baseline headers, enforced CSP, & /embed framing carve-out
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -66,24 +66,24 @@ const parseCsp = (value: string): Map<string, string[]> =>
   return directives
 }
 
-// the resource policy lives in CSP-Report-Only today; after the 5b-ii enforce flip
-// it moves into Content-Security-Policy. pick whichever value carries script-src.
-const resourcePolicy = (
+const enforcedPolicy = (
   rule: Rule | undefined
 ): Map<string, string[]> | null =>
 {
-  for (const name of [
-    'content-security-policy-report-only',
-    'content-security-policy',
-  ])
+  const value = rule?.headers.get('content-security-policy')
+  return value ? parseCsp(value) : null
+}
+
+const expectNoGoogleSources = (csp: Map<string, string[]> | null): void =>
+{
+  for (const sources of csp?.values() ?? [])
   {
-    const value = rule?.headers.get(name)
-    if (value && /(^|;)\s*script-src\b/.test(value))
+    for (const source of sources)
     {
-      return parseCsp(value)
+      expect(source).not.toContain('fonts.googleapis.com')
+      expect(source).not.toContain('fonts.gstatic.com')
     }
   }
-  return null
 }
 
 const rules = parseHeaders(readFileSync(headersPath, 'utf8'))
@@ -120,18 +120,20 @@ describe('static deployment security headers (F8)', () =>
   it('enforces framing denial on /* (XFO + frame-ancestors)', () =>
   {
     expect(catchAll?.headers.get('x-frame-options')).toBe('DENY')
-    // framing must be ENFORCED (not Report-Only) — in the enforced CSP header
-    expect(catchAll?.headers.get('content-security-policy') ?? '').toContain(
-      "frame-ancestors 'none'"
-    )
+    expect(enforcedPolicy(catchAll)?.get('frame-ancestors')).toEqual(["'none'"])
   })
 
   it('keeps a strict resource policy on /* (script-src self, no eval/inline)', () =>
   {
-    const csp = resourcePolicy(catchAll)
-    expect(csp, '/* must carry a resource CSP').not.toBeNull()
+    const csp = enforcedPolicy(catchAll)
+    expect(csp, '/* must carry an enforced resource CSP').not.toBeNull()
+    expect(catchAll?.headers.has('content-security-policy-report-only')).toBe(
+      false
+    )
     expect(csp?.get('default-src')).toEqual(["'self'"])
     expect(csp?.get('script-src')).toEqual(["'self'"])
+    expect(csp?.get('font-src')).toEqual(["'self'"])
+    expect(csp?.get('worker-src')).toEqual(["'self'"])
     expect(csp?.get('object-src')).toEqual(["'none'"])
     expect(csp?.get('base-uri')).toEqual(["'self'"])
     expect(csp?.get('frame-src')).toEqual(["'none'"])
@@ -147,6 +149,10 @@ describe('static deployment security headers (F8)', () =>
         'wss://*.convex.cloud',
       ])
     )
+    expect(csp?.get('img-src')).toEqual(
+      expect.arrayContaining(["'self'", 'data:', 'blob:', 'https:'])
+    )
+    expectNoGoogleSources(csp)
   })
 
   it('carves out /embed* so third-party iframes still load', () =>
@@ -156,16 +162,23 @@ describe('static deployment security headers (F8)', () =>
       embed?.unset.has('content-security-policy'),
       'drop enforced framing CSP on embed'
     ).toBe(true)
-    const csp = resourcePolicy(embed)
-    expect(csp, '/embed* must carry its own resource CSP').not.toBeNull()
+    const csp = enforcedPolicy(embed)
+    expect(
+      csp,
+      '/embed* must carry its own enforced resource CSP'
+    ).not.toBeNull()
+    expect(embed?.headers.has('content-security-policy-report-only')).toBe(
+      false
+    )
     expect(csp?.get('frame-ancestors'), 'embed must be framable').toEqual(['*'])
+    expectNoGoogleSources(csp)
   })
 
   it('keeps /* and /embed* resource policies identical except frame-ancestors', () =>
   {
     const strip = (rule: Rule | undefined) =>
     {
-      const csp = new Map(resourcePolicy(rule) ?? [])
+      const csp = new Map(enforcedPolicy(rule) ?? [])
       csp.delete('frame-ancestors')
       return Object.fromEntries(csp)
     }

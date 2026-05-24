@@ -50,12 +50,11 @@ export interface PaletteDefinition
   colors: string[]
 }
 
-// typography preset — font stack + weights + optional Google Fonts URL
+// typography preset - font stack, weights, & letter spacing
 export interface TextStyleDefinition
 {
   fontFamily: string
   weightNormal: string
   weightHeading: string
   letterSpacing: string
-  googleFontsUrl: string | null
 }
