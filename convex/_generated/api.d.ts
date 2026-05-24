@@ -39,6 +39,7 @@ import type * as lib_validators_common from "../lib/validators/common.js";
 import type * as lib_validators_marketplace from "../lib/validators/marketplace.js";
 import type * as lib_validators_platform from "../lib/validators/platform.js";
 import type * as lib_validators_seedPipeline from "../lib/validators/seedPipeline.js";
+import type * as lib_validators_tierSpec from "../lib/validators/tierSpec.js";
 import type * as lib_validators_workspace from "../lib/validators/workspace.js";
 import type * as marketplace_rankings_aggregate_jobs from "../marketplace/rankings/aggregate/jobs.js";
 import type * as marketplace_rankings_aggregate_lib from "../marketplace/rankings/aggregate/lib.js";
@@ -140,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   "lib/validators/marketplace": typeof lib_validators_marketplace;
   "lib/validators/platform": typeof lib_validators_platform;
   "lib/validators/seedPipeline": typeof lib_validators_seedPipeline;
+  "lib/validators/tierSpec": typeof lib_validators_tierSpec;
   "lib/validators/workspace": typeof lib_validators_workspace;
   "marketplace/rankings/aggregate/jobs": typeof marketplace_rankings_aggregate_jobs;
   "marketplace/rankings/aggregate/lib": typeof marketplace_rankings_aggregate_lib;

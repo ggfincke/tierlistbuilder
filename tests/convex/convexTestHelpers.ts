@@ -372,6 +372,9 @@ const defaultBoardLibrarySummary = (): Doc<'boards'>['librarySummary'] => ({
   tierBreakdown: [],
 })
 
+const TEST_FALLBACK_TEMPLATE_AUTHOR_ID = 'unknown-author'
+const TEST_FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME = 'Tier list creator'
+
 export const seedPublishedTemplate = async (
   ctx: MutationCtx,
   args: SeedPublishedTemplateArgs
@@ -382,8 +385,10 @@ export const seedPublishedTemplate = async (
   const tags = args.tags ?? []
   const author = await ctx.db.get(args.authorId)
   if (!author) throw new Error('template author missing')
-  const authorDisplayName =
-    author.displayName ?? author.name ?? 'Template Author'
+  const authorDisplayName = author.handle
+    ? `@${author.handle}`
+    : (author.displayName ?? TEST_FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME)
+  const authorExternalId = author.externalId ?? TEST_FALLBACK_TEMPLATE_AUTHOR_ID
   const templateId = await ctx.db.insert('templates', {
     slug: args.slug,
     authorId: args.authorId,
@@ -431,7 +436,7 @@ export const seedPublishedTemplate = async (
     itemCount: args.itemCount,
     sizeClass: args.sizeClass,
     authorId: args.authorId,
-    authorExternalId: author.externalId ?? args.authorId,
+    authorExternalId,
     authorDisplayName,
     authorImageUrl: author.image ?? null,
     authorAvatarStorageId: author.avatarStorageId ?? null,

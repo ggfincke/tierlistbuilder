@@ -40,6 +40,8 @@ import { resolveTemplateCriteria } from '../criteria'
 type DbCtx = QueryCtx | MutationCtx
 
 const MAX_DRAFT_COVER_ITEMS = 4
+const FALLBACK_TEMPLATE_AUTHOR_ID = 'unknown-author'
+const FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME = 'Tier list creator'
 
 export type TemplateCardSource = Pick<
   Doc<'templates'>,
@@ -308,7 +310,7 @@ const loadTemplateAuthor = async (
       : null)
 
   return {
-    id: author.externalId ?? author._id,
+    id: toPublicAuthorId(author),
     displayName,
     avatarUrl,
   }
@@ -331,11 +333,14 @@ export const toTemplateAuthor = async (
 }
 
 const toAuthorDisplayName = (
-  author: Pick<Doc<'users'>, 'handle' | 'displayName' | 'name' | 'email'>
+  author: Pick<Doc<'users'>, 'handle' | 'displayName'>
 ): string =>
   author.handle
     ? `@${author.handle}`
-    : (author.displayName ?? author.name ?? author.email ?? 'Tier list creator')
+    : (author.displayName ?? FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME)
+
+const toPublicAuthorId = (author: Pick<Doc<'users'>, 'externalId'>): string =>
+  author.externalId ?? FALLBACK_TEMPLATE_AUTHOR_ID
 
 const toTemplateCardMedia = async (
   ctx: DbCtx,
@@ -414,7 +419,7 @@ const toTemplateCardAuthorFields = async (
   }
 
   return {
-    authorExternalId: author.externalId ?? author._id,
+    authorExternalId: toPublicAuthorId(author),
     authorDisplayName: toAuthorDisplayName(author),
     authorImageUrl: author.image ?? null,
     authorAvatarStorageId: author.avatarStorageId ?? null,
@@ -508,6 +513,9 @@ const toTemplateCardAuthor = async (
   cache?: TemplateProjectionCache
 ): Promise<TemplateAuthor> =>
 {
+  // card author fields are the public projection, written only via
+  // toTemplateCardAuthorFields (PII-free by construction); read them directly
+  // so list rows stay fan-out-free instead of refetching the users row per card
   const avatarUrl =
     card.authorImageUrl ??
     (card.authorAvatarStorageId

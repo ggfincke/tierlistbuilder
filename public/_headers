@@ -1,0 +1,13 @@
+# public/_headers - Cloudflare Workers static-asset response headers (F8)
+# Enforced CSP is duplicated so /embed* stays framable while resource policy stays aligned.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  X-Frame-Options: DENY
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https:; connect-src 'self' blob: data: https://*.convex.cloud wss://*.convex.cloud; worker-src 'self'; manifest-src 'self'; form-action 'self'; frame-src 'none'; frame-ancestors 'none'
+
+/embed*
+  ! X-Frame-Options
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https:; connect-src 'self' blob: data: https://*.convex.cloud wss://*.convex.cloud; worker-src 'self'; manifest-src 'self'; form-action 'self'; frame-src 'none'; frame-ancestors *

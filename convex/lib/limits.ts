@@ -6,6 +6,10 @@ import {
   MAX_CLOUD_BOARD_TIERS,
   MAX_LARGE_CLOUD_BOARD_ITEMS,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
+export {
+  MAX_TIER_DESCRIPTION_LEN,
+  MAX_TIER_NAME_LEN,
+} from '@tierlistbuilder/contracts/workspace/board'
 
 export const MAX_SYNC_TIERS = MAX_CLOUD_BOARD_TIERS
 export const MAX_SYNC_ITEMS = MAX_LARGE_CLOUD_BOARD_ITEMS

@@ -142,6 +142,7 @@ const seedRuns = internal.marketplace.seedRuns
 const storageUploads = internal.marketplace.seedPipeline.storageUploads
 const rankingSeeds = internal.marketplace.rankings.seed.actions
 const rankingSeedLifecycle = internal.marketplace.rankings.seed.lifecycle
+const templateSeeds = internal.marketplace.templates.seed
 
 const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
   ['/api/seed/ensure-author', 'action', seedRuns.ensureSeedAuthor],
@@ -194,6 +195,50 @@ const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
     '/api/seed/rankings/rollback',
     'mutation',
     rankingSeedLifecycle.rollbackSeedRankings,
+  ],
+  [
+    '/api/seed/featured-trio',
+    'mutation',
+    templateSeeds.setFeaturedTrioByExternalIdsImpl,
+  ],
+  [
+    '/api/seed/template-featured-rank',
+    'mutation',
+    templateSeeds.setTemplateFeaturedRank,
+  ],
+  [
+    '/api/seed/template-criteria',
+    'mutation',
+    templateSeeds.setTemplateCriteriaImpl,
+  ],
+  [
+    '/api/seed/clear-featured-ranks',
+    'mutation',
+    templateSeeds.clearAllFeaturedRanksImpl,
+  ],
+  ['/api/seed/user-status', 'query', templateSeeds.getSeedUserStatusImpl],
+  [
+    '/api/seed/user-profile',
+    'mutation',
+    templateSeeds.patchSeedUserProfileImpl,
+  ],
+  [
+    '/api/seed/recompute-stats',
+    'mutation',
+    templateSeeds.recomputeMarketplaceStatsImpl,
+  ],
+  ['/api/seed/recompute-tags', 'action', templateSeeds.recomputeTemplateTags],
+  ['/api/seed/recompute-cards', 'action', templateSeeds.recomputeTemplateCards],
+  ['/api/seed/wipe-seeded-data', 'action', templateSeeds.wipeSeededDataBatch],
+  [
+    '/api/seed/unpublish-template',
+    'mutation',
+    templateSeeds.unpublishSeededTemplateImpl,
+  ],
+  [
+    '/api/seed/backfill-ranking-count',
+    'action',
+    templateSeeds.startTemplateCardRankingCountBackfill,
   ],
   ['/api/seed/status', 'query', seedRuns.getSeedRunStatus],
 ] as const

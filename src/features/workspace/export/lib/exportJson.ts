@@ -14,6 +14,7 @@ export {
   parseBoardJson,
   parseBoardSnapshotJson,
   parseBoardsJson,
+  readBoardImportJsonFile,
 } from '~/shared/board-data/boardJson'
 
 interface TierListExport

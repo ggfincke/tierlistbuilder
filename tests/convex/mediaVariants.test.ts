@@ -183,34 +183,34 @@ describe('media variants', () =>
   })
 
   it('keeps registered seed upload blobs out of orphan storage GC', async () =>
-  await withFakeTimers(async () =>
-  {
-    const t = makeTest()
-    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
-    const storageId = await storeImageBlob(t, [9, 9, 9])
-    await t.run(async (ctx) =>
+    await withFakeTimers(async () =>
     {
-      await ctx.db.insert('seedRunStorageUploads', {
-        datasetKey: 'media-test',
-        releaseId: 'release-1',
-        runId: 'run-1',
-        storageId,
-        status: 'uploaded',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+      const t = makeTest()
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+      const storageId = await storeImageBlob(t, [9, 9, 9])
+      await t.run(async (ctx) =>
+      {
+        await ctx.db.insert('seedRunStorageUploads', {
+          datasetKey: 'media-test',
+          releaseId: 'release-1',
+          runId: 'run-1',
+          storageId,
+          status: 'uploaded',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        })
       })
-    })
 
-    vi.setSystemTime(new Date('2026-01-01T02:00:00.000Z'))
-    await t.mutation(internal.platform.media.internal.gcOrphanedStorage, {
-      cursor: null,
-    })
+      vi.setSystemTime(new Date('2026-01-01T02:00:00.000Z'))
+      await t.mutation(internal.platform.media.internal.gcOrphanedStorage, {
+        cursor: null,
+      })
 
-    const stillExists = await t.run(
-      async (ctx) => (await ctx.storage.get(storageId)) !== null
-    )
-    expect(stillExists).toBe(true)
-  }))
+      const stillExists = await t.run(
+        async (ctx) => (await ctx.storage.get(storageId)) !== null
+      )
+      expect(stillExists).toBe(true)
+    }))
 
   it('dedupes exact variant sets without merging different editor assets', async () =>
   {

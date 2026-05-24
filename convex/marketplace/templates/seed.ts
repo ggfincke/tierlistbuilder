@@ -3,7 +3,7 @@
 
 import { ConvexError, v, type Infer } from 'convex/values'
 import {
-  action,
+  internalAction,
   internalMutation,
   internalQuery,
   type MutationCtx,
@@ -28,7 +28,6 @@ import {
   upsertMarketplaceStats,
   writeTemplateCard,
 } from './lib/writes'
-import { requireSeedAuthorized } from '../seedAuth'
 
 const FEATURED_TEMPLATE_SCAN_CAP = BATCH_LIMITS.featuredTemplateScan
 
@@ -224,67 +223,6 @@ export const clearAllFeaturedRanksImpl = internalMutation({
   },
 })
 
-export const promoteFeatured = action({
-  args: {
-    seedSecret: v.string(),
-    slug: v.string(),
-    featuredRank: v.union(v.number(), v.null()),
-  },
-  returns: v.object({
-    slug: v.string(),
-    featuredRank: v.union(v.number(), v.null()),
-  }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ slug: string; featuredRank: number | null }> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.setTemplateFeaturedRank,
-      { slug: args.slug, featuredRank: args.featuredRank }
-    )
-  },
-})
-
-export const setTemplateCriteria = action({
-  args: {
-    seedSecret: v.string(),
-    slug: v.string(),
-    criteria: templateCriteriaValidator,
-  },
-  returns: v.object({
-    slug: v.string(),
-    criteria: templateCriteriaValidator,
-  }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ slug: string; criteria: Doc<'templates'>['criteria'] }> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    const result: { slug: string; criteria: Doc<'templates'>['criteria'] } =
-      await ctx.runMutation(
-        internal.marketplace.templates.seed.setTemplateCriteriaImpl,
-        { slug: args.slug, criteria: args.criteria }
-      )
-    return result
-  },
-})
-
-export const clearAllFeaturedRanks = action({
-  args: { seedSecret: v.string() },
-  returns: v.object({ cleared: v.number(), scanned: v.number() }),
-  handler: async (ctx, args): Promise<{ cleared: number; scanned: number }> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.clearAllFeaturedRanksImpl,
-      {}
-    )
-  },
-})
-
 // dev-only: assign a curated trio (or N-tuple) of featured templates by seed
 // externalId. clears any pre-existing featuredRank in the same call so the
 // list shows EXACTLY the requested templates in the requested order
@@ -382,78 +320,6 @@ export const setFeaturedTrioByExternalIdsImpl = internalMutation({
   },
 })
 
-export const setFeaturedTrioByExternalIds = action({
-  args: {
-    seedSecret: v.string(),
-    datasetKey: v.string(),
-    releaseId: v.string(),
-    externalIds: v.array(v.string()),
-  },
-  returns: v.object({
-    cleared: v.number(),
-    promoted: v.array(
-      v.object({
-        externalId: v.string(),
-        slug: v.string(),
-        featuredRank: v.number(),
-      })
-    ),
-  }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{
-    cleared: number
-    promoted: { externalId: string; slug: string; featuredRank: number }[]
-  }> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.setFeaturedTrioByExternalIdsImpl,
-      {
-        datasetKey: args.datasetKey,
-        releaseId: args.releaseId,
-        externalIds: args.externalIds,
-      }
-    )
-  },
-})
-
-export const getSeedUserStatus = action({
-  args: { seedSecret: v.string(), email: v.string() },
-  returns: v.object({ accountExists: v.boolean() }),
-  handler: async (ctx, args): Promise<SeedUserStatus> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    return await ctx.runQuery(
-      internal.marketplace.templates.seed.getSeedUserStatusImpl,
-      { email: args.email }
-    )
-  },
-})
-
-export const patchSeedUserProfile = action({
-  args: {
-    seedSecret: v.string(),
-    email: v.string(),
-    displayName: v.string(),
-  },
-  returns: v.object({ found: v.boolean() }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{
-    found: boolean
-  }> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.patchSeedUserProfileImpl,
-      { email: args.email, displayName: args.displayName }
-    )
-  },
-})
-
 // dev-only — rebuild marketplaceStats counters from current card rows.
 // run after introducing the per-category breakdown so the existing dataset
 // reflects in the gallery chips & the "By category" rail without a re-seed
@@ -487,25 +353,6 @@ export const recomputeMarketplaceStatsImpl = internalMutation({
       updatedAt: now,
     })
     return { count, countByCategory }
-  },
-})
-
-export const recomputeMarketplaceStats = action({
-  args: { seedSecret: v.string() },
-  returns: v.object({
-    count: v.number(),
-    countByCategory: v.record(v.string(), v.number()),
-  }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ count: number; countByCategory: Record<string, number> }> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.recomputeMarketplaceStatsImpl,
-      {}
-    )
   },
 })
 
@@ -549,23 +396,21 @@ export const recomputeTemplateTagsImpl = internalMutation({
   },
 })
 
-export const recomputeTemplateTags = action({
-  args: { seedSecret: v.string() },
+export const recomputeTemplateTags = internalAction({
+  args: {},
   returns: v.object({
     templatesScanned: v.number(),
     tagsInserted: v.number(),
     tagsDeleted: v.number(),
   }),
   handler: async (
-    ctx,
-    args
+    ctx
   ): Promise<{
     templatesScanned: number
     tagsInserted: number
     tagsDeleted: number
   }> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     let cursor: string | null = null
     let templatesScanned = 0
     let tagsInserted = 0
@@ -656,18 +501,16 @@ export const recomputeTemplateCardsBatchImpl = internalMutation({
   },
 })
 
-export const recomputeTemplateCards = action({
-  args: { seedSecret: v.string() },
+export const recomputeTemplateCards = internalAction({
+  args: {},
   returns: v.object({
     templatesScanned: v.number(),
     cardsDeleted: v.number(),
   }),
   handler: async (
-    ctx,
-    args
+    ctx
   ): Promise<{ templatesScanned: number; cardsDeleted: number }> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     let cardsDeleted = 0
     let templatesScanned = 0
     for (const phase of ['cleanStaleCards', 'syncCards'] as const)
@@ -694,22 +537,14 @@ export const recomputeTemplateCards = action({
   },
 })
 
-// seed-gated migration starter for the denormalized ranking-count read model.
-// the internal mutation schedules its own continuations after the first page.
-export const startTemplateCardRankingCountBackfill = action({
-  args: { seedSecret: v.string() },
+export const startTemplateCardRankingCountBackfill = internalAction({
+  args: {},
   returns: v.object({ processed: v.number(), isDone: v.boolean() }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ processed: number; isDone: boolean }> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
+  handler: async (ctx): Promise<{ processed: number; isDone: boolean }> =>
+    await ctx.runMutation(
       internal.marketplace.templates.internal.backfillTemplateCardRankingCount,
       { cursor: null }
-    )
-  },
+    ),
 })
 
 // dev-only — paginated batch wipe of seeded marketplace data. keep batches
@@ -885,8 +720,8 @@ export const wipeSeededDataBatchImpl = internalMutation({
   },
 })
 
-export const wipeSeededDataBatch = action({
-  args: { seedSecret: v.string() },
+export const wipeSeededDataBatch = internalAction({
+  args: {},
   returns: v.object({
     templatesDeleted: v.number(),
     itemsDeleted: v.number(),
@@ -898,9 +733,8 @@ export const wipeSeededDataBatch = action({
     boardTiersDeleted: v.number(),
     marketplaceStatsCleared: v.boolean(),
   }),
-  handler: async (ctx, args): Promise<WipeBatchResult> =>
+  handler: async (ctx): Promise<WipeBatchResult> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     const totals = emptyWipeBatchResult()
     const phases: WipePhase[] = [
       'templates',
@@ -954,24 +788,5 @@ export const unpublishSeededTemplateImpl = internalMutation({
     const now = Date.now()
     await markTemplateUnpublished(ctx, template, now)
     return { found: true, alreadyUnpublished: false }
-  },
-})
-
-export const unpublishSeededTemplate = action({
-  args: { seedSecret: v.string(), slug: v.string() },
-  returns: v.object({
-    found: v.boolean(),
-    alreadyUnpublished: v.boolean(),
-  }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ found: boolean; alreadyUnpublished: boolean }> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.unpublishSeededTemplateImpl,
-      { slug: args.slug }
-    )
   },
 })

@@ -9,9 +9,7 @@ import {
 } from '~/shared/overlay/popupPosition'
 import { makeRect } from '@tests/fixtures'
 
-const anchorEl = <T extends HTMLElement>(
-  rect: Partial<DOMRect>
-): T =>
+const anchorEl = <T extends HTMLElement>(rect: Partial<DOMRect>): T =>
   ({
     getBoundingClientRect: () => makeRect(rect),
   }) as T

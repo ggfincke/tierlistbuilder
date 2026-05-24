@@ -2,7 +2,7 @@
 // public ranking detail/list reads plus signed-in owner listing
 
 import { v } from 'convex/values'
-import { paginationOptsValidator } from 'convex/server'
+import { paginationOptsValidator, type PaginationOptions } from 'convex/server'
 import { query, type QueryCtx } from '../../../_generated/server'
 import type { Doc, Id } from '../../../_generated/dataModel'
 import type {
@@ -299,8 +299,7 @@ interface AggregateItemsPageOptions
   sort: TemplateRankingAggregateItemSort
   band: TemplateRankingAggregateItemBand
   search: string | null
-  cursor: string | null
-  numItems: number
+  paginationOpts: PaginationOptions
 }
 
 const takeSearchAggregateItemsPage = async (
@@ -343,7 +342,7 @@ const takeSearchAggregateItemsPage = async (
   return paginateSortedAggregateRows(
     rows,
     options.sort,
-    options.cursor,
+    options.paginationOpts.cursor,
     pageSize
   )
 }
@@ -392,7 +391,7 @@ const takeAllBandPaginatedPage = async (
         .eq('criterionExternalId', options.criterionExternalId)
         .eq('generation', options.generation)
     )
-    .paginate({ cursor: options.cursor, numItems: pageSize })
+    .paginate({ ...options.paginationOpts, numItems: pageSize })
 
 const takeBandFilteredAggregateItemsPage = async (
   ctx: QueryCtx,
@@ -418,7 +417,7 @@ const takeBandFilteredAggregateItemsPage = async (
   return paginateSortedAggregateRows(
     rows,
     options.sort,
-    options.cursor,
+    options.paginationOpts.cursor,
     pageSize
   )
 }
@@ -453,7 +452,7 @@ const takeAggregateItemsPage = async (
 ) =>
 {
   const pageSize = normalizeTemplateRankingAggregateItemPageSize(
-    options.numItems
+    options.paginationOpts.numItems
   )
   const searchPage = await takeSearchAggregateItemsPage(ctx, options, pageSize)
   if (searchPage) return searchPage
@@ -491,12 +490,11 @@ const takeRankingsForTemplatePage = async (
     templateId: Id<'templates'>
     criterionExternalId?: string
     sort: RankingListSort
-    cursor: string | null
-    numItems: number
+    paginationOpts: PaginationOptions
   }
 ) =>
 {
-  const pageSize = normalizeRankingLimit(options.numItems)
+  const pageSize = normalizeRankingLimit(options.paginationOpts.numItems)
   const criterionExternalId = options.criterionExternalId
   const indexConfig = rankingPageIndexBySort[options.sort]
   if (criterionExternalId !== undefined)
@@ -512,7 +510,7 @@ const takeRankingsForTemplatePage = async (
         return options.sort === 'featured' ? base.eq('isFeatured', true) : base
       })
       .order(indexConfig.order)
-      .paginate({ cursor: options.cursor, numItems: pageSize })
+      .paginate({ ...options.paginationOpts, numItems: pageSize })
   }
 
   return await ctx.db
@@ -525,7 +523,7 @@ const takeRankingsForTemplatePage = async (
       return options.sort === 'featured' ? base.eq('isFeatured', true) : base
     })
     .order(indexConfig.order)
-    .paginate({ cursor: options.cursor, numItems: pageSize })
+    .paginate({ ...options.paginationOpts, numItems: pageSize })
 }
 
 const latestOwnedRankingForTemplate = async (
@@ -604,8 +602,10 @@ export const getRankingsForTemplate = query({
       templateId: template._id,
       ...(criterionExternalId !== undefined ? { criterionExternalId } : {}),
       sort: args.sort ?? 'recent',
-      cursor: null,
-      numItems: normalizeRankingLimit(args.limit),
+      paginationOpts: {
+        cursor: null,
+        numItems: normalizeRankingLimit(args.limit),
+      },
     })
     const publicRows = page.page.filter(isPublicRankingRow)
     const cache = createTemplateProjectionCache()
@@ -648,8 +648,7 @@ export const listRankingsForTemplate = query({
       templateId: template._id,
       ...(criterionExternalId !== undefined ? { criterionExternalId } : {}),
       sort: args.sort ?? 'recent',
-      cursor: args.paginationOpts.cursor,
-      numItems: args.paginationOpts.numItems,
+      paginationOpts: args.paginationOpts,
     })
     const page = result.page.filter(isPublicRankingRow)
     const cache = createTemplateProjectionCache()
@@ -755,8 +754,7 @@ export const listTemplateRankingAggregateItems = query({
       sort: args.sort ?? DEFAULT_TEMPLATE_RANKING_AGGREGATE_SORT,
       band: args.band ?? 'all',
       search: normalizeAggregateSearch(args.search),
-      cursor: args.paginationOpts.cursor,
-      numItems: args.paginationOpts.numItems,
+      paginationOpts: args.paginationOpts,
     })
     const cache = createTemplateProjectionCache()
     const page = await Promise.all(

@@ -4,6 +4,10 @@
 
 import { v } from 'convex/values'
 import {
+  EXPORT_ITEMS_PER_ROW_MAX,
+  EXPORT_ITEMS_PER_ROW_MIN,
+} from '@tierlistbuilder/contracts/platform/preferences'
+import {
   isValidLabelFontSizePx,
   LABEL_FONT_SIZE_PX_MAX,
   LABEL_FONT_SIZE_PX_MIN,
@@ -13,6 +17,7 @@ import { requireCurrentUserId } from '../../lib/auth'
 import { appPreferencesValidator } from '../../lib/validators/platform'
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput } from '../../lib/text'
+import { assertFiniteRange } from '../../lib/assertions'
 
 const HEX_COLOR_PREFERENCE_KEYS = [
   'exportBackgroundOverride',
@@ -42,6 +47,12 @@ export const upsertMyPreferences = mutation({
         `invalid defaultLabelFontSizePx: must be within [${LABEL_FONT_SIZE_PX_MIN}, ${LABEL_FONT_SIZE_PX_MAX}]`
       )
     }
+    assertFiniteRange(
+      'exportItemsPerRow',
+      args.preferences.exportItemsPerRow,
+      EXPORT_ITEMS_PER_ROW_MIN,
+      EXPORT_ITEMS_PER_ROW_MAX
+    )
 
     const now = Date.now()
 

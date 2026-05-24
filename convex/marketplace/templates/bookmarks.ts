@@ -16,7 +16,12 @@ import type {
   MarketplaceTemplateBookmarkState,
   MarketplaceTemplateBookmarkToggleResult,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  DEFAULT_TEMPLATE_LIST_LIMIT,
+  MAX_TEMPLATE_LIST_LIMIT,
+  isTemplateSlug,
+} from '@tierlistbuilder/contracts/marketplace/template'
+import { clamp } from '@tierlistbuilder/contracts/lib/math'
 import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
 import {
   marketplaceTemplateBookmarkListResultValidator,
@@ -39,6 +44,12 @@ const emptyBookmarkListResult = (
   isDone: true,
   continueCursor: cursor ?? '',
 })
+
+const normalizeBookmarkPageSize = (raw: number): number =>
+{
+  if (!Number.isFinite(raw)) return DEFAULT_TEMPLATE_LIST_LIMIT
+  return clamp(Math.floor(raw), 1, MAX_TEMPLATE_LIST_LIMIT)
+}
 
 const findBookmark = async (
   ctx: DbCtx,
@@ -150,7 +161,10 @@ export const listMyTemplateBookmarks = query({
       .query('userTemplateBookmarks')
       .withIndex('byUserCreatedAt', (q) => q.eq('userId', userId))
       .order('desc')
-      .paginate(args.paginationOpts)
+      .paginate({
+        ...args.paginationOpts,
+        numItems: normalizeBookmarkPageSize(args.paginationOpts.numItems),
+      })
     const cache = createTemplateProjectionCache()
     const page = await Promise.all(
       result.page.map(async (bookmark) =>

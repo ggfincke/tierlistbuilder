@@ -13,6 +13,10 @@ import {
   ITEM_TRANSFORM_LIMITS,
   LABEL_FONT_SIZE_PX_MAX,
   LABEL_FONT_SIZE_PX_MIN,
+  MAX_BOARD_ITEM_ALT_TEXT_LEN,
+  MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN,
+  MAX_BOARD_ITEM_LABEL_LEN,
+  MAX_BOARD_ITEM_NOTES_LEN,
   normalizeBoardTitle,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -53,6 +57,7 @@ import {
   textStyleIdValidator,
   tierColorSpecValidator,
 } from '../../lib/validators/common'
+import { validateTierSpec } from '../../lib/validators/tierSpec'
 import type {
   BoardAutoPlateSettings,
   BoardLabelSettings,
@@ -91,13 +96,6 @@ import {
   getBoardSourceRankingId,
   getBoardSourceTemplateId,
 } from './sourceFields'
-
-const MAX_LABEL_LEN = 200
-const MAX_ALT_LEN = 500
-const MAX_NOTES_LEN = 2000
-const MAX_TIER_NAME_LEN = 100
-const MAX_TIER_DESCRIPTION_LEN = 500
-const MAX_BACKGROUND_COLOR_LEN = 32
 
 // validator shapes mirror CloudBoard{Tier,Item}Wire contracts; runtime length
 // guards live in validateInputs since v.string() has no .max()
@@ -330,27 +328,7 @@ const validateInputs = (args: UpsertArgs): void =>
   for (const tier of args.tiers)
   {
     assertExternalIdShape('tierExternalId', tier.externalId, isTierId, 'tier-')
-    assertStringLength(
-      'tier name',
-      tier.name,
-      MAX_TIER_NAME_LEN,
-      ({ length, maxLength }) =>
-        `tier name too long: ${length} exceeds ${maxLength}`
-    )
-    assertStringLength(
-      'tier description',
-      tier.description,
-      MAX_TIER_DESCRIPTION_LEN,
-      ({ maxLength }) => `tier description too long: exceeds ${maxLength}`
-    )
-    if (tier.colorSpec.kind === 'custom')
-    {
-      validateHexColor(tier.colorSpec.hex, 'tier.colorSpec.hex')
-    }
-    if (tier.rowColorSpec?.kind === 'custom')
-    {
-      validateHexColor(tier.rowColorSpec.hex, 'tier.rowColorSpec.hex')
-    }
+    validateTierSpec(tier)
   }
 
   for (const item of args.items)
@@ -365,25 +343,25 @@ const validateInputs = (args: UpsertArgs): void =>
     assertStringLength(
       'item label',
       item.label,
-      MAX_LABEL_LEN,
+      MAX_BOARD_ITEM_LABEL_LEN,
       ({ maxLength }) => `item label too long: exceeds ${maxLength} chars`
     )
     assertStringLength(
       'item altText',
       item.altText,
-      MAX_ALT_LEN,
+      MAX_BOARD_ITEM_ALT_TEXT_LEN,
       ({ maxLength }) => `item altText too long: exceeds ${maxLength} chars`
     )
     assertStringLength(
       'item notes',
       item.notes,
-      MAX_NOTES_LEN,
+      MAX_BOARD_ITEM_NOTES_LEN,
       ({ maxLength }) => `item notes too long: exceeds ${maxLength} chars`
     )
     assertStringLength(
       'item backgroundColor',
       item.backgroundColor,
-      MAX_BACKGROUND_COLOR_LEN,
+      MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN,
       ({ maxLength }) =>
         `item backgroundColor too long: exceeds ${maxLength} chars`
     )

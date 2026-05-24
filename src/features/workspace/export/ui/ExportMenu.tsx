@@ -38,8 +38,11 @@ import {
 } from '~/features/workspace/boards/model/boardSession'
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { exportBoardAsJson } from '~/features/workspace/export/lib/exportJson'
-import { parseBoardsJson } from '~/shared/board-data/boardJson'
+import {
+  exportBoardAsJson,
+  parseBoardsJson,
+  readBoardImportJsonFile,
+} from '~/features/workspace/export/lib/exportJson'
 import {
   IMAGE_FORMATS,
   IMAGE_FORMAT_META,
@@ -213,7 +216,7 @@ export const ExportMenu = ({
   {
     try
     {
-      const text = await file.text()
+      const text = await readBoardImportJsonFile(file)
       const boards = await parseBoardsJson(text)
       if (boards.length === 1)
       {
