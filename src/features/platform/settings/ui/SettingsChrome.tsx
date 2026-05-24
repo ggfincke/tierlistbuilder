@@ -133,6 +133,36 @@ export const TextField = ({
   />
 )
 
+interface PasswordFieldProps
+{
+  id?: string
+  name?: string
+  value: string
+  onChange: (value: string) => void
+  autoComplete?: string
+  disabled?: boolean
+}
+
+export const PasswordField = ({
+  id,
+  name,
+  value,
+  onChange,
+  autoComplete,
+  disabled = false,
+}: PasswordFieldProps) => (
+  <input
+    id={id}
+    name={name}
+    type="password"
+    value={value}
+    disabled={disabled}
+    autoComplete={autoComplete}
+    onChange={(event) => onChange(event.target.value)}
+    className={joinClassNames(CONTROL_CLASS, 'h-9 px-3')}
+  />
+)
+
 interface TextAreaFieldProps
 {
   id?: string
@@ -161,7 +191,10 @@ export const TextAreaField = ({
     rows={rows}
     disabled={disabled}
     onChange={(event) => onChange(event.target.value)}
-    className={joinClassNames(CONTROL_CLASS, 'resize-y px-3 py-2 leading-relaxed')}
+    className={joinClassNames(
+      CONTROL_CLASS,
+      'resize-y px-3 py-2 leading-relaxed'
+    )}
   />
 )
 
@@ -218,7 +251,12 @@ interface ToggleRowProps
 
 // compact label-left / switch-left stacked toggle matching the design's dense
 // switches (smaller than the shared settings Toggle used inside modals)
-export const ToggleRow = ({ label, hint, checked, onChange }: ToggleRowProps) => (
+export const ToggleRow = ({
+  label,
+  hint,
+  checked,
+  onChange,
+}: ToggleRowProps) => (
   <button
     type="button"
     role="switch"

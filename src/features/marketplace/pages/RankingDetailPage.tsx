@@ -26,7 +26,7 @@ import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
-import { InitialAvatar } from '~/shared/ui/InitialAvatar'
+import { Avatar } from '~/shared/ui/Avatar'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import {
@@ -345,7 +345,11 @@ export const RankingDetailPage = () =>
 
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[var(--t-text-muted)]">
           <div className="flex items-center gap-2">
-            <InitialAvatar name={detail.author.displayName} size="sm" />
+            <Avatar
+              name={detail.author.displayName}
+              src={detail.author.avatarUrl}
+              size="sm"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-[var(--t-text)]">
                 {detail.author.displayName}

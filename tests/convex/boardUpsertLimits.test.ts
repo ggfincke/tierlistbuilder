@@ -4,7 +4,10 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import {
+  CONVEX_ERROR_CODES,
+  type ConvexErrorCode,
+} from '@tierlistbuilder/contracts/platform/errors'
 import {
   MAX_CLOUD_BOARD_TIERS,
   MAX_LARGE_CLOUD_BOARD_ITEMS,
@@ -106,7 +109,7 @@ const expectUpsertRejected = async (
   caller: ReturnType<typeof asUser>,
   boardExternalId: string,
   payload: CloudBoardPayload,
-  code = CONVEX_ERROR_CODES.invalidInput
+  code: ConvexErrorCode = CONVEX_ERROR_CODES.invalidInput
 ): Promise<void> =>
 {
   await expectConvexCode(
@@ -415,7 +418,7 @@ describe('upsertBoardState', () =>
               {
                 ...payload.items[0]!,
                 labelOptions: {
-                  placement: { mode: 'overlay', x: Number.NaN, y: 0.5 },
+                  placement: { mode: 'overlay' as const, x: Number.NaN, y: 0.5 },
                 },
               },
             ],
@@ -437,7 +440,7 @@ describe('upsertBoardState', () =>
         'board-bad-auto-plate-color',
         () => ({
           ...makeBoardPayload({ tierCount: 1, itemCount: 0 }),
-          autoPlate: { mode: 'uniform', uniformColor: 'not-a-color' },
+          autoPlate: { mode: 'uniform' as const, uniformColor: 'not-a-color' },
         }),
         CONVEX_ERROR_CODES.invalidInput,
       ],

@@ -51,7 +51,7 @@ describe('cloud sync scheduler', () =>
   it('retries failed flushes even when no newer edit arrives & queues newer edits while retrying', async () =>
   {
     const deps = noOpDeps()
-    let rejectFirst: ((err?: unknown) => void) | null = null
+    let rejectFirst: (err?: unknown) => void = () => {}
     const flush = vi
       .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
       .mockImplementationOnce(
@@ -72,7 +72,7 @@ describe('cloud sync scheduler', () =>
     await flushPromises()
 
     scheduler.queue(makeWork('board-a' as BoardId, 'Second'))
-    rejectFirst?.(new Error('upload failed'))
+    rejectFirst(new Error('upload failed'))
     await flushPromises()
     vi.advanceTimersByTime(10)
     await flushPromises()

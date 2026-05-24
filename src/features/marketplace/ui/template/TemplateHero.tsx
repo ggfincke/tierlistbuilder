@@ -34,7 +34,7 @@ import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { pluralizeWord } from '~/shared/lib/pluralize'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
-import { InitialAvatar } from '~/shared/ui/InitialAvatar'
+import { Avatar } from '~/shared/ui/Avatar'
 
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { Cover } from '../cover/Cover'
@@ -298,10 +298,10 @@ export const TemplateHero = ({
 
         <div className="mt-auto pt-6">
           <div className="flex items-center gap-2.5">
-            <InitialAvatar
+            <Avatar
               name={template.author.displayName}
-              size="sm"
-              className="h-9 w-9"
+              src={template.author.avatarUrl}
+              size="md"
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-[var(--t-text)]">

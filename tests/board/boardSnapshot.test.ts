@@ -330,7 +330,9 @@ describe('normalizeBoardSnapshot', () =>
       hex: '#112233',
     })
 
-    const invalid: Partial<BoardSnapshot> & { tiers: unknown[] } = {
+    const invalid: Omit<Partial<BoardSnapshot>, 'tiers'> & {
+      tiers: unknown[]
+    } = {
       tiers: [
         {
           id: 'tier-s',

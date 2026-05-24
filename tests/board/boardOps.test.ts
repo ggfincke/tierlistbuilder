@@ -44,8 +44,10 @@ describe('compareByLabel', () =>
     }
 
     expect(
-      ['a', 'b', 'c'].sort((left, right) => compareByLabel(items, left, right))
-    ).toEqual(['b', 'a', 'c'])
+      ids('a', 'b', 'c').sort((left, right) =>
+        compareByLabel(items, left, right)
+      )
+    ).toEqual(ids('b', 'a', 'c'))
   })
 })
 

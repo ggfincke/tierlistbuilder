@@ -432,6 +432,7 @@ export default defineSchema({
     .index('byTemplateId', ['templateId'])
     .index('bySlug', ['slug'])
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
+    .index('byAuthorAvatarStorageId', ['authorAvatarStorageId'])
     .index('byIsPubliclyListableUpdatedAt', ['isPubliclyListable', 'updatedAt'])
     .index('byIsPubliclyListableForkCount', ['isPubliclyListable', 'forkCount'])
     .index('byIsPubliclyListableTrendingScore', [

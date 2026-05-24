@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConvexError } from 'convex/values'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { uploadBoardImages } from '~/features/platform/media/imageUploader'
 import {
@@ -35,9 +35,9 @@ vi.mock('~/shared/images/imageStore', () => ({
 }))
 
 const makeImageBoard = (
-  imageRef: NonNullable<BoardSnapshot['items'][string]['imageRef']>,
-  tileImageRef?: NonNullable<BoardSnapshot['items'][string]['tileImageRef']>,
-  sourceImageRef?: NonNullable<BoardSnapshot['items'][string]['sourceImageRef']>
+  imageRef: NonNullable<BoardSnapshot['items'][ItemId]['imageRef']>,
+  tileImageRef?: NonNullable<BoardSnapshot['items'][ItemId]['tileImageRef']>,
+  sourceImageRef?: NonNullable<BoardSnapshot['items'][ItemId]['sourceImageRef']>
 ): BoardSnapshot =>
 {
   const itemId = asItemId('item-1')

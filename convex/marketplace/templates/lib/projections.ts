@@ -303,11 +303,9 @@ const loadTemplateAuthor = async (
   }
 
   const displayName = toAuthorDisplayName(author)
-  const avatarUrl =
-    author.image ??
-    (author.avatarStorageId
-      ? await ctx.storage.getUrl(author.avatarStorageId)
-      : null)
+  const avatarUrl = author.avatarStorageId
+    ? await ctx.storage.getUrl(author.avatarStorageId)
+    : (author.image ?? null)
 
   return {
     id: toPublicAuthorId(author),
@@ -421,7 +419,7 @@ const toTemplateCardAuthorFields = async (
   return {
     authorExternalId: toPublicAuthorId(author),
     authorDisplayName: toAuthorDisplayName(author),
-    authorImageUrl: author.image ?? null,
+    authorImageUrl: author.avatarStorageId ? null : (author.image ?? null),
     authorAvatarStorageId: author.avatarStorageId ?? null,
   }
 }

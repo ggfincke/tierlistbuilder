@@ -135,7 +135,7 @@ describe('parseBoardJson', () =>
     expect(result.title).toBe('Test Board')
     expect(result.tiers).toHaveLength(2)
     expect(result.tiers[0].name).toBe('S')
-    expect(result.items['item-1'].label).toBe('First')
+    expect(result.items[asItemId('item-1')].label).toBe('First')
   })
 
   it('throws on invalid JSON', async () =>
@@ -516,7 +516,7 @@ describe('parseBoardJson', () =>
 
     const result = await parseBoardJson(JSON.stringify(payload))
 
-    expect(result.items['item-1']).toMatchObject({
+    expect(result.items[asItemId('item-1')]).toMatchObject({
       notes: 'Private note',
       sourceTemplateItemExternalId: 'template-item-1',
     })
@@ -542,21 +542,24 @@ describe('parseBoardJson', () =>
   {
     const board = makeValidBoard({
       items: {
-        'item-1': makeItem({
+        [asItemId('item-1')]: makeItem({
           id: asItemId('item-1'),
           imageRef: { hash: 'abc' },
           tileImageRef: { hash: 'tile-abc' },
         }),
-        'item-2': makeItem({ id: asItemId('item-2'), label: 'Second' }),
+        [asItemId('item-2')]: makeItem({
+          id: asItemId('item-2'),
+          label: 'Second',
+        }),
       },
     })
 
     const shared = stripImagesForShare(board)
     expect(
-      (shared.items['item-1'] as { imageRef?: unknown }).imageRef
+      (shared.items[asItemId('item-1')] as { imageRef?: unknown }).imageRef
     ).toBeUndefined()
     expect(
-      (shared.items['item-1'] as { tileImageRef?: unknown }).tileImageRef
+      (shared.items[asItemId('item-1')] as { tileImageRef?: unknown }).tileImageRef
     ).toBeUndefined()
     expect(shared.deletedItems).toHaveLength(0)
   })
@@ -751,7 +754,7 @@ describe('parseBoardJson', () =>
     const payload = JSON.parse(await downloadSpy.mock.calls[0][0].text()) as {
       data: BoardSnapshot
     }
-    expect(payload.data.items['item-1']).toMatchObject({
+    expect(payload.data.items[asItemId('item-1')]).toMatchObject({
       notes: 'Private note',
       sourceTemplateItemExternalId: 'template-item-1',
     })
@@ -893,6 +896,6 @@ describe('parseBoardSnapshotJson', () =>
       'Shared Board'
     )
     expect(result.title).toBe('Shared Board')
-    expect(result.items['item-1'].label).toBe('First')
+    expect(result.items[asItemId('item-1')].label).toBe('First')
   })
 })

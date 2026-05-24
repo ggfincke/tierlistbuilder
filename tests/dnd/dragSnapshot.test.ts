@@ -10,7 +10,7 @@ import {
   moveItemToIndexInSnapshot,
   resolveStoreInsertionIndex,
 } from '~/features/workspace/boards/dnd/dragSnapshot'
-import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { asItemId, asTierId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   brandItemIds as ids,
   findTierById,
@@ -71,7 +71,7 @@ describe('isSnapshotConsistent', () =>
       unrankedItemIds: ids('c'),
     }
     const snap = {
-      tiers: [{ id: 'tier-s', itemIds: ids('a') }],
+      tiers: [{ id: asTierId('tier-s'), itemIds: ids('a') }],
       unrankedItemIds: ids('c'),
     }
     expect(isSnapshotConsistent(snap, state)).toBe(false)

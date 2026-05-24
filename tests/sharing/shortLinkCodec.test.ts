@@ -67,7 +67,7 @@ describe('short-link snapshot codec', () =>
     const decoded = await inflateSnapshotBytes(compressed)
 
     expect(getBlobsSpy).toHaveBeenCalledWith(['img-live'])
-    expect(decoded.items['item-1'].imageRef).toBeDefined()
+    expect(decoded.items[asItemId('item-1')].imageRef).toBeDefined()
     expect(decoded.deletedItems).toEqual([])
   })
 

@@ -707,8 +707,12 @@ const rankingManifest = (args: {
   templateExternalId: string
   curatedLabels: string[]
   coverage: 'full-template' | 'partial-authoritative'
-  curatedTiers?: SeedRankingsManifest['targets'][number]['curatedRankings'][number]['tiers']
-  curatedTierGroups?: SeedRankingsManifest['targets'][number]['curatedRankings'][number]['tierGroups']
+  curatedTiers?: NonNullable<
+    SeedRankingsManifest['targets'][number]['curatedRankings']
+  >[number]['tiers']
+  curatedTierGroups?: NonNullable<
+    SeedRankingsManifest['targets'][number]['curatedRankings']
+  >[number]['tierGroups']
 }): SeedRankingsManifest => ({
   profileSet: 'fixture-v1',
   defaultProfileCount: 1,

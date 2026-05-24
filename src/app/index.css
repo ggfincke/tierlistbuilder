@@ -375,6 +375,7 @@
   }
 
   /* Scoreboard "LIVE NOW" pulse — paired with the accent dot animation. */
+  @keyframes scoreboardPulse
   {
     0%,
     100%

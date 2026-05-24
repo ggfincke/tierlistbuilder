@@ -369,7 +369,10 @@ describe('media variants', () =>
         api.platform.media.uploads.finalizeUploadVariants,
         {
           variants: storageIds.map((storageId, i) => ({
-            kind: i === 0 ? 'tile' : i === 1 ? 'preview' : 'editor',
+            kind: (i === 0 ? 'tile' : i === 1 ? 'preview' : 'editor') as
+              | 'tile'
+              | 'preview'
+              | 'editor',
             storageId,
             uploadToken: 'not-a-real-token',
           })),

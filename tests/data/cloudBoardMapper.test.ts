@@ -6,7 +6,7 @@ import type {
   BoardSnapshot,
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   serverStateToSnapshot,
   snapshotToCloudPayload,
@@ -15,7 +15,7 @@ import type { BoardImageUploadResult } from '~/features/platform/media/imageUplo
 import { makeBoardSnapshot, makeTier } from '../fixtures'
 
 const makeBoardWithItem = (
-  item: BoardSnapshot['items'][string]
+  item: BoardSnapshot['items'][ItemId]
 ): BoardSnapshot =>
 {
   const itemId = asItemId('item-1')

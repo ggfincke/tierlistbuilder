@@ -84,7 +84,7 @@ interface SeedItemInput
   itemExternalId: string
   order: number
   label: string
-  mediaDedupeHash: string | null
+  mediaDedupeHash: string
   aspectRatio: number
   transform: null
   mediaPlate: null
@@ -131,7 +131,7 @@ const seedItem = (
   itemExternalId,
   order,
   label: itemExternalId,
-  mediaDedupeHash: null,
+  mediaDedupeHash: `tile:hash-${itemExternalId}`,
   aspectRatio: 1,
   transform: null,
   mediaPlate: null,
@@ -362,7 +362,7 @@ const seedRunRow = async (
 
 const storeImageBytes = async (
   t: ConvexTestHandle,
-  bytes: Uint8Array
+  bytes: Uint8Array<ArrayBuffer>
 ): Promise<Id<'_storage'>> =>
   await t.run(
     async (ctx) =>

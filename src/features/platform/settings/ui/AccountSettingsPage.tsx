@@ -2,7 +2,7 @@
 // full-page account settings — the design's dense Settings screen. backend-backed
 // sections are wired live; no-backend ones stay as commented TODO(backend) scaffolds.
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import type {
@@ -10,7 +10,6 @@ import type {
   UserPlan,
 } from '@tierlistbuilder/contracts/platform/user'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import { getUserInitial } from '~/features/platform/auth/model/userIdentity'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { AccountDangerZone } from '~/features/platform/auth/ui/AccountDangerZone'
 import { AccountSessionsSection } from '~/features/platform/auth/ui/AccountSessionsSection'
@@ -18,8 +17,11 @@ import { ShortcutsList } from '~/features/workspace/shortcuts/ui/ShortcutsList'
 import { getWorkspacePath } from '~/shared/routes/pathname'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { AppearanceSection } from './AppearanceSection'
+import { AvatarSection } from './AvatarSection'
 import { IdentitySection } from './IdentitySection'
+import { PasswordChangeDialog } from './PasswordChangeDialog'
 import { Field, SetSection } from './SettingsChrome'
 
 const PAGE_CLASS =
@@ -83,25 +85,41 @@ const SettingsHero = ({ user }: { user: PublicUserMe }) => (
   </header>
 )
 
-const AccountSection = ({ user }: { user: PublicUserMe }) => (
-  <SetSection id="account" eyebrow="Sign in" title="Account">
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <Field label="Email">
-        <ReadonlyValue>{user.email ?? 'No email on file'}</ReadonlyValue>
-      </Field>
-      <Field label="Sign-in method">
-        <ReadonlyValue>Email &amp; password</ReadonlyValue>
-      </Field>
-    </div>
-    {/*
-      TODO(backend): password change + 2FA + recovery codes. Auth is email &
-      password via @convex-dev/auth w/ no self-serve password reset, 2FA, or
-      recovery-code mutations. Wire those, then restore the design's actions:
-        <SecondaryButton>Update password</SecondaryButton>
-        <SecondaryButton>Set up 2FA</SecondaryButton>
-    */}
-  </SetSection>
-)
+const AccountSection = ({ user }: { user: PublicUserMe }) =>
+{
+  const [passwordOpen, setPasswordOpen] = useState(false)
+
+  return (
+    <SetSection id="account" eyebrow="Sign in" title="Account">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Email">
+          <ReadonlyValue>{user.email ?? 'No email on file'}</ReadonlyValue>
+        </Field>
+        <Field label="Sign-in method">
+          <ReadonlyValue>Email &amp; password</ReadonlyValue>
+        </Field>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <SecondaryButton
+          type="button"
+          variant="surface"
+          onClick={() => setPasswordOpen(true)}
+        >
+          Update password
+        </SecondaryButton>
+      </div>
+      {/*
+        TODO(backend): 2FA + recovery codes. Password change is wired via
+        @convex-dev/auth, but no TOTP/recovery-code backend exists yet.
+      */}
+      <PasswordChangeDialog
+        open={passwordOpen}
+        onClose={() => setPasswordOpen(false)}
+        username={user.email ?? ''}
+      />
+    </SetSection>
+  )
+}
 
 const SessionsSection = ({ onSignedOut }: { onSignedOut: () => void }) => (
   <SetSection
@@ -110,50 +128,9 @@ const SessionsSection = ({ onSignedOut }: { onSignedOut: () => void }) => (
     subtitle="Sign out anywhere you don't recognize."
     className="flex-1"
   >
-    {/*
-      TODO(backend): per-device session list. signOutEverywhere exists (below),
-      but there is no query enumerating individual authSessions (device,
-      location, last-seen) nor per-session revoke. Wire those, then restore the
-      device grid w/ a "this device" badge + per-row Sign out.
-    */}
     <div className="mt-auto">
       <AccountSessionsSection onClose={onSignedOut} />
     </div>
-  </SetSection>
-)
-
-const AvatarSection = ({ user }: { user: PublicUserMe }) => (
-  <SetSection eyebrow="Image" title="Avatar">
-    <div className="flex items-center gap-3">
-      {user.image ? (
-        <img
-          src={user.image}
-          alt=""
-          className="h-16 w-16 shrink-0 rounded-full object-cover"
-        />
-      ) : (
-        <span
-          aria-hidden
-          className="grid h-16 w-16 shrink-0 place-items-center rounded-full text-[22px] font-black text-[var(--t-accent-foreground)]"
-          style={{
-            background:
-              'linear-gradient(135deg, var(--t-accent), var(--t-accent-2))',
-          }}
-        >
-          {getUserInitial(user, 'U')}
-        </span>
-      )}
-      <p className="text-[11px] leading-relaxed text-[var(--t-text-muted)]">
-        Your avatar is generated from your initials.
-      </p>
-    </div>
-    {/*
-      TODO(backend): avatar upload. schema has users.avatarStorageId but there
-      is no upload mutation (generateUploadUrl + setAvatar), remove action, or
-      generated-swatch picker. Wire those, then restore the design's controls:
-        <SecondaryButton>Upload</SecondaryButton> + Remove link
-        <div className="grid grid-cols-6 ...">{generated swatches}</div>
-    */}
   </SetSection>
 )
 

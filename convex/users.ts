@@ -1,12 +1,20 @@
 // convex/users.ts
 // user query & account-management mutations
 
-import { getAuthSessionId } from '@convex-dev/auth/server'
-import { v, type Infer } from 'convex/values'
 import {
+  getAuthSessionId,
+  invalidateSessions,
+  modifyAccountCredentials,
+  retrieveAccount,
+} from '@convex-dev/auth/server'
+import { ConvexError, v, type Infer } from 'convex/values'
+import {
+  action,
   internalMutation,
+  internalQuery,
   mutation,
   query,
+  type ActionCtx,
   type MutationCtx,
 } from './_generated/server'
 import { internal } from './_generated/api'
@@ -17,11 +25,15 @@ import {
   MAX_DISPLAY_NAME_LENGTH,
   MAX_HANDLE_LENGTH,
   MAX_LOCATION_LENGTH,
+  MIN_PASSWORD_LENGTH,
   MIN_HANDLE_LENGTH,
   PRONOUN_OPTION_SET,
+  type PublicUserSession,
   RESERVED_HANDLES,
   type PublicUserMe,
 } from '@tierlistbuilder/contracts/platform/user'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import { getCurrentUser, requireCurrentUserId } from './lib/auth'
 import { BATCH_LIMITS } from './lib/limits'
 import { literalUnion } from './lib/validators/common'
@@ -41,9 +53,18 @@ import {
   deleteMediaAssetWithVariants,
   hasMediaAssetReferences,
 } from './platform/media/internal'
+import { parseUploadedImageMetadata } from './lib/imageValidation'
+import { deleteStorageSilently, type StorageMetadata } from './lib/storage'
+import {
+  UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
+  unwrapUploadEnvelope,
+} from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 
 const RESERVED_HANDLE_SET = new Set<string>(RESERVED_HANDLES)
 const CASCADE_PAGE_SIZE = BATCH_LIMITS.cascadeDelete
+// upper bound on sessions shown in the account UI — generous vs the handful of
+// devices a real user keeps, but bounded so the list query stays cheap
+const SESSION_LIST_LIMIT = 50
 
 // validator for getMe — public projection excluding operator diagnostics &
 // auth internals. _id is a plain string (contracts can't depend on Convex's
@@ -54,6 +75,7 @@ const publicUserMeValidator = v.object({
   name: v.union(v.string(), v.null()),
   displayName: v.union(v.string(), v.null()),
   image: v.union(v.string(), v.null()),
+  hasAvatar: v.boolean(),
   externalId: v.union(v.string(), v.null()),
   plan: v.union(v.literal('free'), v.literal('plus')),
   createdAt: v.number(),
@@ -62,6 +84,17 @@ const publicUserMeValidator = v.object({
   bio: v.union(v.string(), v.null()),
   location: v.union(v.string(), v.null()),
   pronouns: v.union(v.string(), v.null()),
+})
+
+const publicUserSessionValidator = v.object({
+  _id: v.string(),
+  createdAt: v.number(),
+  expiresAt: v.number(),
+  isCurrent: v.boolean(),
+})
+
+const revokeSessionResultValidator = v.object({
+  revokedCurrent: v.boolean(),
 })
 
 // drift guard: PublicUserMe (TS contract) & the runtime validator above must
@@ -76,6 +109,15 @@ type _PublicUserMeMatchesValidator =
 const _publicUserMeContractCheck: _PublicUserMeMatchesValidator = true
 void _publicUserMeContractCheck
 
+type _PublicUserSessionMatchesValidator =
+  PublicUserSession extends Infer<typeof publicUserSessionValidator>
+    ? Infer<typeof publicUserSessionValidator> extends PublicUserSession
+      ? true
+      : false
+    : false
+const _publicUserSessionContractCheck: _PublicUserSessionMatchesValidator = true
+void _publicUserSessionContractCheck
+
 // return the caller's public profile, or null if unauthenticated.
 // narrower than Doc<'users'> to keep internal bookkeeping off the wire
 export const getMe = query({
@@ -88,12 +130,16 @@ export const getMe = query({
     {
       return null
     }
+    const avatarUrl = user.avatarStorageId
+      ? await ctx.storage.getUrl(user.avatarStorageId)
+      : null
     return {
       _id: user._id,
       email: user.email ?? null,
       name: user.name ?? null,
       displayName: user.displayName ?? null,
-      image: user.image ?? null,
+      image: avatarUrl ?? user.image ?? null,
+      hasAvatar: user.avatarStorageId !== undefined,
       externalId: user.externalId ?? null,
       plan: user.plan ?? 'free',
       createdAt: user.createdAt ?? user._creationTime,
@@ -226,6 +272,202 @@ export const updateProfile = mutation({
   },
 })
 
+export const listSessions = query({
+  args: {},
+  returns: v.array(publicUserSessionValidator),
+  handler: async (ctx): Promise<PublicUserSession[]> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const currentSessionId = await getAuthSessionId(ctx)
+    const sessions = await ctx.db
+      .query('authSessions')
+      .withIndex('userId', (q) => q.eq('userId', userId))
+      .order('desc')
+      .take(SESSION_LIST_LIMIT)
+
+    return sessions.map((session) => ({
+      _id: session._id,
+      createdAt: session._creationTime,
+      expiresAt: session.expirationTime,
+      isCurrent: session._id === currentSessionId,
+    }))
+  },
+})
+
+export const revokeSession = mutation({
+  args: { sessionId: v.id('authSessions') },
+  returns: revokeSessionResultValidator,
+  handler: async (
+    ctx,
+    args
+  ): Promise<Infer<typeof revokeSessionResultValidator>> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const session = await ctx.db.get(args.sessionId)
+    if (!session || session.userId !== userId)
+    {
+      return { revokedCurrent: false }
+    }
+    const currentSessionId = await getAuthSessionId(ctx)
+    await ctx.scheduler.runAfter(0, internal.users.cleanupSingleAuthSession, {
+      userId,
+      targetSessionId: args.sessionId,
+      tokenCursor: null,
+    })
+    return { revokedCurrent: args.sessionId === currentSessionId }
+  },
+})
+
+export const removeAvatar = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const user = await ctx.db.get(userId)
+    if (!user || !user.avatarStorageId)
+    {
+      return null
+    }
+    await ctx.db.patch(userId, {
+      avatarStorageId: undefined,
+      updatedAt: Date.now(),
+    })
+    await scheduleAuthorCardSync(ctx, userId)
+    return null
+  },
+})
+
+export const setAvatar = action({
+  args: {
+    storageId: v.id('_storage'),
+    uploadToken: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const cleanStorageId = await validateUploadedAvatar(ctx, userId, args)
+    try
+    {
+      await ctx.runMutation(internal.users.commitAvatar, {
+        userId,
+        avatarStorageId: cleanStorageId,
+      })
+    }
+    catch (error)
+    {
+      // commit is the only fallible step; on failure delete the orphaned clean
+      // blob so a rejected upload never leaves a dangling, unreferenced blob
+      await deleteStorageSilently(ctx, cleanStorageId)
+      throw error
+    }
+    // client picks up the new avatar via the reactive getMe subscription
+    return null
+  },
+})
+
+export const changePassword = action({
+  args: {
+    currentPassword: v.string(),
+    newPassword: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const account = await ctx.runQuery(internal.users.getPasswordAccount, {
+      userId,
+    })
+    if (!account)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: 'password account not found',
+      })
+    }
+    if (args.newPassword.length < MIN_PASSWORD_LENGTH)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `new password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      })
+    }
+    if (args.currentPassword === args.newPassword)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: 'new password must be different from the current password',
+      })
+    }
+
+    // changing the password invalidates every *other* session, so a missing
+    // session id must abort before touching credentials (else we'd nuke this one)
+    const currentSessionId = await getAuthSessionId(ctx)
+    if (!currentSessionId)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: 'no active session for password change',
+      })
+    }
+
+    try
+    {
+      const verified = await retrieveAccount(ctx, {
+        provider: 'password',
+        account: {
+          id: account.providerAccountId,
+          secret: args.currentPassword,
+        },
+      })
+      if (verified.user._id !== userId || verified.account.userId !== userId)
+      {
+        throw new Error('InvalidAccountId')
+      }
+    }
+    catch (error)
+    {
+      // retrieveAccount throws Error(reason) & shares the sign-in rate limiter;
+      // surface the limit distinctly & rethrow the unexpected vs masking it
+      const reason = error instanceof Error ? error.message : ''
+      if (reason === 'TooManyFailedAttempts')
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.rateLimited,
+          message: 'too many failed attempts; try again later',
+        })
+      }
+      if (reason === 'InvalidSecret' || reason === 'InvalidAccountId')
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.invalidInput,
+          message: 'current password is incorrect',
+        })
+      }
+      throw error
+    }
+
+    await modifyAccountCredentials(ctx, {
+      provider: 'password',
+      account: { id: account.providerAccountId, secret: args.newPassword },
+    })
+
+    // the password is now changed; revoking other sessions is a best-effort
+    // side effect. a failure here must not surface as a failed change -> the
+    // user would retry w/ the old (now-invalid) password & lock themselves out
+    try
+    {
+      await invalidateSessions(ctx, { userId, except: [currentSessionId] })
+    }
+    catch (error)
+    {
+      console.error('changePassword: failed to revoke other sessions', error)
+    }
+    return null
+  },
+})
+
 // schedule caller auth-session cleanup; the client clears its local token
 export const signOutEverywhere = mutation({
   args: {},
@@ -280,6 +522,85 @@ type CascadePhase = (typeof CASCADE_PHASES)[number]
 const AUTH_SESSION_CLEANUP_MODES = ['signOutOnly', 'startCascade'] as const
 const authSessionCleanupModeValidator = literalUnion(AUTH_SESSION_CLEANUP_MODES)
 type AuthSessionCleanupMode = (typeof AUTH_SESSION_CLEANUP_MODES)[number]
+
+export const getPasswordAccount = internalQuery({
+  args: { userId: v.id('users') },
+  returns: v.union(
+    v.null(),
+    v.object({
+      providerAccountId: v.string(),
+    })
+  ),
+  handler: async (ctx, args): Promise<{ providerAccountId: string } | null> =>
+  {
+    const account = await ctx.db
+      .query('authAccounts')
+      .withIndex('userIdAndProvider', (q) =>
+        q.eq('userId', args.userId).eq('provider', 'password')
+      )
+      .unique()
+    return account ? { providerAccountId: account.providerAccountId } : null
+  },
+})
+
+export const commitAvatar = internalMutation({
+  args: {
+    userId: v.id('users'),
+    avatarStorageId: v.id('_storage'),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const user = await ctx.db.get(args.userId)
+    if (!user)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: 'user not found',
+      })
+    }
+    await ctx.db.patch(args.userId, {
+      avatarStorageId: args.avatarStorageId,
+      updatedAt: Date.now(),
+    })
+    await scheduleAuthorCardSync(ctx, args.userId)
+    return null
+  },
+})
+
+export const cleanupSingleAuthSession = internalMutation({
+  args: {
+    userId: v.id('users'),
+    targetSessionId: v.id('authSessions'),
+    tokenCursor: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const session = await ctx.db.get(args.targetSessionId)
+    if (!session || session.userId !== args.userId)
+    {
+      return null
+    }
+    const tokenPage = await deleteOwnedAuthChildPage(
+      ctx,
+      args.targetSessionId,
+      args.tokenCursor,
+      AUTH_SESSION_CASCADE_CONFIG
+    )
+    if (!tokenPage.isDone)
+    {
+      await ctx.scheduler.runAfter(0, internal.users.cleanupSingleAuthSession, {
+        userId: args.userId,
+        targetSessionId: args.targetSessionId,
+        tokenCursor: tokenPage.continueCursor,
+      })
+      return null
+    }
+    await ctx.db.delete(args.targetSessionId)
+    return null
+  },
+})
 
 const nextCascadePhase = (currentPhase: CascadePhase): CascadePhase | null =>
 {
@@ -762,6 +1083,103 @@ const scheduleCascadeAuthAccounts = async (
       codeCursor: state.codeCursor,
     })
   )
+}
+
+const scheduleAuthorCardSync = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>
+): Promise<void> =>
+{
+  await ctx.scheduler.runAfter(
+    0,
+    internal.marketplace.templates.internal.syncTemplateCardsForAuthor,
+    { authorId: userId, cursor: null }
+  )
+}
+
+const assertAvatarStorageMetadata = async (
+  ctx: ActionCtx,
+  storageId: Id<'_storage'>
+): Promise<StorageMetadata> =>
+{
+  const metadata = await ctx.runQuery(internal.lib.storage.getStorageMetadata, {
+    storageId,
+  })
+  if (!metadata)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.storageMissing,
+      message: 'uploaded avatar blob not found in storage',
+    })
+  }
+  if (!metadata.sha256)
+  {
+    await deleteStorageSilently(ctx, storageId)
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'uploaded avatar blob missing storage sha256 metadata',
+    })
+  }
+  if (metadata.size > MAX_IMAGE_BYTE_SIZE + UPLOAD_ENVELOPE_MAX_HEADER_BYTES)
+  {
+    await deleteStorageSilently(ctx, storageId)
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.payloadTooLarge,
+      message: `uploaded avatar blob too large: ${metadata.size} > ${MAX_IMAGE_BYTE_SIZE}`,
+    })
+  }
+  return metadata
+}
+
+const validateUploadedAvatar = async (
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  args: { storageId: Id<'_storage'>; uploadToken: string }
+): Promise<Id<'_storage'>> =>
+{
+  await assertAvatarStorageMetadata(ctx, args.storageId)
+  const rawBlob = await ctx.storage.get(args.storageId)
+  if (!rawBlob)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.storageMissing,
+      message: 'uploaded avatar blob not found in storage',
+    })
+  }
+
+  try
+  {
+    const wrappedBytes = new Uint8Array(await rawBlob.arrayBuffer())
+    const payload = unwrapUploadEnvelope(
+      'media',
+      userId,
+      args.uploadToken,
+      wrappedBytes
+    )
+    if (!payload)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.forbidden,
+        message: 'upload token mismatch for avatar blob',
+      })
+    }
+    if (payload.byteLength < 1 || payload.byteLength > MAX_IMAGE_BYTE_SIZE)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.payloadTooLarge,
+        message: `avatar byteSize out of range: must be 1..${MAX_IMAGE_BYTE_SIZE}`,
+      })
+    }
+
+    const { mimeType } = parseUploadedImageMetadata(payload)
+    return await ctx.storage.store(
+      new Blob([payload as BlobPart], { type: mimeType })
+    )
+  }
+  finally
+  {
+    await deleteStorageSilently(ctx, args.storageId)
+  }
 }
 
 const paginateOwnedAuthParentPage = async (

@@ -49,6 +49,7 @@ const PrefToggleRow = ({
 }: PrefToggleRowProps) =>
 {
   const labelId = useId()
+  const hintId = useId()
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
@@ -58,11 +59,19 @@ const PrefToggleRow = ({
         >
           {label}
         </p>
-        <p className="text-[10px] leading-snug text-[var(--t-text-faint)]">
+        <p
+          id={hintId}
+          className="text-[10px] leading-snug text-[var(--t-text-faint)]"
+        >
           {hint}
         </p>
       </div>
-      <Toggle checked={checked} onChange={onChange} ariaLabelledby={labelId} />
+      <Toggle
+        checked={checked}
+        onChange={onChange}
+        ariaLabelledby={labelId}
+        ariaDescribedby={hintId}
+      />
     </div>
   )
 }

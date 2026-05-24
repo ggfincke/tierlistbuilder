@@ -2,9 +2,9 @@
 // shared Convex test harness setup
 
 import type { Id, Doc } from '@convex/_generated/dataModel'
-import type { MutationCtx } from '@convex/_generated/server'
+import type { ActionCtx, MutationCtx } from '@convex/_generated/server'
 import rateLimiter from '@convex-dev/rate-limiter/test'
-import { convexTest } from 'convex-test'
+import { convexTest, type TestConvex } from 'convex-test'
 import { ConvexError } from 'convex/values'
 import { expect, vi } from 'vitest'
 import schema from '../../convex/schema'
@@ -32,7 +32,7 @@ import type {
 
 const modules = import.meta.glob('../../convex/**/*.*s')
 
-export type ConvexTestHandle = ReturnType<typeof convexTest<typeof schema>>
+export type ConvexTestHandle = TestConvex<typeof schema>
 
 export const makeTest = (): ConvexTestHandle =>
   convexTest({ schema, modules, transactionLimits: true })
@@ -183,7 +183,10 @@ export async function seedUser(
   })
 }
 
-export const buildPngHeader = (width: number, height: number): Uint8Array =>
+export const buildPngHeader = (
+  width: number,
+  height: number
+): Uint8Array<ArrayBuffer> =>
 {
   const bytes = new Uint8Array(24)
   bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
@@ -216,7 +219,7 @@ interface SeedTileMediaAssetArgs
 }
 
 export const seedTileMediaAsset = async (
-  ctx: MutationCtx,
+  ctx: MutationCtx & Pick<ActionCtx, 'storage'>,
   args: SeedTileMediaAssetArgs
 ): Promise<{
   mediaAssetId: Id<'mediaAssets'>
@@ -490,9 +493,9 @@ export const seedCloudBoard = async (
     sourceTemplate: args.sourceTemplateId
       ? boardSourceTemplateFromTemplate({
           _id: args.sourceTemplateId,
-          category: args.sourceTemplateCategory ?? null,
-          sizeClass: args.sourceTemplateSizeClass ?? null,
-          title: args.sourceTemplateTitle ?? null,
+          category: args.sourceTemplateCategory ?? 'other',
+          sizeClass: args.sourceTemplateSizeClass ?? 'standard',
+          title: args.sourceTemplateTitle ?? '',
         })
       : EMPTY_BOARD_SOURCE_TEMPLATE,
     sourceRanking: EMPTY_BOARD_SOURCE_RANKING,

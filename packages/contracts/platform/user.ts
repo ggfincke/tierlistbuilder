@@ -12,6 +12,7 @@ export const MAX_LOCATION_LENGTH = 80
 export const MIN_HANDLE_LENGTH = 3
 export const MAX_HANDLE_LENGTH = 24
 export const HANDLE_REGEX = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/
+export const MIN_PASSWORD_LENGTH = 8
 
 // fixed pronoun set — keeps profile data consistent & avoids open free-text.
 // '' means unset (the user hasn't picked). add more here if/when needed
@@ -74,6 +75,7 @@ export interface PublicUserMe
   name: string | null
   displayName: string | null
   image: string | null
+  hasAvatar: boolean
   externalId: string | null
   plan: UserPlan
   createdAt: number
@@ -84,4 +86,12 @@ export interface PublicUserMe
   bio: string | null
   location: string | null
   pronouns: string | null
+}
+
+export interface PublicUserSession
+{
+  _id: string
+  createdAt: number
+  expiresAt: number
+  isCurrent: boolean
 }

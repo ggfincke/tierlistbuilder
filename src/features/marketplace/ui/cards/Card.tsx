@@ -25,7 +25,7 @@ import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMeta'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { CHUNKY_SHADOW_ACCENT_STATIC } from '~/shared/ui/chunkyShadow'
-import { InitialAvatar } from '~/shared/ui/InitialAvatar'
+import { Avatar } from '~/shared/ui/Avatar'
 import type { MediaLoading } from '~/shared/board-ui/mediaImageAttrs'
 import { Cover, type CoverStyle } from '../cover/Cover'
 import type { MosaicDensity } from '../discovery/Mosaic'
@@ -265,7 +265,11 @@ const CardImpl = ({
           <div
             className={`flex items-center gap-1.5 ${cfg.metaClass} text-[var(--t-text-muted)]`}
           >
-            <InitialAvatar name={template.author.displayName} size="xs" />
+            <Avatar
+              name={template.author.displayName}
+              src={template.author.avatarUrl}
+              size="xs"
+            />
             <span className="truncate">{template.author.displayName}</span>
           </div>
         )}

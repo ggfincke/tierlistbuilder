@@ -34,7 +34,7 @@ describe('snapshot codec', () =>
     expect(decoded.title).toBe('My Board')
     expect(decoded.tiers).toHaveLength(1)
     expect(decoded.tiers[0].itemIds).toEqual(['a'])
-    expect(decoded.items['a']?.label).toBe('Hello')
+    expect(decoded.items[asItemId('a')]?.label).toBe('Hello')
   })
 
   it('strips image refs & deletedItems from shared payloads', () =>

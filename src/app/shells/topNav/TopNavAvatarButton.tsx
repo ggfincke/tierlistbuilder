@@ -4,12 +4,15 @@
 
 import { User } from 'lucide-react'
 
+import { Avatar } from '~/shared/ui/Avatar'
+
 interface TopNavAvatarButtonProps
 {
   label: string
   menuOpen: boolean
   menuId: string
-  initial?: string
+  name?: string
+  src?: string | null
   onToggle: () => void
 }
 
@@ -17,7 +20,8 @@ export const TopNavAvatarButton = ({
   label,
   menuOpen,
   menuId,
-  initial,
+  name,
+  src,
   onToggle,
 }: TopNavAvatarButtonProps) => (
   <button
@@ -28,8 +32,8 @@ export const TopNavAvatarButton = ({
     onClick={onToggle}
     className="focus-custom pointer-events-auto flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)]/85 text-[11px] font-semibold text-[var(--t-text)] backdrop-blur transition hover:border-[var(--t-border-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
   >
-    {initial ? (
-      <span>{initial}</span>
+    {name ? (
+      <Avatar name={name} src={src} size="fill" variant="gradient" />
     ) : (
       <User
         className="h-4 w-4 text-[var(--t-text-muted)]"

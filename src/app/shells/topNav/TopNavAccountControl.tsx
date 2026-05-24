@@ -6,10 +6,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import {
-  getDisplayName,
-  getUserInitial,
-} from '~/features/platform/auth/model/userIdentity'
+import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { logger } from '~/shared/lib/logger'
 import { SETTINGS_ROUTE_PATH } from '~/shared/routes/pathname'
@@ -60,11 +57,8 @@ export const TopNavAccountControl = ({
         label={accountLabel}
         menuOpen={menuOpen}
         menuId={menuId}
-        initial={
-          session.status === 'signed-in'
-            ? getUserInitial(session.user, 'U')
-            : undefined
-        }
+        name={accountName ?? undefined}
+        src={session.status === 'signed-in' ? session.user.image : undefined}
         onToggle={() => setMenuOpen((open) => !open)}
       />
       {menuOpen && (
