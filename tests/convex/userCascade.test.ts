@@ -26,6 +26,7 @@ import {
 
 const TEMPLATE_SLUG = 'Cascade001'
 const AVATAR_UPLOAD_TOKEN = 'a'.repeat(64)
+const EXPIRED_SESSION_REGRESSION_COUNT = 55
 
 const seedAuthRows = async (
   t: ConvexTestHandle,
@@ -510,6 +511,51 @@ describe('user cascade cleanup', () =>
       })
     }))
 
+  it('omits expired sessions before applying the active-session cap', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+      const activeSessionIds = await t.run(async (ctx) =>
+      {
+        const now = Date.now()
+        const first = await ctx.db.insert('authSessions', {
+          userId,
+          expirationTime: now + 60_000,
+        })
+        const second = await ctx.db.insert('authSessions', {
+          userId,
+          expirationTime: now + 60_000,
+        })
+
+        for (let i = 0; i < EXPIRED_SESSION_REGRESSION_COUNT; i++)
+        {
+          await ctx.db.insert('authSessions', {
+            userId,
+            expirationTime: now - 60_000,
+          })
+        }
+        return [first, second]
+      })
+
+      const sessions = await asUser(t, userId, activeSessionIds[0]).query(
+        api.users.listSessions,
+        {}
+      )
+
+      expect(sessions).toHaveLength(activeSessionIds.length)
+      expect(sessions.map((session) => session._id).sort()).toEqual(
+        [...activeSessionIds].sort()
+      )
+      expect(sessions.every((session) => session.expiresAt > Date.now())).toBe(
+        true
+      )
+      expect(
+        sessions.find((session) => session._id === activeSessionIds[0])
+          ?.isCurrent
+      ).toBe(true)
+    }))
+
   it('revokes one session without clearing sibling sessions', async () =>
     await withFakeTimers(async () =>
     {
@@ -669,8 +715,11 @@ describe('user cascade cleanup', () =>
         'password-change@example.com',
         'old-password'
       )
-      // a second signed-in device the password change must force out
-      const otherSessionId = await seedAuthSessionWithTokens(t, userId, 2)
+      const otherSessionId = await seedAuthSessionWithTokens(
+        t,
+        userId,
+        BATCH_LIMITS.cascadeDelete + 1
+      )
       const caller = asUser(t, userId, sessionId)
 
       await expectConvexCode(
@@ -693,7 +742,6 @@ describe('user cascade cleanup', () =>
       })
       await runScheduled(t)
 
-      // only the caller's own session survives; the sibling is revoked
       const after = await readAuthState(t, userId)
       expect(after.sessions.map((session) => session._id)).toEqual([sessionId])
       expect(

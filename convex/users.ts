@@ -3,7 +3,6 @@
 
 import {
   getAuthSessionId,
-  invalidateSessions,
   modifyAccountCredentials,
   retrieveAccount,
 } from '@convex-dev/auth/server'
@@ -367,10 +366,12 @@ export const listSessions = query({
   {
     const userId = await requireCurrentUserId(ctx)
     const currentSessionId = await getAuthSessionId(ctx)
+    const now = Date.now()
     const sessions = await ctx.db
       .query('authSessions')
       .withIndex('userId', (q) => q.eq('userId', userId))
       .order('desc')
+      .filter((q) => q.gt(q.field('expirationTime'), now))
       .take(SESSION_LIST_LIMIT)
 
     return sessions.map((session) => ({
@@ -545,17 +546,12 @@ export const changePassword = action({
       account: { id: account.providerAccountId, secret: args.newPassword },
     })
 
-    // the password is now changed; revoking other sessions is a best-effort
-    // side effect. a failure here must not surface as a failed change -> the
-    // user would retry w/ the old (now-invalid) password & lock themselves out
-    try
-    {
-      await invalidateSessions(ctx, { userId, except: [currentSessionId] })
-    }
-    catch (error)
-    {
-      console.error('changePassword: failed to revoke other sessions', error)
-    }
+    await scheduleAuthSessionCleanup(
+      ctx,
+      userId,
+      { cursor: null, exceptSessionId: currentSessionId },
+      'signOutOnly'
+    )
     return null
   },
 })
@@ -614,6 +610,7 @@ type CascadePhase = (typeof CASCADE_PHASES)[number]
 const AUTH_SESSION_CLEANUP_MODES = ['signOutOnly', 'startCascade'] as const
 const authSessionCleanupModeValidator = literalUnion(AUTH_SESSION_CLEANUP_MODES)
 type AuthSessionCleanupMode = (typeof AUTH_SESSION_CLEANUP_MODES)[number]
+type SchedulerCtx = Pick<MutationCtx, 'scheduler'>
 
 export const getPasswordAccount = internalQuery({
   args: { userId: v.id('users') },
@@ -699,6 +696,7 @@ interface AuthSessionCleanupState
   cursor: string | null
   targetSessionId?: Id<'authSessions'>
   tokenCursor?: string | null
+  exceptSessionId?: Id<'authSessions'>
 }
 
 interface AuthAccountCleanupState
@@ -734,6 +732,7 @@ interface OwnedAuthParentCascadeState<
   cursor: string | null
   targetParentId?: Id<TParentTable>
   childCursor?: string | null
+  excludedParentId?: Id<TParentTable>
 }
 
 type AuthSessionCascadeConfig = {
@@ -808,6 +807,7 @@ export const cleanupAuthSessions = internalMutation({
     cursor: v.union(v.string(), v.null()),
     targetSessionId: v.optional(v.id('authSessions')),
     tokenCursor: v.optional(v.union(v.string(), v.null())),
+    exceptSessionId: v.optional(v.id('authSessions')),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
@@ -860,6 +860,7 @@ const runAuthSessionCleanup = async (
     cursor: state.cursor,
     targetSessionId: state.targetSessionId,
     tokenCursor: state.tokenCursor,
+    exceptSessionId: state.exceptSessionId,
   })
   if (!result.isDone)
   {
@@ -1133,7 +1134,7 @@ const getInitialAuthSessionState = async (
 }
 
 const scheduleAuthSessionCleanup = async (
-  ctx: MutationCtx,
+  ctx: SchedulerCtx,
   userId: Id<'users'>,
   state: AuthSessionCleanupState,
   mode: AuthSessionCleanupMode
@@ -1148,6 +1149,7 @@ const scheduleAuthSessionCleanup = async (
       cursor: state.cursor,
       targetSessionId: state.targetSessionId,
       tokenCursor: state.tokenCursor,
+      exceptSessionId: state.exceptSessionId,
     })
   )
 }
@@ -1343,6 +1345,15 @@ const deleteOwnedParentCascadeStep = async <
     return { isDone: false, cursor }
   }
 
+  if (parent && parent._id === state.excludedParentId)
+  {
+    return {
+      isDone: false,
+      cursor,
+      excludedParentId: state.excludedParentId,
+    }
+  }
+
   const targetParentId = state.targetParentId
   if (!parent && targetParentId)
   {
@@ -1360,9 +1371,14 @@ const deleteOwnedParentCascadeStep = async <
         cursor,
         targetParentId,
         childCursor: childPage.continueCursor,
+        excludedParentId: state.excludedParentId,
       }
     }
-    return { isDone: false, cursor }
+    return {
+      isDone: false,
+      cursor,
+      excludedParentId: state.excludedParentId,
+    }
   }
 
   if (!parent)
@@ -1372,10 +1388,23 @@ const deleteOwnedParentCascadeStep = async <
     {
       return { isDone: true }
     }
+    if (page.page[0]._id === state.excludedParentId)
+    {
+      if (page.isDone)
+      {
+        return { isDone: true }
+      }
+      return {
+        isDone: false,
+        cursor: page.continueCursor,
+        excludedParentId: state.excludedParentId,
+      }
+    }
     return {
       isDone: false,
       cursor: page.continueCursor,
       targetParentId: page.page[0]._id as Id<TParentTable>,
+      excludedParentId: state.excludedParentId,
       childCursor: null,
     }
   }
@@ -1393,11 +1422,16 @@ const deleteOwnedParentCascadeStep = async <
       cursor,
       targetParentId: parent._id,
       childCursor: childPage.continueCursor,
+      excludedParentId: state.excludedParentId,
     }
   }
 
   await ctx.db.delete(parent._id)
-  return { isDone: false, cursor }
+  return {
+    isDone: false,
+    cursor,
+    excludedParentId: state.excludedParentId,
+  }
 }
 
 const deleteAuthSessionCleanupStep = async (
@@ -1414,6 +1448,7 @@ const deleteAuthSessionCleanupStep = async (
       cursor: state.cursor,
       targetParentId: state.targetSessionId,
       childCursor: state.tokenCursor,
+      excludedParentId: state.exceptSessionId,
     }
   )
 
@@ -1426,6 +1461,7 @@ const deleteAuthSessionCleanupStep = async (
     cursor: result.cursor,
     targetSessionId: result.targetParentId,
     tokenCursor: result.childCursor,
+    exceptSessionId: result.excludedParentId,
   }) as CleanupStep<AuthSessionCleanupState>
 }
 
