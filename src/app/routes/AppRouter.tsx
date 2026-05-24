@@ -9,6 +9,7 @@ import {
   BOARDS_ROUTE_PATH,
   EMBED_ROUTE_PATH,
   RANKINGS_ROUTE_PATH,
+  SETTINGS_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
 } from '~/shared/routes/pathname'
@@ -24,6 +25,11 @@ const EmbedRoute = lazyNamed(() => import('./EmbedRoute'), 'EmbedRoute')
 const MyBoardsRoute = lazyNamed(
   () => import('./MyBoardsRoute'),
   'MyBoardsRoute'
+)
+
+const SettingsRoute = lazyNamed(
+  () => import('./SettingsRoute'),
+  'SettingsRoute'
 )
 
 const MarketplaceLayout = lazyNamed(
@@ -85,6 +91,16 @@ export const AppRouter = () => (
             <ErrorBoundary section="my boards">
               <Suspense fallback={<RouteFallback />}>
                 <MyBoardsRoute />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path={SETTINGS_ROUTE_PATH}
+          element={
+            <ErrorBoundary section="settings">
+              <Suspense fallback={<RouteFallback />}>
+                <SettingsRoute />
               </Suspense>
             </ErrorBoundary>
           }

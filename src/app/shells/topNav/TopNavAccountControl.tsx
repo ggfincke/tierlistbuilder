@@ -2,6 +2,7 @@
 // avatar trigger & account menu state for global chrome
 
 import { useCallback, useId, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
@@ -11,6 +12,7 @@ import {
 } from '~/features/platform/auth/model/userIdentity'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { logger } from '~/shared/lib/logger'
+import { SETTINGS_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { TopNavAccountMenu } from '~/app/shells/topNav/TopNavAccountMenu'
 import { TopNavAvatarButton } from '~/app/shells/topNav/TopNavAvatarButton'
@@ -26,6 +28,7 @@ export const TopNavAccountControl = ({
 }: TopNavAccountControlProps) =>
 {
   const session = useAuthSession()
+  const navigate = useNavigate()
   const { signOut } = useAuthActions()
   const showSignIn = useSignInPromptStore((state) => state.show)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -69,7 +72,7 @@ export const TopNavAccountControl = ({
           session={session}
           onClose={closeMenu}
           menuId={menuId}
-          onOpenAccount={() => onOpenModal('account')}
+          onOpenAccount={() => navigate(SETTINGS_ROUTE_PATH)}
           onOpenPreferences={() => onOpenModal('preferences')}
           onOpenSignIn={showSignIn}
           onSignOut={() =>

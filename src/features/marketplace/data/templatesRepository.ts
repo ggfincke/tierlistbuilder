@@ -189,7 +189,7 @@ export const recordTemplateViewImperative = (slug: string): Promise<null> =>
   )
 
 // owned-template management list. reactive so unpublish/republish toggles
-// reflect immediately in the AccountModal section
+// reflect immediately in the Settings page's "Your templates" section
 export const useMyTemplateManagementList = (
   enabled: boolean,
   limit?: number

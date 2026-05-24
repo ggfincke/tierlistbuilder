@@ -6,6 +6,7 @@ export const EMBED_ROUTE_PATH = '/embed'
 export const TEMPLATES_ROUTE_PATH = '/templates'
 export const RANKINGS_ROUTE_PATH = '/rankings'
 export const BOARDS_ROUTE_PATH = '/boards'
+export const SETTINGS_ROUTE_PATH = '/settings'
 
 export const normalizeBasePath = (): string =>
 {
