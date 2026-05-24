@@ -7,6 +7,7 @@ import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import { DEFAULT_USER_PRIVACY_SETTINGS } from '@tierlistbuilder/contracts/platform/user'
 import { classifyItemCount } from '../../convex/lib/entitlements'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
 import {
@@ -554,6 +555,42 @@ describe('user cascade cleanup', () =>
       )
     }))
 
+  it('projects and updates caller privacy settings', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+
+      const initial = await asUser(t, userId).query(api.users.getMe, {})
+      expect(initial?.privacy).toEqual(DEFAULT_USER_PRIVACY_SETTINGS)
+
+      await asUser(t, userId).mutation(api.users.updatePrivacySettings, {
+        defaultTemplateVisibility: 'unlisted',
+        defaultRankingVisibility: 'unlisted',
+        showInMembersDirectory: false,
+        hideProfileFromSearch: true,
+        allowAiTraining: true,
+      })
+
+      const after = await asUser(t, userId).query(api.users.getMe, {})
+      const stored = await t.run(async (ctx) => await ctx.db.get(userId))
+
+      expect(after?.privacy).toEqual({
+        defaultTemplateVisibility: 'unlisted',
+        defaultRankingVisibility: 'unlisted',
+        showInMembersDirectory: false,
+        hideProfileFromSearch: true,
+        allowAiTraining: true,
+      })
+      expect(stored).toMatchObject({
+        defaultTemplateVisibility: 'unlisted',
+        defaultRankingVisibility: 'unlisted',
+        showInMembersDirectory: false,
+        hideProfileFromSearch: true,
+        allowAiTraining: true,
+      })
+    }))
+
   it('sets and removes the caller avatar through a verified upload envelope', async () =>
     await withFakeTimers(async () =>
     {
@@ -623,7 +660,7 @@ describe('user cascade cleanup', () =>
       )
     }))
 
-  it('changes password after verifying the current credential', async () =>
+  it('changes password, verifies the credential & force-signs-out siblings', async () =>
     await withFakeTimers(async () =>
     {
       const t = makeTest()
@@ -632,6 +669,8 @@ describe('user cascade cleanup', () =>
         'password-change@example.com',
         'old-password'
       )
+      // a second signed-in device the password change must force out
+      const otherSessionId = await seedAuthSessionWithTokens(t, userId, 2)
       const caller = asUser(t, userId, sessionId)
 
       await expectConvexCode(
@@ -642,13 +681,24 @@ describe('user cascade cleanup', () =>
         CONVEX_ERROR_CODES.invalidInput
       )
 
+      // a failed verification must not revoke any session
+      const afterFailure = await readAuthState(t, userId)
+      expect(
+        afterFailure.sessions.map((session) => session._id).sort()
+      ).toEqual([sessionId, otherSessionId].sort())
+
       await caller.action(api.users.changePassword, {
         currentPassword: 'old-password',
         newPassword: 'new-password',
       })
+      await runScheduled(t)
 
+      // only the caller's own session survives; the sibling is revoked
       const after = await readAuthState(t, userId)
       expect(after.sessions.map((session) => session._id)).toEqual([sessionId])
+      expect(
+        after.refreshTokens.some((token) => token.sessionId === otherSessionId)
+      ).toBe(false)
 
       await expectConvexCode(
         caller.action(api.users.changePassword, {

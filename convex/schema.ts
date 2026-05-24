@@ -98,6 +98,11 @@ export default defineSchema({
     bio: v.optional(v.string()),
     location: v.optional(v.string()),
     pronouns: v.optional(v.string()),
+    defaultTemplateVisibility: v.optional(templateVisibilityValidator),
+    defaultRankingVisibility: v.optional(rankingVisibilityValidator),
+    showInMembersDirectory: v.optional(v.boolean()),
+    hideProfileFromSearch: v.optional(v.boolean()),
+    allowAiTraining: v.optional(v.boolean()),
   })
     // indexes required by @convex-dev/auth - must match authTables.users
     .index('email', ['email'])

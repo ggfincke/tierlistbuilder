@@ -8,6 +8,7 @@ import { internal } from '../_generated/api'
 import type { Id } from '../_generated/dataModel'
 import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import { DEFAULT_USER_PRIVACY_SETTINGS } from '@tierlistbuilder/contracts/platform/user'
 
 // absolute delay schedule (not relative) so ms math is obvious.
 // attempt indices are zero-based — first retry runs at RETRY_SCHEDULE_MS[0]
@@ -37,10 +38,24 @@ export const upsertAppUserFields = async (
 
   if (user.externalId)
   {
-    // existing user — bump updatedAt only; leave displayName intact across sign-ins.
+    // existing user - fill newly-added app defaults w/o touching profile text.
     // clear any previously-stamped retry diagnostic so lastUpsertError shows only stuck rows
     await ctx.db.patch(userId, {
       updatedAt: now,
+      defaultTemplateVisibility:
+        user.defaultTemplateVisibility ??
+        DEFAULT_USER_PRIVACY_SETTINGS.defaultTemplateVisibility,
+      defaultRankingVisibility:
+        user.defaultRankingVisibility ??
+        DEFAULT_USER_PRIVACY_SETTINGS.defaultRankingVisibility,
+      showInMembersDirectory:
+        user.showInMembersDirectory ??
+        DEFAULT_USER_PRIVACY_SETTINGS.showInMembersDirectory,
+      hideProfileFromSearch:
+        user.hideProfileFromSearch ??
+        DEFAULT_USER_PRIVACY_SETTINGS.hideProfileFromSearch,
+      allowAiTraining:
+        user.allowAiTraining ?? DEFAULT_USER_PRIVACY_SETTINGS.allowAiTraining,
       lastUpsertError: undefined,
     })
     return
@@ -57,6 +72,7 @@ export const upsertAppUserFields = async (
     createdAt: now,
     updatedAt: now,
     plan: 'free',
+    ...DEFAULT_USER_PRIVACY_SETTINGS,
     lastUpsertError: undefined,
   })
 }

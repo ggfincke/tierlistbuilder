@@ -1,14 +1,40 @@
 // src/features/platform/auth/model/useAccountMutations.ts
 // typed Convex adapters for account-management UI actions
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useAction, useMutation, useQuery } from 'convex/react'
 
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
+import type { UserPrivacySettings } from '@tierlistbuilder/contracts/platform/user'
 
 export const useUpdateProfileMutation = () =>
   useMutation(api.users.updateProfile)
+
+export const useUpdatePrivacySettingsMutation = () =>
+{
+  const base = useMutation(api.users.updatePrivacySettings)
+  // optimistically patch getMe so a toggle flips instantly & auto-rolls-back
+  // on error — the section reads user.privacy directly, no local mirror state
+  const mutation = useMemo(
+    () =>
+      base.withOptimisticUpdate((localStore, args) =>
+      {
+        const me = localStore.getQuery(api.users.getMe, {})
+        if (!me) return
+        localStore.setQuery(
+          api.users.getMe,
+          {},
+          { ...me, privacy: { ...me.privacy, ...args } }
+        )
+      }),
+    [base]
+  )
+  return useCallback(
+    (args: Partial<UserPrivacySettings>): Promise<null> => mutation(args),
+    [mutation]
+  )
+}
 
 export const useAccountSessionsQuery = () =>
   useQuery(api.users.listSessions, {})

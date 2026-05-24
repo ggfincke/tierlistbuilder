@@ -22,6 +22,7 @@ import { AppearanceSection } from './AppearanceSection'
 import { AvatarSection } from './AvatarSection'
 import { IdentitySection } from './IdentitySection'
 import { PasswordChangeDialog } from './PasswordChangeDialog'
+import { PrivacySection } from './PrivacySection'
 import { Field, SetSection } from './SettingsChrome'
 
 const PAGE_CLASS =
@@ -275,13 +276,7 @@ export const AccountSettingsPage = () =>
             Settings into a planned "Published" view in My Boards — see
             AccountTemplatesSection / AccountRankingsSection, awaiting re-homing. */}
 
-        {/*
-          TODO(backend): Privacy (default board visibility, who-can-reply,
-          members directory, AI-training opt-out, follower approval, hide from
-          search). No privacy/visibility or social-graph backend exists. Wire
-          those, then restore the Privacy card (two Segmented controls + toggle
-          stack).
-        */}
+        <PrivacySection user={user} />
 
         <DataSection onSignedOut={handleSignedOut} />
       </div>

@@ -10,6 +10,7 @@ import {
   MAX_DISPLAY_NAME_LENGTH,
   MAX_HANDLE_LENGTH,
   MAX_LOCATION_LENGTH,
+  normalizeHandleInput,
   PRONOUN_OPTIONS,
 } from '@tierlistbuilder/contracts/platform/user'
 import {
@@ -69,7 +70,11 @@ export const IdentitySection = ({ user }: IdentitySectionProps) =>
     )
     setDraft((current) =>
     {
-      const next = mergeCleanProfileFields(current, fresh, lastSyncedRef.current)
+      const next = mergeCleanProfileFields(
+        current,
+        fresh,
+        lastSyncedRef.current
+      )
       return profileDraftsEqual(current, next) ? current : next
     })
     lastSyncedRef.current = fresh
@@ -123,7 +128,9 @@ export const IdentitySection = ({ user }: IdentitySectionProps) =>
         <TextField
           id={handleFieldId}
           value={draft.handle}
-          onChange={(value) => patchDraft({ handle: value })}
+          onChange={(value) =>
+            patchDraft({ handle: normalizeHandleInput(value) })
+          }
           maxLength={MAX_HANDLE_LENGTH}
           mono
           autoComplete="off"

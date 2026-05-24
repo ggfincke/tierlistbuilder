@@ -247,6 +247,7 @@ interface ToggleRowProps
   hint?: ReactNode
   checked: boolean
   onChange: (value: boolean) => void
+  disabled?: boolean
 }
 
 // compact label-left / switch-left stacked toggle matching the design's dense
@@ -256,13 +257,15 @@ export const ToggleRow = ({
   hint,
   checked,
   onChange,
+  disabled = false,
 }: ToggleRowProps) => (
   <button
     type="button"
     role="switch"
     aria-checked={checked}
+    disabled={disabled}
     onClick={() => onChange(!checked)}
-    className="flex items-start gap-2.5 py-1 text-left"
+    className="flex items-start gap-2.5 py-1 text-left disabled:cursor-not-allowed disabled:opacity-60"
   >
     <span
       className={joinClassNames(

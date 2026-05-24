@@ -20,6 +20,7 @@ import {
 import { internal } from './_generated/api'
 import type { Doc, Id, TableNames } from './_generated/dataModel'
 import {
+  DEFAULT_USER_PRIVACY_SETTINGS,
   HANDLE_REGEX,
   MAX_BIO_LENGTH,
   MAX_DISPLAY_NAME_LENGTH,
@@ -31,12 +32,17 @@ import {
   type PublicUserSession,
   RESERVED_HANDLES,
   type PublicUserMe,
+  type UserPrivacySettings,
 } from '@tierlistbuilder/contracts/platform/user'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import { getCurrentUser, requireCurrentUserId } from './lib/auth'
 import { BATCH_LIMITS } from './lib/limits'
 import { literalUnion } from './lib/validators/common'
+import {
+  rankingVisibilityValidator,
+  templateVisibilityValidator,
+} from './lib/validators/marketplace'
 import {
   failInput,
   normalizeNullableText,
@@ -66,6 +72,14 @@ const CASCADE_PAGE_SIZE = BATCH_LIMITS.cascadeDelete
 // devices a real user keeps, but bounded so the list query stays cheap
 const SESSION_LIST_LIMIT = 50
 
+const userPrivacySettingsValidator = v.object({
+  defaultTemplateVisibility: templateVisibilityValidator,
+  defaultRankingVisibility: rankingVisibilityValidator,
+  showInMembersDirectory: v.boolean(),
+  hideProfileFromSearch: v.boolean(),
+  allowAiTraining: v.boolean(),
+})
+
 // validator for getMe — public projection excluding operator diagnostics &
 // auth internals. _id is a plain string (contracts can't depend on Convex's
 // branded Id<'users'>); brand is lost but only used as opaque identifier
@@ -84,6 +98,7 @@ const publicUserMeValidator = v.object({
   bio: v.union(v.string(), v.null()),
   location: v.union(v.string(), v.null()),
   pronouns: v.union(v.string(), v.null()),
+  privacy: userPrivacySettingsValidator,
 })
 
 const publicUserSessionValidator = v.object({
@@ -118,6 +133,32 @@ type _PublicUserSessionMatchesValidator =
 const _publicUserSessionContractCheck: _PublicUserSessionMatchesValidator = true
 void _publicUserSessionContractCheck
 
+const resolveUserPrivacySettings = (
+  user: Pick<
+    Doc<'users'>,
+    | 'defaultTemplateVisibility'
+    | 'defaultRankingVisibility'
+    | 'showInMembersDirectory'
+    | 'hideProfileFromSearch'
+    | 'allowAiTraining'
+  >
+): UserPrivacySettings => ({
+  defaultTemplateVisibility:
+    user.defaultTemplateVisibility ??
+    DEFAULT_USER_PRIVACY_SETTINGS.defaultTemplateVisibility,
+  defaultRankingVisibility:
+    user.defaultRankingVisibility ??
+    DEFAULT_USER_PRIVACY_SETTINGS.defaultRankingVisibility,
+  showInMembersDirectory:
+    user.showInMembersDirectory ??
+    DEFAULT_USER_PRIVACY_SETTINGS.showInMembersDirectory,
+  hideProfileFromSearch:
+    user.hideProfileFromSearch ??
+    DEFAULT_USER_PRIVACY_SETTINGS.hideProfileFromSearch,
+  allowAiTraining:
+    user.allowAiTraining ?? DEFAULT_USER_PRIVACY_SETTINGS.allowAiTraining,
+})
+
 // return the caller's public profile, or null if unauthenticated.
 // narrower than Doc<'users'> to keep internal bookkeeping off the wire
 export const getMe = query({
@@ -148,6 +189,7 @@ export const getMe = query({
       bio: user.bio ?? null,
       location: user.location ?? null,
       pronouns: user.pronouns ?? null,
+      privacy: resolveUserPrivacySettings(user),
     }
   },
 })
@@ -272,6 +314,52 @@ export const updateProfile = mutation({
   },
 })
 
+export const updatePrivacySettings = mutation({
+  args: {
+    defaultTemplateVisibility: v.optional(templateVisibilityValidator),
+    defaultRankingVisibility: v.optional(rankingVisibilityValidator),
+    showInMembersDirectory: v.optional(v.boolean()),
+    hideProfileFromSearch: v.optional(v.boolean()),
+    allowAiTraining: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const patch: Partial<UserPrivacySettings> & { updatedAt?: number } = {}
+
+    if (args.defaultTemplateVisibility !== undefined)
+    {
+      patch.defaultTemplateVisibility = args.defaultTemplateVisibility
+    }
+    if (args.defaultRankingVisibility !== undefined)
+    {
+      patch.defaultRankingVisibility = args.defaultRankingVisibility
+    }
+    if (args.showInMembersDirectory !== undefined)
+    {
+      patch.showInMembersDirectory = args.showInMembersDirectory
+    }
+    if (args.hideProfileFromSearch !== undefined)
+    {
+      patch.hideProfileFromSearch = args.hideProfileFromSearch
+    }
+    if (args.allowAiTraining !== undefined)
+    {
+      patch.allowAiTraining = args.allowAiTraining
+    }
+
+    if (Object.keys(patch).length === 0)
+    {
+      return null
+    }
+
+    patch.updatedAt = Date.now()
+    await ctx.db.patch(userId, patch)
+    return null
+  },
+})
+
 export const listSessions = query({
   args: {},
   returns: v.array(publicUserSessionValidator),
@@ -309,11 +397,15 @@ export const revokeSession = mutation({
       return { revokedCurrent: false }
     }
     const currentSessionId = await getAuthSessionId(ctx)
-    await ctx.scheduler.runAfter(0, internal.users.cleanupSingleAuthSession, {
-      userId,
-      targetSessionId: args.sessionId,
-      tokenCursor: null,
-    })
+    // delete the session row inline so revocation takes effect immediately &
+    // listSessions reflects it on the next tick; if the scheduled child sweep
+    // were the only deletion, a failed/delayed job would leave it valid
+    await ctx.db.delete(args.sessionId)
+    await ctx.scheduler.runAfter(
+      0,
+      internal.users.cleanupRevokedSessionTokens,
+      { sessionId: args.sessionId, cursor: null }
+    )
     return { revokedCurrent: args.sessionId === currentSessionId }
   },
 })
@@ -568,36 +660,30 @@ export const commitAvatar = internalMutation({
   },
 })
 
-export const cleanupSingleAuthSession = internalMutation({
+// drain a revoked session's refresh tokens in bounded pages. revokeSession
+// already deleted the session row, so this only sweeps the orphaned children
+export const cleanupRevokedSessionTokens = internalMutation({
   args: {
-    userId: v.id('users'),
-    targetSessionId: v.id('authSessions'),
-    tokenCursor: v.union(v.string(), v.null()),
+    sessionId: v.id('authSessions'),
+    cursor: v.union(v.string(), v.null()),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
-    const session = await ctx.db.get(args.targetSessionId)
-    if (!session || session.userId !== args.userId)
-    {
-      return null
-    }
     const tokenPage = await deleteOwnedAuthChildPage(
       ctx,
-      args.targetSessionId,
-      args.tokenCursor,
+      args.sessionId,
+      args.cursor,
       AUTH_SESSION_CASCADE_CONFIG
     )
     if (!tokenPage.isDone)
     {
-      await ctx.scheduler.runAfter(0, internal.users.cleanupSingleAuthSession, {
-        userId: args.userId,
-        targetSessionId: args.targetSessionId,
-        tokenCursor: tokenPage.continueCursor,
-      })
-      return null
+      await ctx.scheduler.runAfter(
+        0,
+        internal.users.cleanupRevokedSessionTokens,
+        { sessionId: args.sessionId, cursor: tokenPage.continueCursor }
+      )
     }
-    await ctx.db.delete(args.targetSessionId)
     return null
   },
 })
