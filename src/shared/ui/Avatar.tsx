@@ -61,9 +61,7 @@ export const Avatar = ({
         !showImage && INITIAL_CLASS[variant],
         className
       )}
-      style={
-        !showImage && variant === 'gradient' ? GRADIENT_STYLE : undefined
-      }
+      style={!showImage && variant === 'gradient' ? GRADIENT_STYLE : undefined}
     >
       {showImage && src ? (
         <img

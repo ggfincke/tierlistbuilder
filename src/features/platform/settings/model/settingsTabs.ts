@@ -11,7 +11,7 @@ export const SETTINGS_TABS = [
   { slug: 'data', label: 'Data' },
 ] as const
 
-export type SettingsTabSlug = (typeof SETTINGS_TABS)[number]['slug']
+type SettingsTabSlug = (typeof SETTINGS_TABS)[number]['slug']
 
 // router-relative — react-router resolves the basename, so no base path here
 export const settingsTabPath = (slug: SettingsTabSlug): string =>

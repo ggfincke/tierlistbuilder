@@ -7,6 +7,8 @@ export const TEMPLATES_ROUTE_PATH = '/templates'
 export const RANKINGS_ROUTE_PATH = '/rankings'
 export const BOARDS_ROUTE_PATH = '/boards'
 export const SETTINGS_ROUTE_PATH = '/settings'
+export const PROFILE_ROUTE_PATH = '/u'
+export const SHOWCASE_ROUTE_PATH = '/tier-list'
 
 export const normalizeBasePath = (): string =>
 {
@@ -26,11 +28,18 @@ export const getWorkspacePath = (): string =>
   return basePath || '/'
 }
 
-const getTemplatesPath = (): string =>
-{
-  const basePath = normalizeBasePath()
-  return `${basePath}${TEMPLATES_ROUTE_PATH}`
-}
+const withBasePath = (path: string): string => `${normalizeBasePath()}${path}`
+
+const getTemplatesPath = (): string => withBasePath(TEMPLATES_ROUTE_PATH)
 
 export const getTemplateDetailPath = (slug: string): string =>
   `${getTemplatesPath()}/${slug}`
+
+export const getProfilePath = (handle: string): string =>
+  withBasePath(`${PROFILE_ROUTE_PATH}/${handle}`)
+
+export const getRankingDetailPath = (slug: string): string =>
+  withBasePath(`${RANKINGS_ROUTE_PATH}/${slug}`)
+
+export const getShowcaseEditPath = (): string =>
+  withBasePath(SHOWCASE_ROUTE_PATH)

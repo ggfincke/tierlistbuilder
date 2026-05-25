@@ -8,8 +8,10 @@ import { lazyNamed } from '~/shared/lib/lazyNamed'
 import {
   BOARDS_ROUTE_PATH,
   EMBED_ROUTE_PATH,
+  PROFILE_ROUTE_PATH,
   RANKINGS_ROUTE_PATH,
   SETTINGS_ROUTE_PATH,
+  SHOWCASE_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
 } from '~/shared/routes/pathname'
@@ -30,6 +32,13 @@ const MyBoardsRoute = lazyNamed(
 const SettingsRoute = lazyNamed(
   () => import('./SettingsRoute'),
   'SettingsRoute'
+)
+
+const ProfileRoute = lazyNamed(() => import('./ProfileRoute'), 'ProfileRoute')
+
+const ShowcaseRoute = lazyNamed(
+  () => import('./ShowcaseRoute'),
+  'ShowcaseRoute'
 )
 
 const MarketplaceLayout = lazyNamed(
@@ -101,6 +110,26 @@ export const AppRouter = () => (
             <ErrorBoundary section="settings">
               <Suspense fallback={<RouteFallback />}>
                 <SettingsRoute />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path={`${PROFILE_ROUTE_PATH}/:handle`}
+          element={
+            <ErrorBoundary section="profile">
+              <Suspense fallback={<RouteFallback />}>
+                <ProfileRoute />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path={SHOWCASE_ROUTE_PATH}
+          element={
+            <ErrorBoundary section="tier list">
+              <Suspense fallback={<RouteFallback />}>
+                <ShowcaseRoute />
               </Suspense>
             </ErrorBoundary>
           }

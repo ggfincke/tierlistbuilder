@@ -58,10 +58,7 @@ export const AccountDangerZone = ({ onClose }: AccountDangerZoneProps) =>
           Permanently delete your account, boards, templates, and uploads. This
           cannot be undone.
         </p>
-        <SecondaryButton
-          tone="destructive"
-          onClick={() => setConfirming(true)}
-        >
+        <SecondaryButton tone="destructive" onClick={() => setConfirming(true)}>
           <Trash2 className="h-3.5 w-3.5" />
           Delete account
         </SecondaryButton>

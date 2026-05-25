@@ -66,7 +66,7 @@ export const TopNavAccountControl = ({
           session={session}
           onClose={closeMenu}
           menuId={menuId}
-          onOpenAccount={() => navigate(settingsTabPath('profile'))}
+          onOpenSettings={() => navigate(settingsTabPath('account'))}
           onOpenPreferences={() => onOpenModal('preferences')}
           onOpenSignIn={showSignIn}
           onSignOut={() =>
