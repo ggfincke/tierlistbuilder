@@ -437,6 +437,11 @@ export default defineSchema({
     .index('byTemplateId', ['templateId'])
     .index('bySlug', ['slug'])
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
+    .index('byAuthorIsPubliclyListableUpdatedAt', [
+      'authorId',
+      'isPubliclyListable',
+      'updatedAt',
+    ])
     .index('byAuthorAvatarStorageId', ['authorAvatarStorageId'])
     .index('byIsPubliclyListableUpdatedAt', ['isPubliclyListable', 'updatedAt'])
     .index('byIsPubliclyListableForkCount', ['isPubliclyListable', 'forkCount'])
@@ -984,6 +989,39 @@ export default defineSchema({
     .index('byUserTemplate', ['userId', 'templateId'])
     .index('byUserCreatedAt', ['userId', 'createdAt'])
     .index('byTemplateUser', ['templateId', 'userId']),
+
+  // "tier list of tier lists" (tlotl) — the profile showcase. one row per
+  // owner; tiers & placed ranking lanes live in child tables. the unranked
+  // pool is derived (owner's published lanes minus placed), never stored
+  profileShowcases: defineTable({
+    ownerId: v.id('users'),
+    tileMode: v.union(v.literal('cover'), v.literal('mini')),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('byOwner', ['ownerId']),
+
+  // tier row within a profile showcase — mirrors boardTiers so the workspace
+  // editor's tier data maps in & out w/o translation
+  profileShowcaseTiers: defineTable({
+    showcaseId: v.id('profileShowcases'),
+    externalId: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    colorSpec: tierColorSpecValidator,
+    rowColorSpec: v.optional(tierColorSpecValidator),
+    order: v.number(),
+  }).index('byShowcase', ['showcaseId', 'order']),
+
+  // a published-ranking lane placed in a showcase tier. references the lane
+  // (template + criterion), not a ranking instance, so it follows the owner's
+  // current published ranking across re-publishes. unplaced lanes are derived
+  profileShowcaseItems: defineTable({
+    showcaseId: v.id('profileShowcases'),
+    tierExternalId: v.string(),
+    templateId: v.id('templates'),
+    criterionExternalId: v.string(),
+    order: v.number(),
+  }).index('byShowcase', ['showcaseId', 'order']),
 
   // short URL indirection for shareable snapshot blobs. slug -> compressed
   // BoardSnapshot bytes in _storage

@@ -30,6 +30,9 @@ import { literalUnion } from '../lib/validators/common'
 const RESETTABLE_TABLES = [
   'shortLinks',
   'userTemplateBookmarks',
+  'profileShowcaseItems',
+  'profileShowcaseTiers',
+  'profileShowcases',
   'templateRankingAggregateAdmission',
   'templateRankingAggregateJobs',
   'templateRankingAggregateItems',

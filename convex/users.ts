@@ -33,6 +33,10 @@ import {
   type PublicUserMe,
   type UserPrivacySettings,
 } from '@tierlistbuilder/contracts/platform/user'
+import {
+  MAX_SHOWCASE_PLACED_ITEMS,
+  MAX_SHOWCASE_TIERS,
+} from '@tierlistbuilder/contracts/platform/showcase'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import { getCurrentUser, requireCurrentUserId } from './lib/auth'
@@ -597,6 +601,7 @@ const CASCADE_PHASES = [
   'boards',
   'templates',
   'rankings',
+  'profileShowcases',
   'bookmarks',
   'tierPresets',
   'shortLinks',
@@ -821,6 +826,8 @@ const CASCADE_PHASE_HANDLERS: Record<CascadePhase, CascadePhaseHandler> = {
   boards: async (ctx, args) => await handleBoardsPhase(ctx, args),
   templates: async (ctx, args) => await handleTemplatesPhase(ctx, args),
   rankings: async (ctx, args) => await handleRankingsPhase(ctx, args),
+  profileShowcases: async (ctx, args) =>
+    await handleProfileShowcasesPhase(ctx, args),
   bookmarks: async (ctx, args) => await handleBookmarksPhase(ctx, args),
   tierPresets: async (ctx, args) => await handleTierPresetsPhase(ctx, args),
   shortLinks: async (ctx, args) => await handleShortLinksPhase(ctx, args),
@@ -998,6 +1005,38 @@ const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
     ])
   )
   return await advanceCascade(ctx, args.userId, page, 'rankings')
+}
+
+const deleteProfileShowcase = async (
+  ctx: MutationCtx,
+  showcaseId: Id<'profileShowcases'>
+): Promise<void> =>
+{
+  const [items, tiers] = await Promise.all([
+    ctx.db
+      .query('profileShowcaseItems')
+      .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
+      .take(MAX_SHOWCASE_PLACED_ITEMS + 1),
+    ctx.db
+      .query('profileShowcaseTiers')
+      .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
+      .take(MAX_SHOWCASE_TIERS + 1),
+  ])
+  await Promise.all([
+    ...items.map((item) => ctx.db.delete(item._id)),
+    ...tiers.map((tier) => ctx.db.delete(tier._id)),
+  ])
+  await ctx.db.delete(showcaseId)
+}
+
+const handleProfileShowcasesPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const page = await ctx.db
+    .query('profileShowcases')
+    .withIndex('byOwner', (q) => q.eq('ownerId', args.userId))
+    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
+  await Promise.all(page.page.map((row) => deleteProfileShowcase(ctx, row._id)))
+  return await advanceCascade(ctx, args.userId, page, 'profileShowcases')
 }
 
 const handleBookmarksPhase: CascadePhaseHandler = async (ctx, args) =>

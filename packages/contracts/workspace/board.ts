@@ -385,6 +385,17 @@ export interface TierItemImageRef
   cloudMediaOwnership?: CloudMediaOwnership
 }
 
+// identity of a published-ranking lane shown as a tile in the profile showcase
+// (tlotl). primitives only — the cover/mini render payload resolves separately
+// & reaches ItemContent via ShowcaseRenderContext keyed by templateId+criterion
+export interface ShowcaseItemRef
+{
+  templateId: string
+  criterionExternalId: string
+  rankingSlug: string
+  title: string
+}
+
 // single item placed in a tier or the unranked pool. imageRef is the small
 // preview thumb; tile refs target board rendering; source refs keep editor bytes
 export interface TierItem
@@ -418,6 +429,9 @@ export interface TierItem
   // locally. first cloud sync resolves it to boardItems.templateItemId so the
   // board can publish rankings against its source template.
   sourceTemplateItemExternalId?: string
+  // set only on profile-showcase items — marks this tile as a published-ranking
+  // lane. absent on every normal board item. see ShowcaseItemRef
+  showcaseRanking?: ShowcaseItemRef
 }
 
 // a single tier row w/ ordered item references
