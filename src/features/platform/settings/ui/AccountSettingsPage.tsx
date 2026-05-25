@@ -1,52 +1,33 @@
 // src/features/platform/settings/ui/AccountSettingsPage.tsx
-// full-page account settings — the design's dense Settings screen. backend-backed
-// sections are wired live; no-backend ones stay as commented TODO(backend) scaffolds.
+// full-page account settings — persistent hero + underline tab bar over the
+// /settings sub-routes; each tab panel composes the backend-wired sections.
 
-import { useState, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
-import type {
-  PublicUserMe,
-  UserPlan,
-} from '@tierlistbuilder/contracts/platform/user'
+import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { useProfileDraft } from '~/features/platform/auth/model/useProfileDraft'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
-import { AccountDangerZone } from '~/features/platform/auth/ui/AccountDangerZone'
-import { AccountSessionsSection } from '~/features/platform/auth/ui/AccountSessionsSection'
-import { ShortcutsList } from '~/features/workspace/shortcuts/ui/ShortcutsList'
+import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
 import { getWorkspacePath } from '~/shared/routes/pathname'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
-import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { AppearanceSection } from './AppearanceSection'
-import { AvatarSection } from './AvatarSection'
-import { IdentitySection } from './IdentitySection'
-import { PasswordChangeDialog } from './PasswordChangeDialog'
-import { PrivacySection } from './PrivacySection'
-import { Field, SetSection } from './SettingsChrome'
+import { AccountPanel } from './AccountPanel'
+import { AppearancePanel } from './AppearancePanel'
+import { DataPanel } from './DataPanel'
+import { PrivacyPanel } from './PrivacyPanel'
+import { ProfilePanel } from './ProfilePanel'
+import { PlanBadge } from './SettingsChrome'
+import { SettingsTabs } from './SettingsTabs'
 
 const PAGE_CLASS =
   'relative z-10 mx-auto w-full max-w-[1320px] px-6 pb-24 pt-20 sm:px-10 sm:pt-24'
 
-const PlanBadge = ({ plan }: { plan: UserPlan }) =>
-  plan === 'plus' ? (
-    <span className="rounded bg-[var(--t-accent-2)] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#0a0a0a]">
-      Plus
-    </span>
-  ) : (
-    <span className="rounded border border-[var(--t-border)] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--t-text-muted)]">
-      Free
-    </span>
-  )
-
-const ReadonlyValue = ({ children }: { children: ReactNode }) => (
-  <p className="truncate rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] px-3 py-2 text-[13px] text-[var(--t-text-secondary)]">
-    {children}
-  </p>
-)
+const PROFILE_PATH = settingsTabPath('profile')
 
 const SettingsHero = ({ user }: { user: PublicUserMe }) => (
-  <header className="flex flex-wrap items-end justify-between gap-6 border-b border-[var(--t-border)] pb-4">
+  <header className="flex flex-wrap items-end justify-between gap-6">
     <DisplayHeadline
       size="page"
       accent="Settings"
@@ -86,112 +67,6 @@ const SettingsHero = ({ user }: { user: PublicUserMe }) => (
   </header>
 )
 
-const AccountSection = ({ user }: { user: PublicUserMe }) =>
-{
-  const [passwordOpen, setPasswordOpen] = useState(false)
-
-  return (
-    <SetSection id="account" eyebrow="Sign in" title="Account">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Email">
-          <ReadonlyValue>{user.email ?? 'No email on file'}</ReadonlyValue>
-        </Field>
-        <Field label="Sign-in method">
-          <ReadonlyValue>Email &amp; password</ReadonlyValue>
-        </Field>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <SecondaryButton
-          type="button"
-          variant="surface"
-          onClick={() => setPasswordOpen(true)}
-        >
-          Update password
-        </SecondaryButton>
-      </div>
-      {/*
-        TODO(backend): 2FA + recovery codes. Password change is wired via
-        @convex-dev/auth, but no TOTP/recovery-code backend exists yet.
-      */}
-      <PasswordChangeDialog
-        open={passwordOpen}
-        onClose={() => setPasswordOpen(false)}
-        username={user.email ?? ''}
-      />
-    </SetSection>
-  )
-}
-
-const SessionsSection = ({ onSignedOut }: { onSignedOut: () => void }) => (
-  <SetSection
-    eyebrow="Security"
-    title="Active sessions"
-    subtitle="Sign out anywhere you don't recognize."
-    className="flex-1"
-  >
-    <div className="mt-auto">
-      <AccountSessionsSection onClose={onSignedOut} />
-    </div>
-  </SetSection>
-)
-
-const PlanSection = ({ plan }: { plan: UserPlan }) => (
-  <SetSection eyebrow="Billing" title="Plan & billing">
-    <div className="flex items-center justify-between rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-3">
-      <div>
-        <p className="mono text-[10px] uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-          Current plan
-        </p>
-        <p className="text-[18px] font-black leading-tight text-[var(--t-text)]">
-          {plan === 'plus' ? 'Plus' : 'Free'}
-        </p>
-      </div>
-    </div>
-    {/*
-      TODO(backend): Stripe billing. `plan` is real, but there is no billing
-      integration — price, renewal date, card on file, invoices, &
-      Manage/Subscribe are mocked. Wire Stripe, then restore the design's
-      billing card + payment-method row + Manage/Invoices actions.
-    */}
-  </SetSection>
-)
-
-const ShortcutsSection = () => (
-  <SetSection
-    eyebrow="Reference"
-    title="Keyboard shortcuts"
-    subtitle="Most apply while editing a board."
-  >
-    <ShortcutsList />
-  </SetSection>
-)
-
-const DataSection = ({ onSignedOut }: { onSignedOut: () => void }) => (
-  <SetSection
-    id="data"
-    eyebrow="Portability"
-    title="Export, import & lifecycle"
-    subtitle="Download your data or permanently delete your account."
-  >
-    {/*
-      TODO(backend): account-level export (JSON/CSV/PNG) + import + deactivate.
-      Per-board export exists in the workspace, but there is no account-wide
-      bulk export, no importer, & no reversible "deactivate" (only the hard
-      deleteAccount below). Wire those, then restore the export tiles + import
-      dropzone + Deactivate button from the design.
-    */}
-    <div className="border-t border-[var(--t-border)] pt-3">
-      <p className="text-[12px] font-bold text-[var(--t-destructive)]">
-        Delete account permanently
-      </p>
-      <p className="mb-2 mt-0.5 text-[10px] text-[var(--t-text-muted)]">
-        Removes all boards, takes, and data. Cannot be undone.
-      </p>
-      <AccountDangerZone onClose={onSignedOut} />
-    </div>
-  </SetSection>
-)
-
 const SettingsShell = ({ children }: { children: ReactNode }) => (
   <section className={PAGE_CLASS}>{children}</section>
 )
@@ -220,10 +95,48 @@ const SettingsSignedOut = ({ onSignIn }: { onSignIn: () => void }) => (
   </SettingsShell>
 )
 
+const SignedInSettings = ({ user }: { user: PublicUserMe }) =>
+{
+  const navigate = useNavigate()
+  // page-level draft so the Identity editor & live preview share state, & edits
+  // survive switching tabs (the draft lives above the sub-routes)
+  const profile = useProfileDraft(user)
+  // sessions/danger actions sign the caller out; return them to the workspace
+  const handleSignedOut = () => navigate(getWorkspacePath())
+
+  return (
+    <SettingsShell>
+      <SettingsHero user={user} />
+      <div className="mt-6">
+        <SettingsTabs profileDirty={profile.dirty} />
+      </div>
+      <div className="mt-6">
+        <Routes>
+          <Route index element={<Navigate to={PROFILE_PATH} replace />} />
+          <Route
+            path="profile"
+            element={<ProfilePanel user={user} profile={profile} />}
+          />
+          <Route
+            path="account"
+            element={<AccountPanel user={user} onSignedOut={handleSignedOut} />}
+          />
+          <Route path="appearance" element={<AppearancePanel />} />
+          <Route path="privacy" element={<PrivacyPanel user={user} />} />
+          <Route
+            path="data"
+            element={<DataPanel onSignedOut={handleSignedOut} />}
+          />
+          <Route path="*" element={<Navigate to={PROFILE_PATH} replace />} />
+        </Routes>
+      </div>
+    </SettingsShell>
+  )
+}
+
 export const AccountSettingsPage = () =>
 {
   const session = useAuthSession()
-  const navigate = useNavigate()
   const showSignIn = useSignInPromptStore((state) => state.show)
 
   if (session.status === 'loading')
@@ -235,51 +148,5 @@ export const AccountSettingsPage = () =>
     return <SettingsSignedOut onSignIn={showSignIn} />
   }
 
-  const user = session.user
-  // sessions/danger actions sign the caller out; return them to the workspace
-  const handleSignedOut = () => navigate(getWorkspacePath())
-
-  return (
-    <SettingsShell>
-      <SettingsHero user={user} />
-
-      <div className="mt-6 flex flex-col gap-4">
-        {/* Block A — Identity/Account/Sessions on the left, Avatar/Plan right */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="flex flex-col gap-4 lg:col-span-2">
-            <IdentitySection user={user} />
-            <AccountSection user={user} />
-            <SessionsSection onSignedOut={handleSignedOut} />
-          </div>
-          <div className="flex flex-col gap-4">
-            <AvatarSection user={user} />
-            <PlanSection plan={user.plan} />
-            <ShortcutsSection />
-            {/*
-              TODO(backend): Linked accounts (Google / Apple / Discord OAuth).
-              Auth is email & password only — no OAuth providers or authAccounts
-              linking UI. Wire OAuth, then restore the linked-accounts card w/
-              per-row Link/Unlink.
-            */}
-          </div>
-        </div>
-
-        <AppearanceSection />
-
-        {/*
-          TODO(backend): Connections (Discord / Bluesky / Letterboxd / X /
-          Mastodon / Steam). No third-party integration backend exists. Wire
-          integrations, then restore the 3x2 services grid w/ Link/Unlink.
-        */}
-
-        {/* Published templates & rankings (author management) are moving out of
-            Settings into a planned "Published" view in My Boards — see
-            AccountTemplatesSection / AccountRankingsSection, awaiting re-homing. */}
-
-        <PrivacySection user={user} />
-
-        <DataSection onSignedOut={handleSignedOut} />
-      </div>
-    </SettingsShell>
-  )
+  return <SignedInSettings user={session.user} />
 }

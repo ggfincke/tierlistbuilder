@@ -8,8 +8,8 @@ import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
+import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
 import { logger } from '~/shared/lib/logger'
-import { SETTINGS_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { TopNavAccountMenu } from '~/app/shells/topNav/TopNavAccountMenu'
 import { TopNavAvatarButton } from '~/app/shells/topNav/TopNavAvatarButton'
@@ -66,7 +66,7 @@ export const TopNavAccountControl = ({
           session={session}
           onClose={closeMenu}
           menuId={menuId}
-          onOpenAccount={() => navigate(SETTINGS_ROUTE_PATH)}
+          onOpenAccount={() => navigate(settingsTabPath('profile'))}
           onOpenPreferences={() => onOpenModal('preferences')}
           onOpenSignIn={showSignIn}
           onSignOut={() =>

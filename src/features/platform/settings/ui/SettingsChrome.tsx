@@ -4,6 +4,7 @@
 
 import type { ReactNode } from 'react'
 
+import type { UserPlan } from '@tierlistbuilder/contracts/platform/user'
 import { joinClassNames } from '~/shared/lib/className'
 
 interface SetSectionProps
@@ -57,6 +58,21 @@ export const SetSection = ({
   </section>
 )
 
+interface SettingsTabLayoutProps
+{
+  main: ReactNode
+  aside: ReactNode
+}
+
+// two-column tab body — primary column beside a narrower aside, stacking on
+// small screens; the shared shell for multi-section settings tabs
+export const SettingsTabLayout = ({ main, aside }: SettingsTabLayoutProps) => (
+  <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="flex flex-col gap-4 lg:col-span-2">{main}</div>
+    {aside}
+  </div>
+)
+
 interface FieldProps
 {
   label: ReactNode
@@ -89,8 +105,10 @@ export const Field = ({ label, htmlFor, hint, children }: FieldProps) => (
   </div>
 )
 
+// accent focus ring + hover border so fields read as interactive surfaces &
+// pick up the brand the way SearchField/PickerGrid already do
 const CONTROL_CLASS =
-  'focus-custom w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] text-[13px] text-[var(--t-text)] placeholder:text-[var(--t-text-faint)] disabled:cursor-not-allowed disabled:opacity-60'
+  'focus-custom w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] text-[13px] text-[var(--t-text)] transition placeholder:text-[var(--t-text-faint)] hover:border-[var(--t-border-hover)] focus-visible:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-not-allowed disabled:opacity-60'
 
 interface TextFieldProps
 {
@@ -296,3 +314,15 @@ export const ToggleRow = ({
     </span>
   </button>
 )
+
+// plan pill — lime for Plus, outlined neutral for Free
+export const PlanBadge = ({ plan }: { plan: UserPlan }) =>
+  plan === 'plus' ? (
+    <span className="rounded bg-[var(--t-accent-2)] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#0a0a0a]">
+      Plus
+    </span>
+  ) : (
+    <span className="rounded border border-[var(--t-border)] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--t-text-muted)]">
+      Free
+    </span>
+  )

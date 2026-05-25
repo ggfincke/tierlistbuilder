@@ -50,7 +50,6 @@ export const AppearanceSection = () =>
 
   return (
     <SetSection
-      id="appearance"
       eyebrow="Look & feel"
       title="Appearance"
       subtitle="App chrome only — boards can override individually."

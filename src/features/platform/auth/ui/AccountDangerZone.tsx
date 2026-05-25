@@ -59,7 +59,6 @@ export const AccountDangerZone = ({ onClose }: AccountDangerZoneProps) =>
           cannot be undone.
         </p>
         <SecondaryButton
-          variant="surface"
           tone="destructive"
           onClick={() => setConfirming(true)}
         >

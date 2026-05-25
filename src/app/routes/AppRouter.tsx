@@ -96,7 +96,7 @@ export const AppRouter = () => (
           }
         />
         <Route
-          path={SETTINGS_ROUTE_PATH}
+          path={`${SETTINGS_ROUTE_PATH}/*`}
           element={
             <ErrorBoundary section="settings">
               <Suspense fallback={<RouteFallback />}>

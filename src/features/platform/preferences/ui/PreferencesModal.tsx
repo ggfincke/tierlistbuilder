@@ -11,7 +11,7 @@ import {
   HIGH_CONTRAST_THEME_ID,
   usePreferencesStore,
 } from '~/features/platform/preferences/model/usePreferencesStore'
-import { SETTINGS_ROUTE_PATH } from '~/shared/routes/pathname'
+import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
 import { THEMES } from '~/shared/theme/tokens'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -141,7 +141,7 @@ export const PreferencesModal = ({ open, onClose }: PreferencesModalProps) =>
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to={SETTINGS_ROUTE_PATH}
+            to={settingsTabPath('appearance')}
             onClick={onClose}
             className="text-[10px] uppercase tracking-[0.16em] text-[var(--t-text-muted)] hover:underline"
           >

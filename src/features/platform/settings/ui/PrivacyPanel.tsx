@@ -1,7 +1,8 @@
-// src/features/platform/settings/ui/PrivacySection.tsx
+// src/features/platform/settings/ui/PrivacyPanel.tsx
 // privacy controls for publish defaults, profile discovery, & future AI usage
 
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useMemo, useState } from 'react'
+import { Check } from 'lucide-react'
 
 import type { RankingVisibility } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { TemplateVisibility } from '@tierlistbuilder/contracts/marketplace/template'
@@ -13,6 +14,7 @@ import { useUpdatePrivacySettingsMutation } from '~/features/platform/auth/model
 import { formatError } from '~/shared/lib/errors'
 import { joinClassNames } from '~/shared/lib/className'
 import { toast } from '~/shared/notifications/useToastStore'
+import { useRovingSelection } from '~/shared/selection/useRovingSelection'
 import { Field, SetSection, ToggleRow } from './SettingsChrome'
 
 interface SegmentedOption<TValue extends string>
@@ -65,69 +67,43 @@ const SegmentedChoice = <TValue extends string>({
   label,
 }: SegmentedChoiceProps<TValue>) =>
 {
-  const buttonsRef = useRef<(HTMLButtonElement | null)[]>([])
-
-  // roving-tabindex arrow-key nav so the group is one tab stop & arrows move
-  // the selection, matching the radiogroup/radio roles
-  const handleKeyDown = (
-    event: KeyboardEvent<HTMLButtonElement>,
-    index: number
-  ) =>
-  {
-    const lastIndex = options.length - 1
-    let nextIndex: number | null = null
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown')
-    {
-      nextIndex = index === lastIndex ? 0 : index + 1
-    }
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp')
-    {
-      nextIndex = index === 0 ? lastIndex : index - 1
-    }
-    else if (event.key === 'Home')
-    {
-      nextIndex = 0
-    }
-    else if (event.key === 'End')
-    {
-      nextIndex = lastIndex
-    }
-    if (nextIndex === null) return
-    event.preventDefault()
-    onChange(options[nextIndex].value)
-    buttonsRef.current[nextIndex]?.focus()
-  }
+  const keys = useMemo(() => options.map((option) => option.value), [options])
+  // shared roving-tabindex nav (one tab stop, arrows move selection) w/
+  // radiogroup/radio semantics; columns matches the visual grid as it grows
+  const { groupProps, getItemProps, isActive } = useRovingSelection<TValue>({
+    items: keys,
+    activeKey: value,
+    onSelect: onChange,
+    kind: 'radio',
+    groupLabel: label,
+    columns: 2,
+  })
 
   return (
     <div
-      role="radiogroup"
-      aria-label={label}
+      {...groupProps}
       className="grid grid-cols-2 gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-1"
     >
       {options.map((option, index) =>
       {
-        const selected = option.value === value
+        const selected = isActive(option.value)
         return (
           <button
             key={option.value}
-            ref={(node) =>
-            {
-              buttonsRef.current[index] = node
-            }}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            tabIndex={selected ? 0 : -1}
+            {...getItemProps(option.value, index)}
             disabled={disabled}
-            onClick={() => onChange(option.value)}
-            onKeyDown={(event) => handleKeyDown(event, index)}
             className={joinClassNames(
-              'min-h-[64px] rounded-md px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-60',
+              'relative min-h-[64px] rounded-md px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-60',
               selected
-                ? 'bg-[var(--t-bg-surface)] text-[var(--t-text)] shadow-[0_0_0_1px_var(--t-border)]'
+                ? 'bg-[var(--t-bg-surface)] text-[var(--t-text)] shadow-[0_0_0_1px_var(--t-accent)]'
                 : 'text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)]'
             )}
           >
+            {selected && (
+              <span className="absolute right-2 top-2 text-[var(--t-accent)]">
+                <Check className="h-3.5 w-3.5" strokeWidth={3} />
+              </span>
+            )}
             <span className="block text-[12px] font-bold leading-tight">
               {option.label}
             </span>
@@ -141,12 +117,12 @@ const SegmentedChoice = <TValue extends string>({
   )
 }
 
-interface PrivacySectionProps
+interface PrivacyPanelProps
 {
   user: PublicUserMe
 }
 
-export const PrivacySection = ({ user }: PrivacySectionProps) =>
+export const PrivacyPanel = ({ user }: PrivacyPanelProps) =>
 {
   const updatePrivacy = useUpdatePrivacySettingsMutation()
   const [savingKey, setSavingKey] = useState<keyof UserPrivacySettings | null>(
@@ -183,7 +159,6 @@ export const PrivacySection = ({ user }: PrivacySectionProps) =>
 
   return (
     <SetSection
-      id="privacy"
       eyebrow="Privacy"
       title="Visibility defaults"
       subtitle="Used when publishing new templates and rankings."

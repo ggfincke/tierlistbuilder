@@ -63,7 +63,6 @@ const SessionRow = ({
     <SecondaryButton
       type="button"
       size="sm"
-      variant="surface"
       tone={session.isCurrent ? 'destructive' : 'default'}
       disabled={disabled || pending}
       onClick={() => onRevoke(session)}
@@ -156,7 +155,6 @@ export const AccountSessionsSection = ({
         </p>
       )}
       <SecondaryButton
-        variant="surface"
         tone="destructive"
         disabled={pending || pendingSessionId !== null}
         onClick={handleClick}

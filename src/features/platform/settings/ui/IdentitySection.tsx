@@ -1,10 +1,9 @@
 // src/features/platform/settings/ui/IdentitySection.tsx
 // identity profile editor (handle, display name, pronouns, location, bio).
-// reuses the shared profile-draft model + updateProfile, w/ per-section save.
+// controlled by the page-level useProfileDraft so the preview shares its state.
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId } from 'react'
 
-import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import {
   MAX_BIO_LENGTH,
   MAX_DISPLAY_NAME_LENGTH,
@@ -13,17 +12,7 @@ import {
   normalizeHandleInput,
   PRONOUN_OPTIONS,
 } from '@tierlistbuilder/contracts/platform/user'
-import {
-  buildProfileDraft,
-  getProfileUpdateDiff,
-  isProfileDraftValid,
-  mergeCleanProfileFields,
-  profileDraftsEqual,
-  type ProfileDraft,
-} from '~/features/platform/auth/model/accountProfileDraft'
-import { useUpdateProfileMutation } from '~/features/platform/auth/model/useAccountMutations'
-import { formatError } from '~/shared/lib/errors'
-import { toast } from '~/shared/notifications/useToastStore'
+import type { ProfileDraftController } from '~/features/platform/auth/model/useProfileDraft'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import {
@@ -41,18 +30,13 @@ const PRONOUN_SELECT_OPTIONS = [
 
 interface IdentitySectionProps
 {
-  user: PublicUserMe
+  profile: ProfileDraftController
 }
 
-export const IdentitySection = ({ user }: IdentitySectionProps) =>
+export const IdentitySection = ({ profile }: IdentitySectionProps) =>
 {
-  const updateProfile = useUpdateProfileMutation()
-  const [initial, setInitial] = useState<ProfileDraft>(() =>
-    buildProfileDraft(user)
-  )
-  const lastSyncedRef = useRef<ProfileDraft>(initial)
-  const [draft, setDraft] = useState<ProfileDraft>(initial)
-  const [saving, setSaving] = useState(false)
+  const { draft, patchDraft, dirty, saving, displayNameInvalid, save, reset } =
+    profile
 
   const handleFieldId = useId()
   const nameFieldId = useId()
@@ -60,55 +44,8 @@ export const IdentitySection = ({ user }: IdentitySectionProps) =>
   const locationFieldId = useId()
   const bioFieldId = useId()
 
-  // keep the draft in sync w/ server updates while preserving in-flight edits
-  // so a background profile refresh doesn't clobber fields being edited
-  useEffect(() =>
-  {
-    const fresh = buildProfileDraft(user)
-    setInitial((current) =>
-      profileDraftsEqual(current, fresh) ? current : fresh
-    )
-    setDraft((current) =>
-    {
-      const next = mergeCleanProfileFields(
-        current,
-        fresh,
-        lastSyncedRef.current
-      )
-      return profileDraftsEqual(current, next) ? current : next
-    })
-    lastSyncedRef.current = fresh
-  }, [user])
-
-  const diff = getProfileUpdateDiff(draft, initial)
-  const dirty = Object.keys(diff).length > 0
-  const displayNameInvalid = !isProfileDraftValid(draft)
-
-  const patchDraft = (patch: Partial<ProfileDraft>) =>
-    setDraft((current) => ({ ...current, ...patch }))
-
-  const handleSave = async () =>
-  {
-    if (!dirty || saving || displayNameInvalid) return
-    setSaving(true)
-    try
-    {
-      await updateProfile(diff)
-      toast('Profile updated', 'success')
-    }
-    catch (error)
-    {
-      toast(formatError(error, 'Failed to update profile'), 'error')
-    }
-    finally
-    {
-      setSaving(false)
-    }
-  }
-
   return (
     <SetSection
-      id="identity"
       eyebrow="Public"
       title="Identity"
       subtitle="Shown on your profile and in @mentions."
@@ -207,13 +144,13 @@ export const IdentitySection = ({ user }: IdentitySectionProps) =>
           <PrimaryButton
             onClick={() =>
             {
-              void handleSave()
+              void save()
             }}
             disabled={saving || displayNameInvalid}
           >
             {saving ? 'Saving...' : 'Save changes'}
           </PrimaryButton>
-          <SecondaryButton onClick={() => setDraft(initial)} disabled={saving}>
+          <SecondaryButton onClick={reset} disabled={saving}>
             Reset
           </SecondaryButton>
           {displayNameInvalid && (
