@@ -418,7 +418,11 @@ describe('upsertBoardState', () =>
               {
                 ...payload.items[0]!,
                 labelOptions: {
-                  placement: { mode: 'overlay' as const, x: Number.NaN, y: 0.5 },
+                  placement: {
+                    mode: 'overlay' as const,
+                    x: Number.NaN,
+                    y: 0.5,
+                  },
                 },
               },
             ],

@@ -51,7 +51,8 @@ describe('cloud sync scheduler', () =>
   it('retries failed flushes even when no newer edit arrives & queues newer edits while retrying', async () =>
   {
     const deps = noOpDeps()
-    let rejectFirst: (err?: unknown) => void = () => {}
+    let rejectFirst: (err?: unknown) => void = () =>
+    {}
     const flush = vi
       .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
       .mockImplementationOnce(

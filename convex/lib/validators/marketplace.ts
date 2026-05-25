@@ -205,7 +205,7 @@ export const templateCoverItemValidator = v.object({
   ...templateCoverItemBaseFields,
 })
 
-const marketplaceItemRenderFields = {
+export const marketplaceItemRenderFields = {
   label: v.union(v.string(), v.null()),
   backgroundColor: v.union(v.string(), v.null()),
   mediaPlate: mediaPlateNullableValidator,

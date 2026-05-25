@@ -212,6 +212,53 @@ const readTemplateCard = async (
         .unique()
   )
 
+const seedProfileShowcase = async (
+  t: ConvexTestHandle,
+  ownerId: Id<'users'>,
+  templateId: Id<'templates'>
+): Promise<Id<'profileShowcases'>> =>
+  await t.run(async (ctx) =>
+  {
+    const now = Date.now()
+    const showcaseId = await ctx.db.insert('profileShowcases', {
+      ownerId,
+      tileMode: 'cover',
+      createdAt: now,
+      updatedAt: now,
+    })
+    await ctx.db.insert('profileShowcaseTiers', {
+      showcaseId,
+      externalId: 'tier-s',
+      name: 'S',
+      colorSpec: { kind: 'palette', index: 0 },
+      order: 0,
+    })
+    await ctx.db.insert('profileShowcaseItems', {
+      showcaseId,
+      tierExternalId: 'tier-s',
+      templateId,
+      criterionExternalId: 'competitive',
+      order: 0,
+    })
+    return showcaseId
+  })
+
+const readProfileShowcaseCascade = async (
+  t: ConvexTestHandle,
+  showcaseId: Id<'profileShowcases'>
+) =>
+  await t.run(async (ctx) => ({
+    showcase: await ctx.db.get(showcaseId),
+    tiers: await ctx.db
+      .query('profileShowcaseTiers')
+      .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
+      .collect(),
+    items: await ctx.db
+      .query('profileShowcaseItems')
+      .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
+      .collect(),
+  }))
+
 const seedTemplate = async (
   t: ConvexTestHandle,
   authorId: Id<'users'>,
@@ -433,6 +480,7 @@ describe('user cascade cleanup', () =>
       const userId = await seedUser(t)
       const templateId = await seedTemplate(t, userId, 260)
       const rankingId = await seedRanking(t, userId, templateId, 260)
+      const showcaseId = await seedProfileShowcase(t, userId, templateId)
 
       await t.mutation(internal.users.cascadeDeleteUserData, {
         userId,
@@ -443,6 +491,7 @@ describe('user cascade cleanup', () =>
       await runScheduled(t)
 
       const templateCascade = await readTemplateCascade(t, templateId)
+      const showcaseCascade = await readProfileShowcaseCascade(t, showcaseId)
       const remaining = await t.run(async (ctx) => ({
         user: await ctx.db.get(userId),
         rankings: await ctx.db
@@ -462,6 +511,9 @@ describe('user cascade cleanup', () =>
       expect(templateCascade.template).toBeNull()
       expect(templateCascade.stats).toBeNull()
       expect(templateCascade.items).toHaveLength(0)
+      expect(showcaseCascade.showcase).toBeNull()
+      expect(showcaseCascade.tiers).toHaveLength(0)
+      expect(showcaseCascade.items).toHaveLength(0)
       expect(remaining.rankings).toHaveLength(0)
       expect(remaining.rankingTiers).toHaveLength(0)
       expect(remaining.rankingItems).toHaveLength(0)

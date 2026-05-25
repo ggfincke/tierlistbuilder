@@ -559,7 +559,8 @@ describe('parseBoardJson', () =>
       (shared.items[asItemId('item-1')] as { imageRef?: unknown }).imageRef
     ).toBeUndefined()
     expect(
-      (shared.items[asItemId('item-1')] as { tileImageRef?: unknown }).tileImageRef
+      (shared.items[asItemId('item-1')] as { tileImageRef?: unknown })
+        .tileImageRef
     ).toBeUndefined()
     expect(shared.deletedItems).toHaveLength(0)
   })
