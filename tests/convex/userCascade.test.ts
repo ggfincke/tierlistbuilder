@@ -233,11 +233,17 @@ const seedProfileShowcase = async (
       colorSpec: { kind: 'palette', index: 0 },
       order: 0,
     })
+    const boardId = await seedCloudBoard(ctx, {
+      ownerId,
+      externalId: 'cascade-showcase-board',
+      title: 'Cascade Showcase Board',
+      sourceTemplateId: templateId,
+      now,
+    })
     await ctx.db.insert('profileShowcaseItems', {
       showcaseId,
       tierExternalId: 'tier-s',
-      templateId,
-      criterionExternalId: 'competitive',
+      boardId,
       order: 0,
     })
     return showcaseId

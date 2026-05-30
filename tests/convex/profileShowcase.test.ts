@@ -8,6 +8,7 @@ import { DEFAULT_SHOWCASE_TIERS } from '@tierlistbuilder/contracts/platform/show
 import {
   asUser,
   makeTest,
+  seedCloudBoard,
   seedPublishedRanking,
   seedPublishedTemplate,
   seedUser,
@@ -47,11 +48,18 @@ const seedShowcaseRanking = async (
         })
       )
     )
+    const boardId = await seedCloudBoard(ctx, {
+      ownerId,
+      externalId: 'showcase-board',
+      title: 'Showcase Board',
+      sourceTemplateId: templateId,
+      now,
+    })
     const rankingId = await seedPublishedRanking(ctx, {
       ownerId,
       slug: 'ShowcaseRank',
       sourceTemplateId: templateId,
-      sourceBoardId: null,
+      sourceBoardId: boardId,
       sourceTemplateSlug: 'ShowcaseTpl',
       sourceTemplateTitle: 'Showcase Template',
       title: 'Showcase Ranking',
@@ -59,6 +67,9 @@ const seedShowcaseRanking = async (
       tierCount: tierNames.length,
       now: now + 1,
     })
+    // the board-keyed showcase pool resolves tiles via board.livePublicRankingId,
+    // so point the seed board at its published ranking
+    await ctx.db.patch(boardId, { livePublicRankingId: rankingId })
     await Promise.all(
       tierNames.map((tierName, index) =>
         ctx.db.insert('publishedRankingTiers', {

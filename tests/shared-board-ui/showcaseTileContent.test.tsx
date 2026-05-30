@@ -59,8 +59,7 @@ const mini = (
 })
 
 const tile = (snapshot: ShowcaseMiniSnapshot): ShowcaseRankingTile => ({
-  templateId: 'template-1',
-  criterionExternalId: 'criterion-1',
+  boardExternalId: 'board-1',
   rankingSlug: 'Ranking001',
   title: 'Ranking',
   cover: null,
