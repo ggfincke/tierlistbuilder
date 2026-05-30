@@ -26,10 +26,13 @@ npm run seed:featured
 npm run seed:all
 ```
 
-`npm run seed:all` runs the marketplace, ranking, and featured-trio seed steps
-in sequence. There is no seed `--reset` flag; for a clean local/dev deployment,
-wipe data first with `npm run db:reset -- --yes`, then run the seed command.
-For disposable local-only state, `npm run db:reset:local-fast -- --yes` moves
+`npm run seed:all` runs the marketplace, ranking, featured-trio, and TLOTL sample
+showcase seed steps in sequence. The final TLOTL step runs `seed:tlotl-samples`
+and `seed:tlotl-crop`; set `CONVEX_TLOTL_SAMPLE_SEED_ALLOWED=true` on the target
+deployment first, and make sure the sample user `tterrag456@gmail.com` exists.
+There is no seed `--reset` flag; for a clean local/dev deployment, wipe data
+first with `npm run db:reset -- --yes`, then run the seed command. For
+disposable local-only state, `npm run db:reset:local-fast -- --yes` moves
 `.convex/local/default` aside, bootstraps local Convex, and restores local auth.
 
 The package can also be installed into an existing env for development:

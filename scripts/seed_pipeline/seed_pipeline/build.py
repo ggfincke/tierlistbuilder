@@ -431,7 +431,8 @@ def _asset_variants_present(asset: object) -> bool:
 	if not isinstance(asset, dict):
 		return False
 	variants = list(asset_variants(asset))
-	if len(variants) != 2:
+	# every compiled asset carries tile + preview + editor (see asset_variants)
+	if len(variants) != 3:
 		return False
 	for variant in variants:
 		path_value = variant.get("path")

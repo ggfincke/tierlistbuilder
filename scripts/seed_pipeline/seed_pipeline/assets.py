@@ -16,6 +16,8 @@ from .crop import CropBBox, MediaPlate, analyze_image
 from .manifest import JsonObject
 from .sidecars import read_sidecar_json, write_sidecar_json
 from .settings import (
+	EDITOR_MAX_BYTES,
+	EDITOR_MAX_SIZE,
 	INSPECT_CACHE_RELATIVE_PATH,
 	INSPECT_CACHE_SCHEMA_VERSION,
 	MAX_SOURCE_IMAGE_BYTE_SIZE,
@@ -30,8 +32,8 @@ from .settings import (
 	VARIANT_SPEC_VERSION,
 )
 
-# mirror Extract<MediaVariantKind, 'tile' | 'preview'> in seed contract
-VariantKind = Literal["tile", "preview"]
+# mirror Extract<MediaVariantKind, 'tile' | 'preview' | 'editor'> in seed contract
+VariantKind = Literal["tile", "preview", "editor"]
 MEDIA_PLATE_VALUES = get_args(MediaPlate)
 _VARIANT_LOCKS: dict[str, Lock] = {}
 _VARIANT_LOCKS_GUARD = Lock()
@@ -254,6 +256,11 @@ def variant_policy_fingerprint() -> JsonObject:
 			"maxSize": TILE_MAX_SIZE,
 			"quality": TILE_WEBP_QUALITY,
 		},
+		"editor": {
+			"format": "PNG",
+			"maxBytes": EDITOR_MAX_BYTES,
+			"maxSize": EDITOR_MAX_SIZE,
+		},
 		"preview": {
 			"format": "JPEG",
 			"maxBytes": PREVIEW_MAX_BYTES,
@@ -269,7 +276,7 @@ def asset_variants(asset: object) -> Iterable[JsonObject]:
 	variants = asset.get("variants")
 	if not isinstance(variants, dict):
 		return
-	for kind in ("tile", "preview"):
+	for kind in ("tile", "preview", "editor"):
 		variant = variants.get(kind)
 		if isinstance(variant, dict):
 			yield variant
@@ -307,7 +314,7 @@ def _variant_output_path(
 	variants_dir: Path,
 	variant_spec_version: str = VARIANT_SPEC_VERSION,
 ) -> Path:
-	suffix = "webp" if kind == "tile" else "jpg"
+	suffix = {"tile": "webp", "editor": "png", "preview": "jpg"}[kind]
 	cache_key = _cache_key(source_sha256, kind, variant_spec_version)
 	# fingerprint includes spec/settings so future policy changes miss old cache files
 	cache_fingerprint = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:16]
@@ -317,6 +324,8 @@ def _variant_output_path(
 def _cache_key(source_sha256: str, kind: VariantKind, variant_spec_version: str) -> str:
 	if kind == "tile":
 		settings = f"{TILE_MAX_SIZE}:webp-q{TILE_WEBP_QUALITY}"
+	elif kind == "editor":
+		settings = f"{EDITOR_MAX_SIZE}:png"
 	else:
 		settings = f"{PREVIEW_MAX_SIZE}:jpeg-q{PREVIEW_JPEG_QUALITY}"
 	return f"{source_sha256}:{variant_spec_version}:{kind}:{settings}"
@@ -326,8 +335,16 @@ def _assert_variant_policy(
 	kind: VariantKind, byte_size: int, width: int, height: int, path: Path
 ) -> None:
 	# fail during build, before Python can upload an oversize variant
-	max_bytes = TILE_MAX_BYTES if kind == "tile" else PREVIEW_MAX_BYTES
-	max_dimension = TILE_MAX_SIZE if kind == "tile" else PREVIEW_MAX_SIZE
+	max_bytes = {
+		"tile": TILE_MAX_BYTES,
+		"editor": EDITOR_MAX_BYTES,
+		"preview": PREVIEW_MAX_BYTES,
+	}[kind]
+	max_dimension = {
+		"tile": TILE_MAX_SIZE,
+		"editor": EDITOR_MAX_SIZE,
+		"preview": PREVIEW_MAX_SIZE,
+	}[kind]
 	if byte_size > max_bytes:
 		msg = f"{kind} variant exceeds byte limit: {path}"
 		raise ValueError(msg)
@@ -362,39 +379,39 @@ def _write_variant(
 def _encode_variant(image: Image.Image, output_path: Path, kind: VariantKind) -> None:
 	if kind == "tile":
 		_write_tile(image, output_path)
+	elif kind == "editor":
+		_write_editor(image, output_path)
 	else:
 		_write_preview(image, output_path)
 
 
 def _build_asset_variants(source: SourceAsset, variants_dir: Path) -> dict[str, JsonObject]:
 	# opening the source image is the costly step (full pixel decode) so share one
-	# open across both kinds when both miss the cache. when both hit, skip it
-	# entirely; when one hits, the per-build Image.open is unavoidable anyway.
-	tile_path = _variant_output_path(source.sha256, "tile", variants_dir)
-	preview_path = _variant_output_path(source.sha256, "preview", variants_dir)
-	if not tile_path.is_file() or not preview_path.is_file():
+	# open across all kinds when any miss the cache. when all hit, skip it
+	# entirely; when one misses, the per-build Image.open is unavoidable anyway.
+	kinds: tuple[VariantKind, ...] = ("tile", "preview", "editor")
+	paths = {kind: _variant_output_path(source.sha256, kind, variants_dir) for kind in kinds}
+	if any(not paths[kind].is_file() for kind in kinds):
 		with Image.open(source.path) as image:
-			# force decode now so the per-kind copies inside _write_tile/_write_preview
-			# share the work instead of triggering the lazy decode twice
+			# force decode now so the per-kind copies inside _write_* share the work
+			# instead of triggering the lazy decode once per kind
 			image.load()
-			tile = build_variant(
-				source.path,
-				source.sha256,
-				"tile",
-				variants_dir,
-				source_image=image,
-			)
-			preview = build_variant(
-				source.path,
-				source.sha256,
-				"preview",
-				variants_dir,
-				source_image=image,
-			)
+			variants = {
+				kind: build_variant(
+					source.path,
+					source.sha256,
+					kind,
+					variants_dir,
+					source_image=image,
+				)
+				for kind in kinds
+			}
 	else:
-		tile = build_variant(source.path, source.sha256, "tile", variants_dir)
-		preview = build_variant(source.path, source.sha256, "preview", variants_dir)
-	return {"tile": tile, "preview": preview}
+		variants = {
+			kind: build_variant(source.path, source.sha256, kind, variants_dir)
+			for kind in kinds
+		}
+	return variants
 
 
 def _write_tile(image: Image.Image, output_path: Path) -> None:
@@ -402,6 +419,14 @@ def _write_tile(image: Image.Image, output_path: Path) -> None:
 	# tiles favor cheap browse/card rendering over inspection detail
 	variant.thumbnail((TILE_MAX_SIZE, TILE_MAX_SIZE), Image.Resampling.LANCZOS)
 	variant.save(output_path, "WEBP", quality=TILE_WEBP_QUALITY, method=6)
+
+
+def _write_editor(image: Image.Image, output_path: Path) -> None:
+	variant = image.copy()
+	# editor source mirrors the browser import's 1024px PNG: high-res & alpha-
+	# preserving so the Edit-item canvas & exports stay crisp on seeded boards
+	variant.thumbnail((EDITOR_MAX_SIZE, EDITOR_MAX_SIZE), Image.Resampling.LANCZOS)
+	variant.save(output_path, "PNG", optimize=True)
 
 
 def _write_preview(image: Image.Image, output_path: Path) -> None:

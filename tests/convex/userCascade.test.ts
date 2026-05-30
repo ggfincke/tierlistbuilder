@@ -7,7 +7,10 @@ import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { DEFAULT_USER_PRIVACY_SETTINGS } from '@tierlistbuilder/contracts/platform/user'
+import {
+  DEFAULT_USER_PRIVACY_SETTINGS,
+  MIN_PASSWORD_LENGTH,
+} from '@tierlistbuilder/contracts/platform/user'
 import { classifyItemCount } from '../../convex/lib/entitlements'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
 import {
@@ -818,6 +821,27 @@ describe('user cascade cleanup', () =>
         currentPassword: 'new-password',
         newPassword: 'next-password',
       })
+    }))
+
+  it('rejects a new password shorter than the minimum', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const { userId, sessionId } = await seedPasswordAccount(
+        t,
+        'password-too-short@example.com',
+        'old-password'
+      )
+      const caller = asUser(t, userId, sessionId)
+
+      // correct current password isolates the length branch as the only reason
+      await expectConvexCode(
+        caller.action(api.users.changePassword, {
+          currentPassword: 'old-password',
+          newPassword: 'a'.repeat(MIN_PASSWORD_LENGTH - 1),
+        }),
+        CONVEX_ERROR_CODES.invalidInput
+      )
     }))
 
   it('cleanupAuthSessions keeps the parent session until refresh-token pages finish', async () =>

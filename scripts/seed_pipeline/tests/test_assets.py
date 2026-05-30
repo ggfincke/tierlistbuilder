@@ -75,7 +75,7 @@ class AssetBuildTests(unittest.TestCase):
 				source.sha256,
 				"tile",
 				variants_dir,
-				variant_spec_version="seed-variants-v2",
+				variant_spec_version="seed-variants-test-alt",
 			)
 		self.assertNotEqual(current["path"], changed["path"])
 		self.assertNotEqual(current["cacheKey"], changed["cacheKey"])

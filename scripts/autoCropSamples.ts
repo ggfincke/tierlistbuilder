@@ -3,7 +3,7 @@
 // bake crop transforms onto sample logo items: fetch each webp, decode w/ sharp,
 // run the shared auto-crop math, write transforms via the dev convex functions
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 
 import sharp from 'sharp'
 
@@ -27,8 +27,9 @@ interface Target
 const ANALYSIS_MAX = 256
 const APPLY_CHUNK = 80
 
+// execFileSync (no shell) so JSON args never need shell quoting
 const runConvex = (fn: string, args: string): string =>
-  execSync(`npx convex run ${fn} '${args}'`, {
+  execFileSync('npx', ['convex', 'run', fn, args], {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   })

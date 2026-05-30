@@ -15,11 +15,18 @@ import {
   type ConvexTestHandle,
 } from './convexTestHelpers'
 
+interface SeedShowcaseRankingResult
+{
+  templateId: Id<'templates'>
+  boardId: Id<'boards'>
+  rankingId: Id<'publishedRankings'>
+}
+
 const seedShowcaseRanking = async (
   t: ConvexTestHandle,
   ownerId: Id<'users'>,
   tierNames: readonly string[] = ['S']
-): Promise<void> =>
+): Promise<SeedShowcaseRankingResult> =>
   await t.run(async (ctx) =>
   {
     const now = 1_000
@@ -103,6 +110,7 @@ const seedShowcaseRanking = async (
         })
       )
     )
+    return { templateId, boardId, rankingId }
   })
 
 describe('profile showcase queries', () =>
@@ -185,5 +193,58 @@ describe('profile showcase queries', () =>
       topPickLabel: 'S Pick',
       bottomPickLabel: 'F Pick',
     })
+  })
+
+  it('hides placed public tiles when the source template is no longer reachable', async () =>
+  {
+    const t = makeTest()
+    const ownerId = await seedUser(t, 'showcase-visible@example.com', {
+      handle: 'showcase-visible',
+      displayName: 'Showcase Visible',
+    })
+    const seeded = await seedShowcaseRanking(t, ownerId)
+    const owner = asUser(t, ownerId)
+
+    await owner.mutation(api.platform.showcase.saveProfileShowcase, {
+      tileMode: 'cover',
+      tiers: DEFAULT_SHOWCASE_TIERS,
+      placements: [
+        {
+          tierExternalId: DEFAULT_SHOWCASE_TIERS[0]!.externalId,
+          boardExternalId: 'showcase-board',
+          order: 0,
+        },
+      ],
+    })
+
+    const beforeProfile = await t.query(
+      api.platform.profile.getPublicProfileByHandle,
+      { handle: 'showcase-visible' }
+    )
+    expect(beforeProfile?.showcase).toMatchObject({ placedCount: 1 })
+
+    await t.run(async (ctx) =>
+    {
+      await ctx.db.patch(seeded.templateId, {
+        publicationState: 'unpublished',
+        isPubliclyListable: false,
+      })
+    })
+
+    const afterProfile = await t.query(
+      api.platform.profile.getPublicProfileByHandle,
+      { handle: 'showcase-visible' }
+    )
+    expect(afterProfile?.showcase).toMatchObject({ placedCount: 0 })
+    expect(
+      afterProfile?.showcase?.tiers.every((tier) => tier.tiles.length === 0)
+    ).toBe(true)
+
+    const editData = await owner.query(
+      api.platform.showcase.getMyProfileShowcase,
+      {}
+    )
+    expect(editData.placed).toHaveLength(0)
+    expect(editData.unranked).toHaveLength(0)
   })
 })

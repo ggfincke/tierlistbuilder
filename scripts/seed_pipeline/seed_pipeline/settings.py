@@ -25,7 +25,8 @@ CACHE_ROOT_RELATIVE_PATH = Path(".seed-cache")
 INSPECT_CACHE_RELATIVE_PATH = CACHE_ROOT_RELATIVE_PATH / "inspect"
 
 # keep generated manifests stable across repeated local builds
-VARIANT_SPEC_VERSION = "seed-variants-v1"
+# (v2: tile bumped 120->768 + editor variant added for browser-import parity)
+VARIANT_SPEC_VERSION = "seed-variants-v2"
 DETERMINISTIC_GENERATED_AT = "1970-01-01T00:00:00.000Z"
 # bump when the sidecar JSON shape OR the analysis that fills it changes, so
 # stale caches self-invalidate (v3: media-plate threshold retuned in crop.py)
@@ -39,9 +40,17 @@ COMPILE_FINGERPRINT_FILENAME = "compile-fingerprint.json"
 
 # gate source files before variant generation does heavier image work
 SUPPORTED_SOURCE_SUFFIXES = {".gif", ".jpeg", ".jpg", ".png", ".webp"}
-TILE_MAX_SIZE = 120
-TILE_WEBP_QUALITY = 82
-TILE_MAX_BYTES = 250_000
+# tile = the board-rendered image; mirror the browser import path so seeded &
+# locally-imported boards match (MAX_BOARD_TILE_IMAGE_SIZE / BOARD_TILE_IMAGE_QUALITY
+# in src/shared/images/renditions.ts)
+TILE_MAX_SIZE = 768
+TILE_WEBP_QUALITY = 86
+TILE_MAX_BYTES = 1_500_000
+# editor = high-res source the Edit-item canvas & exports pull; mirror
+# MAX_EDITOR_SOURCE_SIZE. PNG keeps it lossless & alpha-preserving like the browser
+EDITOR_MAX_SIZE = 1024
+EDITOR_MAX_BYTES = 8_000_000
+# preview = oversized inspection/cover source (hero-scale marketplace covers)
 PREVIEW_MAX_SIZE = 4000
 PREVIEW_JPEG_QUALITY = 86
 PREVIEW_MAX_BYTES = 5_000_000
