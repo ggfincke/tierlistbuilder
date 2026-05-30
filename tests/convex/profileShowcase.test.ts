@@ -1,0 +1,178 @@
+// tests/convex/profileShowcase.test.ts
+// Convex profile-showcase edit-state projections
+
+import { describe, expect, it } from 'vitest'
+import { api } from '@convex/_generated/api'
+import type { Id } from '@convex/_generated/dataModel'
+import { DEFAULT_SHOWCASE_TIERS } from '@tierlistbuilder/contracts/platform/showcase'
+import {
+  asUser,
+  makeTest,
+  seedPublishedRanking,
+  seedPublishedTemplate,
+  seedUser,
+  type ConvexTestHandle,
+} from './convexTestHelpers'
+
+const seedShowcaseRanking = async (
+  t: ConvexTestHandle,
+  ownerId: Id<'users'>,
+  tierNames: readonly string[] = ['S']
+): Promise<void> =>
+  await t.run(async (ctx) =>
+  {
+    const now = 1_000
+    const templateId = await seedPublishedTemplate(ctx, {
+      authorId: ownerId,
+      slug: 'ShowcaseTpl',
+      title: 'Showcase Template',
+      itemCount: tierNames.length,
+      sizeClass: 'standard',
+      now,
+    })
+    const templateItemIds = await Promise.all(
+      tierNames.map((tierName, index) =>
+        ctx.db.insert('templateItems', {
+          templateId,
+          externalId: `showcase-template-item-${index}`,
+          label: `${tierName} Template Item`,
+          backgroundColor: null,
+          altText: null,
+          mediaAssetId: null,
+          order: index,
+          aspectRatio: null,
+          imageFit: null,
+          transform: null,
+          imagePadding: null,
+        })
+      )
+    )
+    const rankingId = await seedPublishedRanking(ctx, {
+      ownerId,
+      slug: 'ShowcaseRank',
+      sourceTemplateId: templateId,
+      sourceBoardId: null,
+      sourceTemplateSlug: 'ShowcaseTpl',
+      sourceTemplateTitle: 'Showcase Template',
+      title: 'Showcase Ranking',
+      itemCount: tierNames.length,
+      tierCount: tierNames.length,
+      now: now + 1,
+    })
+    await Promise.all(
+      tierNames.map((tierName, index) =>
+        ctx.db.insert('publishedRankingTiers', {
+          rankingId,
+          externalId: `showcase-tier-${index}`,
+          name: tierName,
+          description: null,
+          colorSpec: { kind: 'palette', index },
+          rowColorSpec: null,
+          order: index,
+        })
+      )
+    )
+    await Promise.all(
+      tierNames.map((tierName, index) =>
+        ctx.db.insert('publishedRankingItems', {
+          rankingId,
+          templateItemId: templateItemIds[index]!,
+          templateItemExternalId: `showcase-template-item-${index}`,
+          externalId: `showcase-ranking-item-${index}`,
+          tierExternalId: `showcase-tier-${index}`,
+          label: `${tierName} Pick`,
+          backgroundColor: null,
+          altText: null,
+          mediaAssetId: null,
+          order: index,
+          aspectRatio: null,
+          imageFit: null,
+          transform: null,
+          imagePadding: null,
+        })
+      )
+    )
+  })
+
+describe('profile showcase queries', () =>
+{
+  it('loads mini snapshots only when the editor tile mode needs them', async () =>
+  {
+    const t = makeTest()
+    const ownerId = await seedUser(
+      t,
+      'Showcase Owner',
+      'showcase-owner@example.com'
+    )
+    await seedShowcaseRanking(t, ownerId)
+
+    const owner = asUser(t, ownerId)
+    const coverMode = await owner.query(
+      api.platform.showcase.getMyProfileShowcase,
+      {}
+    )
+
+    expect(coverMode).toMatchObject({
+      tileMode: 'cover',
+      unranked: [
+        expect.objectContaining({
+          title: 'Showcase Ranking',
+          mini: null,
+        }),
+      ],
+    })
+
+    await owner.mutation(api.platform.showcase.saveProfileShowcase, {
+      tileMode: 'mini',
+      tiers: DEFAULT_SHOWCASE_TIERS,
+      placements: [],
+    })
+    const miniMode = await owner.query(
+      api.platform.showcase.getMyProfileShowcase,
+      {}
+    )
+
+    expect(miniMode.unranked[0]?.mini).toMatchObject({
+      rankedCount: 1,
+      topPickLabel: 'S Pick',
+      bottomPickLabel: 'S Pick',
+      tiers: [
+        expect.objectContaining({
+          name: 'S',
+          itemCount: 1,
+        }),
+      ],
+    })
+  })
+
+  it('keeps winners labels from the full ranking when mini tiers are capped', async () =>
+  {
+    const t = makeTest()
+    const ownerId = await seedUser(
+      t,
+      'Showcase Winners Owner',
+      'showcase-winners-owner@example.com'
+    )
+    await seedShowcaseRanking(t, ownerId, ['S', 'A', 'B', 'C', 'D', 'F'])
+
+    const owner = asUser(t, ownerId)
+    await owner.mutation(api.platform.showcase.saveProfileShowcase, {
+      tileMode: 'winners',
+      tiers: DEFAULT_SHOWCASE_TIERS,
+      placements: [],
+    })
+
+    const data = await owner.query(
+      api.platform.showcase.getMyProfileShowcase,
+      {}
+    )
+    const mini = data.unranked[0]?.mini
+
+    expect(mini?.tiers.map((tier) => tier.name)).toEqual(['S', 'A', 'B', 'C'])
+    expect(mini).toMatchObject({
+      rankedCount: 6,
+      topPickLabel: 'S Pick',
+      bottomPickLabel: 'F Pick',
+    })
+  })
+})
