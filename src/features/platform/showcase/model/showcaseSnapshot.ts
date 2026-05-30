@@ -109,10 +109,19 @@ export const editShowcaseToSnapshot = (
 {
   const items: Record<ItemId, TierItem> = {}
   const tiles = new Map<string, ShowcaseRankingTile>()
+  const validTierIds = new Set(data.tiers.map((tier) => tier.externalId))
   const placedByTier = new Map<string, ItemId[]>()
+  const unrankedItemIds: ItemId[] = []
+  // placements w/ a tierExternalId that no longer exists fall back to the pool
+  // so the lane stays visible & active-count stays accurate
   for (const placed of data.placed)
   {
     const id = addLaneItem(items, tiles, placed)
+    if (!validTierIds.has(placed.tierExternalId))
+    {
+      unrankedItemIds.push(id)
+      continue
+    }
     const bucket = placedByTier.get(placed.tierExternalId)
     if (bucket) bucket.push(id)
     else placedByTier.set(placed.tierExternalId, [id])
@@ -121,7 +130,6 @@ export const editShowcaseToSnapshot = (
     toBoardTier(tier, placedByTier.get(tier.externalId) ?? [])
   )
 
-  const unrankedItemIds: ItemId[] = []
   for (const tile of data.unranked)
   {
     unrankedItemIds.push(addLaneItem(items, tiles, tile))

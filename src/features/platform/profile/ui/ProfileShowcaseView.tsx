@@ -4,7 +4,7 @@
 
 import { Pencil } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useCallback, useMemo, type ReactNode } from 'react'
 
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import type { PublicProfileShowcase } from '@tierlistbuilder/contracts/platform/showcase'
@@ -25,7 +25,7 @@ const SECTION_TITLE = 'Tier list of tier lists'
 
 // read-only render; tiles draw their own title so board labels stay off
 const SHOWCASE_APPEARANCE: StaticBoardAppearance = {
-  itemSize: 'medium',
+  itemSize: 'large',
   showLabels: false,
   defaultLabelPlacementMode: 'overlay',
   defaultLabelFontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
@@ -55,6 +55,46 @@ interface ProfileShowcaseViewProps
   isSelf: boolean
 }
 
+const PopulatedShowcaseView = ({
+  showcase,
+  isSelf,
+}: {
+  showcase: PublicProfileShowcase
+  isSelf: boolean
+}) =>
+{
+  const { snapshot, render } = useMemo(
+    () => publicShowcaseToSnapshot(showcase),
+    [showcase]
+  )
+  const linkTile = useCallback(
+    (rankingSlug: string, children: ReactNode): ReactNode => (
+      <Link
+        to={getRankingDetailPath(rankingSlug)}
+        className="focus-custom block h-full w-full"
+      >
+        {children}
+      </Link>
+    ),
+    []
+  )
+  const value = useMemo(() => ({ ...render, linkTile }), [render, linkTile])
+
+  return (
+    <section className="mt-10">
+      <ProfileSectionHeader
+        title={SECTION_TITLE}
+        action={isSelf ? <ShowcaseEditLink label="Edit" /> : undefined}
+      />
+      <ShowcaseRenderContext.Provider value={value}>
+        <div className="overflow-x-auto rounded-xl border border-[var(--t-border)]">
+          <StaticBoard data={snapshot} appearance={SHOWCASE_APPEARANCE} />
+        </div>
+      </ShowcaseRenderContext.Provider>
+    </section>
+  )
+}
+
 export const ProfileShowcaseView = ({
   showcase,
   isSelf,
@@ -76,27 +116,5 @@ export const ProfileShowcaseView = ({
     )
   }
 
-  const { snapshot, render } = publicShowcaseToSnapshot(showcase)
-  const linkTile = (rankingSlug: string, children: ReactNode): ReactNode => (
-    <Link
-      to={getRankingDetailPath(rankingSlug)}
-      className="focus-custom block h-full w-full"
-    >
-      {children}
-    </Link>
-  )
-
-  return (
-    <section className="mt-10">
-      <ProfileSectionHeader
-        title={SECTION_TITLE}
-        action={isSelf ? <ShowcaseEditLink label="Edit" /> : undefined}
-      />
-      <ShowcaseRenderContext.Provider value={{ ...render, linkTile }}>
-        <div className="overflow-x-auto rounded-xl border border-[var(--t-border)]">
-          <StaticBoard data={snapshot} appearance={SHOWCASE_APPEARANCE} />
-        </div>
-      </ShowcaseRenderContext.Provider>
-    </section>
-  )
+  return <PopulatedShowcaseView showcase={showcase} isSelf={isSelf} />
 }

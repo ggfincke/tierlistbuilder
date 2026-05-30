@@ -55,9 +55,11 @@ interface TierListProps
 {
   toolbar: ReactNode
   toolbarPosition: ToolbarPosition
+  // override the default workspace pool (e.g. showcase has no image import)
+  pool?: ReactNode
 }
 
-export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
+export const TierList = ({ toolbar, toolbarPosition, pool }: TierListProps) =>
 {
   const isVertical = isVerticalPosition(toolbarPosition)
   const { exportBackgroundOverride, themeId, compactMode } =
@@ -203,7 +205,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
           <div className={isVertical ? 'sticky top-4' : ''}>{toolbar}</div>
         </div>
 
-        <UnrankedPool />
+        {pool ?? <UnrankedPool />}
 
         <TrashZone />
       </div>

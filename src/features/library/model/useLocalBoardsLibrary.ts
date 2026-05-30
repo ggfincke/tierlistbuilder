@@ -147,7 +147,7 @@ export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
     rankedItemCount,
     publishState: deriveLibraryPublishState({
       rankedItemCount,
-      hasPublishedTemplate: false,
+      hasPublishedOutput: false,
     }),
     syncState: 'localOnly',
     visibility: 'private',

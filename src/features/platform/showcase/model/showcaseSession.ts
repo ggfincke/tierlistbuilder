@@ -1,6 +1,6 @@
 // src/features/platform/showcase/model/showcaseSession.ts
-// enter/exit the showcase editor — stash & persist the active board, gate the
-// global autosave, & load the showcase into the shared board store
+// enter/exit the showcase editor — stash & persist the active board, gate
+// global autosave, & load the showcase into the store
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'

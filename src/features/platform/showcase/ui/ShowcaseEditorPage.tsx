@@ -2,22 +2,27 @@
 // self-only tlotl editor — reuses the workspace dnd over a Convex-backed
 // showcase. the global autosave is gated while this page owns the board store
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 
 import { api } from '@convex/_generated/api'
+import type { ItemSize } from '@tierlistbuilder/contracts/platform/preferences'
 import {
   SHOWCASE_TILE_MODES,
   SHOWCASE_TILE_MODE_DEFAULT,
+  SHOWCASE_TILE_MODE_LABELS,
+  type ShowcaseRankingTile,
   type ShowcaseTileMode,
 } from '@tierlistbuilder/contracts/platform/showcase'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { BoardRenderOverridesProvider } from '~/features/workspace/boards/model/BoardRenderOverridesProvider'
 import { TierList } from '~/features/workspace/boards/ui/tier-list/TierList'
+import { ShowcasePool } from '~/features/platform/showcase/ui/ShowcasePool'
 import { ShowcaseRenderContext } from '~/shared/board-ui/ShowcaseRenderContext'
 import {
   boardDataFieldsEqual,
@@ -36,6 +41,9 @@ const PAGE_CLASS =
   'relative z-10 mx-auto w-full max-w-[1320px] px-4 pb-24 pt-20 sm:px-8 sm:pt-24'
 
 const SAVE_DEBOUNCE_MS = 500
+const SHOWCASE_ITEM_SIZE: ItemSize = 'large'
+// stable empty map for the render context while the showcase query loads
+const EMPTY_TILES: Map<string, ShowcaseRankingTile> = new Map()
 
 const TileModeToggle = ({
   value,
@@ -44,7 +52,7 @@ const TileModeToggle = ({
   value: ShowcaseTileMode
   onChange: (mode: ShowcaseTileMode) => void
 }) => (
-  <div className="inline-flex items-center gap-0.5 rounded-lg border border-[var(--t-border)] p-0.5">
+  <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-[var(--t-border)] p-0.5">
     {SHOWCASE_TILE_MODES.map((mode) => (
       <button
         key={mode}
@@ -57,7 +65,7 @@ const TileModeToggle = ({
             : 'text-[var(--t-text-secondary)] hover:text-[var(--t-text)]'
         }`}
       >
-        {mode === 'mini' ? 'Mini' : 'Covers'}
+        {SHOWCASE_TILE_MODE_LABELS[mode]}
       </button>
     ))}
   </div>
@@ -163,15 +171,27 @@ export const ShowcaseEditorPage = () =>
     }
   }, [saveShowcase])
 
-  const handleTileMode = (mode: ShowcaseTileMode) =>
-  {
-    if (mode === tileMode) return
-    setTileModeOverride(mode)
-    const snapshot = extractBoardData(useActiveBoardStore.getState())
-    void saveShowcase(boardSnapshotToShowcaseSave(snapshot, mode))
-  }
+  const handleTileMode = useCallback(
+    (mode: ShowcaseTileMode) =>
+    {
+      if (mode === tileModeRef.current) return
+      setTileModeOverride(mode)
+      const snapshot = extractBoardData(useActiveBoardStore.getState())
+      void saveShowcase(boardSnapshotToShowcaseSave(snapshot, mode))
+    },
+    [saveShowcase]
+  )
 
-  const handleAddTier = () => useActiveBoardStore.getState().addTier(paletteId)
+  const handleAddTier = useCallback(
+    () => useActiveBoardStore.getState().addTier(paletteId),
+    [paletteId]
+  )
+
+  const tiles = board?.render.tiles
+  const renderValue = useMemo(
+    () => ({ tileMode, tiles: tiles ?? EMPTY_TILES }),
+    [tileMode, tiles]
+  )
 
   if (!board)
   {
@@ -208,13 +228,14 @@ export const ShowcaseEditorPage = () =>
         </div>
       </div>
 
-      <ShowcaseRenderContext.Provider
-        value={{ tileMode, tiles: board.render.tiles }}
-      >
-        <TierList
-          toolbar={<ShowcaseToolbar onAddTier={handleAddTier} />}
-          toolbarPosition="bottom"
-        />
+      <ShowcaseRenderContext.Provider value={renderValue}>
+        <BoardRenderOverridesProvider itemSize={SHOWCASE_ITEM_SIZE}>
+          <TierList
+            toolbar={<ShowcaseToolbar onAddTier={handleAddTier} />}
+            toolbarPosition="bottom"
+            pool={<ShowcasePool />}
+          />
+        </BoardRenderOverridesProvider>
       </ShowcaseRenderContext.Provider>
     </div>
   )

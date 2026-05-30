@@ -30,6 +30,7 @@ import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurr
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useBoardItemSize } from '~/features/workspace/boards/model/boardRenderOverrides'
 import { useBoardItemRenderSettings } from '~/features/workspace/boards/model/useBoardItemRenderSettings'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import { tierContainerTestId } from '~/shared/board-ui/boardTestIds'
@@ -94,15 +95,14 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
     boardAutoPlate,
   } = useBoardItemRenderSettings()
 
-  const { itemSize, compactMode, boardLocked, hideRowControls } =
-    usePreferencesStore(
-      useShallow((state) => ({
-        itemSize: state.itemSize,
-        compactMode: state.compactMode,
-        boardLocked: state.boardLocked,
-        hideRowControls: state.hideRowControls,
-      }))
-    )
+  const itemSize = useBoardItemSize()
+  const { compactMode, boardLocked, hideRowControls } = usePreferencesStore(
+    useShallow((state) => ({
+      compactMode: state.compactMode,
+      boardLocked: state.boardLocked,
+      hideRowControls: state.hideRowControls,
+    }))
+  )
   const paletteId = useCurrentPaletteId()
   const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
     itemSize,

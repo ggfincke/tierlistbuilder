@@ -10,6 +10,7 @@ import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useBoardItemSize } from '~/features/workspace/boards/model/boardRenderOverrides'
 import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import {
@@ -44,8 +45,8 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
   const boardAspectRatio = useActiveBoardStore((state) =>
     getBoardItemAspectRatio(state)
   )
+  const itemSize = useBoardItemSize()
   const {
-    itemSize,
     labelWidth,
     tierLabelBold,
     tierLabelItalic,
@@ -53,7 +54,6 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
     boardLocked,
   } = usePreferencesStore(
     useShallow((state) => ({
-      itemSize: state.itemSize,
       labelWidth: state.labelWidth,
       tierLabelBold: state.tierLabelBold,
       tierLabelItalic: state.tierLabelItalic,
