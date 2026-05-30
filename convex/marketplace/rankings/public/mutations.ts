@@ -65,7 +65,10 @@ import {
 } from '../lib'
 import { DEFAULT_TEMPLATE_TIERS } from '../../templates/lib/normalize'
 import { loadTemplateItems } from '../../templates/lib/projections'
-import { incrementTemplateForkStats } from '../../templates/lib/writes'
+import {
+  incrementTemplateForkStats,
+  markTemplateUnpublished,
+} from '../../templates/lib/writes'
 import { isPublishedTemplateRow } from '../../templates/lib/state'
 import { templateTitleToBoardTitle } from '../../templates/lib/board'
 import {
@@ -257,6 +260,45 @@ const supersedePublicRankingsInLane = async (
     cursor: null,
   })
 
+// pre-fetch source boards for a supersede batch & return the patches needed
+// to null out livePublicRankingId pointers that still match the superseded ids
+const loadSupersededBoardClears = async (
+  ctx: MutationCtx,
+  rankings: readonly Doc<'publishedRankings'>[],
+  now: number
+): Promise<Promise<void>[]> =>
+{
+  const boardIdByRanking = new Map<Id<'publishedRankings'>, Id<'boards'>>()
+  for (const ranking of rankings)
+  {
+    if (ranking.sourceBoardId !== null)
+    {
+      boardIdByRanking.set(ranking._id, ranking.sourceBoardId)
+    }
+  }
+  if (boardIdByRanking.size === 0) return []
+  const uniqueBoardIds = Array.from(new Set(boardIdByRanking.values()))
+  const boards = await Promise.all(uniqueBoardIds.map((id) => ctx.db.get(id)))
+  const boardById = new Map<Id<'boards'>, Doc<'boards'>>()
+  for (const board of boards) if (board) boardById.set(board._id, board)
+
+  const patches: Promise<void>[] = []
+  for (const ranking of rankings)
+  {
+    const boardId = boardIdByRanking.get(ranking._id)
+    if (!boardId) continue
+    const board = boardById.get(boardId)
+    if (!board || board.livePublicRankingId !== ranking._id) continue
+    patches.push(
+      ctx.db.patch(board._id, {
+        livePublicRankingId: null,
+        updatedAt: now,
+      })
+    )
+  }
+  return patches
+}
+
 interface SupersedePublicRankingsInLaneArgs
 {
   ownerId: Id<'users'>
@@ -291,10 +333,20 @@ const supersedePublicRankingsInLanePage = async (
       numItems: SUPERSEDE_PUBLIC_RANKINGS_PAGE_SIZE,
       cursor: args.cursor,
     })
-  for (const ranking of page.page)
+  const targets = page.page.filter(
+    (ranking) =>
+      ranking._id !== args.replacementRankingId && isPublicRankingRow(ranking)
+  )
+  // pre-fetch source boards once; the patches queue alongside the ranking
+  // patches so the batch flushes drain board + ranking writes together
+  const boardClearPatches = await loadSupersededBoardClears(
+    ctx,
+    targets,
+    args.now
+  )
+  patchBatch.push(...boardClearPatches)
+  for (const ranking of targets)
   {
-    if (ranking._id === args.replacementRankingId) continue
-    if (!isPublicRankingRow(ranking)) continue
     patchBatch.push(
       ctx.db.patch(ranking._id, {
         isPubliclyListable: false,
@@ -337,6 +389,241 @@ export const supersedePublicRankingsInLaneBatch = internalMutation({
   },
 })
 
+// retract a board's live public ranking on delete: unlist it (supersede patch
+// shape, no replacement) & clear the board pointer so no orphan lingers on the
+// marketplace. idempotent — a re-call sees a null pointer / non-public ranking
+const retractBoardLivePublicRanking = async (
+  ctx: MutationCtx,
+  board: Doc<'boards'>,
+  now: number
+): Promise<void> =>
+{
+  const rankingId = board.livePublicRankingId ?? null
+  if (rankingId === null) return
+  const ranking = await ctx.db.get(rankingId)
+  if (ranking && isPublicRankingRow(ranking))
+  {
+    await ctx.db.patch(ranking._id, {
+      isPubliclyListable: false,
+      supersededAt: now,
+      supersededByRankingId: null,
+      updatedAt: now,
+    })
+    await queueTemplateRankingAggregateRecompute(
+      ctx,
+      ranking.sourceTemplateId,
+      ranking.sourceCriterionExternalId,
+      now
+    )
+  }
+  await ctx.db.patch(board._id, {
+    livePublicRankingId: null,
+    updatedAt: now,
+  })
+}
+
+// unpublish a board's live public template on delete; markTemplateUnpublished
+// also clears board.livePublicTemplateId via clearSourceBoardLivePublicTemplate
+const retractBoardLivePublicTemplate = async (
+  ctx: MutationCtx,
+  board: Doc<'boards'>,
+  now: number
+): Promise<void> =>
+{
+  const templateId = board.livePublicTemplateId
+  if (templateId === null) return
+  const template = await ctx.db.get(templateId)
+  if (template)
+  {
+    await markTemplateUnpublished(ctx, template, now)
+    return
+  }
+  await ctx.db.patch(board._id, {
+    livePublicTemplateId: null,
+    updatedAt: now,
+  })
+}
+
+// clear a board's public footprint on delete: unlist its live ranking & unpublish
+// its live template so neither survives the board. called from soft-delete & the
+// cascade's first pass (cron/legacy safety net); idempotent on re-call
+export const retractBoardPublications = async (
+  ctx: MutationCtx,
+  board: Doc<'boards'>,
+  now: number
+): Promise<void> =>
+{
+  await retractBoardLivePublicRanking(ctx, board, now)
+  await retractBoardLivePublicTemplate(ctx, board, now)
+}
+
+interface PublishRankingCoreOptions
+{
+  title?: string
+  description?: string | null
+  visibility: Doc<'publishedRankings'>['visibility']
+  criterionExternalId?: string
+  // queue the per-lane aggregate recompute (default true for the user publish
+  // path); the dev seed passes false to avoid one scheduler fan-out per sample
+  queueAggregate?: boolean
+  // supersede prior public rankings in the lane (default true). Convex allows
+  // one paginated query per call, so a bulk caller publishing many rankings in
+  // a single mutation must pass false (& guarantee its lanes are conflict-free)
+  supersede?: boolean
+}
+
+// board -> ranking publish mechanics, keyed only on an already-resolved owned
+// board. the public mutation runs the auth/throttle prelude then calls this; the
+// dev tlotl seed materializes a board & calls it directly to mint a live ranking
+export const publishRankingCore = async (
+  ctx: MutationCtx,
+  board: Doc<'boards'>,
+  options: PublishRankingCoreOptions
+): Promise<{ slug: string; rankingId: Id<'publishedRankings'> }> =>
+{
+  const sourceTemplateId = requireCompletedTemplateBoard(board)
+  const template = await requireTemplate(ctx, sourceTemplateId)
+  if (!isPublishedTemplateRow(template))
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'source template must still be published',
+    })
+  }
+  assertRankingFitsSingleTransaction(board.activeItemCount, 'publish')
+
+  const { serverTiers, serverItems } = await loadBoundedBoardRows(ctx, board._id)
+  const rankingItems = await buildOrderedRankingItems(
+    ctx,
+    serverTiers,
+    serverItems
+  )
+  if (rankingItems.length !== board.activeItemCount)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'ranking item count does not match the board',
+    })
+  }
+
+  const now = Date.now()
+  const slug = await allocateRankingSlug(ctx)
+  const title = normalizeRankingTitle(options.title ?? board.title)
+  const description = normalizeRankingDescription(options.description)
+  const criterion = resolveActiveTemplateCriterion(
+    template,
+    options.criterionExternalId
+  )
+  const criterionSnapshot = toTemplateCriterionSnapshot(criterion)
+  const rankingId = await ctx.db.insert('publishedRankings', {
+    slug,
+    ownerId: board.ownerId,
+    sourceTemplateId: template._id,
+    sourceBoardId: board._id,
+    sourceTemplateSlug: template.slug,
+    sourceTemplateTitle: template.title,
+    sourceTemplateCategory: template.category,
+    sourceCriterionExternalId: criterionSnapshot.externalId,
+    sourceCriterionNameSnapshot: criterionSnapshot.name,
+    sourceCriterionPromptSnapshot: criterionSnapshot.prompt,
+    title,
+    description,
+    visibility: options.visibility,
+    publicationState: 'published',
+    isPubliclyListable: options.visibility === 'public',
+    supersededAt: null,
+    supersededByRankingId: null,
+    itemCount: rankingItems.length,
+    tierCount: serverTiers.length,
+    remixCount: 0,
+    viewCount: 0,
+    topScore: 0,
+    isFeatured: false,
+    featuredRank: null,
+    featuredBadge: null,
+    seedDatasetKey: null,
+    seedReleaseId: null,
+    seedExternalId: null,
+    seedKind: null,
+    seedTemplateExternalId: null,
+    seedCriterionExternalId: null,
+    seedAuthorKey: null,
+    seedProfileKey: null,
+    seedCuratedExternalId: null,
+    seedReleaseStatus: null,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  await Promise.all([
+    ...serverTiers.map((tier) =>
+      ctx.db.insert('publishedRankingTiers', {
+        rankingId,
+        externalId: tier.externalId,
+        name: tier.name,
+        description: tier.description ?? null,
+        colorSpec: tier.colorSpec,
+        rowColorSpec: tier.rowColorSpec ?? null,
+        order: tier.order,
+      })
+    ),
+    ...rankingItems.map(({ boardItem, templateItem, tierExternalId, order }) =>
+      ctx.db.insert('publishedRankingItems', {
+        rankingId,
+        templateItemId: templateItem._id,
+        templateItemExternalId: templateItem.externalId,
+        externalId: boardItem.externalId,
+        tierExternalId,
+        label: boardItem.label ?? null,
+        backgroundColor: boardItem.backgroundColor ?? null,
+        mediaPlate: boardItem.mediaPlate ?? null,
+        altText: boardItem.altText ?? null,
+        mediaAssetId: boardItem.mediaAssetId,
+        order,
+        aspectRatio: boardItem.aspectRatio ?? null,
+        imageFit: boardItem.imageFit ?? null,
+        transform: boardItem.transform ?? null,
+        imagePadding: boardItem.imagePadding ?? null,
+      })
+    ),
+  ])
+  // unlisted publish supersedes any prior public ranking from the same
+  // owner+lane so the latest user intent wins; board.livePublicRankingId is
+  // set to the new id on public publishes & cleared on unlisted ones
+  const desiredLiveRankingId =
+    options.visibility === 'public' ? rankingId : null
+  const currentLiveRankingId = board.livePublicRankingId ?? null
+  if (currentLiveRankingId !== desiredLiveRankingId)
+  {
+    await ctx.db.patch(board._id, {
+      livePublicRankingId: desiredLiveRankingId,
+      updatedAt: now,
+    })
+  }
+  if (options.supersede ?? true)
+  {
+    await supersedePublicRankingsInLane(
+      ctx,
+      board.ownerId,
+      template._id,
+      criterion.externalId,
+      rankingId,
+      now
+    )
+  }
+  if (options.queueAggregate ?? true)
+  {
+    await queueTemplateRankingAggregateRecompute(
+      ctx,
+      template._id,
+      criterion.externalId,
+      now
+    )
+  }
+
+  return { slug, rankingId }
+}
+
 export const publishRankingFromBoard = mutation({
   args: {
     boardExternalId: v.string(),
@@ -349,142 +636,20 @@ export const publishRankingFromBoard = mutation({
   handler: async (ctx, args): Promise<MarketplaceRankingPublishResult> =>
   {
     const userId = await requireCurrentUserId(ctx)
-    // every public publish below queues an aggregate recompute, so the
-    // bucket bounds downstream cost as well as the surface mutation itself
+    // every publish below queues an aggregate recompute, so the bucket bounds
+    // downstream cost as well as the surface mutation itself
     await enforceRateLimit(ctx, 'userRankingPublish', userId)
     const board = await requireBoardOwnershipByExternalId(
       ctx,
       args.boardExternalId,
       userId
     )
-    const sourceTemplateId = requireCompletedTemplateBoard(board)
-    const template = await requireTemplate(ctx, sourceTemplateId)
-    if (!isPublishedTemplateRow(template))
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: 'source template must still be published',
-      })
-    }
-    assertRankingFitsSingleTransaction(board.activeItemCount, 'publish')
-
-    const { serverTiers, serverItems } = await loadBoundedBoardRows(
-      ctx,
-      board._id
-    )
-    const rankingItems = await buildOrderedRankingItems(
-      ctx,
-      serverTiers,
-      serverItems
-    )
-    if (rankingItems.length !== board.activeItemCount)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: 'ranking item count does not match the board',
-      })
-    }
-
-    const now = Date.now()
-    const slug = await allocateRankingSlug(ctx)
-    const title = normalizeRankingTitle(args.title ?? board.title)
-    const description = normalizeRankingDescription(args.description)
-    const criterion = resolveActiveTemplateCriterion(
-      template,
-      args.criterionExternalId
-    )
-    const criterionSnapshot = toTemplateCriterionSnapshot(criterion)
-    const rankingId = await ctx.db.insert('publishedRankings', {
-      slug,
-      ownerId: userId,
-      sourceTemplateId: template._id,
-      sourceBoardId: board._id,
-      sourceTemplateSlug: template.slug,
-      sourceTemplateTitle: template.title,
-      sourceTemplateCategory: template.category,
-      sourceCriterionExternalId: criterionSnapshot.externalId,
-      sourceCriterionNameSnapshot: criterionSnapshot.name,
-      sourceCriterionPromptSnapshot: criterionSnapshot.prompt,
-      title,
-      description,
+    const { slug } = await publishRankingCore(ctx, board, {
+      title: args.title,
+      description: args.description,
       visibility: args.visibility,
-      publicationState: 'published',
-      isPubliclyListable: args.visibility === 'public',
-      supersededAt: null,
-      supersededByRankingId: null,
-      itemCount: rankingItems.length,
-      tierCount: serverTiers.length,
-      remixCount: 0,
-      viewCount: 0,
-      topScore: 0,
-      isFeatured: false,
-      featuredRank: null,
-      featuredBadge: null,
-      seedDatasetKey: null,
-      seedReleaseId: null,
-      seedExternalId: null,
-      seedKind: null,
-      seedTemplateExternalId: null,
-      seedCriterionExternalId: null,
-      seedAuthorKey: null,
-      seedProfileKey: null,
-      seedCuratedExternalId: null,
-      seedReleaseStatus: null,
-      createdAt: now,
-      updatedAt: now,
+      criterionExternalId: args.criterionExternalId,
     })
-
-    await Promise.all([
-      ...serverTiers.map((tier) =>
-        ctx.db.insert('publishedRankingTiers', {
-          rankingId,
-          externalId: tier.externalId,
-          name: tier.name,
-          description: tier.description ?? null,
-          colorSpec: tier.colorSpec,
-          rowColorSpec: tier.rowColorSpec ?? null,
-          order: tier.order,
-        })
-      ),
-      ...rankingItems.map(
-        ({ boardItem, templateItem, tierExternalId, order }) =>
-          ctx.db.insert('publishedRankingItems', {
-            rankingId,
-            templateItemId: templateItem._id,
-            templateItemExternalId: templateItem.externalId,
-            externalId: boardItem.externalId,
-            tierExternalId,
-            label: boardItem.label ?? null,
-            backgroundColor: boardItem.backgroundColor ?? null,
-            mediaPlate: boardItem.mediaPlate ?? null,
-            altText: boardItem.altText ?? null,
-            mediaAssetId: boardItem.mediaAssetId,
-            order,
-            aspectRatio: boardItem.aspectRatio ?? null,
-            imageFit: boardItem.imageFit ?? null,
-            transform: boardItem.transform ?? null,
-            imagePadding: boardItem.imagePadding ?? null,
-          })
-      ),
-    ])
-    if (args.visibility === 'public')
-    {
-      await supersedePublicRankingsInLane(
-        ctx,
-        userId,
-        template._id,
-        criterion.externalId,
-        rankingId,
-        now
-      )
-      await queueTemplateRankingAggregateRecompute(
-        ctx,
-        template._id,
-        criterion.externalId,
-        now
-      )
-    }
-
     return { slug }
   },
 })

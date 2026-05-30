@@ -8,6 +8,7 @@ import {
   CASCADE_DELETE_PAGE_SIZE,
   runCascadePhaseMachine,
 } from '../../lib/cascadeDelete'
+import { retractBoardPublications } from '../../marketplace/rankings/public/mutations'
 
 // cascade phases — items first, then tiers, then the board row itself.
 // each phase walks its own cursor so a large board that exceeds the batch
@@ -30,6 +31,14 @@ export const cascadeDeleteBoard = internalMutation({
     if (!board)
     {
       return null
+    }
+
+    // first invocation only (no phase/cursor yet): retract this board's public
+    // ranking/template. soft-delete already does this, but the retention cron
+    // schedules cascadeDeleteBoard directly — this is the safety net for that path
+    if (args.phase === undefined && args.cursor === undefined)
+    {
+      await retractBoardPublications(ctx, board, Date.now())
     }
 
     const phase: CascadePhase = args.phase ?? 'items'

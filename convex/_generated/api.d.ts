@@ -10,8 +10,10 @@
 
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
+import type * as dev_autoCrop from "../dev/autoCrop.js";
 import type * as dev_reset from "../dev/reset.js";
 import type * as dev_resetLock from "../dev/resetLock.js";
+import type * as dev_tlotlSeed from "../dev/tlotlSeed.js";
 import type * as http from "../http.js";
 import type * as lib_assertions from "../lib/assertions.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -114,8 +116,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
+  "dev/autoCrop": typeof dev_autoCrop;
   "dev/reset": typeof dev_reset;
   "dev/resetLock": typeof dev_resetLock;
+  "dev/tlotlSeed": typeof dev_tlotlSeed;
   http: typeof http;
   "lib/assertions": typeof lib_assertions;
   "lib/auth": typeof lib_auth;

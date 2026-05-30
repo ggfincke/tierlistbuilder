@@ -158,6 +158,10 @@ export default defineSchema({
     // fork source criterion; publish modal uses it as the default lane
     preferredCriterionExternalId: v.union(v.string(), v.null()),
     livePublicTemplateId: v.union(v.id('templates'), v.null()),
+    // latest public ranking sourced from this board; absent/null -> none
+    livePublicRankingId: v.optional(
+      v.union(v.id('publishedRankings'), v.null())
+    ),
     cloudState: boardCloudStateValidator,
     materializationState: boardMaterializationStateValidator,
     cloudBackedAt: v.union(v.number(), v.null()),
@@ -995,7 +999,14 @@ export default defineSchema({
   // pool is derived (owner's published lanes minus placed), never stored
   profileShowcases: defineTable({
     ownerId: v.id('users'),
-    tileMode: v.union(v.literal('cover'), v.literal('mini')),
+    tileMode: v.union(
+      v.literal('cover'),
+      v.literal('mini'),
+      v.literal('topRow'),
+      v.literal('cropped'),
+      v.literal('summary'),
+      v.literal('winners')
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('byOwner', ['ownerId']),

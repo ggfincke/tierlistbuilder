@@ -14,7 +14,9 @@ import {
   DEFAULT_SHOWCASE_TIERS,
   MAX_SHOWCASE_PLACED_ITEMS,
   MAX_SHOWCASE_TIERS,
-  SHOWCASE_MINI_ITEM_LIMIT,
+  SHOWCASE_MINI_ITEMS_PER_TIER,
+  SHOWCASE_MINI_LABELS_PER_TIER,
+  SHOWCASE_MINI_TIER_LIMIT,
   SHOWCASE_TILE_MODE_DEFAULT,
   showcaseLaneKey,
   type ProfileShowcaseEditData,
@@ -33,7 +35,10 @@ import {
   MAX_TIER_NAME_LEN,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { getCurrentUserId, requireCurrentUserId } from '../lib/auth'
-import { tierColorSpecValidator } from '../lib/validators/common'
+import {
+  boardAutoPlateSettingsValidator,
+  tierColorSpecValidator,
+} from '../lib/validators/common'
 import {
   marketplaceItemRenderFields,
   templateMediaRefValidator,
@@ -56,7 +61,19 @@ type DbCtx = QueryCtx | MutationCtx
 // won't surface (bounded read per the convex query guidelines)
 const SHOWCASE_LANE_SCAN_LIMIT = 300
 
-const showcaseTileModeValidator = v.union(v.literal('cover'), v.literal('mini'))
+// total full minis an owner read resolves (placed + pool). placed tiles are
+// always full; pool lanes past the remaining budget render cheap covers (each
+// gains its mini once dragged into a tier), keeping the read bounded at scale
+const SHOWCASE_EDITOR_MINI_BUDGET = 80
+
+const showcaseTileModeValidator = v.union(
+  v.literal('cover'),
+  v.literal('mini'),
+  v.literal('topRow'),
+  v.literal('cropped'),
+  v.literal('summary'),
+  v.literal('winners')
+)
 
 const showcaseTierValidator = v.object({
   externalId: v.string(),
@@ -70,14 +87,22 @@ const showcaseTierValidator = v.object({
 const showcaseMiniItemValidator = v.object(marketplaceItemRenderFields)
 
 const showcaseMiniTierValidator = v.object({
+  name: v.string(),
   colorSpec: tierColorSpecValidator,
   rowColorSpec: v.union(tierColorSpecValidator, v.null()),
+  itemCount: v.number(),
   items: v.array(showcaseMiniItemValidator),
+  labels: v.array(v.string()),
 })
 
 const showcaseMiniSnapshotValidator = v.object({
   tiers: v.array(showcaseMiniTierValidator),
   itemAspectRatio: v.union(v.number(), v.null()),
+  autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
+  topPickLabel: v.union(v.string(), v.null()),
+  bottomPickLabel: v.union(v.string(), v.null()),
+  rankedCount: v.number(),
+  updatedAt: v.number(),
 })
 
 const showcaseRankingTileValidator = v.object({
@@ -170,23 +195,31 @@ const findShowcase = async (
     .withIndex('byOwner', (q) => q.eq('ownerId', ownerId))
     .unique()
 
+// sort by the stored order; the byShowcase index returns creation order, which
+// concurrent Promise.all inserts in replace* don't guarantee matches authoring
 const loadShowcaseTiers = async (
   ctx: DbCtx,
   showcaseId: Id<'profileShowcases'>
 ): Promise<Doc<'profileShowcaseTiers'>[]> =>
-  await ctx.db
+{
+  const rows = await ctx.db
     .query('profileShowcaseTiers')
     .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
     .take(MAX_SHOWCASE_TIERS + 1)
+  return rows.sort((a, b) => a.order - b.order)
+}
 
 const loadShowcasePlacements = async (
   ctx: DbCtx,
   showcaseId: Id<'profileShowcases'>
 ): Promise<Doc<'profileShowcaseItems'>[]> =>
-  await ctx.db
+{
+  const rows = await ctx.db
     .query('profileShowcaseItems')
     .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
     .take(MAX_SHOWCASE_PLACED_ITEMS + 1)
+  return rows.sort((a, b) => a.order - b.order)
+}
 
 const toShowcaseTier = (tier: Doc<'profileShowcaseTiers'>): ShowcaseTier => ({
   externalId: tier.externalId,
@@ -196,6 +229,23 @@ const toShowcaseTier = (tier: Doc<'profileShowcaseTiers'>): ShowcaseTier => ({
   rowColorSpec: tier.rowColorSpec ?? null,
   order: tier.order,
 })
+
+const firstItemLabel = (
+  items: readonly Doc<'publishedRankingItems'>[] | undefined
+): string | null => items?.find((item) => item.label)?.label ?? null
+
+const lastItemLabel = (
+  items: readonly Doc<'publishedRankingItems'>[] | undefined
+): string | null =>
+{
+  if (!items) return null
+  for (let index = items.length - 1; index >= 0; index -= 1)
+  {
+    const label = items[index]?.label
+    if (label) return label
+  }
+  return null
+}
 
 // distinct lanes the owner has a published ranking for, each mapped to its
 // current (newest published) ranking. desc scan -> first seen per lane wins
@@ -222,8 +272,8 @@ const loadOwnerLaneRankings = async (
   return byLane
 }
 
-// compact tier-list render of a ranking for the 'mini' tile. only ranked items,
-// bounded to SHOWCASE_MINI_ITEM_LIMIT to keep the read cheap & the tile legible
+// compact projection of a ranking driving every non-cover tile mode. only
+// ranked items; shown tiers & per-tier items are capped to keep reads bounded
 const buildMiniSnapshot = async (
   ctx: DbCtx,
   ranking: Doc<'publishedRankings'>,
@@ -235,9 +285,7 @@ const buildMiniSnapshot = async (
     loadRankingTiers(ctx, ranking._id),
     loadRankingItems(ctx, ranking._id),
   ])
-  const ranked = items
-    .filter((item) => item.tierExternalId !== null)
-    .slice(0, SHOWCASE_MINI_ITEM_LIMIT)
+  const ranked = items.filter((item) => item.tierExternalId !== null)
   if (ranked.length === 0) return null
 
   const byTier = new Map<string, Doc<'publishedRankingItems'>[]>()
@@ -249,32 +297,67 @@ const buildMiniSnapshot = async (
     else byTier.set(key, [item])
   }
 
+  const nonEmptyTiers = tiers.filter(
+    (tier) => (byTier.get(tier.externalId)?.length ?? 0) > 0
+  )
+  if (nonEmptyTiers.length === 0) return null
+
+  const firstNonEmptyTier = nonEmptyTiers[0]
+  const lastNonEmptyTier = nonEmptyTiers[nonEmptyTiers.length - 1]
+  if (!firstNonEmptyTier || !lastNonEmptyTier) return null
+
+  const topPickLabel = firstItemLabel(byTier.get(firstNonEmptyTier.externalId))
+  const bottomPickLabel = lastItemLabel(byTier.get(lastNonEmptyTier.externalId))
+
+  // keep only the top tiers (by order) & fill each shown row. media reads per
+  // tile stay bounded by SHOWCASE_MINI_TIER_LIMIT * SHOWCASE_MINI_ITEMS_PER_TIER
+  const shownTiers = nonEmptyTiers.slice(0, SHOWCASE_MINI_TIER_LIMIT)
+  const perTier = SHOWCASE_MINI_ITEMS_PER_TIER
+
   const miniTiers: ShowcaseMiniTier[] = []
-  for (const tier of tiers)
+  for (const tier of shownTiers)
   {
-    const tierItems = byTier.get(tier.externalId)
-    if (!tierItems || tierItems.length === 0) continue
+    const tierItems = byTier.get(tier.externalId) ?? []
+    const labels: string[] = []
+    for (const item of tierItems)
+    {
+      if (labels.length >= SHOWCASE_MINI_LABELS_PER_TIER) break
+      if (item.label) labels.push(item.label)
+    }
     miniTiers.push({
+      name: tier.name,
       colorSpec: tier.colorSpec,
       rowColorSpec: tier.rowColorSpec,
+      itemCount: tierItems.length,
       items: await Promise.all(
-        tierItems.map((item) => toRankingItemRenderFields(ctx, item, cache))
+        tierItems
+          .slice(0, perTier)
+          .map((item) => toRankingItemRenderFields(ctx, item, cache))
       ),
+      labels,
     })
   }
   if (miniTiers.length === 0) return null
   return {
     tiers: miniTiers,
     itemAspectRatio: template?.itemAspectRatio ?? null,
+    autoPlate: template?.autoPlate ?? null,
+    topPickLabel,
+    bottomPickLabel,
+    rankedCount: ranked.length,
+    updatedAt: ranking.updatedAt,
   }
 }
 
-// lane identity + resolved render payload. cover always resolves (cheap); mini
-// only when the active mode needs it
+// every tile mode except plain cover renders from the ranking's own tiers/items
+const tileModeNeedsMini = (mode: ShowcaseTileMode): boolean => mode !== 'cover'
+
+// lane identity + resolved render payload. cover always resolves (cheap); the
+// mini snapshot only when a tile mode needs it
 const buildLaneTile = async (
   ctx: DbCtx,
   ranking: Doc<'publishedRankings'>,
-  tileMode: ShowcaseTileMode,
+  includeMini: boolean,
   cache: TemplateProjectionCache
 ): Promise<ShowcaseRankingTile> =>
 {
@@ -287,10 +370,9 @@ const buildLaneTile = async (
         cache
       )
     : null
-  const mini =
-    tileMode === 'mini'
-      ? await buildMiniSnapshot(ctx, ranking, template, cache)
-      : null
+  const mini = includeMini
+    ? await buildMiniSnapshot(ctx, ranking, template, cache)
+    : null
   return {
     templateId: ranking.sourceTemplateId,
     criterionExternalId: ranking.sourceCriterionExternalId,
@@ -318,8 +400,8 @@ const buildEditData = async (
 
   // placed: stored lanes resolved to tiles, dropping lanes that no longer have
   // a current published ranking (unpublished/deleted)
-  const placed: ShowcasePlacedTile[] = []
   const placedKeys = new Set<string>()
+  const placedPromises: Promise<ShowcasePlacedTile>[] = []
   if (showcase)
   {
     const placements = await loadShowcasePlacements(ctx, showcase._id)
@@ -333,22 +415,38 @@ const buildEditData = async (
       const ranking = laneRankings.get(key)
       if (!ranking) continue
       placedKeys.add(key)
-      const tile = await buildLaneTile(ctx, ranking, tileMode, cache)
-      placed.push({
-        ...tile,
-        tierExternalId: placement.tierExternalId,
-        order: placement.order,
-      })
+      placedPromises.push(
+        buildLaneTile(ctx, ranking, tileModeNeedsMini(tileMode), cache).then(
+          (tile) => ({
+            ...tile,
+            tierExternalId: placement.tierExternalId,
+            order: placement.order,
+          })
+        )
+      )
     }
   }
 
-  // unranked: the owner's remaining lanes, newest first
-  const unranked: ShowcaseRankingTile[] = []
+  // unranked: the owner's remaining lanes, newest first. placed tiles already
+  // spent part of the mini budget; the newest pool lanes get the rest & the
+  // tail renders as covers (gaining a mini once placed), bounding the read
+  const needsMini = tileModeNeedsMini(tileMode)
+  let poolMiniBudget = needsMini
+    ? Math.max(0, SHOWCASE_EDITOR_MINI_BUDGET - placedPromises.length)
+    : 0
+  const unrankedPromises: Promise<ShowcaseRankingTile>[] = []
   for (const [key, ranking] of laneRankings)
   {
     if (placedKeys.has(key)) continue
-    unranked.push(await buildLaneTile(ctx, ranking, tileMode, cache))
+    const includeMini = poolMiniBudget > 0
+    if (includeMini) poolMiniBudget -= 1
+    unrankedPromises.push(buildLaneTile(ctx, ranking, includeMini, cache))
   }
+
+  const [placed, unranked] = await Promise.all([
+    Promise.all(placedPromises),
+    Promise.all(unrankedPromises),
+  ])
 
   return { tileMode, tiers, placed, unranked }
 }
@@ -370,9 +468,11 @@ export const buildPublicShowcase = async (
     loadOwnerLaneRankings(ctx, ownerId),
   ])
 
-  const tilesByTier = new Map<string, ShowcaseRankingTile[]>()
   const seenLane = new Set<string>()
-  let placedCount = 0
+  const tilePromises: Promise<{
+    tile: ShowcaseRankingTile
+    tierExternalId: string
+  }>[] = []
   for (const placement of placements)
   {
     const key = showcaseLaneKey(
@@ -383,12 +483,24 @@ export const buildPublicShowcase = async (
     const ranking = laneRankings.get(key)
     if (!ranking) continue
     seenLane.add(key)
-    const tile = await buildLaneTile(ctx, ranking, showcase.tileMode, cache)
-    const bucket = tilesByTier.get(placement.tierExternalId)
-    if (bucket) bucket.push(tile)
-    else tilesByTier.set(placement.tierExternalId, [tile])
-    placedCount += 1
+    tilePromises.push(
+      buildLaneTile(
+        ctx,
+        ranking,
+        tileModeNeedsMini(showcase.tileMode),
+        cache
+      ).then((tile) => ({ tile, tierExternalId: placement.tierExternalId }))
+    )
   }
+  const builtTiles = await Promise.all(tilePromises)
+  const tilesByTier = new Map<string, ShowcaseRankingTile[]>()
+  for (const { tile, tierExternalId } of builtTiles)
+  {
+    const bucket = tilesByTier.get(tierExternalId)
+    if (bucket) bucket.push(tile)
+    else tilesByTier.set(tierExternalId, [tile])
+  }
+  const placedCount = builtTiles.length
 
   return {
     tileMode: showcase.tileMode,
@@ -488,21 +600,22 @@ const replaceShowcaseTiers = async (
 ): Promise<void> =>
 {
   const existing = await loadShowcaseTiers(ctx, showcaseId)
-  for (const row of existing) await ctx.db.delete(row._id)
-  for (const tier of tiers)
-  {
-    await ctx.db.insert('profileShowcaseTiers', {
-      showcaseId,
-      externalId: tier.externalId,
-      name: tier.name,
-      ...(tier.description !== null ? { description: tier.description } : {}),
-      colorSpec: tier.colorSpec,
-      ...(tier.rowColorSpec !== null
-        ? { rowColorSpec: tier.rowColorSpec }
-        : {}),
-      order: tier.order,
-    })
-  }
+  await Promise.all(existing.map((row) => ctx.db.delete(row._id)))
+  await Promise.all(
+    tiers.map((tier) =>
+      ctx.db.insert('profileShowcaseTiers', {
+        showcaseId,
+        externalId: tier.externalId,
+        name: tier.name,
+        ...(tier.description !== null ? { description: tier.description } : {}),
+        colorSpec: tier.colorSpec,
+        ...(tier.rowColorSpec !== null
+          ? { rowColorSpec: tier.rowColorSpec }
+          : {}),
+        order: tier.order,
+      })
+    )
+  )
 }
 
 const replaceShowcasePlacements = async (
@@ -512,17 +625,18 @@ const replaceShowcasePlacements = async (
 ): Promise<void> =>
 {
   const existing = await loadShowcasePlacements(ctx, showcaseId)
-  for (const row of existing) await ctx.db.delete(row._id)
-  for (const placement of placements)
-  {
-    await ctx.db.insert('profileShowcaseItems', {
-      showcaseId,
-      tierExternalId: placement.tierExternalId,
-      templateId: placement.templateId,
-      criterionExternalId: placement.criterionExternalId,
-      order: placement.order,
-    })
-  }
+  await Promise.all(existing.map((row) => ctx.db.delete(row._id)))
+  await Promise.all(
+    placements.map((placement) =>
+      ctx.db.insert('profileShowcaseItems', {
+        showcaseId,
+        tierExternalId: placement.tierExternalId,
+        templateId: placement.templateId,
+        criterionExternalId: placement.criterionExternalId,
+        order: placement.order,
+      })
+    )
+  )
 }
 
 // owner-only edit-state for the showcase editor. signed-out callers get the

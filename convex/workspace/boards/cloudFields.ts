@@ -11,6 +11,7 @@ import {
 
 export const buildFreshBoardCloudFields = (now: number) => ({
   livePublicTemplateId: null,
+  livePublicRankingId: null,
   cloudState: 'cloudBacked' as const,
   cloudBackedAt: now,
   pausedReason: null,

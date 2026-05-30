@@ -566,8 +566,8 @@ export interface DeletedBoardListItem extends BoardListItem
 }
 
 // content-derived publish state — Draft (items exist but none placed in a
-// tier), WIP (>=1 placed, not published), Live (published as a public
-// template/ranking). Never user-toggled; see deriveLibraryPublishState
+// tier), WIP (>=1 placed, not published), Live (public output exists).
+// Never user-toggled; see deriveLibraryPublishState
 export const PUBLISH_STATES = ['draft', 'wip', 'live'] as const
 export type PublishState = (typeof PUBLISH_STATES)[number]
 
@@ -583,8 +583,8 @@ export const SYNC_STATES = [
 ] as const
 export type SyncState = (typeof SYNC_STATES)[number]
 
-// share-state — 'public' iff a live public template sourced from this board
-// exists; unlisted templates fold into 'private' here (not-discoverable)
+// share-state — 'public' iff a live public template/ranking sourced from
+// this board exists; unlisted output folds into 'private' here
 export const LIBRARY_BOARD_VISIBILITIES = ['private', 'public'] as const
 export type LibraryBoardVisibility = (typeof LIBRARY_BOARD_VISIBILITIES)[number]
 
@@ -701,10 +701,10 @@ export interface LibraryBoardListItem extends BoardListItem
 
 export const deriveLibraryPublishState = (params: {
   rankedItemCount: number
-  hasPublishedTemplate: boolean
+  hasPublishedOutput: boolean
 }): PublishState =>
 {
-  if (params.hasPublishedTemplate) return 'live'
+  if (params.hasPublishedOutput) return 'live'
   return params.rankedItemCount > 0 ? 'wip' : 'draft'
 }
 

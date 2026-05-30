@@ -30,6 +30,11 @@ import {
 } from '../../lib/validators/workspace'
 import { createTemplateProjectionCache } from '../../marketplace/templates/lib/trending'
 import { toTemplateMediaRefWithFallback } from '../../marketplace/templates/lib/projections'
+import {
+  isPublishedTemplateRow,
+  isPublicTemplateRow,
+} from '../../marketplace/templates/lib/state'
+import { isPublicRankingRow } from '../../marketplace/rankings/lib'
 import { memoizePromise } from '../../lib/cache'
 import { getBoardSourceTemplateId } from './sourceFields'
 import { loadBoardCloudState } from '../sync/boardStateLoader'
@@ -225,7 +230,12 @@ export const getMyLibraryBoards = query({
         ctx.storage.getUrl(storageId)
       )
 
-    const sourceTemplateCovers = await loadSourceTemplateCovers(ctx, boards)
+    const [sourceTemplateCovers, livePublicRankingIds, livePublicTemplateIds] =
+      await Promise.all([
+        loadSourceTemplateCovers(ctx, boards),
+        loadReachableLivePublicRankingIds(ctx, boards),
+        loadReachableLivePublicTemplateIds(ctx, boards),
+      ])
 
     return Promise.all(
       boards.map((board) =>
@@ -239,6 +249,12 @@ export const getMyLibraryBoards = query({
               ? (sourceTemplateCovers.get(sourceTemplateId) ??
                 EMPTY_SOURCE_TEMPLATE_COVER)
               : EMPTY_SOURCE_TEMPLATE_COVER,
+          hasLivePublicRanking:
+            board.livePublicRankingId != null &&
+            livePublicRankingIds.has(board.livePublicRankingId),
+          hasLiveTemplate:
+            board.livePublicTemplateId != null &&
+            livePublicTemplateIds.has(board.livePublicTemplateId),
         })
       })
     )
@@ -261,6 +277,8 @@ interface LibraryRowContext
   userDefaultPaletteId: PaletteId
   loadStorageUrl: (storageId: Id<'_storage'>) => Promise<string | null>
   sourceCover: SourceTemplateCover
+  hasLivePublicRanking: boolean
+  hasLiveTemplate: boolean
 }
 
 const loadSourceTemplateCovers = async (
@@ -308,6 +326,95 @@ const loadSourceTemplateCovers = async (
   return new Map(entries)
 }
 
+const loadReachableLivePublicRankingIds = async (
+  ctx: QueryCtx,
+  boards: readonly Doc<'boards'>[]
+): Promise<ReadonlySet<Id<'publishedRankings'>>> =>
+{
+  const rankingIds = Array.from(
+    new Set(
+      boards.flatMap((board) =>
+        board.livePublicRankingId != null ? [board.livePublicRankingId] : []
+      )
+    )
+  )
+  if (rankingIds.length === 0) return new Set()
+
+  const rankings = await Promise.all(rankingIds.map((id) => ctx.db.get(id)))
+  const templateIds = Array.from(
+    new Set(
+      rankings.flatMap((ranking) =>
+        ranking && isPublicRankingRow(ranking) ? [ranking.sourceTemplateId] : []
+      )
+    )
+  )
+  const templateRows = await Promise.all(
+    templateIds.map((id) => ctx.db.get(id))
+  )
+  // template must be published & publicly listable; unlisted templates
+  // shouldn't surface ranker boards as 'live' since the source is no longer
+  // discoverable
+  const reachableTemplateIds = new Set<Id<'templates'>>()
+  for (const template of templateRows)
+  {
+    if (
+      template &&
+      isPublishedTemplateRow(template) &&
+      isPublicTemplateRow(template)
+    )
+    {
+      reachableTemplateIds.add(template._id)
+    }
+  }
+
+  const reachableRankingIds = new Set<Id<'publishedRankings'>>()
+  for (const ranking of rankings)
+  {
+    if (
+      ranking &&
+      isPublicRankingRow(ranking) &&
+      reachableTemplateIds.has(ranking.sourceTemplateId)
+    )
+    {
+      reachableRankingIds.add(ranking._id)
+    }
+  }
+  return reachableRankingIds
+}
+
+// template-side mirror of loadReachableLivePublicRankingIds: a board counts as
+// live-via-template only when its livePublicTemplateId resolves to a published &
+// publicly-listable template — so an unpublished/unlisted source demotes it
+const loadReachableLivePublicTemplateIds = async (
+  ctx: QueryCtx,
+  boards: readonly Doc<'boards'>[]
+): Promise<ReadonlySet<Id<'templates'>>> =>
+{
+  const templateIds = Array.from(
+    new Set(
+      boards.flatMap((board) =>
+        board.livePublicTemplateId != null ? [board.livePublicTemplateId] : []
+      )
+    )
+  )
+  if (templateIds.length === 0) return new Set()
+
+  const templates = await Promise.all(templateIds.map((id) => ctx.db.get(id)))
+  const reachableTemplateIds = new Set<Id<'templates'>>()
+  for (const template of templates)
+  {
+    if (
+      template &&
+      isPublishedTemplateRow(template) &&
+      isPublicTemplateRow(template)
+    )
+    {
+      reachableTemplateIds.add(template._id)
+    }
+  }
+  return reachableTemplateIds
+}
+
 const projectLibraryRow = async (
   board: Doc<'boards'>,
   rowCtx: LibraryRowContext
@@ -324,7 +431,8 @@ const projectLibraryRow = async (
   )
 
   const category = board.sourceTemplate.category ?? DEFAULT_LIBRARY_CATEGORY
-  const hasPublishedTemplate = board.livePublicTemplateId !== null
+  const hasPublishedOutput =
+    rowCtx.hasLiveTemplate || rowCtx.hasLivePublicRanking
 
   const rankedItemCount = Math.max(
     0,
@@ -333,7 +441,7 @@ const projectLibraryRow = async (
 
   const publishState = deriveLibraryPublishState({
     rankedItemCount,
-    hasPublishedTemplate,
+    hasPublishedOutput,
   })
   const syncState = deriveLibrarySyncState({
     materializationState: board.materializationState,
@@ -350,7 +458,7 @@ const projectLibraryRow = async (
     rankedItemCount,
     publishState,
     syncState,
-    visibility: hasPublishedTemplate ? 'public' : 'private',
+    visibility: hasPublishedOutput ? 'public' : 'private',
     category,
     sourceTemplateSizeClass: board.sourceTemplate.sizeClass,
     sourceTemplateCoverMedia: rowCtx.sourceCover.media,
