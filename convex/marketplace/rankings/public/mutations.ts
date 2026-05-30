@@ -7,7 +7,6 @@ import {
   mutation,
   type MutationCtx,
 } from '../../../_generated/server'
-import { internal } from '../../../_generated/api'
 import type { Doc, Id } from '../../../_generated/dataModel'
 import {
   generateBoardId,
@@ -79,8 +78,6 @@ import {
   findTemplateRankingAggregate,
   queueTemplateRankingAggregateRecompute,
 } from '../aggregate/lib'
-
-const SUPERSEDE_PUBLIC_RANKINGS_PAGE_SIZE = 256
 
 const requireTemplate = async (
   ctx: MutationCtx,
@@ -243,184 +240,65 @@ const buildOrderedRankingItems = async (
   return rows
 }
 
-const supersedePublicRankingsInLane = async (
+// retire a board's current live public ranking: unlist it (superseded by the
+// given replacement, or null on delete) & repoint the board to nextLiveRankingId.
+// board-unique — touches only THIS board's own ranking, never another's. idempotent
+const retireBoardLiveRanking = async (
   ctx: MutationCtx,
-  ownerId: Id<'users'>,
-  templateId: Id<'templates'>,
-  criterionExternalId: string,
-  replacementRankingId: Id<'publishedRankings'>,
+  board: Doc<'boards'>,
+  options: {
+    supersededByRankingId: Id<'publishedRankings'> | null
+    nextLiveRankingId: Id<'publishedRankings'> | null
+    queueAggregate?: boolean
+  },
   now: number
 ): Promise<void> =>
-  await supersedePublicRankingsInLanePage(ctx, {
-    ownerId,
-    templateId,
-    criterionExternalId,
-    replacementRankingId,
-    now,
-    cursor: null,
-  })
-
-// pre-fetch source boards for a supersede batch & return the patches needed
-// to null out livePublicRankingId pointers that still match the superseded ids
-const loadSupersededBoardClears = async (
-  ctx: MutationCtx,
-  rankings: readonly Doc<'publishedRankings'>[],
-  now: number
-): Promise<Promise<void>[]> =>
 {
-  const boardIdByRanking = new Map<Id<'publishedRankings'>, Id<'boards'>>()
-  for (const ranking of rankings)
+  const priorRankingId = board.livePublicRankingId ?? null
+  if (priorRankingId !== null)
   {
-    if (ranking.sourceBoardId !== null)
+    const prior = await ctx.db.get(priorRankingId)
+    if (prior && isPublicRankingRow(prior))
     {
-      boardIdByRanking.set(ranking._id, ranking.sourceBoardId)
-    }
-  }
-  if (boardIdByRanking.size === 0) return []
-  const uniqueBoardIds = Array.from(new Set(boardIdByRanking.values()))
-  const boards = await Promise.all(uniqueBoardIds.map((id) => ctx.db.get(id)))
-  const boardById = new Map<Id<'boards'>, Doc<'boards'>>()
-  for (const board of boards) if (board) boardById.set(board._id, board)
-
-  const patches: Promise<void>[] = []
-  for (const ranking of rankings)
-  {
-    const boardId = boardIdByRanking.get(ranking._id)
-    if (!boardId) continue
-    const board = boardById.get(boardId)
-    if (!board || board.livePublicRankingId !== ranking._id) continue
-    patches.push(
-      ctx.db.patch(board._id, {
-        livePublicRankingId: null,
+      await ctx.db.patch(prior._id, {
+        isPubliclyListable: false,
+        supersededAt: now,
+        supersededByRankingId: options.supersededByRankingId,
         updatedAt: now,
       })
-    )
-  }
-  return patches
-}
-
-interface SupersedePublicRankingsInLaneArgs
-{
-  ownerId: Id<'users'>
-  templateId: Id<'templates'>
-  criterionExternalId: string
-  replacementRankingId: Id<'publishedRankings'>
-  now: number
-  cursor: string | null
-}
-
-const supersedePublicRankingsInLanePage = async (
-  ctx: MutationCtx,
-  args: SupersedePublicRankingsInLaneArgs
-): Promise<void> =>
-{
-  const patchBatch: Promise<void>[] = []
-  const flushPatchBatch = async () =>
-  {
-    await Promise.all(patchBatch)
-    patchBatch.length = 0
-  }
-  const page = await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
-      q
-        .eq('sourceTemplateId', args.templateId)
-        .eq('sourceCriterionExternalId', args.criterionExternalId)
-        .eq('ownerId', args.ownerId)
-        .eq('isPubliclyListable', true)
-    )
-    .paginate({
-      numItems: SUPERSEDE_PUBLIC_RANKINGS_PAGE_SIZE,
-      cursor: args.cursor,
-    })
-  const targets = page.page.filter(
-    (ranking) =>
-      ranking._id !== args.replacementRankingId && isPublicRankingRow(ranking)
-  )
-  // pre-fetch source boards once; the patches queue alongside the ranking
-  // patches so the batch flushes drain board + ranking writes together
-  const boardClearPatches = await loadSupersededBoardClears(
-    ctx,
-    targets,
-    args.now
-  )
-  patchBatch.push(...boardClearPatches)
-  for (const ranking of targets)
-  {
-    patchBatch.push(
-      ctx.db.patch(ranking._id, {
-        isPubliclyListable: false,
-        supersededAt: args.now,
-        supersededByRankingId: args.replacementRankingId,
-        updatedAt: args.now,
-      })
-    )
-    if (patchBatch.length >= 16)
-    {
-      await flushPatchBatch()
+      if (options.queueAggregate ?? true)
+      {
+        await queueTemplateRankingAggregateRecompute(
+          ctx,
+          prior.sourceTemplateId,
+          prior.sourceCriterionExternalId,
+          now
+        )
+      }
     }
   }
-  await flushPatchBatch()
-  if (!page.isDone)
+  if (priorRankingId !== options.nextLiveRankingId)
   {
-    await ctx.scheduler.runAfter(
-      0,
-      internal.marketplace.rankings.public.mutations
-        .supersedePublicRankingsInLaneBatch,
-      { ...args, cursor: page.continueCursor }
-    )
+    await ctx.db.patch(board._id, {
+      livePublicRankingId: options.nextLiveRankingId,
+      updatedAt: now,
+    })
   }
 }
 
-export const supersedePublicRankingsInLaneBatch = internalMutation({
-  args: {
-    ownerId: v.id('users'),
-    templateId: v.id('templates'),
-    criterionExternalId: v.string(),
-    replacementRankingId: v.id('publishedRankings'),
-    now: v.number(),
-    cursor: v.union(v.string(), v.null()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> =>
-  {
-    await supersedePublicRankingsInLanePage(ctx, args)
-    return null
-  },
-})
-
-// retract a board's live public ranking on delete: unlist it (supersede patch
-// shape, no replacement) & clear the board pointer so no orphan lingers on the
-// marketplace. idempotent — a re-call sees a null pointer / non-public ranking
+// retract a board's live public ranking on delete: retire it w/ no replacement
+// & clear the board pointer so no orphan lingers on the marketplace
 const retractBoardLivePublicRanking = async (
   ctx: MutationCtx,
   board: Doc<'boards'>,
   now: number
 ): Promise<void> =>
-{
-  const rankingId = board.livePublicRankingId ?? null
-  if (rankingId === null) return
-  const ranking = await ctx.db.get(rankingId)
-  if (ranking && isPublicRankingRow(ranking))
-  {
-    await ctx.db.patch(ranking._id, {
-      isPubliclyListable: false,
-      supersededAt: now,
-      supersededByRankingId: null,
-      updatedAt: now,
-    })
-    await queueTemplateRankingAggregateRecompute(
-      ctx,
-      ranking.sourceTemplateId,
-      ranking.sourceCriterionExternalId,
-      now
-    )
-  }
-  await ctx.db.patch(board._id, {
-    livePublicRankingId: null,
-    updatedAt: now,
-  })
-}
+  await retireBoardLiveRanking(
+    ctx,
+    board,
+    { supersededByRankingId: null, nextLiveRankingId: null },
+    now
+  )
 
 // unpublish a board's live public template on delete; markTemplateUnpublished
 // also clears board.livePublicTemplateId via clearSourceBoardLivePublicTemplate
@@ -466,10 +344,6 @@ interface PublishRankingCoreOptions
   // queue the per-lane aggregate recompute (default true for the user publish
   // path); the dev seed passes false to avoid one scheduler fan-out per sample
   queueAggregate?: boolean
-  // supersede prior public rankings in the lane (default true). Convex allows
-  // one paginated query per call, so a bulk caller publishing many rankings in
-  // a single mutation must pass false (& guarantee its lanes are conflict-free)
-  supersede?: boolean
 }
 
 // board -> ranking publish mechanics, keyed only on an already-resolved owned
@@ -587,30 +461,21 @@ export const publishRankingCore = async (
       })
     ),
   ])
-  // unlisted publish supersedes any prior public ranking from the same
-  // owner+lane so the latest user intent wins; board.livePublicRankingId is
-  // set to the new id on public publishes & cleared on unlisted ones
+  // board-unique: retire only THIS board's own prior live ranking (superseded by
+  // the new one) & repoint it to the new ranking on a public publish or null on
+  // an unlisted one. never touches another board's ranking
   const desiredLiveRankingId =
     options.visibility === 'public' ? rankingId : null
-  const currentLiveRankingId = board.livePublicRankingId ?? null
-  if (currentLiveRankingId !== desiredLiveRankingId)
-  {
-    await ctx.db.patch(board._id, {
-      livePublicRankingId: desiredLiveRankingId,
-      updatedAt: now,
-    })
-  }
-  if (options.supersede ?? true)
-  {
-    await supersedePublicRankingsInLane(
-      ctx,
-      board.ownerId,
-      template._id,
-      criterion.externalId,
-      rankingId,
-      now
-    )
-  }
+  await retireBoardLiveRanking(
+    ctx,
+    board,
+    {
+      supersededByRankingId: rankingId,
+      nextLiveRankingId: desiredLiveRankingId,
+      queueAggregate: options.queueAggregate ?? true,
+    },
+    now
+  )
   if (options.queueAggregate ?? true)
   {
     await queueTemplateRankingAggregateRecompute(

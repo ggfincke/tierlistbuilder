@@ -385,13 +385,12 @@ export interface TierItemImageRef
   cloudMediaOwnership?: CloudMediaOwnership
 }
 
-// identity of a published-ranking lane shown as a tile in the profile showcase
+// identity of a board's live ranking shown as a tile in the profile showcase
 // (tlotl). primitives only — the cover/mini render payload resolves separately
-// & reaches ItemContent via ShowcaseRenderContext keyed by templateId+criterion
+// & reaches ItemContent via ShowcaseRenderContext keyed by boardExternalId
 export interface ShowcaseItemRef
 {
-  templateId: string
-  criterionExternalId: string
+  boardExternalId: string
   rankingSlug: string
   title: string
 }

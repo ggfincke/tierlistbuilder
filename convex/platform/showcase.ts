@@ -18,7 +18,6 @@ import {
   SHOWCASE_MINI_LABELS_PER_TIER,
   SHOWCASE_MINI_TIER_LIMIT,
   SHOWCASE_TILE_MODE_DEFAULT,
-  showcaseLaneKey,
   type ProfileShowcaseEditData,
   type ProfileShowcaseSaveInput,
   type PublicProfileShowcase,
@@ -57,9 +56,9 @@ import {
 
 type DbCtx = QueryCtx | MutationCtx
 
-// owner lanes scanned to derive the unranked pool; beyond this the oldest lanes
-// won't surface (bounded read per the convex query guidelines)
-const SHOWCASE_LANE_SCAN_LIMIT = 300
+// owner boards scanned to derive the unranked pool; beyond this the oldest
+// boards won't surface (bounded read per the convex query guidelines)
+const SHOWCASE_BOARD_SCAN_LIMIT = 300
 
 // total full minis an owner read resolves (placed + pool). placed tiles are
 // always full; pool lanes past the remaining budget render cheap covers (each
@@ -106,8 +105,7 @@ const showcaseMiniSnapshotValidator = v.object({
 })
 
 const showcaseRankingTileValidator = v.object({
-  templateId: v.string(),
-  criterionExternalId: v.string(),
+  boardExternalId: v.string(),
   rankingSlug: v.string(),
   title: v.string(),
   cover: v.union(templateMediaRefValidator, v.null()),
@@ -140,8 +138,7 @@ export const publicProfileShowcaseValidator = v.object({
 
 const showcasePlacementInputValidator = v.object({
   tierExternalId: v.string(),
-  templateId: v.string(),
-  criterionExternalId: v.string(),
+  boardExternalId: v.string(),
   order: v.number(),
 })
 
@@ -247,29 +244,92 @@ const lastItemLabel = (
   return null
 }
 
-// distinct lanes the owner has a published ranking for, each mapped to its
-// current (newest published) ranking. desc scan -> first seen per lane wins
-const loadOwnerLaneRankings = async (
+interface PublishedBoardRanking
+{
+  board: Doc<'boards'>
+  ranking: Doc<'publishedRankings'>
+}
+
+// the owner's active boards that carry a current live published ranking, keyed
+// by board id & newest-first. one board -> one livePublicRankingId -> one
+// ranking, so no per-lane dedup is needed (the pointer is already singular)
+const loadOwnerPublishedBoardRankings = async (
   ctx: DbCtx,
   ownerId: Id<'users'>
-): Promise<Map<string, Doc<'publishedRankings'>>> =>
+): Promise<Map<Id<'boards'>, PublishedBoardRanking>> =>
 {
-  const rows = await ctx.db
-    .query('publishedRankings')
-    .withIndex('byOwnerUpdatedAt', (q) => q.eq('ownerId', ownerId))
-    .order('desc')
-    .take(SHOWCASE_LANE_SCAN_LIMIT)
-  const byLane = new Map<string, Doc<'publishedRankings'>>()
-  for (const row of rows)
-  {
-    if (!isPublishedRankingRow(row)) continue
-    const key = showcaseLaneKey(
-      row.sourceTemplateId,
-      row.sourceCriterionExternalId
+  const boards = await ctx.db
+    .query('boards')
+    .withIndex('byOwnerDeletedUpdatedAt', (q) =>
+      q.eq('ownerId', ownerId).eq('deletedAt', null)
     )
-    if (!byLane.has(key)) byLane.set(key, row)
+    .order('desc')
+    .take(SHOWCASE_BOARD_SCAN_LIMIT)
+  const resolved = await Promise.all(
+    boards.map(async (board): Promise<PublishedBoardRanking | null> =>
+    {
+      if (board.livePublicRankingId == null) return null
+      const ranking = await ctx.db.get(board.livePublicRankingId)
+      if (!ranking || !isPublishedRankingRow(ranking)) return null
+      return { board, ranking }
+    })
+  )
+  const byBoard = new Map<Id<'boards'>, PublishedBoardRanking>()
+  for (const entry of resolved) if (entry) byBoard.set(entry.board._id, entry)
+  return byBoard
+}
+
+// resolve one placed board directly (not via the bounded pool scan), re-checking
+// owner + active + a current live published ranking — same gate as the pool
+const resolvePlacedBoardRanking = async (
+  ctx: DbCtx,
+  boardId: Id<'boards'>,
+  ownerId: Id<'users'>
+): Promise<PublishedBoardRanking | null> =>
+{
+  const board = await ctx.db.get(boardId)
+  if (
+    !board ||
+    board.ownerId !== ownerId ||
+    board.deletedAt !== null ||
+    board.livePublicRankingId == null
+  )
+  {
+    return null
   }
-  return byLane
+  const ranking = await ctx.db.get(board.livePublicRankingId)
+  if (!ranking || !isPublishedRankingRow(ranking)) return null
+  return { board, ranking }
+}
+
+// the pool scan is bounded to the newest SHOWCASE_BOARD_SCAN_LIMIT boards, so a
+// deliberately-placed board outside that window is missing from the map. resolve
+// those directly so a placed tile never silently drops (& isn't purged on save)
+const augmentWithPlacedBoards = async (
+  ctx: DbCtx,
+  ownerId: Id<'users'>,
+  boardRankings: Map<Id<'boards'>, PublishedBoardRanking>,
+  placements: readonly Doc<'profileShowcaseItems'>[]
+): Promise<void> =>
+{
+  const missing = [
+    ...new Set(
+      placements
+        .map((placement) => placement.boardId)
+        .filter((boardId) => !boardRankings.has(boardId))
+    ),
+  ]
+  if (missing.length === 0) return
+  const resolved = await Promise.all(
+    missing.map(
+      async (boardId) =>
+        [boardId, await resolvePlacedBoardRanking(ctx, boardId, ownerId)] as const
+    )
+  )
+  for (const [boardId, entry] of resolved)
+  {
+    if (entry) boardRankings.set(boardId, entry)
+  }
 }
 
 // compact projection of a ranking driving every non-cover tile mode. only
@@ -352,10 +412,12 @@ const buildMiniSnapshot = async (
 // every tile mode except plain cover renders from the ranking's own tiers/items
 const tileModeNeedsMini = (mode: ShowcaseTileMode): boolean => mode !== 'cover'
 
-// lane identity + resolved render payload. cover always resolves (cheap); the
-// mini snapshot only when a tile mode needs it
-const buildLaneTile = async (
+// board identity + resolved render payload. cover always resolves (cheap); the
+// mini snapshot only when a tile mode needs it. title/cover/mini come from the
+// board's current live ranking, so a re-publish updates the tile in place
+const buildBoardTile = async (
   ctx: DbCtx,
+  board: Doc<'boards'>,
   ranking: Doc<'publishedRankings'>,
   includeMini: boolean,
   cache: TemplateProjectionCache
@@ -374,8 +436,7 @@ const buildLaneTile = async (
     ? await buildMiniSnapshot(ctx, ranking, template, cache)
     : null
   return {
-    templateId: ranking.sourceTemplateId,
-    criterionExternalId: ranking.sourceCriterionExternalId,
+    boardExternalId: board.externalId,
     rankingSlug: ranking.slug,
     title: ranking.title,
     cover,
@@ -392,55 +453,58 @@ const buildEditData = async (
   const tileMode: ShowcaseTileMode =
     showcase?.tileMode ?? SHOWCASE_TILE_MODE_DEFAULT
   const cache = createTemplateProjectionCache()
-  const laneRankings = await loadOwnerLaneRankings(ctx, ownerId)
+  const boardRankings = await loadOwnerPublishedBoardRankings(ctx, ownerId)
 
   const tiers: ShowcaseTier[] = showcase
     ? (await loadShowcaseTiers(ctx, showcase._id)).map(toShowcaseTier)
     : DEFAULT_SHOWCASE_TIERS
 
-  // placed: stored lanes resolved to tiles, dropping lanes that no longer have
-  // a current published ranking (unpublished/deleted)
-  const placedKeys = new Set<string>()
+  // placed: stored boards resolved to tiles, dropping boards that no longer
+  // have a current live ranking (unpublished/deleted)
+  const placedBoardIds = new Set<Id<'boards'>>()
   const placedPromises: Promise<ShowcasePlacedTile>[] = []
   if (showcase)
   {
     const placements = await loadShowcasePlacements(ctx, showcase._id)
+    await augmentWithPlacedBoards(ctx, ownerId, boardRankings, placements)
     for (const placement of placements)
     {
-      const key = showcaseLaneKey(
-        placement.templateId,
-        placement.criterionExternalId
-      )
-      if (placedKeys.has(key)) continue
-      const ranking = laneRankings.get(key)
-      if (!ranking) continue
-      placedKeys.add(key)
+      if (placedBoardIds.has(placement.boardId)) continue
+      const entry = boardRankings.get(placement.boardId)
+      if (!entry) continue
+      placedBoardIds.add(placement.boardId)
       placedPromises.push(
-        buildLaneTile(ctx, ranking, tileModeNeedsMini(tileMode), cache).then(
-          (tile) => ({
-            ...tile,
-            tierExternalId: placement.tierExternalId,
-            order: placement.order,
-          })
-        )
+        buildBoardTile(
+          ctx,
+          entry.board,
+          entry.ranking,
+          tileModeNeedsMini(tileMode),
+          cache
+        ).then((tile) => ({
+          ...tile,
+          tierExternalId: placement.tierExternalId,
+          order: placement.order,
+        }))
       )
     }
   }
 
-  // unranked: the owner's remaining lanes, newest first. placed tiles already
-  // spent part of the mini budget; the newest pool lanes get the rest & the
+  // unranked: the owner's remaining boards, newest first. placed tiles already
+  // spent part of the mini budget; the newest pool boards get the rest & the
   // tail renders as covers (gaining a mini once placed), bounding the read
   const needsMini = tileModeNeedsMini(tileMode)
   let poolMiniBudget = needsMini
     ? Math.max(0, SHOWCASE_EDITOR_MINI_BUDGET - placedPromises.length)
     : 0
   const unrankedPromises: Promise<ShowcaseRankingTile>[] = []
-  for (const [key, ranking] of laneRankings)
+  for (const [boardId, entry] of boardRankings)
   {
-    if (placedKeys.has(key)) continue
+    if (placedBoardIds.has(boardId)) continue
     const includeMini = poolMiniBudget > 0
     if (includeMini) poolMiniBudget -= 1
-    unrankedPromises.push(buildLaneTile(ctx, ranking, includeMini, cache))
+    unrankedPromises.push(
+      buildBoardTile(ctx, entry.board, entry.ranking, includeMini, cache)
+    )
   }
 
   const [placed, unranked] = await Promise.all([
@@ -462,31 +526,29 @@ export const buildPublicShowcase = async (
   const showcase = await findShowcase(ctx, ownerId)
   if (!showcase) return null
   const cache = createTemplateProjectionCache()
-  const [tierRows, placements, laneRankings] = await Promise.all([
+  const [tierRows, placements, boardRankings] = await Promise.all([
     loadShowcaseTiers(ctx, showcase._id),
     loadShowcasePlacements(ctx, showcase._id),
-    loadOwnerLaneRankings(ctx, ownerId),
+    loadOwnerPublishedBoardRankings(ctx, ownerId),
   ])
+  await augmentWithPlacedBoards(ctx, ownerId, boardRankings, placements)
 
-  const seenLane = new Set<string>()
+  const seenBoards = new Set<Id<'boards'>>()
   const tilePromises: Promise<{
     tile: ShowcaseRankingTile
     tierExternalId: string
   }>[] = []
   for (const placement of placements)
   {
-    const key = showcaseLaneKey(
-      placement.templateId,
-      placement.criterionExternalId
-    )
-    if (seenLane.has(key)) continue
-    const ranking = laneRankings.get(key)
-    if (!ranking) continue
-    seenLane.add(key)
+    if (seenBoards.has(placement.boardId)) continue
+    const entry = boardRankings.get(placement.boardId)
+    if (!entry) continue
+    seenBoards.add(placement.boardId)
     tilePromises.push(
-      buildLaneTile(
+      buildBoardTile(
         ctx,
-        ranking,
+        entry.board,
+        entry.ranking,
         tileModeNeedsMini(showcase.tileMode),
         cache
       ).then((tile) => ({ tile, tierExternalId: placement.tierExternalId }))
@@ -557,36 +619,31 @@ const normalizeShowcaseTiers = (input: ShowcaseTier[]): ShowcaseTier[] =>
 interface NormalizedPlacement
 {
   tierExternalId: string
-  templateId: Id<'templates'>
-  criterionExternalId: string
+  boardId: Id<'boards'>
   order: number
 }
 
-// keep placements that point at a known tier & a lane w/ a current published
-// ranking; dedupe by lane & cap. order reassigned by index (a total order that
-// preserves the caller's within-tier sequence)
+// keep placements that point at a known tier & one of the owner's boards w/ a
+// current live ranking (the owner-scoped board map authorizes ownership); dedupe
+// by board, cap, & reassign order by index to preserve the within-tier sequence
 const normalizeShowcasePlacements = (
-  ctx: MutationCtx,
   input: ShowcasePlacementInput[],
   tierIds: ReadonlySet<string>,
-  laneRankings: Map<string, Doc<'publishedRankings'>>
+  boardIdByExternalId: ReadonlyMap<string, Id<'boards'>>
 ): NormalizedPlacement[] =>
 {
   const result: NormalizedPlacement[] = []
-  const seen = new Set<string>()
+  const seen = new Set<Id<'boards'>>()
   for (const placement of input)
   {
     if (result.length >= MAX_SHOWCASE_PLACED_ITEMS) break
     if (!tierIds.has(placement.tierExternalId)) continue
-    const templateId = ctx.db.normalizeId('templates', placement.templateId)
-    if (!templateId) continue
-    const key = showcaseLaneKey(templateId, placement.criterionExternalId)
-    if (seen.has(key) || !laneRankings.has(key)) continue
-    seen.add(key)
+    const boardId = boardIdByExternalId.get(placement.boardExternalId)
+    if (!boardId || seen.has(boardId)) continue
+    seen.add(boardId)
     result.push({
       tierExternalId: placement.tierExternalId,
-      templateId,
-      criterionExternalId: placement.criterionExternalId,
+      boardId,
       order: result.length,
     })
   }
@@ -631,8 +688,7 @@ const replaceShowcasePlacements = async (
       ctx.db.insert('profileShowcaseItems', {
         showcaseId,
         tierExternalId: placement.tierExternalId,
-        templateId: placement.templateId,
-        criterionExternalId: placement.criterionExternalId,
+        boardId: placement.boardId,
         order: placement.order,
       })
     )
@@ -670,12 +726,16 @@ export const saveProfileShowcase = mutation({
 
     const tiers = normalizeShowcaseTiers(args.tiers)
     const tierIds = new Set(tiers.map((tier) => tier.externalId))
-    const laneRankings = await loadOwnerLaneRankings(ctx, userId)
+    const boardRankings = await loadOwnerPublishedBoardRankings(ctx, userId)
+    const boardIdByExternalId = new Map<string, Id<'boards'>>()
+    for (const entry of boardRankings.values())
+    {
+      boardIdByExternalId.set(entry.board.externalId, entry.board._id)
+    }
     const placements = normalizeShowcasePlacements(
-      ctx,
       args.placements,
       tierIds,
-      laneRankings
+      boardIdByExternalId
     )
 
     await replaceShowcaseTiers(ctx, showcaseId, tiers)

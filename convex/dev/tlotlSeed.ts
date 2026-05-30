@@ -408,7 +408,7 @@ const materializeAndPublishSample = async (
   ownerId: Id<'users'>,
   candidate: SeedCandidate,
   sampleIndex: number
-): Promise<SeededRankingSummary> =>
+): Promise<{ summary: SeededRankingSummary; boardId: Id<'boards'> }> =>
 {
   const now = Date.now()
   // stagger board & ranking timestamps so samples sort newest-first by index in
@@ -529,13 +529,12 @@ const materializeAndPublishSample = async (
       message: 'seed board vanished before publish',
     })
   }
-  // skip supersede (Convex allows one paginated query per mutation & the seed
-  // publishes many): lanes are distinct & priors were purged, so it's a no-op
+  // each sample publishes a fresh board (livePublicRankingId starts null), so
+  // the board-scoped retire is a no-op; skip the aggregate fan-out per sample
   const { slug, rankingId } = await publishRankingCore(ctx, board, {
     visibility: 'public',
     criterionExternalId: candidate.criterionExternalId,
     queueAggregate: false,
-    supersede: false,
   })
 
   const viewCount = 20 + sampleIndex * 7
@@ -559,14 +558,17 @@ const materializeAndPublishSample = async (
   await ctx.db.patch(boardId, { updatedAt: stamp })
 
   return {
-    slug,
-    boardExternalId,
-    title: board.title,
-    templateSlug: template.slug,
-    templateTitle: template.title,
-    criterionExternalId: candidate.criterionExternalId,
-    itemCount: items.length,
-    tierCount: insertedTiers.length,
+    summary: {
+      slug,
+      boardExternalId,
+      title: board.title,
+      templateSlug: template.slug,
+      templateTitle: template.title,
+      criterionExternalId: candidate.criterionExternalId,
+      itemCount: items.length,
+      tierCount: insertedTiers.length,
+    },
+    boardId,
   }
 }
 
@@ -622,11 +624,11 @@ const wipeShowcase = async (
 const seedShowcasePlacements = async (
   ctx: MutationCtx,
   ownerId: Id<'users'>,
-  placedCandidates: SeedCandidate[]
+  placedBoardIds: Id<'boards'>[]
 ): Promise<number> =>
 {
   await wipeShowcase(ctx, ownerId)
-  if (placedCandidates.length === 0) return 0
+  if (placedBoardIds.length === 0) return 0
   const now = Date.now()
   const showcaseId = await ctx.db.insert('profileShowcases', {
     ownerId,
@@ -649,20 +651,18 @@ const seedShowcasePlacements = async (
     })
   }
   const tierCount = DEFAULT_SHOWCASE_TIERS.length
-  const seen = new Set<string>()
+  const seen = new Set<Id<'boards'>>()
   let placed = 0
-  for (const [index, candidate] of placedCandidates.entries())
+  for (const [index, boardId] of placedBoardIds.entries())
   {
     if (placed >= MAX_SHOWCASE_PLACED_ITEMS) break
-    const laneKey = `${candidate.template._id}:${candidate.criterionExternalId}`
-    if (seen.has(laneKey)) continue
-    seen.add(laneKey)
-    const tierIdx = tierIndexForItem(index, placedCandidates.length, tierCount)
+    if (seen.has(boardId)) continue
+    seen.add(boardId)
+    const tierIdx = tierIndexForItem(index, placedBoardIds.length, tierCount)
     await ctx.db.insert('profileShowcaseItems', {
       showcaseId,
       tierExternalId: DEFAULT_SHOWCASE_TIERS[tierIdx].externalId,
-      templateId: candidate.template._id,
-      criterionExternalId: candidate.criterionExternalId,
+      boardId,
       order: placed,
     })
     placed += 1
@@ -706,25 +706,29 @@ export const seedSamplePublishedRankingsForUser = internalMutation({
     const user = await findUserByEmail(ctx, targetEmail)
     const handleAssigned = await seedTargetProfile(ctx, user)
     // always purge the prior dataset first so the seed is idempotent — re-runs
-    // can't leave duplicate rankings/boards in a lane (publish skips supersede)
+    // can't leave duplicate rankings/boards behind (each sample is a fresh board)
     const deleted = await deleteExistingSamples(ctx, user._id)
     const candidates = await loadCandidates(ctx, user._id, requestedCount)
     const rankings: SeededRankingSummary[] = []
-    const placedCandidates: SeedCandidate[] = []
+    const placedBoardIds: Id<'boards'>[] = []
 
     for (const [index, candidate] of candidates.entries())
     {
       if (rankings.length >= requestedCount) break
-      rankings.push(
-        await materializeAndPublishSample(ctx, user._id, candidate, index)
+      const { summary, boardId } = await materializeAndPublishSample(
+        ctx,
+        user._id,
+        candidate,
+        index
       )
-      placedCandidates.push(candidate)
+      rankings.push(summary)
+      placedBoardIds.push(boardId)
     }
 
     const placementsCreated = await seedShowcasePlacements(
       ctx,
       user._id,
-      placedCandidates
+      placedBoardIds
     )
 
     return {

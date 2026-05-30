@@ -45,13 +45,6 @@ export const SHOWCASE_MINI_ITEMS_PER_TIER = 9
 // a tier are unlabeled logos that pushed labeled picks past the items[] slice
 export const SHOWCASE_MINI_LABELS_PER_TIER = 24
 
-// stable key for a ranking lane (template + criterion) — used for dedup &
-// laneKey -> render-payload lookup in ShowcaseRenderContext
-export const showcaseLaneKey = (
-  templateId: string,
-  criterionExternalId: string
-): string => `${templateId}:${criterionExternalId}`
-
 // a tier row in the showcase — mirrors the board tier shape so the workspace
 // editor's tier data maps in & out w/o translation
 export interface ShowcaseTier
@@ -110,12 +103,12 @@ export interface ShowcaseMiniSnapshot
   updatedAt: number
 }
 
-// lane identity + resolved render payload for one ranking tile. cover/mini are
+// board identity + resolved render payload for one ranking tile. cover/mini are
 // resolved server-side; the client picks which to draw per the active tileMode
 export interface ShowcaseRankingTile
 {
-  templateId: string
-  criterionExternalId: string
+  // the owner's board this tile came from — the stable per-tile identity
+  boardExternalId: string
   rankingSlug: string
   title: string
   // source-template cover for 'cover' mode; null when the template has none
@@ -156,12 +149,12 @@ export interface PublicProfileShowcase
   placedCount: number
 }
 
-// one placement in the save payload — references a lane, never a snapshot
+// one placement in the save payload — references the owner's board, never a
+// snapshot. the board resolves to its current live ranking server-side
 export interface ShowcasePlacementInput
 {
   tierExternalId: string
-  templateId: string
-  criterionExternalId: string
+  boardExternalId: string
   order: number
 }
 

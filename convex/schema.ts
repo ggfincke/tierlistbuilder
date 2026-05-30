@@ -1023,14 +1023,13 @@ export default defineSchema({
     order: v.number(),
   }).index('byShowcase', ['showcaseId', 'order']),
 
-  // a published-ranking lane placed in a showcase tier. references the lane
-  // (template + criterion), not a ranking instance, so it follows the owner's
-  // current published ranking across re-publishes. unplaced lanes are derived
+  // a published board placed in a showcase tier. references the owner's BOARD,
+  // not a ranking instance, so it follows the board's current live ranking
+  // (board.livePublicRankingId) across re-publishes. unplaced boards are derived
   profileShowcaseItems: defineTable({
     showcaseId: v.id('profileShowcases'),
     tierExternalId: v.string(),
-    templateId: v.id('templates'),
-    criterionExternalId: v.string(),
+    boardId: v.id('boards'),
     order: v.number(),
   }).index('byShowcase', ['showcaseId', 'order']),
 
