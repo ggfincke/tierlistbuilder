@@ -3,7 +3,7 @@
 // showcase. the global autosave is gated while this page owns the board store
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useConvexAuth, useMutation, useQuery } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 
@@ -16,7 +16,10 @@ import {
   type ShowcaseRankingTile,
   type ShowcaseTileMode,
 } from '@tierlistbuilder/contracts/platform/showcase'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { BoardRenderOverridesProvider } from '~/features/workspace/boards/model/BoardRenderOverridesProvider'
@@ -99,13 +102,25 @@ const ShowcaseEditorSkeleton = () => (
   </div>
 )
 
-export const ShowcaseEditorPage = () =>
+const ShowcaseEditorSignedOut = ({ onSignIn }: { onSignIn: () => void }) => (
+  <div className={PAGE_CLASS}>
+    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
+      <h1 className="text-[28px] font-black tracking-[-0.02em] text-[var(--t-text)]">
+        Your tier list
+      </h1>
+      <p className="max-w-sm text-[14px] text-[var(--t-text-muted)]">
+        Sign in to build and save the tier list shown on your profile.
+      </p>
+      <PrimaryButton size="md" onClick={onSignIn}>
+        Sign in
+      </PrimaryButton>
+    </div>
+  </div>
+)
+
+const ShowcaseEditorSignedIn = () =>
 {
-  const auth = useConvexAuth()
-  const editData = useQuery(
-    api.platform.showcase.getMyProfileShowcase,
-    auth.isLoading ? 'skip' : {}
-  )
+  const editData = useQuery(api.platform.showcase.getMyProfileShowcase, {})
   const saveShowcase = useMutation(api.platform.showcase.saveProfileShowcase)
   const navigate = useNavigate()
 
@@ -125,8 +140,6 @@ export const ShowcaseEditorPage = () =>
   const tileModeRef = useRef(tileMode)
   const loadedRef = useRef(false)
   const saveSchedulerRef = useRef<ShowcaseSaveScheduler | null>(null)
-
-  useDocumentTitle('Your tier list')
 
   // keep the ref current so the debounced save closure reads the latest mode
   useEffect(() =>
@@ -271,4 +284,24 @@ export const ShowcaseEditorPage = () =>
       </ShowcaseRenderContext.Provider>
     </div>
   )
+}
+
+export const ShowcaseEditorPage = () =>
+{
+  const session = useAuthSession()
+  const showSignIn = useSignInPromptStore((state) => state.show)
+
+  useDocumentTitle('Your tier list')
+
+  if (session.status === 'signed-out')
+  {
+    return <ShowcaseEditorSignedOut onSignIn={showSignIn} />
+  }
+
+  if (session.status === 'loading')
+  {
+    return <ShowcaseEditorSkeleton />
+  }
+
+  return <ShowcaseEditorSignedIn key={session.user._id} />
 }

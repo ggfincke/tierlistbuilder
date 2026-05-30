@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom'
 import type { AuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
-import { getProfilePath } from '~/shared/routes/pathname'
+import { PROFILE_ROUTE_PATH } from '~/shared/routes/pathname'
 import { Avatar } from '~/shared/ui/Avatar'
 import {
   OverlayDivider,
@@ -55,7 +55,7 @@ const ProfileMenuHeader = ({
 {
   const name = getDisplayName(user, 'Account', { email: 'local' })
   const to = user.handle
-    ? getProfilePath(user.handle)
+    ? `${PROFILE_ROUTE_PATH}/${user.handle}`
     : settingsTabPath('profile')
   return (
     <Link

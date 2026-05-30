@@ -9,8 +9,8 @@ import { useCallback, useMemo, type ReactNode } from 'react'
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import type { PublicProfileShowcase } from '@tierlistbuilder/contracts/platform/showcase'
 import {
-  getRankingDetailPath,
-  getShowcaseEditPath,
+  RANKINGS_ROUTE_PATH,
+  SHOWCASE_ROUTE_PATH,
 } from '~/shared/routes/pathname'
 import {
   StaticBoard,
@@ -44,7 +44,7 @@ const SHOWCASE_APPEARANCE: StaticBoardAppearance = {
 
 const ShowcaseEditLink = ({ label }: { label: string }) => (
   <Link
-    to={getShowcaseEditPath()}
+    to={SHOWCASE_ROUTE_PATH}
     className="focus-custom inline-flex items-center gap-1.5 rounded-lg border border-[var(--t-border)] px-3 py-1.5 text-[12px] font-bold text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
   >
     <Pencil className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden />
@@ -73,7 +73,7 @@ const PopulatedShowcaseView = ({
   const linkTile = useCallback(
     (rankingSlug: string, children: ReactNode): ReactNode => (
       <Link
-        to={getRankingDetailPath(rankingSlug)}
+        to={`${RANKINGS_ROUTE_PATH}/${rankingSlug}`}
         className="focus-custom block h-full w-full"
       >
         {children}

@@ -10,7 +10,6 @@ import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useProfileDraft } from '~/features/platform/auth/model/useProfileDraft'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
-import { getWorkspacePath } from '~/shared/routes/pathname'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { AccountPanel } from './AccountPanel'
@@ -52,7 +51,7 @@ const SettingsHero = ({ user }: { user: PublicUserMe }) => (
     <div className="flex items-center gap-3 pb-1">
       <PlanBadge plan={user.plan} />
       <Link
-        to={getWorkspacePath()}
+        to="/"
         className="text-[10px] uppercase tracking-[0.16em] text-[var(--t-text-muted)] hover:underline"
       >
         ← Back to app
@@ -102,7 +101,7 @@ const SignedInSettings = ({ user }: { user: PublicUserMe }) =>
   // survive switching tabs (the draft lives above the sub-routes)
   const profile = useProfileDraft(user)
   // sessions/danger actions sign the caller out; return them to the workspace
-  const handleSignedOut = () => navigate(getWorkspacePath())
+  const handleSignedOut = () => navigate('/')
 
   return (
     <SettingsShell>
