@@ -366,7 +366,10 @@ export const publishRankingCore = async (
   }
   assertRankingFitsSingleTransaction(board.activeItemCount, 'publish')
 
-  const { serverTiers, serverItems } = await loadBoundedBoardRows(ctx, board._id)
+  const { serverTiers, serverItems } = await loadBoundedBoardRows(
+    ctx,
+    board._id
+  )
   const rankingItems = await buildOrderedRankingItems(
     ctx,
     serverTiers,

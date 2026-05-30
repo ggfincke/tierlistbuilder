@@ -26,7 +26,8 @@ import {
 
 export const seedUploadVariantKindValidator = v.union(
   v.literal('tile'),
-  v.literal('preview')
+  v.literal('preview'),
+  v.literal('editor')
 )
 
 export const seedRunSummaryValidator = v.object({

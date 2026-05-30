@@ -41,7 +41,7 @@ export type SeedResolveStateResult = {
 
 export type SeedUploadVariantKind = Extract<
   MediaVariantKind,
-  'tile' | 'preview'
+  'tile' | 'preview' | 'editor'
 >
 
 export type SeedUploadedVariantArg = {

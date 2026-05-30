@@ -123,7 +123,7 @@ export interface SeedSourceManifest
 
 export interface SeedVariantDescriptor
 {
-  kind: Extract<MediaVariantKind, 'tile' | 'preview'>
+  kind: Extract<MediaVariantKind, 'tile' | 'preview' | 'editor'>
   path: string
   contentHash: string
   mimeType: SupportedImageMimeType
@@ -156,6 +156,7 @@ export interface SeedCompiledAsset
   variants: {
     tile: SeedVariantDescriptor
     preview: SeedVariantDescriptor
+    editor: SeedVariantDescriptor
   }
 }
 
@@ -358,7 +359,7 @@ export interface SeedGenerateUploadUrlsInput extends SeedRunRequest
 export interface SeedUploadVariantRequest
 {
   contentHash: string
-  kind: Extract<MediaVariantKind, 'tile' | 'preview'>
+  kind: Extract<MediaVariantKind, 'tile' | 'preview' | 'editor'>
   mimeType: SupportedImageMimeType
   byteSize: number
 }
@@ -389,7 +390,7 @@ export interface SeedUploadedVariant
 {
   contentHash: string
   storageId: string
-  kind: Extract<MediaVariantKind, 'tile' | 'preview'>
+  kind: Extract<MediaVariantKind, 'tile' | 'preview' | 'editor'>
   expectedMimeType: SupportedImageMimeType
   expectedByteSize: number
   expectedWidth: number
