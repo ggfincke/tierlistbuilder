@@ -7,10 +7,12 @@ import { useShallow } from 'zustand/react/shallow'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
-import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { useBoardItemSize } from '~/features/workspace/boards/model/boardRenderOverrides'
+import {
+  useBoardItemSize,
+  useBoardPaletteId,
+} from '~/features/workspace/boards/model/boardRenderOverrides'
 import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import {
@@ -38,7 +40,7 @@ const resizeEditor = (textarea: HTMLTextAreaElement | null) =>
 
 export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
 {
-  const paletteId = useCurrentPaletteId()
+  const paletteId = useBoardPaletteId()
   const displayColor =
     colorOverride ?? resolveTierColorSpec(paletteId, tier.colorSpec)
   const renameTier = useActiveBoardStore((state) => state.renameTier)

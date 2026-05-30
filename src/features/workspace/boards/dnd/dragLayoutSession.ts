@@ -14,7 +14,6 @@ import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { getOrderedContainerIds } from '~/features/workspace/boards/dnd/dragSnapshot'
 import {
   buildRenderedCellLayout,
-  sortByRenderedPosition,
   type RenderedCellLayout,
   type RenderedItemBox,
   type RenderedRowLayout,
@@ -84,9 +83,8 @@ const getPositionedItemsFromElement = (
     ]
   })
 
-  return positionedItems.length > 0
-    ? sortByRenderedPosition(positionedItems)
-    : null
+  // buildRenderedCellLayout -> groupIntoRows re-sorts, so don't pre-sort here
+  return positionedItems.length > 0 ? positionedItems : null
 }
 
 export const captureRenderedContainerLayout = (
@@ -202,8 +200,6 @@ export const createDragCellLayoutLookup = (
   return (containerId) =>
   {
     const entry = session.containers.get(containerId)
-    return entry
-      ? { cellLayout: entry.cellLayout, origin: entry.origin }
-      : null
+    return entry ? { cellLayout: entry.cellLayout, origin: entry.origin } : null
   }
 }

@@ -18,7 +18,10 @@ import {
 } from '~/shared/board-ui/StaticBoard'
 import { ShowcaseRenderContext } from '~/shared/board-ui/ShowcaseRenderContext'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
-import { publicShowcaseToSnapshot } from '~/features/platform/showcase/model/showcaseSnapshot'
+import {
+  publicShowcaseToSnapshot,
+  SHOWCASE_PALETTE_ID,
+} from '~/features/platform/showcase/model/showcaseSnapshot'
 import { ProfileSectionHeader } from './ProfileSectionHeader'
 
 const SECTION_TITLE = 'Tier list of tier lists'
@@ -32,7 +35,7 @@ const SHOWCASE_APPEARANCE: StaticBoardAppearance = {
   itemShape: 'square',
   compactMode: false,
   labelWidth: 'default',
-  paletteId: 'classic',
+  paletteId: SHOWCASE_PALETTE_ID,
   textStyleId: 'default',
   tierLabelBold: true,
   tierLabelItalic: false,

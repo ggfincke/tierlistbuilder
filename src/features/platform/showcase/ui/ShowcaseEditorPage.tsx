@@ -3,7 +3,7 @@
 // showcase. the global autosave is gated while this page owns the board store
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useMutation, useQuery } from 'convex/react'
+import { useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 
@@ -19,7 +19,6 @@ import {
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { BoardRenderOverridesProvider } from '~/features/workspace/boards/model/BoardRenderOverridesProvider'
 import { TierList } from '~/features/workspace/boards/ui/tier-list/TierList'
 import { ShowcasePool } from '~/features/platform/showcase/ui/ShowcasePool'
@@ -31,11 +30,16 @@ import {
 import {
   boardSnapshotToShowcaseSave,
   editShowcaseToSnapshot,
+  SHOWCASE_PALETTE_ID,
 } from '~/features/platform/showcase/model/showcaseSnapshot'
 import {
   enterShowcaseEditing,
   exitShowcaseEditing,
 } from '~/features/platform/showcase/model/showcaseSession'
+import {
+  createShowcaseSaveScheduler,
+  type ShowcaseSaveScheduler,
+} from '~/features/platform/showcase/model/showcaseSaveScheduler'
 
 const PAGE_CLASS =
   'relative z-10 mx-auto w-full max-w-[1320px] px-4 pb-24 pt-20 sm:px-8 sm:pt-24'
@@ -97,9 +101,12 @@ const ShowcaseEditorSkeleton = () => (
 
 export const ShowcaseEditorPage = () =>
 {
-  const editData = useQuery(api.platform.showcase.getMyProfileShowcase, {})
+  const auth = useConvexAuth()
+  const editData = useQuery(
+    api.platform.showcase.getMyProfileShowcase,
+    auth.isLoading ? 'skip' : {}
+  )
   const saveShowcase = useMutation(api.platform.showcase.saveProfileShowcase)
-  const paletteId = useCurrentPaletteId()
   const navigate = useNavigate()
 
   // pure derive — recomputing tiles on a reactive editData update is cheap; the
@@ -117,6 +124,7 @@ export const ShowcaseEditorPage = () =>
     tileModeOverride ?? editData?.tileMode ?? SHOWCASE_TILE_MODE_DEFAULT
   const tileModeRef = useRef(tileMode)
   const loadedRef = useRef(false)
+  const saveSchedulerRef = useRef<ShowcaseSaveScheduler | null>(null)
 
   useDocumentTitle('Your tier list')
 
@@ -125,6 +133,33 @@ export const ShowcaseEditorPage = () =>
   {
     tileModeRef.current = tileMode
   }, [tileMode])
+
+  const saveCurrentShowcase = useCallback(() =>
+  {
+    if (!loadedRef.current) return
+    const snapshot = extractBoardData(useActiveBoardStore.getState())
+    void saveShowcase(
+      boardSnapshotToShowcaseSave(snapshot, tileModeRef.current)
+    )
+  }, [saveShowcase])
+
+  useEffect(() =>
+  {
+    const scheduler = createShowcaseSaveScheduler(
+      saveCurrentShowcase,
+      SAVE_DEBOUNCE_MS
+    )
+    saveSchedulerRef.current = scheduler
+    return () =>
+    {
+      scheduler.flush()
+      scheduler.cancel()
+      if (saveSchedulerRef.current === scheduler)
+      {
+        saveSchedulerRef.current = null
+      }
+    }
+  }, [saveCurrentShowcase])
 
   // load the showcase into the shared board store exactly once
   useEffect(() =>
@@ -147,29 +182,17 @@ export const ShowcaseEditorPage = () =>
   // debounce-persist store edits to Convex (the local autosave is gated)
   useEffect(() =>
   {
-    let timeout: ReturnType<typeof setTimeout> | null = null
     const unsubscribe = useActiveBoardStore.subscribe(
       (state) => state,
       () =>
       {
         if (!loadedRef.current) return
-        if (timeout) clearTimeout(timeout)
-        timeout = setTimeout(() =>
-        {
-          const snapshot = extractBoardData(useActiveBoardStore.getState())
-          void saveShowcase(
-            boardSnapshotToShowcaseSave(snapshot, tileModeRef.current)
-          )
-        }, SAVE_DEBOUNCE_MS)
+        saveSchedulerRef.current?.schedule()
       },
       { equalityFn: boardDataFieldsEqual }
     )
-    return () =>
-    {
-      if (timeout) clearTimeout(timeout)
-      unsubscribe()
-    }
-  }, [saveShowcase])
+    return unsubscribe
+  }, [])
 
   const handleTileMode = useCallback(
     (mode: ShowcaseTileMode) =>
@@ -183,9 +206,15 @@ export const ShowcaseEditorPage = () =>
   )
 
   const handleAddTier = useCallback(
-    () => useActiveBoardStore.getState().addTier(paletteId),
-    [paletteId]
+    () => useActiveBoardStore.getState().addTier(SHOWCASE_PALETTE_ID),
+    []
   )
+
+  const handleDoneEditing = useCallback(() =>
+  {
+    saveSchedulerRef.current?.flush()
+    navigate(-1)
+  }, [navigate])
 
   const tiles = board?.render.tiles
   const renderValue = useMemo(
@@ -204,7 +233,7 @@ export const ShowcaseEditorPage = () =>
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={handleDoneEditing}
             aria-label="Done editing"
             className="focus-custom grid h-9 w-9 place-items-center rounded-lg border border-[var(--t-border)] text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
           >
@@ -229,7 +258,10 @@ export const ShowcaseEditorPage = () =>
       </div>
 
       <ShowcaseRenderContext.Provider value={renderValue}>
-        <BoardRenderOverridesProvider itemSize={SHOWCASE_ITEM_SIZE}>
+        <BoardRenderOverridesProvider
+          itemSize={SHOWCASE_ITEM_SIZE}
+          paletteId={SHOWCASE_PALETTE_ID}
+        >
           <TierList
             toolbar={<ShowcaseToolbar onAddTier={handleAddTier} />}
             toolbarPosition="bottom"

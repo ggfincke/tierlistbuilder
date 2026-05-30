@@ -9,6 +9,7 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import {
   type ProfileShowcaseEditData,
   type ProfileShowcaseSaveInput,
@@ -25,6 +26,10 @@ interface ShowcaseSnapshot
   snapshot: BoardSnapshot
   render: ShowcaseRenderState
 }
+
+// fixed palette for every showcase surface (editor & public profile) so tier
+// colors stay WYSIWYG & independent of the owner's workspace palette
+export const SHOWCASE_PALETTE_ID: PaletteId = 'classic'
 
 const toBoardTier = (tier: ShowcaseTier, itemIds: ItemId[]): Tier =>
 {
@@ -75,11 +80,16 @@ export const publicShowcaseToSnapshot = (
 {
   const items: Record<ItemId, TierItem> = {}
   const tiles = new Map<string, ShowcaseRankingTile>()
+  // board-unique invariant: a board maps to one item id, so skip duplicates
+  // that would emit a duplicate React/dnd key (hardens against contract drift)
+  const seenBoards = new Set<string>()
   const tiers = showcase.tiers.map((tier) =>
   {
     const itemIds: ItemId[] = []
     for (const tile of tier.tiles)
     {
+      if (seenBoards.has(tile.boardExternalId)) continue
+      seenBoards.add(tile.boardExternalId)
       itemIds.push(addLaneItem(items, tiles, tile))
     }
     return toBoardTier(tier, itemIds)
@@ -87,7 +97,7 @@ export const publicShowcaseToSnapshot = (
   return {
     snapshot: {
       title: '',
-      paletteId: 'classic',
+      paletteId: SHOWCASE_PALETTE_ID,
       tiers,
       unrankedItemIds: [],
       items,
@@ -107,10 +117,15 @@ export const editShowcaseToSnapshot = (
   const validTierIds = new Set(data.tiers.map((tier) => tier.externalId))
   const placedByTier = new Map<string, ItemId[]>()
   const unrankedItemIds: ItemId[] = []
+  // board-unique invariant: skip any duplicate board so it can't emit a
+  // duplicate item id (the backend dedupes, this hardens against drift)
+  const seenBoards = new Set<string>()
   // placements w/ a tierExternalId that no longer exists fall back to the pool
   // so the lane stays visible & active-count stays accurate
   for (const placed of data.placed)
   {
+    if (seenBoards.has(placed.boardExternalId)) continue
+    seenBoards.add(placed.boardExternalId)
     const id = addLaneItem(items, tiles, placed)
     if (!validTierIds.has(placed.tierExternalId))
     {
@@ -127,13 +142,15 @@ export const editShowcaseToSnapshot = (
 
   for (const tile of data.unranked)
   {
+    if (seenBoards.has(tile.boardExternalId)) continue
+    seenBoards.add(tile.boardExternalId)
     unrankedItemIds.push(addLaneItem(items, tiles, tile))
   }
 
   return {
     snapshot: {
       title: '',
-      paletteId: 'classic',
+      paletteId: SHOWCASE_PALETTE_ID,
       tiers,
       unrankedItemIds,
       items,

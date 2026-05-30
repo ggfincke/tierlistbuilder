@@ -172,28 +172,20 @@ export const BoardHeader = () =>
           </>
         )}
       </h1>
-      {/* Editorial meta row — sync chip + publish chip stacked horizontally
-          beneath the title. Hidden while inline-editing the title so the
-          chips don't jitter alongside a [field-sizing:content] input. */}
-      {!editing && (
-        <>
-          <SourceBreadcrumb
-            sourceTemplateId={sourceTemplateId}
-            sourceRankingId={sourceRankingId}
-            sourceTemplateTitle={sourceTemplateTitle}
-            sourceRankingTitle={sourceRankingTitle}
-          />
-          <div className="mt-2 flex items-center justify-center gap-2">
-            {activeBoardId && (
-              <BoardSyncBadge
-                boardId={activeBoardId}
-                boardTitle={displayTitle}
-              />
-            )}
-            <BoardPublishChip />
-          </div>
-        </>
-      )}
+      {/* Editorial meta row — source byline + sync/publish chips beneath the
+          title; stays visible while inline-editing so context isn't lost */}
+      <SourceBreadcrumb
+        sourceTemplateId={sourceTemplateId}
+        sourceRankingId={sourceRankingId}
+        sourceTemplateTitle={sourceTemplateTitle}
+        sourceRankingTitle={sourceRankingTitle}
+      />
+      <div className="mt-2 flex items-center justify-center gap-2">
+        {activeBoardId && (
+          <BoardSyncBadge boardId={activeBoardId} boardTitle={displayTitle} />
+        )}
+        <BoardPublishChip />
+      </div>
     </header>
   )
 }

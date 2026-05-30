@@ -5,7 +5,11 @@
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { saveActiveBoardSnapshot } from '~/features/workspace/boards/model/session/boardSessionPersistence'
-import { setShowcaseEditingActive } from '~/features/workspace/boards/model/session/boardSessionAutosave'
+import {
+  clearPendingAutosave,
+  runWithAutosaveSuppressed,
+  setShowcaseEditingActive,
+} from '~/features/workspace/boards/model/session/boardSessionAutosave'
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import {
   extractBoardSyncState,
@@ -34,13 +38,27 @@ export const enterShowcaseEditing = (showcase: BoardSnapshot): void =>
     saveActiveBoardSnapshot()
   }
   setShowcaseEditingActive(true)
-  useActiveBoardStore.getState().loadBoard(showcase)
+  // mirror loadBoardState: drop any pending timer & suppress the load's own
+  // autosave so borrowing the store never schedules a write
+  clearPendingAutosave()
+  runWithAutosaveSuppressed(() =>
+  {
+    useActiveBoardStore.getState().loadBoard(showcase)
+  })
 }
 
 export const exitShowcaseEditing = (): void =>
 {
   setShowcaseEditingActive(false)
-  if (!stashed) return
-  useActiveBoardStore.getState().loadBoard(stashed.snapshot, stashed.syncState)
+  const restore = stashed
+  if (!restore) return
   stashed = null
+  // same clear+suppress discipline: the restore-load must not schedule a write
+  clearPendingAutosave()
+  runWithAutosaveSuppressed(() =>
+  {
+    useActiveBoardStore
+      .getState()
+      .loadBoard(restore.snapshot, restore.syncState)
+  })
 }

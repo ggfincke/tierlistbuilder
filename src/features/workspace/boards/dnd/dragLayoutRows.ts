@@ -53,7 +53,7 @@ export interface RenderedCellLayout
 
 export type PointerCellHit =
   | { kind: 'cell'; flatIndex: number; itemId: ItemId }
-  | { kind: 'trailing-append' }
+  | { kind: 'append' }
 
 interface RowMoveResult
 {
@@ -81,9 +81,7 @@ export const sortByRenderedPosition = <
 
 // bin sorted items into visual rows by top within tolerance — shared by the row
 // layout (keyboard) & the cell layout (pointer) so the binning can't drift apart
-const groupIntoRows = <
-  T extends { itemId: ItemId; left: number; top: number },
->(
+const groupIntoRows = <T extends { itemId: ItemId; left: number; top: number }>(
   items: T[]
 ): T[][] =>
 {
@@ -166,7 +164,7 @@ export const buildRenderedCellLayout = (
   return { rows, rowCount: rows.length, cells, flatItemIds }
 }
 
-// snap a pointer to a fixed grid cell (or trailing append) using frozen geometry.
+// snap a pointer to a fixed grid cell or append slot using frozen geometry.
 // pure & feedback-free — same layout + pointer resolves to the same cell every
 // frame, which is what kills the wrap-boundary oscillation
 export const resolvePointerCell = (
@@ -194,8 +192,8 @@ export const resolvePointerCell = (
     band.indices.push(index)
   })
 
-  // row whose band contains the pointer, else the nearest row (clamped) so an
-  // in-container pointer never yields a dead frame
+  // row whose band contains the pointer, else nearest row; below final row
+  // resolves to the synthetic append slot
   let rowIndex = bands.findIndex(
     (band) => pointer.y >= band.top && pointer.y <= band.bottom
   )
@@ -207,7 +205,7 @@ export const resolvePointerCell = (
     }
     else if (pointer.y > bands[rowCount - 1].bottom)
     {
-      rowIndex = rowCount - 1
+      return { kind: 'append' }
     }
     else
     {
@@ -238,7 +236,7 @@ export const resolvePointerCell = (
     }
     if (pointer.x > rightmost)
     {
-      return { kind: 'trailing-append' }
+      return { kind: 'append' }
     }
   }
 
@@ -344,7 +342,7 @@ export const resolveColumnAwareCrossContainerIndexFromLayouts = (
   return { targetIndex, targetItemId }
 }
 
-export const isPointerInTrailingLastRowSpace = ({
+export const isPointerInVisualAppendSpace = ({
   pointerCoordinates,
   itemRects,
 }: {
@@ -377,8 +375,9 @@ export const isPointerInTrailingLastRowSpace = ({
   }
 
   return (
-    pointerCoordinates.y >= rowTop &&
-    pointerCoordinates.y <= rowBottom &&
-    pointerCoordinates.x >= rightmostEdge
+    (pointerCoordinates.y >= rowTop &&
+      pointerCoordinates.y <= rowBottom &&
+      pointerCoordinates.x >= rightmostEdge) ||
+    pointerCoordinates.y > rowBottom
   )
 }

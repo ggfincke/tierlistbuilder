@@ -313,12 +313,14 @@ export const createInitialBoardData = (
 })
 
 // build a single new tier w/ a generated ID & auto-assigned palette color
+// name defaults to "Tier N+1"; callers pass a continued series name
 export const createNewTier = (
   paletteId: PaletteId,
-  tierCount: number
+  tierCount: number,
+  name = `Tier ${tierCount + 1}`
 ): Tier => ({
   id: generateTierId(),
-  name: `Tier ${tierCount + 1}`,
+  name,
   colorSpec: getAutoTierColorSpec(paletteId, tierCount),
   itemIds: [],
 })

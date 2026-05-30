@@ -9,8 +9,10 @@ import { useShallow } from 'zustand/react/shallow'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { useBoardItemSize } from '~/features/workspace/boards/model/boardRenderOverrides'
-import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import {
+  useBoardItemSize,
+  useBoardPaletteId,
+} from '~/features/workspace/boards/model/boardRenderOverrides'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
@@ -32,7 +34,7 @@ interface DragOverlayTierRowProps
 export const DragOverlayTierRow = memo(
   ({ tier, width, height }: DragOverlayTierRowProps) =>
   {
-    const paletteId = useCurrentPaletteId()
+    const paletteId = useBoardPaletteId()
     const boardAspectRatio = useActiveBoardStore((state) =>
       getBoardItemAspectRatio(state)
     )

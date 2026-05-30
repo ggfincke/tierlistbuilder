@@ -104,6 +104,7 @@ export const useDragAndDrop = () =>
   const currentTierIdsRef = useRef<ReadonlySet<string>>(new Set())
   const cellSessionRef = useRef<DragLayoutSession | null>(null)
   const frozenOverRef = useRef<{ id: string; rect: ClientRect } | null>(null)
+  const multiDragFrameRef = useRef<number | null>(null)
 
   const sensors = useDragSensors()
 
@@ -199,6 +200,11 @@ export const useDragAndDrop = () =>
     {
       consumePendingPreview()
       cancelMovedReset()
+      if (multiDragFrameRef.current !== null)
+      {
+        cancelAnimationFrame(multiDragFrameRef.current)
+        multiDragFrameRef.current = null
+      }
     },
     []
   )
@@ -248,6 +254,11 @@ export const useDragAndDrop = () =>
   {
     consumePendingPreview()
     cancelMovedReset()
+    if (multiDragFrameRef.current !== null)
+    {
+      cancelAnimationFrame(multiDragFrameRef.current)
+      multiDragFrameRef.current = null
+    }
     lastOverIdRef.current = null
     movedToNewContainerRef.current = false
     initialRectRef.current = null
@@ -323,8 +334,9 @@ export const useDragAndDrop = () =>
     // multi-drag strips secondary tiles -> recapture once that reflow commits
     if (groupCount > 1)
     {
-      requestAnimationFrame(() =>
+      multiDragFrameRef.current = requestAnimationFrame(() =>
       {
+        multiDragFrameRef.current = null
         if (activeDragRef.current.kind === 'item')
         {
           cellSessionRef.current = captureDragLayoutSession(

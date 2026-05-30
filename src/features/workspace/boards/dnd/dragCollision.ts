@@ -20,7 +20,7 @@ import {
   getItemsInContainer,
 } from '~/features/workspace/boards/dnd/dragSnapshot'
 import {
-  isPointerInTrailingLastRowSpace,
+  isPointerInVisualAppendSpace,
   resolvePointerCell,
 } from '~/features/workspace/boards/dnd/dragLayoutRows'
 import {
@@ -56,7 +56,7 @@ const resolveFrozenOver = (
     return null
   }
 
-  if (hit.kind === 'trailing-append')
+  if (hit.kind === 'append')
   {
     return { id: containerId, rect: null }
   }
@@ -199,7 +199,7 @@ export const resolveDragCollisions = (
 
         if (
           args.pointerCoordinates &&
-          isPointerInTrailingLastRowSpace({
+          isPointerInVisualAppendSpace({
             pointerCoordinates: args.pointerCoordinates,
             itemRects: nonActiveChildRects,
           })

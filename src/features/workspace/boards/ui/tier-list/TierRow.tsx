@@ -26,11 +26,13 @@ import {
   getPaletteColors,
   resolveTierColorSpec,
 } from '~/shared/theme/tierColors'
-import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { useBoardItemSize } from '~/features/workspace/boards/model/boardRenderOverrides'
+import {
+  useBoardItemSize,
+  useBoardPaletteId,
+} from '~/features/workspace/boards/model/boardRenderOverrides'
 import { useBoardItemRenderSettings } from '~/features/workspace/boards/model/useBoardItemRenderSettings'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import { tierContainerTestId } from '~/shared/board-ui/boardTestIds'
@@ -103,7 +105,7 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
       hideRowControls: state.hideRowControls,
     }))
   )
-  const paletteId = useCurrentPaletteId()
+  const paletteId = useBoardPaletteId()
   const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
     itemSize,
     boardAspectRatio

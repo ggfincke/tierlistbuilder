@@ -15,9 +15,10 @@ interface BoardRenderOverridesProviderProps extends BoardRenderOverrides
 export const BoardRenderOverridesProvider = ({
   children,
   itemSize = null,
+  paletteId = null,
 }: BoardRenderOverridesProviderProps) =>
 {
-  const value = useMemo(() => ({ itemSize }), [itemSize])
+  const value = useMemo(() => ({ itemSize, paletteId }), [itemSize, paletteId])
   return (
     <BoardRenderOverridesContext.Provider value={value}>
       {children}
