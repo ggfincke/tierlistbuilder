@@ -11,7 +11,7 @@ import type {
 export interface ShowcaseRenderState
 {
   tileMode: ShowcaseTileMode
-  // keyed by showcaseLaneKey(templateId, criterionExternalId)
+  // keyed by board externalId
   tiles: Map<string, ShowcaseRankingTile>
   // optional per-tile link wrapper — the read-only profile supplies a router
   // Link; the editor omits it (tiles are draggable, not links)

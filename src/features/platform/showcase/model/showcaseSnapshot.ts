@@ -10,7 +10,6 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
 import {
-  showcaseLaneKey,
   type ProfileShowcaseEditData,
   type ProfileShowcaseSaveInput,
   type PublicProfileShowcase,
@@ -42,18 +41,14 @@ const toBoardTier = (tier: ShowcaseTier, itemIds: ItemId[]): Tier =>
 
 const toBoardItem = (lane: ShowcaseItemRef): { id: ItemId; item: TierItem } =>
 {
-  const id = showcaseLaneKey(
-    lane.templateId,
-    lane.criterionExternalId
-  ) as ItemId
+  const id = lane.boardExternalId as ItemId
   return {
     id,
     item: {
       id,
       label: lane.title,
       showcaseRanking: {
-        templateId: lane.templateId,
-        criterionExternalId: lane.criterionExternalId,
+        boardExternalId: lane.boardExternalId,
         rankingSlug: lane.rankingSlug,
         title: lane.title,
       },
@@ -174,8 +169,7 @@ export const boardSnapshotToShowcaseSave = (
       if (!ranking) continue
       placements.push({
         tierExternalId: tier.id,
-        templateId: ranking.templateId,
-        criterionExternalId: ranking.criterionExternalId,
+        boardExternalId: ranking.boardExternalId,
         order,
       })
       order += 1

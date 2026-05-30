@@ -10,7 +10,6 @@ import type {
   MediaPlate,
   ShowcaseItemRef,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { showcaseLaneKey } from '@tierlistbuilder/contracts/platform/showcase'
 import {
   getRenderImageRefs,
   hasAnyImageRef,
@@ -94,14 +93,11 @@ export const ItemContent = ({
   const imageUrl = item.imageUrl ?? cachedUrl
 
   // showcase tile: draw the ranking's cover / mini board from context, keyed by
-  // lane. every hook above runs unconditionally so this branch stays hook-safe
+  // board externalId. every hook above runs unconditionally so this stays hook-safe
   if (item.showcaseRanking)
   {
     const ranking = item.showcaseRanking
-    const tile =
-      showcaseState?.tiles.get(
-        showcaseLaneKey(ranking.templateId, ranking.criterionExternalId)
-      ) ?? null
+    const tile = showcaseState?.tiles.get(ranking.boardExternalId) ?? null
     const content = (
       <ShowcaseTileContent
         tile={tile}

@@ -13,15 +13,27 @@ import {
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { getOrderedContainerIds } from '~/features/workspace/boards/dnd/dragSnapshot'
 import {
-  buildRenderedRowLayout,
+  buildRenderedCellLayout,
   sortByRenderedPosition,
-  type RenderedItemPosition,
+  type RenderedCellLayout,
+  type RenderedItemBox,
   type RenderedRowLayout,
 } from '~/features/workspace/boards/dnd/dragLayoutRows'
 
 interface RenderedContainerLayout
 {
   rowLayout: RenderedRowLayout
+  cellLayout: RenderedCellLayout
+  // container client rect at capture — lets the pointer rebase into cell space
+  // when the grid scrolls mid-drag
+  origin: { left: number; top: number }
+}
+
+// frozen cell geometry for one container handed to pointer collision
+export interface FrozenCellLayout
+{
+  cellLayout: RenderedCellLayout
+  origin: { left: number; top: number }
 }
 
 export interface DragLayoutSession
@@ -42,7 +54,7 @@ const getContainerSelector = (containerId: string): string =>
 
 const getPositionedItemsFromElement = (
   containerElement: Element | null
-): RenderedItemPosition[] | null =>
+): RenderedItemBox[] | null =>
 {
   if (!containerElement)
   {
@@ -66,7 +78,9 @@ const getPositionedItemsFromElement = (
         itemId: asItemId(itemId),
         left: rect.left,
         top: rect.top,
-      } satisfies RenderedItemPosition,
+        right: rect.right,
+        bottom: rect.bottom,
+      } satisfies RenderedItemBox,
     ]
   })
 
@@ -84,23 +98,36 @@ export const captureRenderedContainerLayout = (
     return null
   }
 
-  const positionedItems = getPositionedItemsFromElement(
-    document.querySelector(getContainerSelector(containerId))
+  const containerElement = document.querySelector(
+    getContainerSelector(containerId)
   )
+
+  if (!containerElement)
+  {
+    return null
+  }
+
+  const positionedItems = getPositionedItemsFromElement(containerElement)
 
   if (!positionedItems)
   {
     return null
   }
 
-  const rowLayout = buildRenderedRowLayout(positionedItems)
+  const cellLayout = buildRenderedCellLayout(positionedItems)
 
-  if (!rowLayout)
+  if (!cellLayout)
   {
     return null
   }
 
-  return { rowLayout }
+  const rect = containerElement.getBoundingClientRect()
+
+  return {
+    rowLayout: { rows: cellLayout.rows, rowCount: cellLayout.rowCount },
+    cellLayout,
+    origin: { left: rect.left, top: rect.top },
+  }
 }
 
 export const captureDragLayoutSession = (
@@ -155,4 +182,28 @@ export const createDragRowLayoutLookup = (
   }
 
   return (containerId) => getDragLayoutRowLayout(session, containerId)
+}
+
+export type DragCellLayoutLookup = (
+  containerId: string
+) => FrozenCellLayout | null
+
+export const NO_DRAG_CELL_LAYOUT_LOOKUP: DragCellLayoutLookup = () => null
+
+export const createDragCellLayoutLookup = (
+  session: DragLayoutSession | null
+): DragCellLayoutLookup =>
+{
+  if (!session)
+  {
+    return NO_DRAG_CELL_LAYOUT_LOOKUP
+  }
+
+  return (containerId) =>
+  {
+    const entry = session.containers.get(containerId)
+    return entry
+      ? { cellLayout: entry.cellLayout, origin: entry.origin }
+      : null
+  }
 }
