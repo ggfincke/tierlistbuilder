@@ -4,9 +4,7 @@
 import { Layers } from 'lucide-react'
 import { useMemo } from 'react'
 
-import {
-  type MarketplaceTemplateDetail,
-} from '@tierlistbuilder/contracts/marketplace/template'
+import { type MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
 import {
   isTemplateRankingAggregateReady as isAggregateReady,
   type MarketplaceTemplateRankingAggregate,
@@ -68,10 +66,7 @@ const NotFound = () => (
 )
 
 const DetailSkeleton = () => (
-  <section
-    aria-hidden="true"
-    className={PAGE_DETAIL_TOP_LEVEL}
-  >
+  <section aria-hidden="true" className={PAGE_DETAIL_TOP_LEVEL}>
     <SkeletonText className="w-48" tone="soft" />
     <div className="mt-5 grid gap-6 lg:grid-cols-[1.25fr_0.95fr_320px]">
       <SkeletonBlock className="h-72 rounded-lg sm:h-80 lg:h-[32rem]" />

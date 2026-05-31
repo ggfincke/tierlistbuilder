@@ -124,9 +124,7 @@ export const WorkspaceShell = () =>
   }, [activeBoardId, cloudEnabled, openModal])
   if (!appReady)
   {
-    return (
-      <main id="app-shell" className={WORKSPACE_SHELL_CLASS} />
-    )
+    return <main id="app-shell" className={WORKSPACE_SHELL_CLASS} />
   }
 
   return (

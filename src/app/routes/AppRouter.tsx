@@ -74,9 +74,7 @@ const RankingsIndexPage = lazyNamed(
 
 // matches the page-color shell each lazy chunk applies once mounted, so users
 // don't see a white flash while the JS arrives
-const RouteFallback = () => (
-  <main className={AMBIENT_PAGE_CLASS} />
-)
+const RouteFallback = () => <main className={AMBIENT_PAGE_CLASS} />
 
 const routerBasename = normalizeBasePath() || '/'
 

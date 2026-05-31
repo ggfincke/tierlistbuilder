@@ -6,9 +6,7 @@ import { ArrowLeft, ArrowLeftRight } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import {
-  type MarketplaceTemplateDetail,
-} from '@tierlistbuilder/contracts/marketplace/template'
+import { type MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import {
   isTemplateRankingAggregateReady as isAggregateReady,
@@ -145,10 +143,7 @@ const NotFound = () => (
 )
 
 const PageSkeleton = () => (
-  <section
-    aria-hidden="true"
-    className={PAGE_DETAIL_TOP_LEVEL}
-  >
+  <section aria-hidden="true" className={PAGE_DETAIL_TOP_LEVEL}>
     <SkeletonBlock className="h-4 w-48 rounded" tone="soft" />
     <SkeletonBlock className="mt-5 h-9 w-2/3 rounded" tone="strong" />
     <SkeletonBlock className="mt-2 h-4 w-1/2 rounded" tone="soft" />
@@ -523,9 +518,7 @@ export const TemplateComparePage = () =>
   if (route.status === 'loading') return <PageSkeleton />
 
   const detail = route.detail
-  const activeCriteria = detail.criteria.filter(
-    (c) => c.status === 'active'
-  )
+  const activeCriteria = detail.criteria.filter((c) => c.status === 'active')
   if (activeCriteria.length < 2) return <NotFound />
 
   const selection = resolveSelection(
