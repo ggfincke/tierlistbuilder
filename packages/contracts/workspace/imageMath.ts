@@ -1,5 +1,6 @@
 // packages/contracts/workspace/imageMath.ts
 // pure image-transform & auto-crop math shared by browser-facing modules
+// mirrored by scripts/seed_pipeline/seed_pipeline/crop.py for seed-time assets
 
 import type { ImageFit, ItemTransform } from './board'
 import {
@@ -297,10 +298,10 @@ const COLOR_CONTENT_DISTANCE_SQ = 32 * 32
 // blow up zoom on a near-empty image
 const MIN_BBOX_AREA_FRACTION = 0.01
 
-// fraction of image dimensions added on each side as breathing room.
-// applied AFTER content detection but BEFORE the transform math so the
-// resulting zoom naturally leaves a small margin around the content
-const DEFAULT_PADDING_FRACTION = 0.01
+// auto-crop now fits detected content tight to the cell; breathing room is
+// owned by the orthogonal per-item/board `imagePadding` frame inset. kept as a
+// tunable param on bboxToItemTransform but defaulted off
+const DEFAULT_PADDING_FRACTION = 0
 
 export interface AutoCropBBox
 {
@@ -310,6 +311,11 @@ export interface AutoCropBBox
   top: number
   right: number
   bottom: number
+}
+
+export interface PadBBoxOptions
+{
+  clamp?: boolean
 }
 
 interface AutoCropPixelData
@@ -711,9 +717,22 @@ export const bboxToItemTransform = (
   })
 }
 
-const padBBox = (bbox: AutoCropBBox, padding: number): AutoCropBBox =>
+export const padBBox = (
+  bbox: AutoCropBBox,
+  padding: number,
+  options: PadBBoxOptions = {}
+): AutoCropBBox =>
 {
   if (padding <= 0) return bbox
+  if (options.clamp === false)
+  {
+    return {
+      left: bbox.left - padding,
+      top: bbox.top - padding,
+      right: bbox.right + padding,
+      bottom: bbox.bottom + padding,
+    }
+  }
   return {
     left: clamp(bbox.left - padding, 0, 1),
     top: clamp(bbox.top - padding, 0, 1),
