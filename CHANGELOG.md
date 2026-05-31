@@ -7,17 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-05-31
+
 ### Added
 
-- **Convex Backend Foundation**: First-pass cloud backend — `convex/` schema, auth (Convex Auth w/ email+password), boards CRUD w/ cascade delete, marketplace template publish/clone/seed, media uploads w/ signed envelopes & three-variant pipeline, user preferences cloud sync, short-link share resolution, tier preset cloud sync, recently-deleted retention window, daily GC cron, & rate-limited mutations
-- **Auth UI**: Sign-in modal (email+password), account modal w/ profile, sessions, & danger zone, sign-in prompt store gating cloud-only actions
-- **Cloud Sync Plumbing**: Per-feature cloud merge/pull/flush runners w/ debounced scheduler, sidecar metadata, ownership filters, cross-tab sync lock, sync status store + visuals, conflict queue, recently-deleted modal, & first-login local→cloud bootstrap
-- **My Lists**: `/boards` library page wired to `getMyLibraryBoards` Convex query — projects counts, derived status (incl. `syncing` / `failed` clone-from-template states), visibility, source-template category, top-5 tier colorSpecs, per-tier counts, & top-18 cover-item labels
-- **Board Cards**: Cover artwork (initials mosaic over `--t-media-matte`, draft-pattern for empty boards), tier-color progress bar, status pill, visibility chip, hover CTA per status
-- **Sync Status Indicator**: Per-board badge & global indicator surfacing localOnly / cloudBacked / syncPausedForPlan + clone progress
-- **Marketplace (Backend)**: `marketplace/{templates,rankings}` Convex namespaces — gallery query, paginated items, draft rail, publish from board, clone-to-board w/ media re-upload, ranking publish/remix, rolling trending metrics, owner management reads, and seed script
-- **Marketplace (Frontend)**: Routed `/templates` and `/rankings/:slug` surfaces w/ gallery rails, template detail community rankings, ranking publish gating, ranking detail, remix CTA, account template management, and workspace gallery entry points
-- **Media Plates**: Transparent-logo backdrop system — per-board `autoPlate` (off / auto / uniform w/ custom color), a per-item `backgroundColor` that always wins, and a per-item/board `imagePadding` plate inset that floats logos off the plate edge. Seed pipeline auto-detects per-logo plates via WCAG ink contrast + a new `audit` command for choosing per-board policy from data; threaded through board, cover/Mosaic, consensus, and ranking surfaces, with consensus & ranking views pulling the source template's display policy live
+- **Convex App Backend**: Committed the full `convex/` app: schema + validators, Convex Auth email/password setup, generated API files, HTTP auth routes, shared auth/permission/rate-limit/storage helpers, cron cleanup, local auth bootstrap, and backend docs/env defaults
+- **Account, Profile, and Showcase Platform**: Added cloud user records, public profile reads, avatar upload, password/session management, profile-authored template lists, and `/tier-list` showcase persistence backed by Convex
+- **Workspace Cloud Sync**: Added cloud board CRUD/upsert/load paths, bounded row reads, conflict queueing, pending-sync recovery, per-board sidecar metadata, cross-tab sync locks, first-login local-to-cloud bootstrap, and active cloud-board activation
+- **Cloud-Backed Library**: Wired `/boards` to Convex-backed library summaries including project/tier/item counts, sync/clone status, visibility, source-template category, top tier colors, and cover item labels
+- **Preferences and Tier Preset Sync**: Added cloud merge/pull/flush flows for platform preferences and reusable tier presets, with first-login merge invariants and independent retry/debounce behavior
+- **Marketplace Templates**: Added Convex-backed template publish/update/use flows, gallery/detail queries, draft/progress reads, owner management, clone-to-board jobs, media re-upload, criteria validation, curation, bookmarks, and template trending metrics
+- **Marketplace Rankings and Consensus**: Added ranking publish/remix flows, multi-criterion consensus data, aggregate/trending jobs, ranking seed rows, compare/remix support, view tracking, and activation/rollback lifecycle for seed-owned rankings
+- **Media Upload and Storage Pipeline**: Added signed upload envelopes, sha256 content dedupe, preview/tile/source media variants, upload/finalize validation, storage cleanup, source-media reuse, and rate-limited media mutations
+- **Media Plates and Display Policy**: Added transparent-logo plate rendering with per-board `autoPlate`, per-item `backgroundColor`, and per-board/per-item `imagePadding`, threaded through board tiles, covers, marketplace mosaics, consensus, rankings, export, JSON, and seed data
+- **Short-Link Sharing and Recovery**: Added cloud short-link snapshot sharing with TTL, listing, non-revealing revoke, recent shares, and recently-deleted board recovery
+- **Seed and Release Tooling**: Added the Python seed pipeline for marketplace template/ranking manifests, sidecars, media upload, content hashes, diff/preflight/apply/verify/cleanup, activation/rollback, report output, dev reset, and featured trio promotion
+
+### Changed
+
+- **Cloud UI Integration**: Marketplace, profile, settings, showcase, sharing, top nav account chrome, workspace sync badges, and board-library surfaces now use Convex-backed repositories, signed media, and cloud ownership gates
+- **Shared Contracts**: Expanded `packages/contracts` for cloud boards, upload envelopes, media, profiles, showcase, marketplace rankings/templates, seed pipeline payloads, tier presets, public tiers, sha256, and string helpers
+- **Board and Image Data Model**: Reworked board snapshots, wire mapping, local image refs, export/import, share payloads, render overrides, label preferences, and source-template fields to preserve cloud media and marketplace display settings
+- **Routing and App Shell**: Registered profile/settings/showcase/marketplace routes, made route builders base-path aware, moved account management out of the top-nav modal, and added signed-out/library not-found states
+- **Seed Data Shape**: Reorganized seed templates into per-folder manifests, added schema parity checks, ranking profiles, display-policy audit data, release-scoped rows, and idempotent release activation semantics
+- **Testing and Tooling**: Broadened Convex integration coverage, seed-pipeline unit tests, cloud mapper/scheduler tests, route tests, e2e guardrails, CI env hygiene, security-header checks, bundle reporting, and dead-code/comment-style tooling
+
+### Fixed
+
+- **Sync Correctness**: Hardened cloud sync atomicity, auth-epoch cleanup, online/offline gating, conflict handling, pending-owner tracking, local fork behavior, and stale clean-board refresh after reactivation
+- **Board and Drag Reliability**: Tightened board snapshot edge cases, drag preview/session behavior, keyboard navigation, tier move targeting, export item limits, image editor draft flushing, and aspect-ratio defaults
+- **Marketplace Reliability**: Tightened ranking/media publish gates, clone/remix failure states, fork rate limits, template tier validation, aggregate queue bounds, stale row cleanup, and source display-policy resolution
+- **Seed and Dev Reset Reliability**: Hardened seed verification diagnostics, content-hash comparisons, storage upload cleanup, OCC/write-throttle handling, lock release, reset pagination, and local reset authorization
+
+### Security
+
+- **Backend Hardening**: Added scoped and costed rate-limit buckets, ownership/visibility checks, upload token binding, bounded reads/writes, cascade cleanup, transaction-limit-aware jobs, and safer user projection/upsert paths
+- **Operational Guardrails**: Gated dev reset and seed routes behind explicit env flags/secrets, added non-revealing short-link revoke behavior, and validated ranking/media/board/share inputs before mutation
+
+## [0.10.0] - 2026-05-31
+
+### Added
+
+- **Marketplace**: Routed `/templates` gallery & `/rankings/:slug` surfaces — discovery rails & hero, template detail, ranking detail & compare w/ consensus views (bars, heatmap, scatter, tier rows), remix & use-template flows, cover image editor/crop (react-easy-crop), & publish modals for templates & rankings (#47)
+- **Profiles**: Public `/u/:handle` pages w/ profile header, authored templates, & showcase view (#47)
+- **Showcase Editor**: `/tier-list` "tier list of tier lists" profile showcase — editor page, pool, snapshot, & debounced save scheduler (#47)
+- **Account Settings**: `/settings` route w/ account, profile, appearance, privacy, & data panels (#47)
+- **Auth UI**: Sign-in modal (email+password), account sessions & danger zone, profile draft & avatar upload, & a sign-in prompt store gating cloud-only actions (#47)
+- **Short-Link Sharing**: `shortLinkCodec` & share repository for compact share URLs, w/ a recent-shares modal (#47)
+- **Image Editor**: Padding slider w/ debounced drafts, bulk aspect-ratio across items, & post-label auto-crop (#47)
+
+### Changed
+
+- **Self-Hosted Fonts**: Bundled `@fontsource` variable families (Inter, JetBrains Mono, Nunito, Outfit, Source Serif 4) + Bungee replace the Google Fonts CDN preload & runtime caching — no 3rd-party roundtrip on first paint (#47)
+- **Board Render Overrides**: `BoardRenderOverridesProvider` & per-item render settings drive mosaic / plate / showcase tile rendering across cover, consensus, & showcase surfaces (#47)
+- **Shared UI Primitives**: New `AmbientPageShell`, `PageState`, `NotFoundSurface`, `Avatar` (replaces `InitialAvatar`), `CopyButton`, `IconButton`, `ToggleButton`, `RelativeTime`, & settings chrome (`SegmentedChoice`, `OverrideColorRow`, `SettingsChrome`) (#47)
+- **Library Restructure**: `library/components` → `library/ui` (cards, chips, chrome, list, modals); new `useBoardsLibrary`, `boardClickHandler`, density layout, & signed-out state (#47)
+- **Contracts**: Collapsed per-path exports to a single `./*` glob; added platform `profile` / `showcase` schemas & lib `publicTier` / `sha256` / `strings`; dropped the workspace `settings` contract (#47)
+- **App Shell**: Profile / settings / showcase routes registered; `AppTopNav` relocated into the `topNav/` shell (#47)
+- **Lint**: File-header rule now covers `scripts/**`; comment-style ampersand/with checks table-driven; screenshots script gains per-section output (#47)
+
+### Removed
+
+- **Dead Hooks & Helpers**: `useConfirmationGate`, `usePointInTimeQuery`, `useViewportWidth`, `proceedGuard`, `libraryBoardAria`, & the monolithic `autoCrop` module (split into `shared/lib/autoCrop/`) (#47)
 
 ## [0.9.0] - 2026-05-18
 
