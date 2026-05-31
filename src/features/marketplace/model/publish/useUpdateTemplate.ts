@@ -1,0 +1,71 @@
+// src/features/marketplace/model/publish/useUpdateTemplate.ts
+// orchestrates the template-edit flow — optional cover replacement, server
+// metadata patch, success toast, & callback so callers can refresh
+
+import { useCallback } from 'react'
+
+import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  useUpdateMyTemplateMetaMutation,
+  type UpdateMyTemplateMetaArgs,
+} from '~/features/marketplace/data/templatesRepository'
+import { resolveCoverMediaExternalId } from '~/features/marketplace/model/publish/coverMedia'
+import { useMarketplaceAsyncAction } from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
+import { toast } from '~/shared/notifications/useToastStore'
+
+interface UpdateTemplateInput extends Omit<
+  UpdateMyTemplateMetaArgs,
+  'coverMediaExternalId' | 'coverFraming'
+>
+{
+  coverFile: File | null
+  removeCover: boolean
+  // undefined keeps the existing framing untouched on the server. pass null to
+  // clear (cover removal already nulls it server-side); pass a value to set
+  coverFraming?: TemplateCoverFraming | null
+}
+
+interface UpdateTemplateAction
+{
+  run: (input: UpdateTemplateInput) => Promise<{ slug: string } | null>
+  isPending: boolean
+  error: string | null
+}
+
+export const useUpdateTemplate = (): UpdateTemplateAction =>
+{
+  const updateMutation = useUpdateMyTemplateMetaMutation()
+
+  const update = useCallback(
+    async (input: UpdateTemplateInput): Promise<{ slug: string }> =>
+    {
+      const coverMediaExternalId = await resolveCoverMediaExternalId({
+        coverFile: input.coverFile,
+        removeCover: input.removeCover,
+      })
+
+      await updateMutation({
+        slug: input.slug,
+        title: input.title,
+        description: input.description,
+        category: input.category,
+        tags: input.tags,
+        visibility: input.visibility,
+        creditLine: input.creditLine,
+        coverMediaExternalId,
+        coverFraming: input.coverFraming,
+      })
+
+      toast(`Saved "${input.title ?? input.slug}"`, 'success')
+      return { slug: input.slug }
+    },
+    [updateMutation]
+  )
+
+  const { run, isPending, error } = useMarketplaceAsyncAction<
+    [UpdateTemplateInput],
+    { slug: string }
+  >('updateMyTemplateMeta failed', update)
+
+  return { run, isPending, error }
+}
