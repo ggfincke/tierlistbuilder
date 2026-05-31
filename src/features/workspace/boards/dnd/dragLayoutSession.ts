@@ -186,7 +186,7 @@ export type DragCellLayoutLookup = (
   containerId: string
 ) => FrozenCellLayout | null
 
-export const NO_DRAG_CELL_LAYOUT_LOOKUP: DragCellLayoutLookup = () => null
+const NO_DRAG_CELL_LAYOUT_LOOKUP: DragCellLayoutLookup = () => null
 
 export const createDragCellLayoutLookup = (
   session: DragLayoutSession | null

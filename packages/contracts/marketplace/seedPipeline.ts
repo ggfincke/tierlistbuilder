@@ -16,22 +16,11 @@ import type {
 } from '../workspace/board'
 import type { TierPresetTier } from '../workspace/tierPreset'
 
-export const SEED_MANIFEST_SCHEMA_VERSION = 1
-
 // canonical seed content-hash format. Convex (TS) & Python MUST produce
 // byte-identical hashes for the same input: canonical JSON for {kind, payload};
 // sha256 utf-8 bytes; versioned truncated digest.
 export const SEED_CONTENT_HASH_VERSION = 'v1' as const
 export const SEED_CONTENT_HASH_HEX_LENGTH = 32
-
-export const SEED_LABEL_POLICIES = [
-  'explicit-required',
-  'explicit-or-filename-fallback',
-  'filename-derived',
-  'hidden',
-] as const
-
-export type SeedLabelPolicy = (typeof SEED_LABEL_POLICIES)[number]
 
 export const SEED_RUN_STATUSES = [
   'building',
@@ -62,172 +51,7 @@ export const SEED_RANKING_RELEASE_STATUSES = [
 export type SeedRankingReleaseStatus =
   (typeof SEED_RANKING_RELEASE_STATUSES)[number]
 
-export const SEED_REMOVAL_ACTIONS = ['absentFromRelease', 'hardDelete'] as const
-
-export type SeedRemovalAction = (typeof SEED_REMOVAL_ACTIONS)[number]
-
-export const SEED_RATIO_SOURCES = [
-  'consistent',
-  'mixed-dominant',
-  'mixed-square',
-] as const
-
-export type SeedRatioSource = (typeof SEED_RATIO_SOURCES)[number]
-
-export interface SeedReleaseIdentity
-{
-  datasetKey: string
-  releaseId: string
-}
-
-export interface SeedRunIdentity extends SeedReleaseIdentity
-{
-  runId: string
-}
-
-export type SeedRunRequest = SeedRunIdentity
-
-export interface SeedManifestItemInput
-{
-  externalId: string
-  image: string
-  label?: string
-}
-
-export interface SeedManifestTemplateInput
-{
-  externalId: string
-  folder: string
-  title: string
-  category: TemplateCategory
-  description: string | null
-  tags: string[]
-  visibility: TemplateVisibility
-  labelPolicy: SeedLabelPolicy
-  labels?: BoardLabelSettings
-  coverImage?: string
-  coverZoom?: number
-  suggestedTiers?: readonly TierPresetTier[]
-  criteria: readonly MarketplaceTemplateCriterion[]
-  items: readonly SeedManifestItemInput[]
-}
-
-export interface SeedSourceManifest
-{
-  schemaVersion: typeof SEED_MANIFEST_SCHEMA_VERSION
-  datasetKey: string
-  releaseId: string
-  authorEmail: string
-  templates: readonly SeedManifestTemplateInput[]
-}
-
-export interface SeedVariantDescriptor
-{
-  kind: Extract<MediaVariantKind, 'tile' | 'preview' | 'editor'>
-  path: string
-  contentHash: string
-  mimeType: SupportedImageMimeType
-  byteSize: number
-  width: number
-  height: number
-  cacheKey: string
-}
-
-export interface SeedCropDescriptor
-{
-  left: number
-  top: number
-  right: number
-  bottom: number
-}
-
-export interface SeedCompiledAsset
-{
-  sourcePath: string
-  sourcePathRelative: string
-  sourceSha256: string
-  sourceMimeType: SupportedImageMimeType
-  sourceByteSize: number
-  sourceWidth: number
-  sourceHeight: number
-  sourceAspectRatio: number
-  crop: SeedCropDescriptor | null
-  dedupeHash: string
-  variants: {
-    tile: SeedVariantDescriptor
-    preview: SeedVariantDescriptor
-    editor: SeedVariantDescriptor
-  }
-}
-
-export interface SeedCompiledItem
-{
-  externalId: string
-  order: number
-  image: string
-  label: string | null
-  aspectRatio: number
-  transform: ItemTransform | null
-  mediaPlate: MediaPlate | null
-  imagePadding: number | null
-  // curated per-item backdrop; present only when authored (mirrors compiled output)
-  backgroundColor?: string
-  asset: SeedCompiledAsset
-}
-
-export interface SeedCompiledTemplate
-{
-  externalId: string
-  folder: string
-  title: string
-  category: TemplateCategory
-  description: string | null
-  tags: string[]
-  visibility: TemplateVisibility
-  labelPolicy: SeedLabelPolicy
-  labels?: BoardLabelSettings
-  itemAspectRatio: number
-  ratioSource: SeedRatioSource
-  coverImage?: SeedCompiledAsset
-  coverZoom?: number
-  suggestedTiers?: readonly TierPresetTier[]
-  criteria: readonly MarketplaceTemplateCriterion[]
-  items: readonly SeedCompiledItem[]
-}
-
-export interface SeedCompiledTotals
-{
-  templateCount: number
-  itemCount: number
-  criterionCount: number
-  sourceImageCount: number
-  variantCount: number
-  estimatedUploadBytes: number
-  estimatedStorageBytes: number
-}
-
-export interface SeedDiagnostic
-{
-  code: string
-  message: string
-  path: string
-  severity: 'warning' | 'error'
-}
-
-export interface SeedCompiledManifest
-{
-  schemaVersion: typeof SEED_MANIFEST_SCHEMA_VERSION
-  datasetKey: string
-  releaseId: string
-  authorEmail: string
-  sourceManifestPath: string
-  generatedAt: string
-  variantSpecVersion: string
-  totals: SeedCompiledTotals
-  templates: readonly SeedCompiledTemplate[]
-  warnings: readonly SeedDiagnostic[]
-  errors: readonly SeedDiagnostic[]
-}
+// Python owns source/compiled manifest shapes; JSON Schema validates them.
 
 export interface SeedRunSummary
 {
@@ -244,28 +68,10 @@ export interface SeedRunSummary
   error: string | null
 }
 
-export interface SeedBeginRunInput extends SeedRunRequest
-{
-  templateCount: number
-  itemCount: number
-  imageVariantCount: number
-}
-
 export interface SeedBeginRunOutput
 {
   run: SeedRunSummary
 }
-
-export interface SeedExternalIds
-{
-  authorEmail: string
-  templateExternalIds: readonly string[]
-  itemExternalIds: readonly SeedTemplateItemKey[]
-  criterionExternalIds: readonly SeedTemplateCriterionKey[]
-  variantHashes: readonly string[]
-}
-
-export type SeedResolveStateInput = SeedReleaseIdentity & SeedExternalIds
 
 export interface SeedResolvedTemplate
 {
@@ -274,7 +80,7 @@ export interface SeedResolvedTemplate
   title: string
   description: string | null
   category: TemplateCategory
-  tags: readonly string[]
+  tags: string[]
   visibility: TemplateVisibility
   status: SeedTemplateReleaseStatus | null
   itemAspectRatio: number | null
@@ -322,38 +128,18 @@ export interface SeedResolvedMedia
   byteSize: number
 }
 
-export interface SeedReleaseRemovalCandidate
-{
-  templateExternalId: string
-  itemExternalId?: string
-  criterionExternalId?: string
-  action: Extract<SeedRemovalAction, 'absentFromRelease'>
-}
-
 export interface SeedResolveStateOutput
 {
   activeReleaseId: string | null
-  templates: readonly SeedResolvedTemplate[]
-  items: readonly SeedResolvedItem[]
-  criteria: readonly SeedResolvedCriterion[]
-  media: readonly SeedResolvedMedia[]
-  absentFromManifest: readonly SeedReleaseRemovalCandidate[]
-}
-
-export interface SeedResolveMediaByHashesInput
-{
-  authorEmail: string
-  variantHashes: readonly string[]
+  templates: SeedResolvedTemplate[]
+  items: SeedResolvedItem[]
+  criteria: SeedResolvedCriterion[]
+  media: SeedResolvedMedia[]
 }
 
 export interface SeedResolveMediaByHashesOutput
 {
-  media: readonly SeedResolvedMedia[]
-}
-
-export interface SeedGenerateUploadUrlsInput extends SeedRunRequest
-{
-  variants: readonly SeedUploadVariantRequest[]
+  media: SeedResolvedMedia[]
 }
 
 export interface SeedUploadVariantRequest
@@ -373,17 +159,12 @@ export interface SeedUploadUrl
 
 export interface SeedGenerateUploadUrlsOutput
 {
-  urls: readonly SeedUploadUrl[]
-}
-
-export interface SeedRegisterUploadedStorageIdsInput extends SeedRunRequest
-{
-  storageIds: readonly string[]
+  urls: SeedUploadUrl[]
 }
 
 export interface SeedRegisterUploadedStorageIdsOutput
 {
-  registeredStorageIds: readonly string[]
+  registeredStorageIds: string[]
 }
 
 export interface SeedUploadedVariant
@@ -397,28 +178,22 @@ export interface SeedUploadedVariant
   expectedHeight: number
 }
 
-export interface SeedFinalizeUploadedMediaInput extends SeedRunRequest
-{
-  authorEmail: string
-  assets: readonly SeedUploadedMediaAsset[]
-}
-
 export interface SeedUploadedMediaAsset
 {
   assetKey: string
-  variants: readonly SeedUploadedVariant[]
+  variants: SeedUploadedVariant[]
 }
 
 export interface SeedFinalizeUploadedMediaOutput
 {
-  finalized: readonly SeedFinalizedMedia[]
-  rejected: readonly SeedRejectedUpload[]
+  finalized: SeedFinalizedMedia[]
+  rejected: SeedRejectedUpload[]
 }
 
 export interface SeedFinalizedMedia
 {
   assetKey: string
-  contentHashes: readonly string[]
+  contentHashes: string[]
   mediaAssetId: string
   reused: boolean
 }
@@ -432,22 +207,11 @@ export interface SeedRejectedUpload
   cleaned: boolean
 }
 
-export interface SeedCleanupAbandonedRunInput extends SeedRunRequest
-{
-  storageIds: readonly string[]
-}
-
 export interface SeedCleanupOutput
 {
-  cleanedStorageIds: readonly string[]
-  missingStorageIds: readonly string[]
-  skippedStorageIds: readonly string[]
-}
-
-export interface SeedUpsertTemplatesInput extends SeedRunRequest
-{
-  authorEmail: string
-  templates: readonly SeedTemplateUpsert[]
+  cleanedStorageIds: string[]
+  missingStorageIds: string[]
+  skippedStorageIds: string[]
 }
 
 export interface SeedTemplateUpsert
@@ -457,11 +221,11 @@ export interface SeedTemplateUpsert
   title: string
   category: TemplateCategory
   description: string | null
-  tags: readonly string[]
+  tags: string[]
   visibility: TemplateVisibility
   coverMediaDedupeHash: string | null
   coverFraming: TemplateCoverFraming | null
-  suggestedTiers: readonly TierPresetTier[]
+  suggestedTiers: TierPresetTier[]
   itemAspectRatio: number
   itemCount: number
   defaultItemImagePadding: number | null
@@ -472,17 +236,9 @@ export interface SeedTemplateUpsert
 
 export interface SeedTemplateUpsertOutput
 {
-  created: readonly string[]
-  updated: readonly string[]
-  unchanged: readonly string[]
-}
-
-export interface SeedSyncTemplateItemsInput extends SeedRunRequest
-{
-  templateExternalId: string
-  itemsContentHash: string
-  allowContentHashSkip?: boolean
-  items: readonly SeedItemUpsert[]
+  created: string[]
+  updated: string[]
+  unchanged: string[]
 }
 
 export interface SeedTemplateItemKey
@@ -508,17 +264,11 @@ export interface SeedItemUpsert
 
 export interface SeedSyncTemplateItemsOutput
 {
-  created: readonly SeedTemplateItemKey[]
-  updated: readonly SeedTemplateItemKey[]
-  moved: readonly SeedTemplateItemKey[]
-  unchanged: readonly SeedTemplateItemKey[]
-  deleted: readonly SeedTemplateItemKey[]
-}
-
-export interface SeedUpsertCriteriaInput extends SeedRunRequest
-{
-  forceTemplateExternalIds?: readonly string[]
-  criteria: readonly SeedCriterionUpsert[]
+  created: SeedTemplateItemKey[]
+  updated: SeedTemplateItemKey[]
+  moved: SeedTemplateItemKey[]
+  unchanged: SeedTemplateItemKey[]
+  deleted: SeedTemplateItemKey[]
 }
 
 export interface SeedTemplateCriterionKey
@@ -534,27 +284,23 @@ export type SeedCriterionUpsert = SeedTemplateCriterionKey &
 
 export interface SeedCriterionUpsertOutput
 {
-  created: readonly SeedTemplateCriterionKey[]
-  updated: readonly SeedTemplateCriterionKey[]
-  unchanged: readonly SeedTemplateCriterionKey[]
-  deactivated: readonly SeedTemplateCriterionKey[]
+  created: SeedTemplateCriterionKey[]
+  updated: SeedTemplateCriterionKey[]
+  unchanged: SeedTemplateCriterionKey[]
+  deactivated: SeedTemplateCriterionKey[]
 }
 
-export interface SeedVerifyReleaseInput extends SeedRunRequest
-{
-  expectedTotals: SeedCompiledTotals
+export type SeedDiagnostic = {
+  code: string
+  message: string
+  path: string
+  severity: 'warning' | 'error'
 }
 
 export interface SeedVerifyReleaseOutput
 {
   verified: boolean
-  diagnostics: readonly SeedDiagnostic[]
-}
-
-export interface SeedActivateReleaseInput extends SeedRunRequest
-{
-  previousReleaseId: string | null
-  confirm: true
+  diagnostics: SeedDiagnostic[]
 }
 
 export interface SeedActivateReleaseOutput
@@ -563,19 +309,11 @@ export interface SeedActivateReleaseOutput
   previousReleaseId: string | null
 }
 
-export interface SeedRollbackReleaseInput extends SeedRunRequest
-{
-  targetReleaseId: string
-  confirm: true
-}
-
 export interface SeedRollbackReleaseOutput
 {
   activeReleaseId: string
   rolledBackReleaseId: string
 }
-
-export type SeedRunStatusInput = SeedRunRequest
 
 export interface SeedRunStatusOutput
 {

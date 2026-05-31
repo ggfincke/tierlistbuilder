@@ -7,7 +7,4 @@ export {
   useRelatedTemplates,
   useTemplateBookmarkState,
   useToggleTemplateBookmarkMutation,
-  useMyTemplateManagementList,
-  useUnpublishMyTemplateMutation,
-  useRepublishMyTemplateMutation,
 } from '~/features/marketplace/data/templatesRepository'

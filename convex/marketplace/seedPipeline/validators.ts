@@ -195,16 +195,6 @@ export const seedRejectedUploadValidator = v.object({
   cleaned: v.boolean(),
 })
 
-export const seedCleanupOutputValidator = v.object({
-  cleanedStorageIds: v.array(v.string()),
-  missingStorageIds: v.array(v.string()),
-  skippedStorageIds: v.array(v.string()),
-})
-
-export const seedRegisterUploadsOutputValidator = v.object({
-  registeredStorageIds: v.array(v.string()),
-})
-
 export const seedCompiledTotalsValidator = v.object({
   templateCount: v.number(),
   itemCount: v.number(),

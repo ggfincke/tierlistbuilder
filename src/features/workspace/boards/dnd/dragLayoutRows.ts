@@ -30,7 +30,7 @@ export interface RenderedRowLayout
 
 // a single rendered grid slot w/ frozen geometry; cells don't move under
 // same-container reorder, so hit-testing them never feeds the reflow loop
-export interface RenderedCell
+interface RenderedCell
 {
   itemId: ItemId
   rowIndex: number
@@ -61,9 +61,7 @@ interface RowMoveResult
   targetItemId: ItemId
 }
 
-export const sortByRenderedPosition = <
-  T extends Pick<ClientRect, 'left' | 'top'>,
->(
+const sortByRenderedPosition = <T extends Pick<ClientRect, 'left' | 'top'>>(
   itemRects: T[]
 ): T[] =>
 {

@@ -3,7 +3,7 @@
 
 import type { MarketplaceTemplateManagementItem } from '@tierlistbuilder/contracts/marketplace/template'
 
-export type TemplatePublishAction = 'unpublish' | 'republish'
+type TemplatePublishAction = 'unpublish' | 'republish'
 
 // the publish toggle only governs the published <-> unpublished lifecycle.
 // publishPending/publishFailed are publish-job states, not toggle targets:

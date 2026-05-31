@@ -5,7 +5,6 @@
 export {
   useRankingBySlug,
   usePaginatedRankingsForTemplate,
-  useMyRankings,
   useMyRankingForTemplate,
   useTemplateRankingAggregate,
   useTemplateRankingAggregateItems,

@@ -15,12 +15,20 @@ import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import type {
   SeedActivateReleaseOutput,
   SeedBeginRunOutput,
+  SeedCriterionUpsertOutput,
+  SeedFinalizeUploadedMediaOutput,
+  SeedGenerateUploadUrlsOutput,
   SeedRejectedUpload,
-  SeedResolvedMedia,
+  SeedResolveMediaByHashesOutput,
   SeedRollbackReleaseOutput,
-  SeedRunSummary,
+  SeedRunStatusOutput,
+  SeedSyncTemplateItemsOutput,
   SeedTemplateCriterionKey,
   SeedTemplateItemKey,
+  SeedTemplateUpsertOutput,
+  SeedUploadUrl,
+  SeedUploadVariantRequest,
+  SeedVerifyReleaseOutput,
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import {
   assertCountRange,
@@ -97,7 +105,6 @@ import type {
   SeedItemUpsertArg,
   SeedResolveStateResult,
   SeedTemplateUpsertArg,
-  SeedUploadUrlRow,
 } from './seedPipeline/types'
 import {
   resolveStateArgsValidator,
@@ -279,7 +286,7 @@ export const generateSeedUploadUrls = internalMutation({
     variants: v.array(seedUploadVariantRequestValidator),
   },
   returns: v.object({ urls: v.array(seedUploadUrlValidator) }),
-  handler: async (ctx, args): Promise<{ urls: SeedUploadUrlRow[] }> =>
+  handler: async (ctx, args): Promise<SeedGenerateUploadUrlsOutput> =>
   {
     assertSeedRunArgs(args)
     assertCountRange(
@@ -288,9 +295,10 @@ export const generateSeedUploadUrls = internalMutation({
       1,
       SEED_LIMITS.uploadUrlsPerCall
     )
+    const variants = args.variants as SeedUploadVariantRequest[]
     const expiresAt = Date.now() + SEED_UPLOAD_URL_TTL_MS
-    const urls = await Promise.all(
-      args.variants.map(async (variant) =>
+    const urls: SeedUploadUrl[] = await Promise.all(
+      variants.map(async (variant) =>
       {
         assertNonemptyString('contentHash', variant.contentHash)
         assertPositiveInteger('byteSize', variant.byteSize)
@@ -324,13 +332,7 @@ export const finalizeSeedUploadedMedia = internalAction({
     finalized: v.array(seedFinalizedMediaValidator),
     rejected: v.array(seedRejectedUploadValidator),
   }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{
-    finalized: SeedFinalizedMediaRow[]
-    rejected: SeedRejectedUpload[]
-  }> =>
+  handler: async (ctx, args): Promise<SeedFinalizeUploadedMediaOutput> =>
   {
     assertSeedRunArgs(args)
     assertNonemptyString('authorEmail', args.authorEmail)
@@ -385,10 +387,7 @@ export const upsertSeedTemplates = internalMutation({
     templates: v.array(seedTemplateUpsertValidator),
   },
   returns: seedTemplateUpsertOutputValidator,
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ created: string[]; updated: string[]; unchanged: string[] }> =>
+  handler: async (ctx, args): Promise<SeedTemplateUpsertOutput> =>
   {
     assertSeedRunArgs(args)
     assertNonemptyString('authorEmail', args.authorEmail)
@@ -537,16 +536,7 @@ export const syncSeedTemplateItems = internalMutation({
     items: v.array(seedItemUpsertValidator),
   },
   returns: seedSyncTemplateItemsOutputValidator,
-  handler: async (
-    ctx,
-    args
-  ): Promise<{
-    created: SeedTemplateItemKey[]
-    updated: SeedTemplateItemKey[]
-    moved: SeedTemplateItemKey[]
-    unchanged: SeedTemplateItemKey[]
-    deleted: SeedTemplateItemKey[]
-  }> =>
+  handler: async (ctx, args): Promise<SeedSyncTemplateItemsOutput> =>
   {
     assertSeedRunArgs(args)
     assertNonemptyString('templateExternalId', args.templateExternalId)
@@ -735,15 +725,7 @@ export const upsertSeedCriteria = internalMutation({
     criteria: v.array(seedCriterionUpsertValidator),
   },
   returns: seedCriterionUpsertOutputValidator,
-  handler: async (
-    ctx,
-    args
-  ): Promise<{
-    created: SeedTemplateCriterionKey[]
-    updated: SeedTemplateCriterionKey[]
-    unchanged: SeedTemplateCriterionKey[]
-    deactivated: SeedTemplateCriterionKey[]
-  }> =>
+  handler: async (ctx, args): Promise<SeedCriterionUpsertOutput> =>
   {
     assertSeedRunArgs(args)
     assertCountRange(
@@ -920,7 +902,7 @@ export const completeSeedReleaseVerification = internalMutation({
     verified: v.boolean(),
     diagnostics: v.array(seedDiagnosticValidator),
   }),
-  handler: async (ctx, args) =>
+  handler: async (ctx, args): Promise<SeedVerifyReleaseOutput> =>
   {
     assertSeedRunArgs(args)
     assertSeedCompiledTotals(args.expectedTotals)
@@ -1080,7 +1062,7 @@ export const resolveSeedMediaByHashes = internalQuery({
     variantHashes: v.array(v.string()),
   },
   returns: v.object({ media: v.array(seedResolvedMediaValidator) }),
-  handler: async (ctx, args): Promise<{ media: SeedResolvedMedia[] }> =>
+  handler: async (ctx, args): Promise<SeedResolveMediaByHashesOutput> =>
   {
     assertBatchSize('variantHashes', args.variantHashes.length)
     const authorId = await findSeedAuthorId(ctx, args.authorEmail)
@@ -1130,7 +1112,7 @@ export const getSeedRunStatus = internalQuery({
     runId: v.string(),
   },
   returns: v.object({ run: v.union(seedRunSummaryValidator, v.null()) }),
-  handler: async (ctx, args): Promise<{ run: SeedRunSummary | null }> =>
+  handler: async (ctx, args): Promise<SeedRunStatusOutput> =>
   {
     const run = await ctx.db
       .query('seedRuns')

@@ -12,7 +12,6 @@ import type {
   MarketplaceTemplateItem,
   MarketplaceTemplateItemsResult,
   MarketplaceTemplateListResult,
-  MarketplaceTemplateManagementListResult,
   MarketplaceTemplatePublishResult,
   MarketplaceTemplateUseResult,
   TemplateCoverFraming,
@@ -187,27 +186,6 @@ export const recordTemplateViewImperative = (slug: string): Promise<null> =>
     api.marketplace.templates.mutations.recordTemplateView,
     { slug }
   )
-
-// owned-template management list. reactive so unpublish/republish toggles
-// reflect immediately in the Settings page's "Your templates" section
-export const useMyTemplateManagementList = (
-  enabled: boolean,
-  limit?: number
-): MarketplaceTemplateManagementListResult | undefined =>
-  useQuery(
-    api.marketplace.templates.queries.getMyTemplateManagementList,
-    enabled ? (limit === undefined ? {} : { limit }) : 'skip'
-  )
-
-export const useUnpublishMyTemplateMutation = () =>
-  useMutation(
-    api.marketplace.templates.mutations.unpublishMyTemplate
-  ) as unknown as (args: { slug: string }) => Promise<null>
-
-export const useRepublishMyTemplateMutation = () =>
-  useMutation(
-    api.marketplace.templates.mutations.republishMyTemplate
-  ) as unknown as (args: { slug: string }) => Promise<null>
 
 export interface UpdateMyTemplateMetaArgs
 {

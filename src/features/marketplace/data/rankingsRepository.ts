@@ -16,7 +16,6 @@ import { DEFAULT_RANKING_LIST_LIMIT } from '@tierlistbuilder/contracts/marketpla
 import type {
   MarketplaceMyRankingForTemplateResult,
   MarketplaceRankingDetail,
-  MarketplaceRankingListResult,
   MarketplaceRankingPublishAvailability,
   MarketplaceRankingPublishResult,
   MarketplaceRankingRemixResult,
@@ -212,15 +211,6 @@ export const useMyRankingForTemplate = (
           ...(criterionExternalId ? { criterionExternalId } : {}),
         }
       : 'skip'
-  )
-
-export const useMyRankings = (
-  enabled: boolean,
-  limit?: number
-): MarketplaceRankingListResult | undefined =>
-  useQuery(
-    api.marketplace.rankings.public.queries.getMyRankings,
-    enabled ? (limit === undefined ? {} : { limit }) : 'skip'
   )
 
 // reactive publish gate; pass criterionExternalId to surface lane-scoped

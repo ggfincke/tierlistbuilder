@@ -34,12 +34,3 @@ const getTemplatesPath = (): string => withBasePath(TEMPLATES_ROUTE_PATH)
 
 export const getTemplateDetailPath = (slug: string): string =>
   `${getTemplatesPath()}/${slug}`
-
-export const getProfilePath = (handle: string): string =>
-  withBasePath(`${PROFILE_ROUTE_PATH}/${handle}`)
-
-export const getRankingDetailPath = (slug: string): string =>
-  withBasePath(`${RANKINGS_ROUTE_PATH}/${slug}`)
-
-export const getShowcaseEditPath = (): string =>
-  withBasePath(SHOWCASE_ROUTE_PATH)

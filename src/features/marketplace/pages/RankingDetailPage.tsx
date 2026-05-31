@@ -29,10 +29,7 @@ import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { Avatar } from '~/shared/ui/Avatar'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
-import {
-  RANKINGS_ROUTE_PATH,
-  TEMPLATES_ROUTE_PATH,
-} from '~/shared/routes/pathname'
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { CriterionBadge } from '~/features/marketplace/ui/consensus/criterion/CriterionBadge'
 import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/MarketplaceNotFound'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
@@ -198,10 +195,7 @@ const NotFound = () => (
 )
 
 const DetailSkeleton = () => (
-  <section
-    aria-hidden="true"
-    className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}
-  >
+  <section aria-hidden="true" className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}>
     <SkeletonText className="w-48" tone="soft" />
     <SkeletonBlock className="mt-5 h-9 w-2/3 rounded" tone="strong" />
     <SkeletonText className="mt-2 w-1/3" tone="soft" />
@@ -417,6 +411,3 @@ export const RankingDetailPage = () =>
     </article>
   )
 }
-
-// keep route paths colocated w/ the page to mirror the templates folder
-export { RANKINGS_ROUTE_PATH }
