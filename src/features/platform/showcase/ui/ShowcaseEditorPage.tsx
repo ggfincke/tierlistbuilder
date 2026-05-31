@@ -19,6 +19,7 @@ import {
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { PAGE_SHELL } from '~/shared/ui/pageContainer'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -44,8 +45,7 @@ import {
   type ShowcaseSaveScheduler,
 } from '~/features/platform/showcase/model/showcaseSaveScheduler'
 
-const PAGE_CLASS =
-  'relative z-10 mx-auto w-full max-w-[1320px] px-4 pb-24 pt-20 sm:px-8 sm:pt-24'
+const PAGE_CLASS = `${PAGE_SHELL} pb-24 pt-20 sm:pt-24`
 
 const SAVE_DEBOUNCE_MS = 500
 const SHOWCASE_ITEM_SIZE: ItemSize = 'large'

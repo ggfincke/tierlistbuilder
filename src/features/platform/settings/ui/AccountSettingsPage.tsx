@@ -11,6 +11,7 @@ import { useProfileDraft } from '~/features/platform/auth/model/useProfileDraft'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
+import { PAGE_SHELL } from '~/shared/ui/pageContainer'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { AccountPanel } from './AccountPanel'
 import { AppearancePanel } from './AppearancePanel'
@@ -20,8 +21,7 @@ import { ProfilePanel } from './ProfilePanel'
 import { PlanBadge } from './SettingsChrome'
 import { SettingsTabs } from './SettingsTabs'
 
-const PAGE_CLASS =
-  'relative z-10 mx-auto w-full max-w-[1320px] px-6 pb-24 pt-20 sm:px-10 sm:pt-24'
+const PAGE_CLASS = `${PAGE_SHELL} pb-24 pt-20 sm:pt-24`
 
 const PROFILE_PATH = settingsTabPath('profile')
 

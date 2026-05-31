@@ -6,13 +6,13 @@ import { useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { PAGE_SHELL } from '~/shared/ui/pageContainer'
 import { AuthoredTemplates } from './AuthoredTemplates'
 import { ProfileHeader } from './ProfileHeader'
 import { ProfileShowcaseView } from './ProfileShowcaseView'
 import { ProfileNotFound, ProfileSkeleton } from './ProfileStates'
 
-const PAGE_CLASS =
-  'relative z-10 mx-auto w-full max-w-[1320px] px-6 pb-24 pt-20 sm:px-10 sm:pt-24'
+const PAGE_CLASS = `${PAGE_SHELL} pb-24 pt-20 sm:pt-24`
 
 interface ProfilePageProps
 {
