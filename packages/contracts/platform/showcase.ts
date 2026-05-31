@@ -39,6 +39,8 @@ export const MAX_SHOWCASE_PLACED_ITEMS = 60
 // mini tile caps: show the top few tiers, each filled to a full row. media reads
 // per tile stay bounded by SHOWCASE_MINI_TIER_LIMIT * SHOWCASE_MINI_ITEMS_PER_TIER
 export const SHOWCASE_MINI_TIER_LIMIT = 4
+// library board-card cover shows more tiers than the profile tile (taller surface)
+export const LIBRARY_COVER_MINI_TIER_LIMIT = 6
 export const SHOWCASE_MINI_ITEMS_PER_TIER = 9
 // label cap per tier — labels-only (no media reads); bounds the payload while
 // keeping enough text for topRow/summary cards even when the leading items in

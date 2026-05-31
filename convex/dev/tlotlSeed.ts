@@ -10,11 +10,13 @@ import {
   MAX_SHOWCASE_PLACED_ITEMS,
   MAX_SHOWCASE_TIERS,
 } from '@tierlistbuilder/contracts/platform/showcase'
-import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import {
+  BUILTIN_PRESETS,
+  type TierPresetTier,
+} from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { rankingTopScore } from '../marketplace/rankings/lib'
 import { resolveActiveTemplateCriterion } from '../marketplace/templates/criteria'
 import { toTemplateCriterionSnapshot } from '../marketplace/templates/criteria'
-import { DEFAULT_TEMPLATE_TIERS } from '../marketplace/templates/lib/normalize'
 import { loadTemplateItems } from '../marketplace/templates/lib/projections'
 import {
   isPublishedTemplateRow,
@@ -250,16 +252,12 @@ const deleteExistingSamples = async (
 const tierId = (sampleIndex: number, order: number): string =>
   `tier-tlotl-${sampleIndex}-${order}`
 
-const resolveSeedTiers = (
-  template: Doc<'templates'>,
-  sampleIndex: number
-): SeedTier[] =>
+// cycle each sample through a different built-in preset so the mini covers
+// render varied tier counts & colors (3-tier custom, 10-tier, 5-tier, etc.)
+const resolveSeedTiers = (sampleIndex: number): SeedTier[] =>
 {
-  const source =
-    template.suggestedTiers.length > 0
-      ? template.suggestedTiers
-      : DEFAULT_TEMPLATE_TIERS
-  return source.slice(0, 6).map((tier, order) => ({
+  const preset = BUILTIN_PRESETS[sampleIndex % BUILTIN_PRESETS.length]
+  return preset.tiers.map((tier, order) => ({
     externalId: tierId(sampleIndex, order),
     name: tier.name,
     description: tier.description ?? null,
@@ -375,15 +373,19 @@ const sampleItems = (
   return rotated.slice(0, Math.min(MAX_ITEMS_PER_RANKING, rotated.length))
 }
 
-// top-heavy tier assignment: weight upper tiers fullest (linear S..last) so the
-// showcase's top-4 tiers read dense instead of the old flat round-robin spread
+// gentle top-lean tier assignment: weight upper tiers fuller (2*n-k vs the old
+// steep n-k) so lower visible cover rows fill instead of flattening to empty
+// bands; still top-leaning so top tiers read densest (slightly lowers profile top-4)
 const tierIndexForItem = (
   itemIndex: number,
   itemCount: number,
   tierCount: number
 ): number =>
 {
-  const weights = Array.from({ length: tierCount }, (_, k) => tierCount - k)
+  const weights = Array.from(
+    { length: tierCount },
+    (_, k) => 2 * tierCount - k
+  )
   const weightSum = weights.reduce((sum, w) => sum + w, 0)
   const frac = (itemIndex + 0.5) / itemCount
   let acc = 0
@@ -418,7 +420,7 @@ const materializeAndPublishSample = async (
   // both My Boards (board.updatedAt) & the showcase lanes (ranking.updatedAt)
   const stamp = now - (sampleIndex + 1) * 60_000
   const template = candidate.template
-  const seedTiers = resolveSeedTiers(template, sampleIndex)
+  const seedTiers = resolveSeedTiers(sampleIndex)
   const items = sampleItems(candidate.items, sampleIndex)
   const seedExternalId = `tlotl:${template.slug}:${candidate.criterionExternalId}`
   const seedContentHash = `${DATASET_KEY}:${RELEASE_ID}:${template._id}:${candidate.criterionExternalId}`

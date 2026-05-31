@@ -98,7 +98,8 @@ const showcaseMiniTierValidator = v.object({
   labels: v.array(v.string()),
 })
 
-const showcaseMiniSnapshotValidator = v.object({
+// exported so the library row validator can reuse the same mini shape
+export const showcaseMiniSnapshotValidator = v.object({
   tiers: v.array(showcaseMiniTierValidator),
   itemAspectRatio: v.union(v.number(), v.null()),
   autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
@@ -248,7 +249,8 @@ const lastItemLabel = (
   return null
 }
 
-interface PublicBoardRanking
+// exported so the library cover query can reuse the resolved ranking + template
+export interface PublicBoardRanking
 {
   board: Doc<'boards'>
   ranking: Doc<'publishedRankings'>
@@ -385,12 +387,14 @@ const augmentWithPlacedBoards = async (
 }
 
 // compact projection of a ranking driving every non-cover tile mode. only
-// ranked items; shown tiers & per-tier items are capped to keep reads bounded
-const buildMiniSnapshot = async (
+// ranked items; shown tiers & per-tier items are capped to keep reads bounded.
+// exported so the library cover can build the same mini snapshot per live board
+export const buildMiniSnapshot = async (
   ctx: DbCtx,
   ranking: Doc<'publishedRankings'>,
   template: Doc<'templates'>,
-  cache: TemplateProjectionCache
+  cache: TemplateProjectionCache,
+  opts?: { tierLimit?: number }
 ): Promise<ShowcaseMiniSnapshot | null> =>
 {
   const [tiers, items] = await Promise.all([
@@ -422,8 +426,9 @@ const buildMiniSnapshot = async (
   const bottomPickLabel = lastItemLabel(byTier.get(lastNonEmptyTier.externalId))
 
   // keep only the top tiers (by order) & fill each shown row. media reads per
-  // tile stay bounded by SHOWCASE_MINI_TIER_LIMIT * SHOWCASE_MINI_ITEMS_PER_TIER
-  const shownTiers = nonEmptyTiers.slice(0, SHOWCASE_MINI_TIER_LIMIT)
+  // tile stay bounded by tierLimit * SHOWCASE_MINI_ITEMS_PER_TIER
+  const tierLimit = opts?.tierLimit ?? SHOWCASE_MINI_TIER_LIMIT
+  const shownTiers = nonEmptyTiers.slice(0, tierLimit)
   const perTier = SHOWCASE_MINI_ITEMS_PER_TIER
 
   const miniTiers: ShowcaseMiniTier[] = []

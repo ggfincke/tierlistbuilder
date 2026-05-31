@@ -46,6 +46,7 @@ import {
   templateMediaRefValidator,
   templateSizeClassValidator,
 } from './marketplace'
+import { showcaseMiniSnapshotValidator } from '../../platform/showcase'
 
 export const boardListItemValidator = v.object({
   externalId: v.string(),
@@ -140,6 +141,7 @@ export const libraryBoardListItemValidator = v.object({
   tierCount: v.number(),
   tierColors: v.array(tierColorSpecValidator),
   tierBreakdown: v.array(libraryBoardTierBreakdownValidator),
+  mini: v.union(showcaseMiniSnapshotValidator, v.null()),
   pinned: v.boolean(),
 })
 
