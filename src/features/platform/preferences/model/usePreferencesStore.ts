@@ -54,6 +54,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   tierLabelItalic: false,
   tierLabelFontSize: 'small',
   boardLocked: false,
+  topNavLocked: true,
   reducedMotion: false,
   toolbarPosition: 'top',
   showItemEditButton: true,
@@ -95,6 +96,7 @@ interface PreferencesStore extends AppPreferences, HighContrastTransitionState
   setTierLabelItalic: (italic: boolean) => void
   setTierLabelFontSize: (size: TierLabelFontSize) => void
   setBoardLocked: (locked: boolean) => void
+  setTopNavLocked: (locked: boolean) => void
   setReducedMotion: (reduced: boolean) => void
   setToolbarPosition: (position: ToolbarPosition) => void
   setShowItemEditButton: (show: boolean) => void
@@ -175,6 +177,7 @@ export const usePreferencesStore = create<PreferencesStore>()(
           'tierLabelFontSize'
         ),
         setBoardLocked: createPreferenceSetter(set, get, 'boardLocked'),
+        setTopNavLocked: createPreferenceSetter(set, get, 'topNavLocked'),
         setReducedMotion: createPreferenceSetter(set, get, 'reducedMotion'),
         setToolbarPosition: createPreferenceSetter(set, get, 'toolbarPosition'),
         setShowItemEditButton: createPreferenceSetter(
