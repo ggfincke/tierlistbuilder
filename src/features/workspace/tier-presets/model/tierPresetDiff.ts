@@ -10,31 +10,7 @@ import type {
   TierPreset,
   TierPresetTier,
 } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import type { TierColorSpec } from '@tierlistbuilder/contracts/lib/theme'
-
-const colorSpecsEqual = (
-  a: TierColorSpec | undefined,
-  b: TierColorSpec | undefined
-): boolean =>
-{
-  if (a === undefined || b === undefined)
-  {
-    return a === b
-  }
-  if (a.kind !== b.kind)
-  {
-    return false
-  }
-  if (a.kind === 'palette' && b.kind === 'palette')
-  {
-    return a.index === b.index
-  }
-  if (a.kind === 'custom' && b.kind === 'custom')
-  {
-    return a.hex === b.hex
-  }
-  return false
-}
+import { tierColorSpecEqual } from '@tierlistbuilder/contracts/lib/theme'
 
 const tierPresetTiersEqual = (
   a: readonly TierPresetTier[],
@@ -49,8 +25,11 @@ const tierPresetTiersEqual = (
     const right = b[i]
     if (left.name !== right.name) return false
     if (left.description !== right.description) return false
-    if (!colorSpecsEqual(left.colorSpec, right.colorSpec)) return false
-    if (!colorSpecsEqual(left.rowColorSpec, right.rowColorSpec)) return false
+    if (!tierColorSpecEqual(left.colorSpec, right.colorSpec)) return false
+    if (!tierColorSpecEqual(left.rowColorSpec, right.rowColorSpec))
+    {
+      return false
+    }
   }
   return true
 }

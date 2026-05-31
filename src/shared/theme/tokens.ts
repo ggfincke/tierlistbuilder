@@ -34,6 +34,8 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     warning: '#FFDF80',
     overlay: '255 255 255',
     'export-bg': '#050505',
+    'media-plate-light-default': '#F5F5F0',
+    'media-plate-dark-default': '#0A0A0A',
   },
   // No. 02 — Paper (the light one). Ivory background, ink-black accent,
   // terracotta kicker. Reads like a magazine spread.
@@ -64,6 +66,8 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     warning: '#BC892B',
     overlay: '0 0 0',
     'export-bg': '#F5F1E8',
+    'media-plate-light-default': '#FFFCF4',
+    'media-plate-dark-default': '#1A1814',
   },
   // No. 03 — Midnight (after-hours). Deep indigo ink, lavender + magenta accent.
   midnight: {
@@ -93,6 +97,8 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     warning: '#FFE066',
     overlay: '255 255 255',
     'export-bg': '#0B0A1E',
+    'media-plate-light-default': '#F0EEFF',
+    'media-plate-dark-default': '#0E0D24',
   },
   // No. 04 — Forest (out for a walk). Pine-needle dark, lime primary,
   // butter-yellow kicker.
@@ -123,6 +129,8 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     warning: '#F5D04A',
     overlay: '255 255 255',
     'export-bg': '#0A1410',
+    'media-plate-light-default': '#ECF2E8',
+    'media-plate-dark-default': '#0E1813',
   },
   // No. 05 — Ember (around the fire). Warm-black ink, coral primary,
   // butter-yellow kicker.
@@ -153,6 +161,8 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     warning: '#FFD84A',
     overlay: '255 255 255',
     'export-bg': '#14110E',
+    'media-plate-light-default': '#F5EBE0',
+    'media-plate-dark-default': '#181410',
   },
   // No. 06 — Sakura (Tokyo neon). Plum-black background, hot magenta primary,
   // butter kicker.
@@ -183,6 +193,8 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     warning: '#FFE25C',
     overlay: '255 255 255',
     'export-bg': '#14081A',
+    'media-plate-light-default': '#FFE8F5',
+    'media-plate-dark-default': '#190B22',
   },
   // No. 07 — AMOLED. True #000 pixels w/ a saturated cyan accent + lime
   // accent-2 pair so chunky shadows & the display-accent stamp render the
@@ -214,6 +226,8 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     warning: '#FFDF80',
     overlay: '255 255 255',
     'export-bg': '#000000',
+    'media-plate-light-default': '#F5F5F0',
+    'media-plate-dark-default': '#000000',
   },
   // No. 08 — Volt (loud mode + accessibility). Almost-black navy, electric
   // yellow primary, hot magenta kicker. Highest contrast in the set; doubles
@@ -245,8 +259,18 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     warning: '#FFE600',
     overlay: '255 255 255',
     'export-bg': '#0A0A14',
+    'media-plate-light-default': '#FFFFFF',
+    'media-plate-dark-default': '#0F0F18',
   },
 }
+
+// single source for export-canvas backdrop: explicit per-board override wins,
+// else the theme's export-bg. shared by the export controller, the settings
+// preview, & the live board render so the three can't drift
+export const resolveExportBackground = (
+  override: string | null | undefined,
+  themeId: ThemeId
+): string => override ?? THEMES[themeId]['export-bg']
 
 // theme metadata — collocated w/ definitions to prevent label/category drift
 interface ThemeMeta

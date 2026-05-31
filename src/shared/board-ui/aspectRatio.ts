@@ -8,6 +8,10 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  clampImagePadding,
+  DEFAULT_ITEM_IMAGE_PADDING,
+} from '@tierlistbuilder/contracts/workspace/board'
+import {
   ASPECT_RATIO_PRESETS,
   ASPECT_RATIO_TOLERANCE,
   bucketValuesByAspectRatio,
@@ -85,6 +89,26 @@ export const getEffectiveImageFit = (
   item: Pick<TierItem, 'imageFit'>,
   boardDefault: ImageFit | undefined
 ): ImageFit => item.imageFit ?? boardDefault ?? 'cover'
+
+// resolve the rendered plate inset for an item. item override wins, then the
+// board default; w/ neither set a plated item gets DEFAULT_ITEM_IMAGE_PADDING
+// while an unplated item stays full-bleed (0). hasPlate = a backdrop is applied
+export const getEffectiveImagePadding = (
+  item: Pick<TierItem, 'imagePadding'>,
+  boardDefault: number | undefined,
+  hasPlate: boolean
+): number =>
+{
+  const explicit = item.imagePadding ?? boardDefault
+  if (explicit != null) return clampImagePadding(explicit)
+  return hasPlate ? DEFAULT_ITEM_IMAGE_PADDING : 0
+}
+
+// padding insets each edge, so the image frame spans (1 - 2*padding) of the
+// cell on each axis. floored at 0 so an over-large padding can't invert the
+// scale. shared by the inset-frame render & the editor's gesture normalization
+export const getPaddingFrameScale = (padding: number): number =>
+  Math.max(0, 1 - 2 * padding)
 
 // gather aspect ratios of every image item whose natural dimensions have
 // been captured; text items are skipped
@@ -186,6 +210,42 @@ export const ratioOptionForBoard = (
   )
 }
 
+interface RatioFraction
+{
+  numerator: number
+  denominator: number
+}
+
+interface ApproximateRatioFractionOptions
+{
+  minDenom: number
+  maxDenom: number
+  tolerance: number
+}
+
+const approximateRatioFraction = (
+  value: number,
+  { minDenom, maxDenom, tolerance }: ApproximateRatioFractionOptions
+): RatioFraction | null =>
+{
+  for (let denom = minDenom; denom <= maxDenom; denom += 1)
+  {
+    const num = Math.round(value * denom)
+    if (num <= 0) continue
+    if (ratiosMatch(num / denom, value, tolerance))
+    {
+      return { numerator: num, denominator: denom }
+    }
+  }
+
+  return null
+}
+
+const formatRatioFraction = ({
+  numerator,
+  denominator,
+}: RatioFraction): string => `${numerator}:${denominator}`
+
 // format a ratio as "w:h" — prefers presets, falls back to small-denominator
 // rational approximations, else a 2-decimal string
 export const formatAspectRatio = (value: number): string =>
@@ -194,15 +254,13 @@ export const formatAspectRatio = (value: number): string =>
   const preset = findMatchingPreset(value)
   if (preset) return preset.label
 
-  for (let denom = 2; denom <= 16; denom += 1)
-  {
-    const num = Math.round(value * denom)
-    if (num <= 0) continue
-    if (ratiosMatch(num / denom, value, ASPECT_RATIO_TOLERANCE / 2))
-    {
-      return `${num}:${denom}`
-    }
-  }
+  const fraction = approximateRatioFraction(value, {
+    minDenom: 2,
+    maxDenom: 16,
+    tolerance: ASPECT_RATIO_TOLERANCE / 2,
+  })
+  if (fraction) return formatRatioFraction(fraction)
+
   return value.toFixed(2)
 }
 
@@ -210,15 +268,12 @@ export const formatPreciseAspectRatio = (value: number): string =>
 {
   if (!isPositiveFiniteNumber(value)) return '1:1'
 
-  for (let denom = 1; denom <= 16; denom += 1)
-  {
-    const num = Math.round(value * denom)
-    if (num <= 0) continue
-    if (ratiosMatch(num / denom, value, 0.001))
-    {
-      return `${num}:${denom}`
-    }
-  }
+  const fraction = approximateRatioFraction(value, {
+    minDenom: 1,
+    maxDenom: 16,
+    tolerance: 0.001,
+  })
+  if (fraction) return formatRatioFraction(fraction)
 
   return `${formatCustomRatioDim(value, 2)}:1`
 }

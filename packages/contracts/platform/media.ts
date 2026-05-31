@@ -21,3 +21,6 @@ export const MAX_IMAGE_BYTE_SIZE = 20 * 1024 * 1024
 
 // sanity bound on image dimensions — rejects obviously malformed data
 export const MAX_IMAGE_DIMENSION = 10_000
+
+// Reject degenerate strip-shaped images while allowing panoramic crops.
+export const MAX_IMAGE_ASPECT_RATIO = 16

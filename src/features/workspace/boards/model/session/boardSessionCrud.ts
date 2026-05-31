@@ -78,9 +78,6 @@ const saveAndActivateBoard = async (
   return id
 }
 
-const markBoardStatePending = (syncState: BoardSyncState): BoardSyncState =>
-  markBoardPendingSync(syncState)
-
 const loadInactiveBoardSnapshot = (boardId: BoardId): BoardSnapshot =>
 {
   const persisted = loadBoardFromStorage(boardId)
@@ -105,7 +102,7 @@ const saveInactiveBoardTitle = (boardId: BoardId, title: string): boolean =>
     return true
   }
 
-  const nextSyncState = markBoardStatePending(syncState)
+  const nextSyncState = markBoardPendingSync(syncState)
   const saveResult = saveBoardToStorage(
     boardId,
     { ...snapshot, title },
@@ -118,6 +115,11 @@ const saveInactiveBoardTitle = (boardId: BoardId, title: string): boolean =>
 
   notifyBoardChanged(boardId)
   return true
+}
+
+interface DuplicateBoardSessionOptions
+{
+  pendingSyncOwnerUserId?: string | null
 }
 
 export const createBoardSession = async (): Promise<void> =>
@@ -191,7 +193,8 @@ export const deleteBoardSession = async (boardId: BoardId): Promise<void> =>
 }
 
 export const duplicateBoardSession = async (
-  boardId: BoardId
+  boardId: BoardId,
+  options: DuplicateBoardSessionOptions = {}
 ): Promise<void> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
@@ -211,11 +214,16 @@ export const duplicateBoardSession = async (
   await saveAndActivateBoard(
     source,
     source.title || DEFAULT_TITLE,
-    markBoardStatePending({
-      lastSyncedRevision: null,
-      cloudBoardExternalId: null,
-      pendingSyncAt: null,
-    })
+    markBoardPendingSync(
+      {
+        lastSyncedRevision: null,
+        cloudBoardExternalId: null,
+        pendingSyncAt: null,
+        pendingSyncOwnerUserId: null,
+      },
+      Date.now(),
+      options.pendingSyncOwnerUserId ?? null
+    )
   )
 }
 
@@ -242,7 +250,7 @@ export const renameBoardSession = (
       return { ok: true }
     }
 
-    const syncState = markBoardStatePending(extractBoardSyncState(state))
+    const syncState = markBoardPendingSync(extractBoardSyncState(state))
     useActiveBoardStore.setState({ title: trimmed, ...syncState })
     const saveResult = saveBoardToStorage(
       boardId,

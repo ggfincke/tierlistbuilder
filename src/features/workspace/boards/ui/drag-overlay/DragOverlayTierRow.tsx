@@ -9,10 +9,18 @@ import { useShallow } from 'zustand/react/shallow'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import {
+  useBoardItemSize,
+  useBoardPaletteId,
+} from '~/features/workspace/boards/model/boardRenderOverrides'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
+import {
+  TIER_ROW_COLOR_SWATCH,
+  TIER_ROW_CONTROLS_COLUMN,
+  TIER_ROW_CONTROLS_CONTAINER,
+} from '~/features/workspace/boards/ui/tier-list/tierRowControlsChrome'
 import {
   BoardItemsGrid,
   BoardLabelCellFrame,
@@ -31,12 +39,12 @@ interface DragOverlayTierRowProps
 export const DragOverlayTierRow = memo(
   ({ tier, width, height }: DragOverlayTierRowProps) =>
   {
-    const paletteId = useCurrentPaletteId()
+    const paletteId = useBoardPaletteId()
     const boardAspectRatio = useActiveBoardStore((state) =>
       getBoardItemAspectRatio(state)
     )
+    const itemSize = useBoardItemSize()
     const {
-      itemSize,
       labelWidth,
       tierLabelBold,
       tierLabelItalic,
@@ -46,7 +54,6 @@ export const DragOverlayTierRow = memo(
       hideRowControls,
     } = usePreferencesStore(
       useShallow((state) => ({
-        itemSize: state.itemSize,
         labelWidth: state.labelWidth,
         tierLabelBold: state.tierLabelBold,
         tierLabelItalic: state.tierLabelItalic,
@@ -103,13 +110,13 @@ export const DragOverlayTierRow = memo(
           </BoardRowContent>
 
           {showControls && (
-            <div className="flex shrink-0 items-center gap-1 border-l border-[var(--t-border)] bg-[var(--t-bg-page)] px-1.5 max-sm:px-1">
-              <div className="flex flex-col items-center justify-center gap-1">
+            <div className={TIER_ROW_CONTROLS_CONTAINER}>
+              <div className={TIER_ROW_CONTROLS_COLUMN}>
                 <span className="px-1 py-0.5 text-xs text-[var(--t-text-faint)] opacity-40">
                   ▲
                 </span>
                 <span
-                  className="h-4 w-4 rounded-full border border-[var(--t-border-secondary)]"
+                  className={TIER_ROW_COLOR_SWATCH}
                   style={{ backgroundColor: tierColor }}
                 />
                 <span className="px-1 py-0.5 text-xs text-[var(--t-text-faint)] opacity-40">

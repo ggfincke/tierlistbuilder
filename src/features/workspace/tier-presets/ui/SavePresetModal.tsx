@@ -2,6 +2,7 @@
 // modal prompt for naming & saving the current board as a reusable preset
 
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState } from 'react'
 
@@ -74,12 +75,12 @@ export const SavePresetModal = ({
         size="md"
         className="mt-3 w-full rounded-lg border-[var(--t-border)] focus:border-[var(--t-accent-hover)]"
       />
-      <div className="mt-3 flex justify-end gap-2">
+      <DialogActions className="mt-3 flex justify-end gap-2">
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
         <PrimaryButton disabled={!presetName.trim()} onClick={handleSave}>
           Save
         </PrimaryButton>
-      </div>
+      </DialogActions>
     </BaseModal>
   )
 }

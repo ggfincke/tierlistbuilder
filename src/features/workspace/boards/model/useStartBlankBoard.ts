@@ -1,11 +1,11 @@
 // src/features/workspace/boards/model/useStartBlankBoard.ts
-// "+ New board" -> blank session + navigate to workspace. Shared by top-nav
-// & library entry points. Library opts in to toast feedback.
+// "+ New board" -> blank session + navigate to workspace. shared by top-nav,
+// marketplace gallery CTA, & library tile. Library opts in to toast feedback
 
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { createBoardSession } from '~/features/workspace/boards/model/boardSession'
+import { createBoardSession } from './boardSession'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
 import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
@@ -39,25 +39,27 @@ export const useStartBlankBoard = (
   }, [navigate, withToast])
 
   const onError = useCallback(
-    (error: unknown) =>
+    (message: string, error: unknown) =>
     {
       logger.error('boards', 'create blank board failed', error)
       if (withToast)
       {
-        toast('Could not create a new board. Please try again.', 'error')
+        toast(message, 'error')
       }
     },
     [withToast]
   )
 
-  const { run: runStart, isPending } = useAsyncAction<[], void>(startBoard, {
-    onError,
-  })
+  const { run, pending } = useAsyncAction()
 
   const start = useCallback(() =>
   {
-    void runStart()
-  }, [runStart])
+    void run({
+      action: startBoard,
+      errorMessage: 'Could not create a new board. Please try again.',
+      onError,
+    })
+  }, [onError, run, startBoard])
 
-  return { start, isPending }
+  return { start, isPending: pending }
 }

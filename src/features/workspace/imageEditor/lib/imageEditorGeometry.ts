@@ -27,7 +27,7 @@ export const SLIDER_ZOOM_MAX = 2.5
 export const ZOOM_SLIDER_STEP = 0.01
 
 export const PAN_START_THRESHOLD_PX = 4
-export const PAN_SNAP_THRESHOLD_PX = 5
+export const IMAGE_EDITOR_SNAP_THRESHOLD_PX = 5
 export const WHEEL_ZOOM_SENSITIVITY = 0.0015
 
 export const normalizeRotation = (raw: number): ItemRotation =>

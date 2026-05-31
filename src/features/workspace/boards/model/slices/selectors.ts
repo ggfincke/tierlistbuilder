@@ -196,7 +196,7 @@ export const selectLabelOverrideStatus = (
 // stable-ref meta projection for move-to / color-strip surfaces — avoids
 // re-rendering on drag-preview itemIds churn since the returned array is
 // reused while (id, name, colorSpec) are unchanged
-export interface TierMeta
+interface TierMeta
 {
   id: TierId
   name: string

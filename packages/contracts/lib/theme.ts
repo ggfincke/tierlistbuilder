@@ -54,3 +54,23 @@ export interface TierCustomColorSpec
 
 // canonical color source for a tier label — shared across boards, presets, & theme helpers
 export type TierColorSpec = TierPaletteColorSpec | TierCustomColorSpec
+
+export const tierColorSpecEqual = (
+  left: TierColorSpec | null | undefined,
+  right: TierColorSpec | null | undefined
+): boolean =>
+{
+  if (left === right) return true
+  if (!left && !right) return true
+  if (!left || !right) return false
+  if (left.kind !== right.kind) return false
+  if (left.kind === 'palette' && right.kind === 'palette')
+  {
+    return left.index === right.index
+  }
+  if (left.kind === 'custom' && right.kind === 'custom')
+  {
+    return left.hex === right.hex
+  }
+  return false
+}

@@ -1,5 +1,5 @@
 // tests/interaction/selectionNavigation.test.ts
-// selection navigation helpers
+// selection arrow-key navigation: wrap, Home/End, grid wrap, & invalid input
 
 import { describe, expect, it } from 'vitest'
 
@@ -7,7 +7,7 @@ import { resolveNextSelectionIndex } from '~/shared/selection/selectionNavigatio
 
 describe('resolveNextSelectionIndex', () =>
 {
-  it('wraps horizontal navigation', () =>
+  it('wraps linear & grid navigation, supports Home/End, & rejects invalid positions', () =>
   {
     expect(
       resolveNextSelectionIndex({
@@ -16,7 +16,6 @@ describe('resolveNextSelectionIndex', () =>
         key: 'ArrowLeft',
       })
     ).toBe(3)
-
     expect(
       resolveNextSelectionIndex({
         currentIndex: 3,
@@ -24,29 +23,12 @@ describe('resolveNextSelectionIndex', () =>
         key: 'ArrowRight',
       })
     ).toBe(0)
-  })
-
-  it('supports Home & End', () =>
-  {
     expect(
-      resolveNextSelectionIndex({
-        currentIndex: 2,
-        itemCount: 5,
-        key: 'Home',
-      })
+      resolveNextSelectionIndex({ currentIndex: 2, itemCount: 5, key: 'Home' })
     ).toBe(0)
-
     expect(
-      resolveNextSelectionIndex({
-        currentIndex: 2,
-        itemCount: 5,
-        key: 'End',
-      })
+      resolveNextSelectionIndex({ currentIndex: 2, itemCount: 5, key: 'End' })
     ).toBe(4)
-  })
-
-  it('wraps grid navigation across rows', () =>
-  {
     expect(
       resolveNextSelectionIndex({
         currentIndex: 1,
@@ -55,7 +37,6 @@ describe('resolveNextSelectionIndex', () =>
         key: 'ArrowDown',
       })
     ).toBe(5)
-
     expect(
       resolveNextSelectionIndex({
         currentIndex: 5,
@@ -64,7 +45,6 @@ describe('resolveNextSelectionIndex', () =>
         key: 'ArrowDown',
       })
     ).toBe(1)
-
     expect(
       resolveNextSelectionIndex({
         currentIndex: 1,
@@ -73,10 +53,6 @@ describe('resolveNextSelectionIndex', () =>
         key: 'ArrowUp',
       })
     ).toBe(5)
-  })
-
-  it('returns null for invalid positions', () =>
-  {
     expect(
       resolveNextSelectionIndex({
         currentIndex: -1,

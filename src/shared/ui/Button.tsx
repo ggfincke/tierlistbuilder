@@ -3,6 +3,7 @@
 // variants; named wrappers keep semantic call sites compact
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { Link, type LinkProps } from 'react-router-dom'
 
 import { joinClassNames } from '~/shared/lib/className'
 import {
@@ -26,10 +27,7 @@ type ButtonSize = 'xs' | 'sm' | 'md'
 type ButtonSurface = 'outline' | 'filled'
 type ButtonReveal = 'hover' | 'always'
 
-interface ButtonProps extends Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  'type'
->
+interface ButtonStyleProps
 {
   variant?: ButtonVariant
   tone?: ButtonTone
@@ -37,8 +35,18 @@ interface ButtonProps extends Omit<
   surface?: ButtonSurface
   reveal?: ButtonReveal
   active?: boolean
+}
+
+interface ButtonProps
+  extends
+    Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'>,
+    ButtonStyleProps
+    {
   type?: ButtonHTMLAttributes<HTMLButtonElement>['type']
 }
+
+interface ButtonLinkProps extends LinkProps, ButtonStyleProps
+{}
 
 // -------- primary ------------------------------------------------------------
 
@@ -177,6 +185,34 @@ const resolveClasses = (
   )
 }
 
+const buttonClassName = ({
+  variant = 'secondary',
+  tone = 'default',
+  size,
+  surface = 'outline',
+  reveal = 'hover',
+  active = false,
+  className,
+}: ButtonStyleProps & { className?: string }): string =>
+{
+  const resolvedSize: ButtonSize =
+    size ?? (variant === 'primary' ? 'sm' : variant === 'overlay' ? 'sm' : 'md')
+  const resolvedTone: ButtonTone =
+    tone === 'default' ? (variant === 'primary' ? 'accent' : 'default') : tone
+
+  return joinClassNames(
+    resolveClasses(
+      variant,
+      resolvedTone,
+      resolvedSize,
+      surface,
+      reveal,
+      active
+    ),
+    className
+  )
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
@@ -192,35 +228,51 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ...props
     },
     ref
-  ) =>
-  {
-    const resolvedSize: ButtonSize =
-      size ??
-      (variant === 'primary' ? 'sm' : variant === 'overlay' ? 'sm' : 'md')
-    const resolvedTone: ButtonTone =
-      tone === 'default' ? (variant === 'primary' ? 'accent' : 'default') : tone
-
-    return (
-      <button
-        ref={ref}
-        type={type}
-        {...props}
-        className={joinClassNames(
-          resolveClasses(
-            variant,
-            resolvedTone,
-            resolvedSize,
-            surface,
-            reveal,
-            active
-          ),
-          className
-        )}
-      >
-        {children as ReactNode}
-      </button>
-    )
-  }
+  ) => (
+    <button
+      ref={ref}
+      type={type}
+      {...props}
+      className={buttonClassName({
+        variant,
+        tone,
+        size,
+        surface,
+        reveal,
+        active,
+        className,
+      })}
+    >
+      {children as ReactNode}
+    </button>
+  )
 )
 
 Button.displayName = 'Button'
+
+export const ButtonLink = ({
+  variant = 'secondary',
+  tone = 'default',
+  size,
+  surface = 'outline',
+  reveal = 'hover',
+  active = false,
+  className,
+  children,
+  ...props
+}: ButtonLinkProps) => (
+  <Link
+    {...props}
+    className={buttonClassName({
+      variant,
+      tone,
+      size,
+      surface,
+      reveal,
+      active,
+      className,
+    })}
+  >
+    {children}
+  </Link>
+)

@@ -1,5 +1,5 @@
 // src/app/routes/AppRouter.tsx
-// react-router-dom v6 router — workspace, library, embed, & 404 routes
+// react-router-dom v6 router — local workspace, library, embed, & 404 routes
 
 import { Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
@@ -14,7 +14,10 @@ import { AppChromeLayout } from '~/app/routes/AppChromeLayout'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import { NotFoundRoute } from '~/app/routes/NotFoundRoute'
 import { WorkspaceRoute } from '~/app/routes/WorkspaceRoute'
+import { AMBIENT_PAGE_CLASS } from '~/shared/ui/pageContainer'
 
+// embed bundle ships shared/board-ui + EmbedView which workspace users never
+// hit — lazy load keeps it out of the primary chunk
 const EmbedRoute = lazyNamed(() => import('./EmbedRoute'), 'EmbedRoute')
 
 const MyBoardsRoute = lazyNamed(
@@ -22,9 +25,9 @@ const MyBoardsRoute = lazyNamed(
   'MyBoardsRoute'
 )
 
-const RouteFallback = () => (
-  <main className="min-h-screen bg-[var(--t-bg-page)]" />
-)
+// matches the page-color shell each lazy chunk applies once mounted, so users
+// don't see a white flash while the JS arrives
+const RouteFallback = () => <main className={AMBIENT_PAGE_CLASS} />
 
 const routerBasename = normalizeBasePath() || '/'
 

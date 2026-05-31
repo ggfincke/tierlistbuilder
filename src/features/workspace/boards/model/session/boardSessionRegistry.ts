@@ -17,9 +17,7 @@ export const createBoardMeta = (id: BoardId, title: string): BoardMeta => ({
 })
 
 export const hasBoardMeta = (boardId: BoardId): boolean =>
-  useWorkspaceBoardRegistryStore
-    .getState()
-    .boards.some((board) => board.id === boardId)
+  useWorkspaceBoardRegistryStore.getState().isBoardInRegistry(boardId)
 
 export const deduplicateBoardTitle = (
   title: string,

@@ -1,18 +1,25 @@
 // src/shared/a11y/announce.ts
 // module-level screen reader announcement system
 
-let announceFn: ((message: string) => void) | null = null
+type Announcer = (message: string) => void
 
-// register or clear the announcement callback (LiveRegion mounts & unmounts)
-export const registerAnnouncer = (
-  fn: ((message: string) => void) | null
-): void =>
+const announcers: Announcer[] = []
+
+const getActiveAnnouncer = (): Announcer | undefined =>
+  announcers[announcers.length - 1]
+
+export const registerAnnouncer = (fn: Announcer): (() => void) =>
 {
-  announceFn = fn
+  announcers.push(fn)
+  return () =>
+  {
+    const index = announcers.lastIndexOf(fn)
+    if (index >= 0) announcers.splice(index, 1)
+  }
 }
 
 // fire an announcement — callable from anywhere (hooks, store actions, etc.)
 export const announce = (message: string): void =>
 {
-  announceFn?.(message)
+  getActiveAnnouncer()?.(message)
 }

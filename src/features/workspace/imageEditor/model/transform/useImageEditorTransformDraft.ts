@@ -1,10 +1,10 @@
 // src/features/workspace/imageEditor/model/transform/useImageEditorTransformDraft.ts
-// transform draft state, autosave, & dirty tracking for the editor pane
+// transform draft for the editor pane: layers commit resolution, saved-flash, &
+// pending-edit onto the generic useDebouncedDraft lifecycle
 
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -32,15 +32,15 @@ import {
   rotateImageEditorWorkingTransform,
   setImageEditorDisplayZoom,
 } from '~/features/workspace/imageEditor/lib/imageEditorTransformOps'
-import {
-  syncImageEditorTransformDraftState,
-  type ImageEditorTransformDraftState,
-} from '~/features/workspace/imageEditor/model/transform/imageEditorTransformDraftState'
+import { useDebouncedDraft } from '~/features/workspace/imageEditor/model/transform/useDebouncedDraft'
 import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 export type ImageEditorTransformDraftSetter = Dispatch<
   SetStateAction<ItemTransform>
 >
+
+const AUTO_COMMIT_MS = 350
+const SAVED_FLASH_MS = 1200
 
 interface UseImageEditorTransformDraftInput
 {
@@ -48,16 +48,6 @@ interface UseImageEditorTransformDraftInput
   frameAspectRatio: number
   effectiveFit: ImageFit
   onCommit: (transform: ItemTransform | null) => void
-}
-
-interface TransformDraftRuntime
-{
-  working: ItemTransform
-  committed: ItemTransform
-  isDirty: boolean
-  flushCommit: (transform: ItemTransform) => void
-  itemId: TierItem['id']
-  resolveCommitTransform: (transform: ItemTransform) => ItemTransform | null
 }
 
 export const useImageEditorTransformDraft = ({
@@ -80,71 +70,9 @@ export const useImageEditorTransformDraft = ({
   const savedTransform = getSavedTransform(item)
   const hasSavedTransform = !!savedTransform
   const committed = savedTransform ?? fitBaseline
-  const [draftState, setDraftState] = useState<ImageEditorTransformDraftState>(
-    () =>
-    {
-      const working = seedTransform(item, frameAspectRatio, effectiveFit)
-      return { working, committed }
-    }
-  )
-  const syncedDraftState = useMemo(
-    () => syncImageEditorTransformDraftState(draftState, committed),
-    [committed, draftState]
-  )
-  if (syncedDraftState !== draftState)
-  {
-    setDraftState(syncedDraftState)
-  }
-  const working = syncedDraftState.working
+
   const [savedFlash, setSavedFlash] = useState(false)
-
-  const resolveCommitTransform = useCallback(
-    (transform: ItemTransform): ItemTransform | null =>
-      resolveImageEditorCommitTransform(transform, fitBaseline),
-    [fitBaseline]
-  )
-  const flushCommit = useCallback(
-    (transform: ItemTransform) => onCommit(resolveCommitTransform(transform)),
-    [onCommit, resolveCommitTransform]
-  )
-
-  const isDirty = !isSameItemTransform(working, committed)
-  const runtimeRef = useRef<TransformDraftRuntime>({
-    working,
-    committed,
-    isDirty,
-    flushCommit,
-    itemId: item.id,
-    resolveCommitTransform,
-  })
-  const autoCommitTimerRef = useRef<number | null>(null)
   const savedFlashTimerRef = useRef<number | null>(null)
-
-  useLayoutEffect(() =>
-  {
-    runtimeRef.current = {
-      working,
-      committed,
-      isDirty,
-      flushCommit,
-      itemId: item.id,
-      resolveCommitTransform,
-    }
-  }, [
-    committed,
-    flushCommit,
-    isDirty,
-    item.id,
-    resolveCommitTransform,
-    working,
-  ])
-
-  const clearAutoCommitTimer = useCallback(() =>
-  {
-    if (autoCommitTimerRef.current === null) return
-    window.clearTimeout(autoCommitTimerRef.current)
-    autoCommitTimerRef.current = null
-  }, [])
 
   const clearSavedFlashTimer = useCallback(() =>
   {
@@ -161,82 +89,55 @@ export const useImageEditorTransformDraft = ({
     {
       savedFlashTimerRef.current = null
       setSavedFlash(false)
-    }, 1200)
+    }, SAVED_FLASH_MS)
   }, [clearSavedFlashTimer])
 
-  const scheduleAutoCommit = useCallback(() =>
-  {
-    clearAutoCommitTimer()
-    autoCommitTimerRef.current = window.setTimeout(() =>
+  const resolveCommitTransform = useCallback(
+    (transform: ItemTransform): ItemTransform | null =>
+      resolveImageEditorCommitTransform(transform, fitBaseline),
+    [fitBaseline]
+  )
+  const flushCommit = useCallback(
+    (transform: ItemTransform) => onCommit(resolveCommitTransform(transform)),
+    [onCommit, resolveCommitTransform]
+  )
+  // a fresh edit hides the "saved" flash from the prior auto-commit
+  const handleWorkingChange = useCallback(
+    (_: ItemTransform, dirty: boolean) =>
     {
-      autoCommitTimerRef.current = null
-      const runtime = runtimeRef.current
-      if (!runtime.isDirty) return
-      runtime.flushCommit(runtime.working)
-      runtime.isDirty = false
-      showSavedFlash()
-    }, 350)
-  }, [clearAutoCommitTimer, showSavedFlash])
-
-  const setWorkingDraft = useCallback<ImageEditorTransformDraftSetter>(
-    (nextOrUpdate) =>
-    {
-      const runtime = runtimeRef.current
-      const current = runtime.working
-      const next =
-        typeof nextOrUpdate === 'function'
-          ? nextOrUpdate(current)
-          : nextOrUpdate
-      if (isSameItemTransform(current, next)) return
-      runtime.working = next
-      const nextDirty = !isSameItemTransform(next, runtime.committed)
-      runtime.isDirty = nextDirty
-      if (nextDirty)
-      {
-        setSavedFlash(false)
-        scheduleAutoCommit()
-      }
-      else
-      {
-        clearAutoCommitTimer()
-      }
-      const nextDraftState = { working: next, committed: runtime.committed }
-      setDraftState(nextDraftState)
+      if (dirty) setSavedFlash(false)
     },
-    [clearAutoCommitTimer, scheduleAutoCommit]
+    []
   )
 
-  useEffect(
-    () => () =>
-    {
-      clearAutoCommitTimer()
-      clearSavedFlashTimer()
-      const runtime = runtimeRef.current
-      if (runtime.isDirty) runtime.flushCommit(runtime.working)
-    },
-    [clearAutoCommitTimer, clearSavedFlashTimer]
+  const seedWorking = useCallback(
+    () => seedTransform(item, frameAspectRatio, effectiveFit),
+    // seed runs once for the initial mount; later item swaps re-sync via committed
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   )
+
+  const { working, isDirty, setWorking, flush, readDirty } = useDebouncedDraft({
+    committed,
+    seedWorking,
+    equals: isSameItemTransform,
+    autoCommitMs: AUTO_COMMIT_MS,
+    onFlush: flushCommit,
+    onAutoCommit: showSavedFlash,
+    onWorkingChange: handleWorkingChange,
+  })
+  const setWorkingDraft: ImageEditorTransformDraftSetter = setWorking
+
+  useEffect(() => clearSavedFlashTimer, [clearSavedFlashTimer])
 
   const getPendingTransformEdit =
     useCallback((): PendingImageEditorPaneEdit | null =>
     {
-      const runtime = runtimeRef.current
-      return runtime.isDirty
-        ? {
-            id: runtime.itemId,
-            transform: runtime.resolveCommitTransform(runtime.working),
-          }
+      const pending = readDirty()
+      return pending
+        ? { id: item.id, transform: resolveCommitTransform(pending) }
         : null
-    }, [])
-
-  const flushPendingTransform = useCallback(() =>
-  {
-    const runtime = runtimeRef.current
-    if (!runtime.isDirty) return
-    clearAutoCommitTimer()
-    runtime.flushCommit(runtime.working)
-    runtime.isDirty = false
-  }, [clearAutoCommitTimer])
+    }, [item.id, readDirty, resolveCommitTransform])
 
   const getFitBaselineZoom = useCallback(
     (rotation: ItemRotation) =>
@@ -303,7 +204,7 @@ export const useImageEditorTransformDraft = ({
     displaySliderZoomMax,
     getFitBaselineZoom,
     getPendingTransformEdit,
-    flushPendingTransform,
+    flushPendingTransform: flush,
     rotate,
     setZoomLive,
     reset,

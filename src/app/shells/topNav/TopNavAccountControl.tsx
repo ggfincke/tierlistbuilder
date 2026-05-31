@@ -1,51 +1,25 @@
 // src/app/shells/topNav/TopNavAccountControl.tsx
-// avatar trigger & preferences menu state for global chrome
+// preferences trigger for the local-only chrome
 
-import { useCallback, useId, useRef, useState } from 'react'
+import { SlidersHorizontal } from 'lucide-react'
 
-import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
-import { TopNavAccountMenu } from '~/app/shells/topNav/TopNavAccountMenu'
-import { TopNavAvatarButton } from '~/app/shells/topNav/TopNavAvatarButton'
+import type { TopNavModalKey } from '~/app/shells/topNav/TopNavModalLayer'
 
 interface TopNavAccountControlProps
 {
-  onOpenPreferences: () => void
+  onOpenModal: (key: TopNavModalKey) => void
 }
 
 export const TopNavAccountControl = ({
-  onOpenPreferences,
-}: TopNavAccountControlProps) =>
-{
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuId = useId()
-  const accountWrapRef = useRef<HTMLDivElement>(null)
-
-  const closeMenu = useCallback(() =>
-  {
-    setMenuOpen(false)
-  }, [])
-
-  useDismissibleLayer({
-    open: menuOpen,
-    layerRef: accountWrapRef,
-    onDismiss: closeMenu,
-  })
-
-  return (
-    <div ref={accountWrapRef} className="relative">
-      <TopNavAvatarButton
-        label="Open app menu"
-        menuOpen={menuOpen}
-        menuId={menuId}
-        onToggle={() => setMenuOpen((open) => !open)}
-      />
-      {menuOpen && (
-        <TopNavAccountMenu
-          onClose={closeMenu}
-          menuId={menuId}
-          onOpenPreferences={onOpenPreferences}
-        />
-      )}
-    </div>
-  )
-}
+  onOpenModal,
+}: TopNavAccountControlProps) => (
+  <button
+    type="button"
+    aria-label="Open preferences"
+    title="Open preferences"
+    onClick={() => onOpenModal('preferences')}
+    className="focus-custom pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)]/85 text-[var(--t-text-muted)] backdrop-blur transition hover:border-[var(--t-border-secondary)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+  >
+    <SlidersHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden />
+  </button>
+)

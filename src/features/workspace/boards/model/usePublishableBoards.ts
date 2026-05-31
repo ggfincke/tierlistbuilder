@@ -11,6 +11,7 @@ import {
 import { readBrowserStorageItem } from '~/shared/lib/browserStorage'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
+import { countActiveItems } from '~/features/workspace/boards/model/slices/helpers'
 
 export interface PublishableBoard
 {
@@ -20,10 +21,6 @@ export interface PublishableBoard
   itemCount: number
   createdAt: number
 }
-
-const countActiveItems = (
-  snapshotItems: Record<string, unknown> | undefined
-): number => (snapshotItems ? Object.keys(snapshotItems).length : 0)
 
 interface CachedEntry
 {
@@ -83,7 +80,7 @@ export const projectPublishableBoards = (
       continue
     }
 
-    const itemCount = countActiveItems(result.data.items)
+    const itemCount = countActiveItems(result.data.items ?? {})
     if (itemCount === 0)
     {
       entryCache.set(meta.id, {

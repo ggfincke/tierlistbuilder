@@ -46,20 +46,42 @@ const clampPopupLeft = (
     )
   )
 
-// position a popup directly below a trigger button, right-aligned
-export function computeColorPickerStyle(
+const computeRightAlignedTriggerStyle = (
   btn: HTMLButtonElement,
+  options: { popupHeight?: number; flipWhenNeeded?: boolean } = {},
   viewport?: ViewportSize
-): CSSProperties
+): CSSProperties =>
 {
   const rect = btn.getBoundingClientRect()
-  const { width } = resolveViewport(viewport)
+  const { width, height } = resolveViewport(viewport)
+  const popupHeight = options.popupHeight ?? 0
+  const shouldFlip =
+    options.flipWhenNeeded &&
+    height - rect.bottom < popupHeight + FIXED_POPUP_GAP_PX
+
+  if (shouldFlip)
+  {
+    return {
+      position: 'fixed',
+      bottom: height - rect.top + FIXED_POPUP_GAP_PX,
+      right: width - rect.right,
+    }
+  }
 
   return {
     position: 'fixed',
     top: rect.bottom + FIXED_POPUP_GAP_PX,
     right: width - rect.right,
   }
+}
+
+// position a popup directly below a trigger button, right-aligned
+export function computeColorPickerStyle(
+  btn: HTMLButtonElement,
+  viewport?: ViewportSize
+): CSSProperties
+{
+  return computeRightAlignedTriggerStyle(btn, {}, viewport)
 }
 
 // position the custom color popup below the swatch tray, clamped to viewport
@@ -84,26 +106,29 @@ export function computeCustomColorPickerStyle(
   }
 }
 
+export function computePointAnchoredPopupStyle(
+  point: { x: number; y: number },
+  popup: { width: number; height: number },
+  viewport?: ViewportSize
+): CSSProperties
+{
+  const { width, height } = resolveViewport(viewport)
+  return {
+    position: 'fixed',
+    top: clampPopupTop(point.y, popup.height, height),
+    left: clampPopupLeft(point.x, popup.width, width),
+  }
+}
+
 // position a settings menu below or above a trigger button depending on space
 export function computeSettingsMenuStyle(
   btn: HTMLButtonElement,
   viewport?: ViewportSize
 ): CSSProperties
 {
-  const rect = btn.getBoundingClientRect()
-  const { width, height } = resolveViewport(viewport)
-  const spaceBelow = height - rect.bottom
-  if (spaceBelow >= SETTINGS_MENU_HEIGHT_PX + FIXED_POPUP_GAP_PX)
-  {
-    return {
-      position: 'fixed',
-      top: rect.bottom + FIXED_POPUP_GAP_PX,
-      right: width - rect.right,
-    }
-  }
-  return {
-    position: 'fixed',
-    bottom: height - rect.top + FIXED_POPUP_GAP_PX,
-    right: width - rect.right,
-  }
+  return computeRightAlignedTriggerStyle(
+    btn,
+    { popupHeight: SETTINGS_MENU_HEIGHT_PX, flipWhenNeeded: true },
+    viewport
+  )
 }

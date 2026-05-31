@@ -1,5 +1,5 @@
 // src/features/workspace/annotation/ui/AnnotationToolbar.tsx
-// annotation toolbar — tool selection, text formatting (Google Docs-style), & actions
+// annotation toolbar: tool selection, text formatting, & actions
 
 import { memo, useCallback } from 'react'
 import {
@@ -21,6 +21,11 @@ import type {
 } from '~/features/workspace/annotation/model/useAnnotationCanvas'
 import { FONT_FAMILY_LABELS } from '~/features/workspace/annotation/model/useAnnotationCanvas'
 import { ColorInput } from '~/shared/ui/ColorInput'
+import {
+  IconToggleGroup,
+  type IconToggleOption,
+} from '~/shared/ui/IconToggleGroup'
+import { ToggleButton } from '~/shared/ui/ToggleButton'
 
 // min/max match the number input's advertised range so the stepper doesn't
 // disable before the input bound & out-of-range typed values aren't silently dropped
@@ -42,6 +47,11 @@ const FONT_SIZE_PRESETS = [
   FONT_SIZE_MAX,
 ]
 
+const TOOL_OPTIONS: readonly IconToggleOption<AnnotationTool>[] = [
+  { value: 'pen', label: 'Freehand Pen', Icon: Pen },
+  { value: 'text', label: 'Text', Icon: Type },
+]
+
 interface AnnotationToolbarProps
 {
   activeTool: AnnotationTool
@@ -58,32 +68,6 @@ interface AnnotationToolbarProps
   onUndo: () => void
   onClear: () => void
 }
-
-// render a bold/italic toggle button — Google Docs-style pressed state
-const FormatToggle = ({
-  active,
-  onClick,
-  title,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  title: string
-  children: React.ReactNode
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    title={title}
-    className={`rounded p-1.5 transition-colors ${
-      active
-        ? 'bg-[rgb(var(--t-overlay)/0.12)] text-[var(--t-text)]'
-        : 'text-[var(--t-text-secondary)] hover:bg-[rgb(var(--t-overlay)/0.06)]'
-    }`}
-  >
-    {children}
-  </button>
-)
 
 export const AnnotationToolbar = memo(
   ({
@@ -135,35 +119,16 @@ export const AnnotationToolbar = memo(
 
     return (
       <div className="flex flex-wrap items-center gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] px-2 py-1.5">
-        {/* tool selection */}
-        <button
-          type="button"
-          onClick={() => onToolChange('pen')}
-          className={`rounded-md p-2 transition-colors ${
-            activeTool === 'pen'
-              ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]'
-              : 'text-[var(--t-text-secondary)] hover:bg-[rgb(var(--t-overlay)/0.06)]'
-          }`}
-          title="Freehand Pen"
-        >
-          <Pen className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onToolChange('text')}
-          className={`rounded-md p-2 transition-colors ${
-            activeTool === 'text'
-              ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]'
-              : 'text-[var(--t-text-secondary)] hover:bg-[rgb(var(--t-overlay)/0.06)]'
-          }`}
-          title="Text"
-        >
-          <Type className="h-4 w-4" />
-        </button>
+        <IconToggleGroup
+          value={activeTool}
+          options={TOOL_OPTIONS}
+          onChange={onToolChange}
+          ariaLabel="Annotation tool"
+          className="border-transparent bg-transparent p-0"
+        />
 
         <div className="mx-0.5 h-5 w-px bg-[var(--t-border)]" />
 
-        {/* color picker */}
         <ColorInput
           value={color}
           onChange={(e) => onColorChange(e.target.value)}
@@ -172,7 +137,6 @@ export const AnnotationToolbar = memo(
 
         <div className="mx-0.5 h-5 w-px bg-[var(--t-border)]" />
 
-        {/* pen-specific: stroke width */}
         {activeTool === 'pen' && (
           <>
             <input
@@ -190,10 +154,8 @@ export const AnnotationToolbar = memo(
           </>
         )}
 
-        {/* text-specific: Google Docs-style formatting bar */}
         {activeTool === 'text' && (
           <>
-            {/* font family dropdown */}
             <div className="relative">
               <select
                 value={textStyle.fontFamily}
@@ -219,7 +181,6 @@ export const AnnotationToolbar = memo(
 
             <div className="mx-0.5 h-5 w-px bg-[var(--t-border)]" />
 
-            {/* font size — minus / value / plus (Docs-style stepper) */}
             <div className="flex items-center gap-0.5">
               <button
                 type="button"
@@ -261,27 +222,29 @@ export const AnnotationToolbar = memo(
 
             <div className="mx-0.5 h-5 w-px bg-[var(--t-border)]" />
 
-            {/* bold & italic toggles */}
-            <FormatToggle
+            <ToggleButton
               active={textStyle.bold}
               onClick={toggleBold}
               title="Bold (B)"
+              size="icon"
+              variant="subtle"
             >
               <Bold className="h-4 w-4" />
-            </FormatToggle>
-            <FormatToggle
+            </ToggleButton>
+            <ToggleButton
               active={textStyle.italic}
               onClick={toggleItalic}
               title="Italic (I)"
+              size="icon"
+              variant="subtle"
             >
               <Italic className="h-4 w-4" />
-            </FormatToggle>
+            </ToggleButton>
           </>
         )}
 
         <div className="mx-0.5 h-5 w-px bg-[var(--t-border)]" />
 
-        {/* undo & clear */}
         <button
           type="button"
           onClick={onUndo}

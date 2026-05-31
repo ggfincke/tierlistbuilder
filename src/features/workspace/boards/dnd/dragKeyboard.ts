@@ -93,34 +93,14 @@ export const resolveNextKeyboardDragPreview = ({
     return null
   }
 
-  if (direction === 'ArrowLeft')
+  if (direction === 'ArrowLeft' || direction === 'ArrowRight')
   {
-    if (sourceIndex === 0)
+    const step = direction === 'ArrowLeft' ? -1 : 1
+    const targetIndex = sourceIndex + step
+    if (targetIndex < 0 || targetIndex >= sourceItems.length)
     {
       return null
     }
-
-    const targetIndex = sourceIndex - 1
-
-    return {
-      containerId: fromContainerId,
-      nextPreview: moveItemToIndexInSnapshot({
-        snapshot,
-        itemId,
-        toContainerId: fromContainerId,
-        toIndex: targetIndex,
-      }),
-    }
-  }
-
-  if (direction === 'ArrowRight')
-  {
-    if (sourceIndex === sourceItems.length - 1)
-    {
-      return null
-    }
-
-    const targetIndex = sourceIndex + 1
 
     return {
       containerId: fromContainerId,
@@ -182,14 +162,10 @@ export const resolveNextKeyboardFocusItem = ({
     return null
   }
 
-  if (direction === 'ArrowLeft')
+  if (direction === 'ArrowLeft' || direction === 'ArrowRight')
   {
-    return sourceItems[sourceIndex - 1] ?? null
-  }
-
-  if (direction === 'ArrowRight')
-  {
-    return sourceItems[sourceIndex + 1] ?? null
+    const step = direction === 'ArrowLeft' ? -1 : 1
+    return sourceItems[sourceIndex + step] ?? null
   }
 
   const targetContainerId = getAdjacentKeyboardContainerId(

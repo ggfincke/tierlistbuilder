@@ -7,6 +7,7 @@ import type {
   BoardSnapshotWire,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { deflate, Inflate } from 'pako'
+import { inflateDeflatedJson } from './inflateJson'
 
 type CompressionWorkerRequest =
   | {
@@ -45,45 +46,6 @@ const decoder = new TextDecoder()
 const transferable = (bytes: Uint8Array): Transferable[] =>
   bytes.buffer instanceof ArrayBuffer ? [bytes.buffer] : []
 
-const inflateToJson = (
-  compressed: Uint8Array,
-  maxInflatedBytes: number
-): string =>
-{
-  const inflator = new Inflate()
-  const defaultOnData = inflator.onData.bind(inflator)
-  let totalLength = 0
-  let abortedForSize = false
-
-  inflator.onData = (chunk: Uint8Array) =>
-  {
-    if (abortedForSize) return
-    totalLength += chunk.length
-    if (totalLength > maxInflatedBytes)
-    {
-      abortedForSize = true
-      return
-    }
-    defaultOnData(chunk)
-  }
-
-  inflator.push(compressed, true)
-
-  if (abortedForSize)
-  {
-    throw new Error(
-      `inflated snapshot exceeds the ${maxInflatedBytes}-byte cap`
-    )
-  }
-
-  if (inflator.err)
-  {
-    throw new Error(`snapshot decompression failed: ${inflator.msg}`)
-  }
-
-  return decoder.decode(inflator.result as Uint8Array)
-}
-
 workerScope.addEventListener('message', (event) =>
 {
   const request = event.data
@@ -103,7 +65,11 @@ workerScope.addEventListener('message', (event) =>
     workerScope.postMessage({
       id: request.id,
       ok: true,
-      json: inflateToJson(request.compressed, request.maxInflatedBytes),
+      json: inflateDeflatedJson(request.compressed, {
+        Inflate,
+        maxInflatedBytes: request.maxInflatedBytes,
+        decoder,
+      }),
     })
   }
   catch (error)

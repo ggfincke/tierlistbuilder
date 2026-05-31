@@ -1,15 +1,14 @@
 // src/features/workspace/settings/ui/AppearanceTab.tsx
 // per-board style overrides for palette, text style, & page background
 
-import { RotateCcw } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { ColorInput } from '~/shared/ui/ColorInput'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { THEMES } from '~/shared/theme/tokens'
+import { OverrideColorRow } from '~/shared/ui/settings/OverrideColorRow'
 import { PalettePicker } from '~/shared/ui/settings/PalettePicker'
 import { SettingRow } from '~/shared/ui/settings/SettingRow'
 import { TextStylePicker } from '~/shared/ui/settings/TextStylePicker'
@@ -112,29 +111,16 @@ export const AppearanceTab = () =>
         }
         caption="Off uses a custom color for this board only."
       >
-        <SettingRow label="Color">
-          {(labelId) => (
-            <div className="flex items-center gap-2">
-              {!pageBgUsesDefault && pageBackgroundOverride !== undefined && (
-                <button
-                  type="button"
-                  onClick={() => setBoardPageBackground(null)}
-                  aria-label="Reset page background to my default"
-                  className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)] disabled:opacity-50"
-                  title="Reset to my default"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <ColorInput
-                value={resolvedBgValue}
-                onChange={(e) => setBoardPageBackground(e.target.value)}
-                disabled={pageBgUsesDefault}
-                aria-labelledby={labelId}
-              />
-            </div>
-          )}
-        </SettingRow>
+        <OverrideColorRow
+          label="Color"
+          value={pageBackgroundOverride}
+          defaultColor={resolvedBgValue}
+          onChange={setBoardPageBackground}
+          onReset={() => setBoardPageBackground(null)}
+          resetLabel="Reset page background to my default"
+          resetTitle="Reset to my default"
+          disabled={pageBgUsesDefault}
+        />
       </OverrideSection>
     </>
   )

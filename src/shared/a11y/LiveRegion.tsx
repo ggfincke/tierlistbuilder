@@ -31,10 +31,10 @@ export const LiveRegion = () =>
 
   useEffect(() =>
   {
-    registerAnnouncer(handleAnnounce)
+    const unregister = registerAnnouncer(handleAnnounce)
     return () =>
     {
-      registerAnnouncer(null)
+      unregister()
       if (timeoutRef.current)
       {
         clearTimeout(timeoutRef.current)

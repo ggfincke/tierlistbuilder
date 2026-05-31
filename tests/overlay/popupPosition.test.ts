@@ -9,13 +9,16 @@ import {
 } from '~/shared/overlay/popupPosition'
 import { makeRect } from '@tests/fixtures'
 
+const anchorEl = <T extends HTMLElement>(rect: Partial<DOMRect>): T =>
+  ({
+    getBoundingClientRect: () => makeRect(rect),
+  }) as T
+
 describe('computeColorPickerStyle', () =>
 {
   it('anchors the tray below the trigger & right-aligns it to the viewport', () =>
   {
-    const button = {
-      getBoundingClientRect: () => makeRect({ bottom: 40, right: 300 }),
-    } as HTMLButtonElement
+    const button = anchorEl<HTMLButtonElement>({ bottom: 40, right: 300 })
 
     expect(
       computeColorPickerStyle(button, {
@@ -34,12 +37,8 @@ describe('computeCustomColorPickerStyle', () =>
 {
   it('uses the tray rect as the anchor when available', () =>
   {
-    const button = {
-      getBoundingClientRect: () => makeRect({ bottom: 48, left: 60 }),
-    } as HTMLButtonElement
-    const tray = {
-      getBoundingClientRect: () => makeRect({ bottom: 160, left: 320 }),
-    } as HTMLDivElement
+    const button = anchorEl<HTMLButtonElement>({ bottom: 48, left: 60 })
+    const tray = anchorEl<HTMLDivElement>({ bottom: 160, left: 320 })
 
     expect(
       computeCustomColorPickerStyle(button, tray, 280, 0, {
@@ -55,9 +54,7 @@ describe('computeCustomColorPickerStyle', () =>
 
   it('clamps the popup inside the viewport when the anchor is near the edge', () =>
   {
-    const button = {
-      getBoundingClientRect: () => makeRect({ bottom: 620, left: 980 }),
-    } as HTMLButtonElement
+    const button = anchorEl<HTMLButtonElement>({ bottom: 620, left: 980 })
 
     expect(
       computeCustomColorPickerStyle(button, null, 280, 200, {
@@ -76,14 +73,11 @@ describe('computeSettingsMenuStyle', () =>
 {
   it('opens below the trigger when there is enough room', () =>
   {
-    const button = {
-      getBoundingClientRect: () =>
-        makeRect({
-          top: 100,
-          bottom: 160,
-          right: 400,
-        }),
-    } as HTMLButtonElement
+    const button = anchorEl<HTMLButtonElement>({
+      top: 100,
+      bottom: 160,
+      right: 400,
+    })
 
     expect(
       computeSettingsMenuStyle(button, {
@@ -99,14 +93,11 @@ describe('computeSettingsMenuStyle', () =>
 
   it('flips above the trigger when the viewport is too short', () =>
   {
-    const button = {
-      getBoundingClientRect: () =>
-        makeRect({
-          top: 450,
-          bottom: 700,
-          right: 400,
-        }),
-    } as HTMLButtonElement
+    const button = anchorEl<HTMLButtonElement>({
+      top: 450,
+      bottom: 700,
+      right: 400,
+    })
 
     expect(
       computeSettingsMenuStyle(button, {

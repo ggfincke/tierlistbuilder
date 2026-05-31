@@ -4,7 +4,7 @@
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState } from 'react'
-import { Check, Copy, Download, Highlighter } from 'lucide-react'
+import { Download, Highlighter } from 'lucide-react'
 
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import {
@@ -12,6 +12,7 @@ import {
   IMAGE_FORMAT_META,
 } from '~/features/workspace/export/lib/constants'
 import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
+import { CopyButton } from '~/shared/ui/CopyButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
 interface ExportPreviewModalProps
@@ -113,18 +114,12 @@ export const ExportPreviewModal = ({
             <Highlighter className="h-3.5 w-3.5" />
             Annotate
           </SecondaryButton>
-          <SecondaryButton
-            variant="surface"
+          <CopyButton
+            copied={copied}
             onClick={handleCopy}
             disabled={exporting || !previewDataUrl}
-          >
-            {copied ? (
-              <Check className="h-3.5 w-3.5 text-[var(--t-accent)]" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
-            {copied ? 'Copied' : 'Copy'}
-          </SecondaryButton>
+            ariaLabel="Copy export image"
+          />
           <SecondaryButton
             variant="surface"
             onClick={onDownload}

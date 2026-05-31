@@ -1,5 +1,5 @@
 // tests/data/imageBlobCache.test.ts
-// image blob cache pagehide behavior
+// image blob cache lifecycle & pruning behavior
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -7,53 +7,27 @@ import {
   disposeImageBlobCache,
   getCachedImageUrl,
   handlePageHide,
+  subscribeCachedImageUrl,
 } from '~/shared/images/imageBlobCache'
+import { mockObjectUrls } from '@tests/shared-lib/objectUrl'
 
-const originalCreateObjectUrl = Object.getOwnPropertyDescriptor(
-  URL,
-  'createObjectURL'
-)
-const originalRevokeObjectUrl = Object.getOwnPropertyDescriptor(
-  URL,
-  'revokeObjectURL'
-)
-
-const restoreUrlMethod = (
-  key: 'createObjectURL' | 'revokeObjectURL',
-  descriptor: PropertyDescriptor | undefined
-): void =>
-{
-  if (descriptor)
-  {
-    Object.defineProperty(URL, key, descriptor)
-    return
-  }
-
-  delete (URL as typeof URL & Partial<Record<typeof key, unknown>>)[key]
-}
+let objectUrlId = 0
+let objectUrls: ReturnType<typeof mockObjectUrls> | null = null
 
 describe('imageBlobCache', () =>
 {
   beforeEach(() =>
   {
-    Object.defineProperty(URL, 'createObjectURL', {
-      configurable: true,
-      writable: true,
-      value: vi.fn(() => 'blob:test-url'),
-    })
-    Object.defineProperty(URL, 'revokeObjectURL', {
-      configurable: true,
-      writable: true,
-      value: vi.fn(),
-    })
+    objectUrlId = 0
+    objectUrls = mockObjectUrls(() => `blob:test-url-${++objectUrlId}`)
     disposeImageBlobCache()
   })
 
   afterEach(() =>
   {
     disposeImageBlobCache()
-    restoreUrlMethod('createObjectURL', originalCreateObjectUrl)
-    restoreUrlMethod('revokeObjectURL', originalRevokeObjectUrl)
+    objectUrls?.restore()
+    objectUrls = null
   })
 
   it('does not clear cached urls on persisted pagehide events', () =>
@@ -62,7 +36,41 @@ describe('imageBlobCache', () =>
 
     handlePageHide({ persisted: true })
 
-    expect(getCachedImageUrl('hash-a')).toBe('blob:test-url')
+    expect(getCachedImageUrl('hash-a')).toBe('blob:test-url-1')
     expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('keeps subscribed urls when cache pruning removes older entries', () =>
+  {
+    let now = 0
+    const dateNowSpy = vi.spyOn(Date, 'now').mockImplementation(() => ++now)
+    const listener = vi.fn()
+
+    try
+    {
+      cacheFreshBlob('hash-a', new Blob(['a'], { type: 'image/png' }))
+      const unsubscribe = subscribeCachedImageUrl('hash-a', listener)
+
+      try
+      {
+        for (let index = 0; index < 512; index++)
+        {
+          cacheFreshBlob(`hash-${index}`, new Blob(['x']))
+        }
+      }
+      finally
+      {
+        unsubscribe()
+      }
+    }
+    finally
+    {
+      dateNowSpy.mockRestore()
+    }
+
+    expect(getCachedImageUrl('hash-a')).toBe('blob:test-url-1')
+    expect(getCachedImageUrl('hash-0')).toBeNull()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-url-2')
+    expect(listener).not.toHaveBeenCalled()
   })
 })

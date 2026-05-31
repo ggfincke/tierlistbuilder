@@ -3,6 +3,8 @@
 
 import { useEffect, type RefObject } from 'react'
 
+import { createLayerStack } from '~/shared/overlay/layerStack'
+
 interface UseFocusTrapOptions
 {
   active: boolean
@@ -19,7 +21,7 @@ interface FocusTrapEntry
 const FOCUSABLE_SELECTOR =
   'a[href], area[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), iframe, [contenteditable="true"], [tabindex]:not([tabindex="-1"])'
 
-const ACTIVE_FOCUS_TRAPS: FocusTrapEntry[] = []
+const ACTIVE_FOCUS_TRAPS = createLayerStack<FocusTrapEntry>()
 
 const isVisibleFocusableElement = (element: HTMLElement): boolean =>
 {
@@ -54,7 +56,7 @@ const focusElement = (element: HTMLElement) =>
 }
 
 const getTopmostFocusTrap = (): FocusTrapEntry | undefined =>
-  ACTIVE_FOCUS_TRAPS[ACTIVE_FOCUS_TRAPS.length - 1]
+  ACTIVE_FOCUS_TRAPS.top()
 
 export const useFocusTrap = (
   containerRef: RefObject<HTMLElement | null>,
@@ -203,14 +205,7 @@ export const useFocusTrap = (
       document.removeEventListener('focusin', handleFocusIn, true)
       document.removeEventListener('keydown', handleKeyDown, true)
 
-      const trapIndex = ACTIVE_FOCUS_TRAPS.findIndex(
-        (entry) => entry.token === token
-      )
-
-      if (trapIndex >= 0)
-      {
-        ACTIVE_FOCUS_TRAPS.splice(trapIndex, 1)
-      }
+      ACTIVE_FOCUS_TRAPS.remove((entry) => entry.token === token)
 
       if (hadTabIndex)
       {

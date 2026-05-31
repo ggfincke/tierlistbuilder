@@ -33,7 +33,7 @@ import {
   boardSyncStorageKey,
 } from '~/features/workspace/boards/data/local/storageKeys'
 
-export { boardStorageKey, boardSyncStorageKey }
+export { boardStorageKey }
 
 export const boardImageRefScope = (id: BoardId): string => `board:${id}`
 

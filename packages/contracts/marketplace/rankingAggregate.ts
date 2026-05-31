@@ -2,9 +2,8 @@
 // public template-ranking consensus contracts shared by Convex & future UI
 
 import type { TierColorSpec } from '../lib/theme'
-import type { ImageFit, ItemTransform } from '../workspace/board'
 import type { TemplateCategory } from './category'
-import type { TemplateMediaRef } from './template'
+import type { MarketplaceItemRenderFields } from './template'
 import type { PaginationResult } from '../lib/pagination'
 import type { MarketplaceTemplateCriterion } from './templateCriterion'
 
@@ -77,6 +76,26 @@ export interface MarketplaceTemplateRankingAggregateBucket
   colorSpec: TierColorSpec | null
 }
 
+export interface TemplateRankingAggregateBucketTierSource
+{
+  name: string
+  colorSpec: TierColorSpec | null
+}
+
+export const buildAggregateBucketsFromTiers = (
+  tiers: readonly TemplateRankingAggregateBucketTierSource[],
+  bucketCount: number = tiers.length
+): MarketplaceTemplateRankingAggregateBucket[] =>
+  Array.from({ length: Math.max(0, bucketCount) }, (_, index) =>
+  {
+    const tier = tiers[index]
+    return {
+      index,
+      label: tier?.name.trim() || `Tier ${index + 1}`,
+      colorSpec: tier?.colorSpec ?? null,
+    }
+  })
+
 export interface MarketplaceTemplateRankingAggregateHighlight
 {
   templateItemExternalId: string
@@ -107,18 +126,10 @@ export interface MarketplaceTemplateRankingAggregateDistributionCell
   share: number
 }
 
-export interface MarketplaceTemplateRankingAggregateItem
+export interface MarketplaceTemplateRankingAggregateItem extends MarketplaceItemRenderFields
 {
   externalId: string
   templateItemExternalId: string
-  label: string | null
-  backgroundColor: string | null
-  altText: string | null
-  media: TemplateMediaRef | null
-  order: number
-  aspectRatio: number | null
-  imageFit: ImageFit | null
-  transform: ItemTransform | null
   sampleCount: number
   averageBucket: number | null
   topBucketIndex: number | null

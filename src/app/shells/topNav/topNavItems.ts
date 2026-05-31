@@ -1,5 +1,5 @@
 // src/app/shells/topNav/topNavItems.ts
-// route pill defs for the top nav
+// route pill defs for the local-only shell
 
 import { Bookmark, Layers, type LucideIcon } from 'lucide-react'
 
