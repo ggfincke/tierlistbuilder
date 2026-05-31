@@ -1,6 +1,7 @@
 // src/features/platform/auth/model/authErrors.ts
-// Maps Convex Auth error codes/messages to copy safe for the sign-in surface.
+// maps Convex Auth error codes/messages to sign-in-safe copy
 
+import { passwordTooShortMessage } from '@tierlistbuilder/contracts/platform/user'
 import { logger } from '~/shared/lib/logger'
 
 export type AuthMode = 'sign-in' | 'sign-up'
@@ -24,7 +25,7 @@ export const mapAuthError = (message: string, mode: AuthMode): string =>
   }
   if (lower.includes('password') && lower.includes('characters'))
   {
-    return 'Password must be at least 8 characters.'
+    return passwordTooShortMessage()
   }
   logger.debug('auth', 'Unmapped auth error:', message)
   return 'Something went wrong. Please try again.'

@@ -1,12 +1,12 @@
 // packages/contracts/marketplace/ranking.ts
 // public ranking contracts shared by Convex & future marketplace UI
 
-import type { TierColorSpec } from '../lib/theme'
 import { generateBase62Slug, isBase62Slug } from '../lib/ids'
 import type { BoardAutoPlateSettings } from '../workspace/board'
 import type { MarketplaceItemRenderFields, TemplateAuthor } from './template'
 import type { TemplateCategory } from './category'
 import type { PaginationResult } from '../lib/pagination'
+import type { PublicTierRow } from '../lib/publicTier'
 import type {
   MarketplaceTemplateCriterion,
   MarketplaceTemplateCriterionSnapshot,
@@ -102,15 +102,7 @@ export interface MarketplaceRankingSummary
   updatedAt: number
 }
 
-export interface MarketplaceRankingTier
-{
-  externalId: string
-  name: string
-  description: string | null
-  colorSpec: TierColorSpec
-  rowColorSpec: TierColorSpec | null
-  order: number
-}
+export type MarketplaceRankingTier = PublicTierRow
 
 export interface MarketplaceRankingItem extends MarketplaceItemRenderFields
 {

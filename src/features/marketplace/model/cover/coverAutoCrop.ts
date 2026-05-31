@@ -3,6 +3,7 @@
 // content bbox; project that bbox into per-surface CoverFrames at locked aspects
 
 import {
+  padBBox,
   pickAutoCropBBox,
   type AutoCropBBox,
   type AutoCropScan,
@@ -128,7 +129,7 @@ const bboxToCoverFrame = ({
   paddingFraction = COVER_PADDING_FRACTION,
 }: BBoxToCoverFrameInput): CoverFrame =>
 {
-  const padded = padBBox(bbox, paddingFraction)
+  const padded = padBBox(bbox, paddingFraction, { clamp: false })
   const bboxWNorm = padded.right - padded.left
   const bboxHNorm = padded.bottom - padded.top
   const bboxWPx = bboxWNorm * sourceWidth
@@ -190,10 +191,3 @@ export const bboxToCoverFraming = ({
   }
   return out
 }
-
-const padBBox = (bbox: AutoCropBBox, padding: number): AutoCropBBox => ({
-  left: bbox.left - padding,
-  top: bbox.top - padding,
-  right: bbox.right + padding,
-  bottom: bbox.bottom + padding,
-})

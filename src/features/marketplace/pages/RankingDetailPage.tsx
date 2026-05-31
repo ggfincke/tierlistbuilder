@@ -14,6 +14,7 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardAutoPlateSettings } from '@tierlistbuilder/contracts/workspace/board'
+import { majorityAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
@@ -241,8 +242,6 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
     [detail.tiers]
   )
 
-  // ranking items can carry per-item aspect ratio; pick the most common one
-  // for the frame so tier rows render w/ a consistent slot size
   const frameAspectRatio = useMemo(() =>
   {
     const ratios = detail.items
@@ -250,23 +249,7 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
       .filter(
         (ratio): ratio is number => typeof ratio === 'number' && ratio > 0
       )
-    if (ratios.length === 0) return ITEM_FRAME_RATIO_FALLBACK
-    const counts = new Map<number, number>()
-    for (const ratio of ratios)
-    {
-      counts.set(ratio, (counts.get(ratio) ?? 0) + 1)
-    }
-    let best = ratios[0]
-    let bestCount = 0
-    for (const [ratio, count] of counts)
-    {
-      if (count > bestCount)
-      {
-        best = ratio
-        bestCount = count
-      }
-    }
-    return best
+    return majorityAspectRatio(ratios) ?? ITEM_FRAME_RATIO_FALLBACK
   }, [detail.items])
 
   return (

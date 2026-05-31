@@ -13,6 +13,7 @@ import type { Doc } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
 import { BATCH_LIMITS } from '../../lib/limits'
+import { findTemplateBySlug } from '../../lib/marketplaceLookups'
 import { templateCriteriaValidator } from '../../lib/validators/marketplace'
 import {
   findTemplateCardByTemplateId,
@@ -148,10 +149,7 @@ export const setTemplateFeaturedRank = internalMutation({
     args
   ): Promise<{ slug: string; featuredRank: number | null }> =>
   {
-    const template = await ctx.db
-      .query('templates')
-      .withIndex('bySlug', (q) => q.eq('slug', args.slug))
-      .unique()
+    const template = await findTemplateBySlug(ctx, args.slug)
     if (!template)
     {
       throw new ConvexError({
@@ -180,10 +178,7 @@ export const setTemplateCriteriaImpl = internalMutation({
     args
   ): Promise<{ slug: string; criteria: Doc<'templates'>['criteria'] }> =>
   {
-    const template = await ctx.db
-      .query('templates')
-      .withIndex('bySlug', (q) => q.eq('slug', args.slug))
-      .unique()
+    const template = await findTemplateBySlug(ctx, args.slug)
     if (!template)
     {
       throw new ConvexError({
@@ -772,10 +767,7 @@ export const unpublishSeededTemplateImpl = internalMutation({
   }),
   handler: async (ctx, args) =>
   {
-    const template = await ctx.db
-      .query('templates')
-      .withIndex('bySlug', (q) => q.eq('slug', args.slug))
-      .unique()
+    const template = await findTemplateBySlug(ctx, args.slug)
     if (!template)
     {
       return { found: false, alreadyUnpublished: false }

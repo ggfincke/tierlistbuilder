@@ -24,6 +24,7 @@ import {
 } from './trending'
 import { failState } from './normalize'
 import { isPublicTemplateRow } from './state'
+import { findTemplateBySlug } from '../../../lib/marketplaceLookups'
 import {
   buildTemplateCardFields,
   findTemplateCardByTemplateId,
@@ -52,10 +53,7 @@ export const allocateTemplateSlug = async (ctx: DbCtx): Promise<string> =>
   for (let i = 0; i < MAX_SLUG_ATTEMPTS; i++)
   {
     const slug = generateTemplateSlug()
-    const existing = await ctx.db
-      .query('templates')
-      .withIndex('bySlug', (q) => q.eq('slug', slug))
-      .unique()
+    const existing = await findTemplateBySlug(ctx, slug)
 
     if (!existing)
     {

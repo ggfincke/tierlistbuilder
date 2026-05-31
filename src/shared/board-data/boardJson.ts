@@ -27,6 +27,7 @@ import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import { MAX_TEMPLATE_TITLE_LENGTH } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_RANKING_TITLE_LENGTH } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { HEX_COLOR_PATTERN } from '@tierlistbuilder/contracts/lib/hexColor'
+import { MAX_EXTERNAL_ID_LENGTH } from '@tierlistbuilder/contracts/lib/ids'
 import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 import {
   itemUsesLocalImageRef,
@@ -38,7 +39,6 @@ import { isNonEmptyString, isRecord } from '~/shared/lib/typeGuards'
 const MAX_BOARD_IMPORT_INLINE_IMAGE_URL_LENGTH =
   Math.ceil((MAX_IMAGE_BYTE_SIZE * 4) / 3) + 128
 const MAX_BOARD_IMPORT_ITEM_REFERENCES = MAX_LARGE_CLOUD_BOARD_ITEMS
-const MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH = 128
 const MAX_BOARD_IMPORT_URL_LENGTH = 2048
 
 interface BoardImportFileLike
@@ -161,7 +161,7 @@ const validateTierEntry = (tier: unknown, index: number): void =>
   assertStringLengthAtMost(
     `Tier #${index + 1} id`,
     tier.id,
-    MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+    MAX_EXTERNAL_ID_LENGTH
   )
 
   if (!tier.name || typeof tier.name !== 'string')
@@ -229,12 +229,12 @@ const validateItemEntry = (
   assertStringLengthAtMost(
     `Item "${id}" id`,
     id,
-    MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+    MAX_EXTERNAL_ID_LENGTH
   )
   assertStringLengthAtMost(
     `Item "${id}" wire id`,
     item.id,
-    MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+    MAX_EXTERNAL_ID_LENGTH
   )
   assertStringLengthAtMost(
     `Item "${id}" label`,
@@ -260,7 +260,7 @@ const validateItemEntry = (
   assertStringLengthAtMost(
     `Item "${id}" sourceTemplateItemExternalId`,
     item.sourceTemplateItemExternalId,
-    MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+    MAX_EXTERNAL_ID_LENGTH
   )
   assertStringLengthAtMost(
     `Item "${id}" imageUrl`,
@@ -304,12 +304,12 @@ const validateBoardMetadata = (data: Record<string, unknown>): void =>
   assertStringLengthAtMost(
     'sourceTemplateId',
     data.sourceTemplateId,
-    MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+    MAX_EXTERNAL_ID_LENGTH
   )
   assertStringLengthAtMost(
     'sourceRankingId',
     data.sourceRankingId,
-    MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+    MAX_EXTERNAL_ID_LENGTH
   )
   assertStringLengthAtMost(
     'sourceTemplateTitle',
@@ -324,7 +324,7 @@ const validateBoardMetadata = (data: Record<string, unknown>): void =>
   assertStringLengthAtMost(
     'preferredCriterionExternalId',
     data.preferredCriterionExternalId,
-    MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+    MAX_EXTERNAL_ID_LENGTH
   )
 
   if (!isRecord(data.sourceTemplateCoverMedia)) return
@@ -332,12 +332,12 @@ const validateBoardMetadata = (data: Record<string, unknown>): void =>
   assertStringLengthAtMost(
     'sourceTemplateCoverMedia.externalId',
     data.sourceTemplateCoverMedia.externalId,
-    MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+    MAX_EXTERNAL_ID_LENGTH
   )
   assertStringLengthAtMost(
     'sourceTemplateCoverMedia.contentHash',
     data.sourceTemplateCoverMedia.contentHash,
-    MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+    MAX_EXTERNAL_ID_LENGTH
   )
   assertStringLengthAtMost(
     'sourceTemplateCoverMedia.url',
@@ -347,7 +347,7 @@ const validateBoardMetadata = (data: Record<string, unknown>): void =>
   assertStringLengthAtMost(
     'sourceTemplateCoverMedia.mimeType',
     data.sourceTemplateCoverMedia.mimeType,
-    MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+    MAX_EXTERNAL_ID_LENGTH
   )
 }
 
@@ -429,7 +429,7 @@ const parseBoardData = async (
     assertStringLengthAtMost(
       `Referenced item "${id}"`,
       id,
-      MAX_BOARD_IMPORT_EXTERNAL_ID_LENGTH
+      MAX_EXTERNAL_ID_LENGTH
     )
 
     if (seen.has(id))

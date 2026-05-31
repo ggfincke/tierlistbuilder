@@ -17,6 +17,10 @@ export const MAX_HANDLE_LENGTH = 24
 export const HANDLE_REGEX = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/
 export const MIN_PASSWORD_LENGTH = 8
 
+export const passwordTooShortMessage = (
+  minLength = MIN_PASSWORD_LENGTH
+): string => `Password must be at least ${minLength} characters.`
+
 export interface UserPrivacySettings
 {
   defaultTemplateVisibility: TemplateVisibility

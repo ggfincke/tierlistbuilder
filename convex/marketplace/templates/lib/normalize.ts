@@ -4,7 +4,10 @@
 import { ConvexError } from 'convex/values'
 import type { Doc } from '../../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import {
+  DEFAULT_SE_TIERS,
+  type TierPresetTier,
+} from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
@@ -22,14 +25,7 @@ import { validateTierSpecList } from '../../../lib/validators/tierSpec'
 
 const MAX_SEARCH_QUERY_LENGTH = 120
 
-export const DEFAULT_TEMPLATE_TIERS: readonly TierPresetTier[] = [
-  { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-  { name: 'A', colorSpec: { kind: 'palette', index: 1 } },
-  { name: 'B', colorSpec: { kind: 'palette', index: 2 } },
-  { name: 'C', colorSpec: { kind: 'palette', index: 3 } },
-  { name: 'D', colorSpec: { kind: 'palette', index: 4 } },
-  { name: 'E', colorSpec: { kind: 'palette', index: 5 } },
-]
+export const DEFAULT_TEMPLATE_TIERS = DEFAULT_SE_TIERS
 
 export const failState = (message: string): never =>
 {

@@ -37,6 +37,11 @@ export const isSameItemTransform = (
   )
 }
 
+export const itemTransformsEqual = (
+  a: ItemTransform | undefined,
+  b: ItemTransform | undefined
+): boolean => isSameItemTransform(a, b)
+
 export const isIdentityTransform = (transform: ItemTransform): boolean =>
   isSameItemTransform(transform, ITEM_TRANSFORM_IDENTITY)
 
@@ -311,6 +316,11 @@ export interface AutoCropBBox
   top: number
   right: number
   bottom: number
+}
+
+export interface PadBBoxOptions
+{
+  clamp?: boolean
 }
 
 interface AutoCropPixelData
@@ -712,9 +722,22 @@ export const bboxToItemTransform = (
   })
 }
 
-const padBBox = (bbox: AutoCropBBox, padding: number): AutoCropBBox =>
+export const padBBox = (
+  bbox: AutoCropBBox,
+  padding: number,
+  options: PadBBoxOptions = {}
+): AutoCropBBox =>
 {
   if (padding <= 0) return bbox
+  if (options.clamp === false)
+  {
+    return {
+      left: bbox.left - padding,
+      top: bbox.top - padding,
+      right: bbox.right + padding,
+      bottom: bbox.bottom + padding,
+    }
+  }
   return {
     left: clamp(bbox.left - padding, 0, 1),
     top: clamp(bbox.top - padding, 0, 1),

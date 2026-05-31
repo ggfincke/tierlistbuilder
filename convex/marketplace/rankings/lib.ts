@@ -23,6 +23,7 @@ import type {
 import type { MarketplaceItemRenderFields } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { failInput, normalizeNullableText } from '../../lib/text'
+import { findRankingBySlug } from '../../lib/marketplaceLookups'
 import { createTemplateProjectionCache } from '../templates/lib/trending'
 import { failState } from '../templates/lib/normalize'
 import {
@@ -67,10 +68,7 @@ export const allocateRankingSlug = async (ctx: DbCtx): Promise<string> =>
   for (let i = 0; i < MAX_SLUG_ATTEMPTS; i++)
   {
     const slug = generateRankingSlug()
-    const existing = await ctx.db
-      .query('publishedRankings')
-      .withIndex('bySlug', (q) => q.eq('slug', slug))
-      .unique()
+    const existing = await findRankingBySlug(ctx, slug)
     if (!existing) return slug
   }
 

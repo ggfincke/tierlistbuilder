@@ -35,20 +35,22 @@ export interface TierPreset
   tiers: TierPresetTier[]
 }
 
+export const DEFAULT_SE_TIERS: readonly TierPresetTier[] = [
+  { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'A', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'B', colorSpec: { kind: 'palette', index: 2 } },
+  { name: 'C', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'D', colorSpec: { kind: 'palette', index: 4 } },
+  { name: 'E', colorSpec: { kind: 'palette', index: 5 } },
+]
+
 // built-in presets shipped w/ the app — single source of truth for frontend & seed
 export const BUILTIN_PRESETS: TierPreset[] = [
   {
     id: 'builtin-classic',
     name: 'Classic (S-E)',
     builtIn: true,
-    tiers: [
-      { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-      { name: 'A', colorSpec: { kind: 'palette', index: 1 } },
-      { name: 'B', colorSpec: { kind: 'palette', index: 2 } },
-      { name: 'C', colorSpec: { kind: 'palette', index: 3 } },
-      { name: 'D', colorSpec: { kind: 'palette', index: 4 } },
-      { name: 'E', colorSpec: { kind: 'palette', index: 5 } },
-    ],
+    tiers: [...DEFAULT_SE_TIERS],
   },
   {
     id: 'builtin-top10',

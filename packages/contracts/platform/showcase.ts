@@ -2,7 +2,9 @@
 // tlotl (tier list of tier lists) profile showcase contracts
 
 import type { TierColorSpec } from '../lib/theme'
+import type { PublicTierRow } from '../lib/publicTier'
 import type { BoardAutoPlateSettings } from '../workspace/board'
+import { DEFAULT_SE_TIERS } from '../workspace/tierPreset'
 import type {
   MarketplaceItemRenderFields,
   TemplateMediaRef,
@@ -49,25 +51,15 @@ export const SHOWCASE_MINI_LABELS_PER_TIER = 24
 
 // a tier row in the showcase — mirrors the board tier shape so the workspace
 // editor's tier data maps in & out w/o translation
-export interface ShowcaseTier
-{
-  externalId: string
-  name: string
-  description: string | null
-  colorSpec: TierColorSpec
-  rowColorSpec: TierColorSpec | null
-  order: number
-}
+export type ShowcaseTier = PublicTierRow
 
-// starter tiers for a brand-new showcase (classic S-E), mirrors BUILTIN_PRESETS
-const SHOWCASE_TIER_NAMES = ['S', 'A', 'B', 'C', 'D', 'E'] as const
-
-export const DEFAULT_SHOWCASE_TIERS: ShowcaseTier[] = SHOWCASE_TIER_NAMES.map(
-  (name, index) => ({
-    externalId: `tier-${name.toLowerCase()}`,
-    name,
+// starter tiers for a brand-new showcase (classic S-E)
+export const DEFAULT_SHOWCASE_TIERS: ShowcaseTier[] = DEFAULT_SE_TIERS.map(
+  (tier, index) => ({
+    externalId: `tier-${tier.name.toLowerCase()}`,
+    name: tier.name,
     description: null,
-    colorSpec: { kind: 'palette', index },
+    colorSpec: tier.colorSpec,
     rowColorSpec: null,
     order: index,
   })

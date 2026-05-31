@@ -311,9 +311,6 @@ const buildPercentiles = (
   return percentiles
 }
 
-const finiteScore = (value: number): number =>
-  Number.isFinite(value) ? value : 0
-
 interface AggregateHighlights
 {
   mostAgreed: MarketplaceTemplateRankingAggregateHighlight | null
@@ -415,10 +412,10 @@ const buildRelativeMetricPatches = (
 ): RelativeMetricPatch[] =>
 {
   const controversyPercentiles = buildPercentiles(rows, (row) =>
-    finiteScore(row.controversyScore)
+    clampUnitScore(row.controversyScore)
   )
   const agreementPercentiles = buildPercentiles(rows, (row) =>
-    finiteScore(row.consensusScore)
+    clampUnitScore(row.consensusScore)
   )
   const canBadge = rankingCount >= MIN_RANKINGS_FOR_CONTROVERSY_BADGES
   return rows.map((row) =>
