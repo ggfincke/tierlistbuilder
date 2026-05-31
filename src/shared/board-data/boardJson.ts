@@ -6,10 +6,7 @@ import type {
   BoardSnapshotWire,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
-  MAX_BOARD_ITEM_ALT_TEXT_LEN,
-  MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN,
-  MAX_BOARD_ITEM_LABEL_LEN,
-  MAX_BOARD_ITEM_NOTES_LEN,
+  BOARD_ITEM_TEXT_FIELD_LIMITS,
   MAX_BOARD_TITLE_LENGTH,
   MAX_TIER_DESCRIPTION_LEN,
   MAX_TIER_NAME_LEN,
@@ -236,26 +233,14 @@ const validateItemEntry = (
     item.id,
     MAX_EXTERNAL_ID_LENGTH
   )
-  assertStringLengthAtMost(
-    `Item "${id}" label`,
-    item.label,
-    MAX_BOARD_ITEM_LABEL_LEN
-  )
-  assertStringLengthAtMost(
-    `Item "${id}" altText`,
-    item.altText,
-    MAX_BOARD_ITEM_ALT_TEXT_LEN
-  )
-  assertStringLengthAtMost(
-    `Item "${id}" notes`,
-    item.notes,
-    MAX_BOARD_ITEM_NOTES_LEN
-  )
-  assertStringLengthAtMost(
-    `Item "${id}" backgroundColor`,
-    item.backgroundColor,
-    MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN
-  )
+  for (const { field, maxLength } of BOARD_ITEM_TEXT_FIELD_LIMITS)
+  {
+    assertStringLengthAtMost(
+      `Item "${id}" ${field}`,
+      item[field],
+      maxLength
+    )
+  }
   assertHexColor(`Item "${id}" backgroundColor`, item.backgroundColor)
   assertStringLengthAtMost(
     `Item "${id}" sourceTemplateItemExternalId`,

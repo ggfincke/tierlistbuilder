@@ -5,20 +5,18 @@ import { ConvexError, v, type Infer } from 'convex/values'
 import { mutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
+  BOARD_ITEM_TEXT_FIELD_LIMITS,
   boardAutoPlateSettingsEqual,
   boardLabelSettingsEqual,
+  getItemTransformBoundsViolation,
   IMAGE_PADDING_MAX,
   IMAGE_PADDING_MIN,
   isValidLabelFontSizePx,
-  ITEM_TRANSFORM_LIMITS,
   LABEL_FONT_SIZE_PX_MAX,
   LABEL_FONT_SIZE_PX_MIN,
-  MAX_BOARD_ITEM_ALT_TEXT_LEN,
-  MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN,
-  MAX_BOARD_ITEM_LABEL_LEN,
-  MAX_BOARD_ITEM_NOTES_LEN,
   normalizeBoardTitle,
   pickCoverRenderFields,
+  type ItemTransformBoundsViolation,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   BOARD_ITEM_ASPECT_RATIO_MAX,
@@ -261,6 +259,13 @@ const validateImagePadding = (
   assertFiniteRange(field, padding, IMAGE_PADDING_MIN, IMAGE_PADDING_MAX)
 }
 
+const itemTransformBoundsMessage = (
+  violation: ItemTransformBoundsViolation
+): string =>
+  violation.bound === 'range'
+    ? `invalid item.transform.${violation.field}: must be within [${violation.min}, ${violation.max}]`
+    : `invalid item.transform.${violation.field}: must be ${violation.bound === 'min' ? '>=' : '<='} ${violation.bound === 'min' ? violation.min : violation.max}`
+
 const validateBoardAspectRatio = (
   aspectRatio: number | undefined,
   field: string
@@ -331,31 +336,15 @@ const validateInputs = (args: UpsertArgs): void =>
       -1,
       Math.max(args.items.length - 1, -1)
     )
-    assertStringLength(
-      'item label',
-      item.label,
-      MAX_BOARD_ITEM_LABEL_LEN,
-      ({ maxLength }) => `item label too long: exceeds ${maxLength} chars`
-    )
-    assertStringLength(
-      'item altText',
-      item.altText,
-      MAX_BOARD_ITEM_ALT_TEXT_LEN,
-      ({ maxLength }) => `item altText too long: exceeds ${maxLength} chars`
-    )
-    assertStringLength(
-      'item notes',
-      item.notes,
-      MAX_BOARD_ITEM_NOTES_LEN,
-      ({ maxLength }) => `item notes too long: exceeds ${maxLength} chars`
-    )
-    assertStringLength(
-      'item backgroundColor',
-      item.backgroundColor,
-      MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN,
-      ({ maxLength }) =>
-        `item backgroundColor too long: exceeds ${maxLength} chars`
-    )
+    for (const { field, maxLength } of BOARD_ITEM_TEXT_FIELD_LIMITS)
+    {
+      assertStringLength(
+        `item ${field}`,
+        item[field],
+        maxLength,
+        ({ maxLength }) => `item ${field} too long: exceeds ${maxLength} chars`
+      )
+    }
     if (item.backgroundColor)
     {
       validateHexColor(item.backgroundColor, 'item.backgroundColor')
@@ -382,39 +371,8 @@ const validateInputs = (args: UpsertArgs): void =>
     }
     if (item.transform)
     {
-      const { zoom, offsetX, offsetY } = item.transform
-      if (!Number.isFinite(zoom) || zoom < ITEM_TRANSFORM_LIMITS.zoomMin)
-      {
-        failInput(
-          `invalid item.transform.zoom: must be >= ${ITEM_TRANSFORM_LIMITS.zoomMin}`
-        )
-      }
-      if (zoom > ITEM_TRANSFORM_LIMITS.zoomMax)
-      {
-        failInput(
-          `invalid item.transform.zoom: must be <= ${ITEM_TRANSFORM_LIMITS.zoomMax}`
-        )
-      }
-      if (
-        !Number.isFinite(offsetX) ||
-        offsetX < ITEM_TRANSFORM_LIMITS.offsetMin ||
-        offsetX > ITEM_TRANSFORM_LIMITS.offsetMax
-      )
-      {
-        failInput(
-          `invalid item.transform.offsetX: must be within [${ITEM_TRANSFORM_LIMITS.offsetMin}, ${ITEM_TRANSFORM_LIMITS.offsetMax}]`
-        )
-      }
-      if (
-        !Number.isFinite(offsetY) ||
-        offsetY < ITEM_TRANSFORM_LIMITS.offsetMin ||
-        offsetY > ITEM_TRANSFORM_LIMITS.offsetMax
-      )
-      {
-        failInput(
-          `invalid item.transform.offsetY: must be within [${ITEM_TRANSFORM_LIMITS.offsetMin}, ${ITEM_TRANSFORM_LIMITS.offsetMax}]`
-        )
-      }
+      const violation = getItemTransformBoundsViolation(item.transform)
+      if (violation) failInput(itemTransformBoundsMessage(violation))
     }
     validateImagePadding(item.imagePadding, 'item.imagePadding')
     validateLabelPlacement(

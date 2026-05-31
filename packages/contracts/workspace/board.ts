@@ -22,9 +22,19 @@ export const MAX_TIER_DESCRIPTION_LEN = 500
 // document size, but these field-level limits keep malformed local JSON from
 // persisting megabyte strings into browser storage first
 export const MAX_BOARD_ITEM_LABEL_LEN = 200
-export const MAX_BOARD_ITEM_ALT_TEXT_LEN = 500
-export const MAX_BOARD_ITEM_NOTES_LEN = 2000
-export const MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN = 32
+const MAX_BOARD_ITEM_ALT_TEXT_LEN = 500
+const MAX_BOARD_ITEM_NOTES_LEN = 2000
+const MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN = 32
+
+export const BOARD_ITEM_TEXT_FIELD_LIMITS = [
+  { field: 'label', maxLength: MAX_BOARD_ITEM_LABEL_LEN },
+  { field: 'altText', maxLength: MAX_BOARD_ITEM_ALT_TEXT_LEN },
+  { field: 'notes', maxLength: MAX_BOARD_ITEM_NOTES_LEN },
+  {
+    field: 'backgroundColor',
+    maxLength: MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN,
+  },
+] as const
 
 // soft-delete retention window before the daily hard-delete cron purges a board.
 // exposed in contracts (not just Convex-internal) so the "Recently deleted" UI
@@ -150,6 +160,56 @@ export const ITEM_TRANSFORM_LIMITS = {
   offsetMin: -2,
   offsetMax: 2,
 } as const
+
+export type ItemTransformBoundsViolation =
+  | {
+      field: 'zoom'
+      bound: 'min' | 'max'
+      min: number
+      max: number
+    }
+  | {
+      field: 'offsetX' | 'offsetY'
+      bound: 'range'
+      min: number
+      max: number
+    }
+
+export const getItemTransformBoundsViolation = (
+  transform: Pick<ItemTransform, 'zoom' | 'offsetX' | 'offsetY'>
+): ItemTransformBoundsViolation | null =>
+{
+  const { zoomMin, zoomMax, offsetMin, offsetMax } = ITEM_TRANSFORM_LIMITS
+  if (!Number.isFinite(transform.zoom) || transform.zoom < zoomMin)
+  {
+    return { field: 'zoom', bound: 'min', min: zoomMin, max: zoomMax }
+  }
+  if (transform.zoom > zoomMax)
+  {
+    return { field: 'zoom', bound: 'max', min: zoomMin, max: zoomMax }
+  }
+  if (
+    !Number.isFinite(transform.offsetX) ||
+    transform.offsetX < offsetMin ||
+    transform.offsetX > offsetMax
+  )
+  {
+    return { field: 'offsetX', bound: 'range', min: offsetMin, max: offsetMax }
+  }
+  if (
+    !Number.isFinite(transform.offsetY) ||
+    transform.offsetY < offsetMin ||
+    transform.offsetY > offsetMax
+  )
+  {
+    return { field: 'offsetY', bound: 'range', min: offsetMin, max: offsetMax }
+  }
+  return null
+}
+
+export const isItemTransformInRange = (
+  transform: Pick<ItemTransform, 'zoom' | 'offsetX' | 'offsetY'>
+): boolean => getItemTransformBoundsViolation(transform) === null
 
 // caption placement modes — overlay sits inside the image frame;
 // captionAbove/captionBelow render a full-width strip outside the image
@@ -676,7 +736,9 @@ export type CoverRenderFieldSource = {
 }
 
 export type NullableCoverRenderFields = {
-  [K in keyof LibraryBoardCoverRenderFields]-?: LibraryBoardCoverRenderFields[K] | null
+  [K in keyof LibraryBoardCoverRenderFields]-?:
+    | LibraryBoardCoverRenderFields[K]
+    | null
 }
 
 export const pickNullableCoverRenderFields = (

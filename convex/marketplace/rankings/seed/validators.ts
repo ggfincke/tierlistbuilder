@@ -2,10 +2,21 @@
 // validators for seed-gated ranking manifests & reports
 
 import { v, type Infer } from 'convex/values'
-import { tierPresetTierValidator } from '../../../lib/validators/common'
+import {
+  tierPresetTierValidator,
+  type _Assert,
+  type _Exact,
+} from '../../../lib/validators/common'
 import { rankingFeaturedBadgeValidator } from '../../../lib/validators/marketplace'
 import { seedRankingReleaseStatusValidator } from '../../../lib/validators/seedPipeline'
 import { seedDiagnosticValidator } from '../../seedPipeline/validators'
+import type {
+  SeedCuratedRanking as SeedCuratedRankingContract,
+  SeedRankingLane as SeedRankingLaneContract,
+  SeedRankingProfile as SeedRankingProfileContract,
+  SeedRankingsManifest as SeedRankingsManifestContract,
+  SeedRankingTarget as SeedRankingTargetContract,
+} from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 
 export const seedRankingTermOverridesValidator = v.record(
   v.string(),
@@ -17,8 +28,8 @@ export const seedRankingProfileValidator = v.object({
   displayName: v.string(),
   chaos: v.number(),
   contrarian: v.number(),
-  boostTermsByTarget: v.optional(seedRankingTermOverridesValidator),
-  dropTermsByTarget: v.optional(seedRankingTermOverridesValidator),
+  boostTermsByTarget: seedRankingTermOverridesValidator,
+  dropTermsByTarget: seedRankingTermOverridesValidator,
 })
 
 export const seedRankingFeaturedProfileValidator = v.object({
@@ -33,11 +44,11 @@ export const seedRankingLaneValidator = v.object({
   description: v.string(),
   boostTerms: v.array(v.string()),
   dropTerms: v.array(v.string()),
-  profileBoostOverrides: v.optional(seedRankingTermOverridesValidator),
-  profileDropOverrides: v.optional(seedRankingTermOverridesValidator),
-  chaosMultiplier: v.optional(v.number()),
-  contrarianMultiplier: v.optional(v.number()),
-  featuredProfiles: v.optional(v.array(seedRankingFeaturedProfileValidator)),
+  profileBoostOverrides: seedRankingTermOverridesValidator,
+  profileDropOverrides: seedRankingTermOverridesValidator,
+  chaosMultiplier: v.number(),
+  contrarianMultiplier: v.number(),
+  featuredProfiles: v.array(seedRankingFeaturedProfileValidator),
 })
 
 export const seedCuratedTierGroupValidator = v.object({
@@ -58,23 +69,24 @@ export const seedCuratedRankingValidator = v.object({
     v.literal('full-template'),
     v.literal('partial-authoritative')
   ),
-  parentLabelByLabel: v.optional(v.record(v.string(), v.string())),
+  parentLabelByLabel: v.record(v.string(), v.string()),
   tiers: v.array(tierPresetTierValidator),
   tierGroups: v.array(seedCuratedTierGroupValidator),
 })
 
 export const seedRankingTargetValidator = v.object({
   templateExternalId: v.string(),
-  sampleProfileCount: v.optional(v.number()),
-  countAsTemplateUse: v.optional(v.boolean()),
+  sampleProfileCount: v.number(),
+  countAsTemplateUse: v.boolean(),
   lanes: v.array(seedRankingLaneValidator),
-  curatedRankings: v.optional(v.array(seedCuratedRankingValidator)),
+  curatedRankings: v.array(seedCuratedRankingValidator),
 })
 
+// mirrors SeedRankingsManifest + compiled-manifest.schema.json rankingSeeds
 export const seedRankingsManifestValidator = v.object({
   profileSet: v.string(),
   defaultProfileCount: v.number(),
-  includeAllTemplates: v.optional(v.boolean()),
+  includeAllTemplates: v.boolean(),
   profiles: v.array(seedRankingProfileValidator),
   targets: v.array(seedRankingTargetValidator),
 })
@@ -140,6 +152,22 @@ export type SeedRankingProfile = Infer<typeof seedRankingProfileValidator>
 export type SeedRankingTarget = Infer<typeof seedRankingTargetValidator>
 export type SeedRankingLane = Infer<typeof seedRankingLaneValidator>
 export type SeedCuratedRanking = Infer<typeof seedCuratedRankingValidator>
+
+export type _SeedRankingsManifestMatchesContract = _Assert<
+  _Exact<SeedRankingsManifestContract, SeedRankingsManifest>
+>
+export type _SeedRankingProfileMatchesContract = _Assert<
+  _Exact<SeedRankingProfileContract, SeedRankingProfile>
+>
+export type _SeedRankingTargetMatchesContract = _Assert<
+  _Exact<SeedRankingTargetContract, SeedRankingTarget>
+>
+export type _SeedRankingLaneMatchesContract = _Assert<
+  _Exact<SeedRankingLaneContract, SeedRankingLane>
+>
+export type _SeedCuratedRankingMatchesContract = _Assert<
+  _Exact<SeedCuratedRankingContract, SeedCuratedRanking>
+>
 export type SeedRankingLaneSummary = Infer<
   typeof seedRankingLaneSummaryValidator
 >

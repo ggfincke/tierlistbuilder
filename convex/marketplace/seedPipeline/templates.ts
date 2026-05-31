@@ -40,7 +40,6 @@ import {
   normalizeTemplateTitle,
   validateTemplateTiers,
 } from '../templates/lib/normalize'
-import { valuesEqual } from '../../lib/equality'
 import { resolveSeedMediaAssetIdByDedupeHash } from './media'
 import type { SeedTemplateApplyPatch, SeedTemplateUpsertArg } from './types'
 
@@ -219,14 +218,15 @@ export const normalizeSeedTemplateUpsert = (
   }
 }
 
-export const templatePatchChanged = (
+export const seedTemplateApplyGateChanged = (
   template: Doc<'templates'>,
-  patch: Partial<Doc<'templates'>>
+  patch: SeedTemplateApplyPatch
 ): boolean =>
-  Object.entries(patch).some(
-    ([key, value]) =>
-      !valuesEqual(template[key as keyof Doc<'templates'>], value)
-  )
+  template.seedMetadataContentHash !== patch.seedMetadataContentHash ||
+  template.seedReleaseStatus !== patch.seedReleaseStatus ||
+  template.isPubliclyListable !== patch.isPubliclyListable ||
+  template.publicationState !== patch.publicationState ||
+  template.sizeClass !== patch.sizeClass
 
 export const loadSeedTemplatesForRelease = async (
   ctx: QueryCtx | MutationCtx,

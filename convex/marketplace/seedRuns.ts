@@ -40,8 +40,10 @@ import {
   assertUniqueValues,
 } from '../lib/assertions'
 import {
+  getItemTransformBoundsViolation,
   IMAGE_PADDING_MAX,
   IMAGE_PADDING_MIN,
+  type ItemTransformBoundsViolation,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { valuesEqual } from '../lib/equality'
 import { validateHexColor } from '../lib/hexColor'
@@ -95,7 +97,7 @@ import {
   loadSeedTemplateLookupForRelease,
   normalizeSeedTemplateUpsert,
   patchSeedTemplateItemSummary,
-  templatePatchChanged,
+  seedTemplateApplyGateChanged,
   toSeedCriterionKey,
   toSeedItemKey,
 } from './seedPipeline/templates'
@@ -378,6 +380,13 @@ export const finalizeSeedUploadedMedia = internalAction({
   },
 })
 
+const seedItemTransformBoundsMessage = (
+  violation: ItemTransformBoundsViolation
+): string =>
+  violation.bound === 'range'
+    ? `item.transform.${violation.field} must be within [${violation.min}, ${violation.max}]`
+    : `item.transform.${violation.field} must be ${violation.bound === 'min' ? '>=' : '<='} ${violation.bound === 'min' ? violation.min : violation.max}`
+
 export const upsertSeedTemplates = internalMutation({
   args: {
     datasetKey: v.string(),
@@ -507,7 +516,7 @@ export const upsertSeedTemplates = internalMutation({
         continue
       }
 
-      if (!templatePatchChanged(existing, patch))
+      if (!seedTemplateApplyGateChanged(existing, patch))
       {
         unchanged.push(template.externalId)
         continue
@@ -634,6 +643,17 @@ export const syncSeedTemplateItems = internalMutation({
           IMAGE_PADDING_MIN,
           IMAGE_PADDING_MAX
         )
+      }
+      if (item.transform !== null)
+      {
+        const violation = getItemTransformBoundsViolation(item.transform)
+        if (violation)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidInput,
+            message: seedItemTransformBoundsMessage(violation),
+          })
+        }
       }
       seen.add(item.itemExternalId)
       const key = toSeedItemKey({

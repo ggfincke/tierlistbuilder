@@ -2,7 +2,7 @@
 // canonical seed content hash — sha256 over canonical JSON of {kind, payload},
 // truncated to a versioned prefix.
 
-// matches scripts/seed_pipeline/seed_pipeline/runs.py:_seed_content_hash;
+// matches scripts/seed_pipeline/seed_pipeline/content_hash.py:seed_content_hash;
 // both sides reference SEED_CONTENT_HASH_VERSION + SEED_CONTENT_HASH_HEX_LENGTH
 // from the contracts package so drift would be a silent dedup bug.
 

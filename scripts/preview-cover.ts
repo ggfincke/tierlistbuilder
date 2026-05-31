@@ -366,7 +366,7 @@ const zoomedFrameForSurface = (
   zoom: number
 ): CoverFrame =>
 {
-  // mirrors seed_pipeline/runs.py::_zoomed_cover_frame
+  // mirrors seed_pipeline/template_payloads.py::zoomed_cover_frame
   const sourceAspect = sourceWidth / sourceHeight
   const baseWidth =
     surfaceAspect >= sourceAspect ? 1 : surfaceAspect / sourceAspect

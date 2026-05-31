@@ -3,13 +3,12 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable
 
 from .assets import asset_dedupe_hash, asset_variants
+from .content_hash import seed_content_hash
 from .diff import build_seed_diff, resolve_seed_state
 from .manifest import (
 	JsonObject,
@@ -39,6 +38,7 @@ from .reports import (
 	write_upload_report,
 	write_verify_report,
 )
+from .template_payloads import build_template_upserts
 
 
 SEED_ENSURE_AUTHOR_FUNCTION = "marketplace/seedRuns:ensureSeedAuthor"
@@ -67,42 +67,6 @@ VERIFY_ITEM_READ_BATCH_SIZE = 1500
 # from a single Convex storage URL; small pool keeps RTT-bound uploads parallel
 # without overwhelming the deployment
 UPLOAD_WORKERS = 8
-
-# mirror Convex defaults when a manifest omits curated template tiers
-DEFAULT_SUGGESTED_TIERS = [
-	{"name": "S", "colorSpec": {"kind": "palette", "index": 0}},
-	{"name": "A", "colorSpec": {"kind": "palette", "index": 1}},
-	{"name": "B", "colorSpec": {"kind": "palette", "index": 2}},
-	{"name": "C", "colorSpec": {"kind": "palette", "index": 3}},
-	{"name": "D", "colorSpec": {"kind": "palette", "index": 4}},
-	{"name": "E", "colorSpec": {"kind": "palette", "index": 5}},
-]
-
-SURFACE_ASPECT_RATIOS = {
-	"browseHero": 16 / 9,
-	"detailHero": 4 / 3,
-	"card": 16 / 10,
-}
-
-
-# mirrors packages/contracts/marketplace/seedPipeline.ts. both sides serialize
-# {kind, payload} as canonical JSON (sorted keys, no whitespace) then take the
-# leading SEED_CONTENT_HASH_HEX_LENGTH hex chars of sha256, prefixed with the
-# version. drift between the two implementations silently breaks dedup.
-SEED_CONTENT_HASH_VERSION = "v1"
-SEED_CONTENT_HASH_HEX_LENGTH = 32
-
-
-def _seed_content_hash(kind: str, payload: object) -> str:
-	serialized = json.dumps(
-		{"kind": kind, "payload": payload},
-		sort_keys=True,
-		separators=(",", ":"),
-		ensure_ascii=False,
-	)
-	digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
-	return f"{SEED_CONTENT_HASH_VERSION}:{digest[:SEED_CONTENT_HASH_HEX_LENGTH]}"
-
 
 def upload_seed_manifest(
 	manifest_path: Path,
@@ -339,37 +303,6 @@ def cached_criterion_upserts(context: SeedRunContext) -> list[JsonObject]:
 	return _cached_payload(context, "criteria", build_criterion_upserts)
 
 
-def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
-	upserts: list[JsonObject] = []
-	for template in compiled_templates(compiled):
-		cover = template.get("coverImage")
-		upsert = {
-			"externalId": template["externalId"],
-			"title": template["title"],
-			"category": template["category"],
-			"description": template.get("description"),
-			"tags": template.get("tags", []),
-			"visibility": template["visibility"],
-			"coverMediaDedupeHash": asset_dedupe_hash(cover),
-			"coverFraming": _cover_framing(template),
-			"suggestedTiers": template.get("suggestedTiers") or DEFAULT_SUGGESTED_TIERS,
-			"itemAspectRatio": template["itemAspectRatio"],
-			"defaultItemImagePadding": template.get("defaultItemImagePadding"),
-			"itemCount": len(as_list(template.get("items"))),
-		}
-		if "labels" in template:
-			upsert["labels"] = template["labels"]
-		if "autoPlate" in template:
-			upsert["autoPlate"] = template["autoPlate"]
-		upserts.append(
-			{
-				**upsert,
-				"metadataContentHash": _seed_content_hash("template-metadata", upsert),
-			}
-		)
-	return upserts
-
-
 def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
 	upserts: list[JsonObject] = []
 	for template in compiled_templates(compiled):
@@ -430,14 +363,14 @@ def build_criterion_upserts(compiled: JsonObject) -> list[JsonObject]:
 
 
 def _items_content_hash(template_external_id: str, items: list[JsonObject]) -> str:
-	return _seed_content_hash(
+	return seed_content_hash(
 		"template-items",
 		{"templateExternalId": template_external_id, "items": items},
 	)
 
 
 def _criteria_content_hash(template_external_id: str, criteria: list[JsonObject]) -> str:
-	return _seed_content_hash(
+	return seed_content_hash(
 		"template-criteria",
 		{"templateExternalId": template_external_id, "criteria": criteria},
 	)
@@ -934,46 +867,6 @@ def _finalize_asset_payload(entry: JsonObject) -> JsonObject:
 			}
 			for variant in asset_variants(entry["asset"])
 		],
-	}
-
-
-def _cover_framing(template: JsonObject) -> JsonObject | None:
-	cover = template.get("coverImage")
-	zoom = template.get("coverZoom") or 1
-	if not isinstance(cover, dict) or zoom <= 1:
-		return None
-	return {
-		surface: _zoomed_cover_frame(
-			cover["sourceWidth"],
-			cover["sourceHeight"],
-			aspect,
-			zoom,
-		)
-		for surface, aspect in SURFACE_ASPECT_RATIOS.items()
-	}
-
-
-def _zoomed_cover_frame(
-	source_width: float,
-	source_height: float,
-	surface_aspect: float,
-	zoom: float,
-) -> JsonObject:
-	# mirrors scripts/preview-cover.ts::zoomedFrameForSurface
-	source_aspect = source_width / source_height
-	if surface_aspect >= source_aspect:
-		base_width = 1
-		base_height = source_aspect / surface_aspect
-	else:
-		base_width = surface_aspect / source_aspect
-		base_height = 1
-	width = base_width * zoom
-	height = base_height * zoom
-	return {
-		"x": (1 - width) / 2,
-		"y": (1 - height) / 2,
-		"width": width,
-		"height": height,
 	}
 
 

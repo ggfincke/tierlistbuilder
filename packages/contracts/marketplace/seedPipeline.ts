@@ -2,6 +2,7 @@
 // marketplace seed pipeline contracts shared by Python, Convex, & reports
 
 import type { TemplateCategory } from './category'
+import type { RankingFeaturedBadge } from './ranking'
 import type { TemplateCoverFraming, TemplateVisibility } from './template'
 import type { MarketplaceTemplateCriterion } from './templateCriterion'
 import type {
@@ -50,6 +51,13 @@ export const SEED_RANKING_RELEASE_STATUSES = [
 
 export type SeedRankingReleaseStatus =
   (typeof SEED_RANKING_RELEASE_STATUSES)[number]
+
+export const SEED_TEMPLATE_LABEL_POLICIES = [
+  'explicit-required',
+  'explicit-or-filename-fallback',
+  'filename-derived',
+  'hidden',
+] as const
 
 // Python owns source/compiled manifest shapes; JSON Schema validates them.
 
@@ -140,6 +148,79 @@ export interface SeedResolveStateOutput
 export interface SeedResolveMediaByHashesOutput
 {
   media: SeedResolvedMedia[]
+}
+
+type SeedRankingTermOverrides = Record<string, string[]>
+
+export interface SeedRankingProfile
+{
+  key: string
+  displayName: string
+  chaos: number
+  contrarian: number
+  boostTermsByTarget: SeedRankingTermOverrides
+  dropTermsByTarget: SeedRankingTermOverrides
+}
+
+interface SeedRankingFeaturedProfile
+{
+  profileKey: string
+  featuredRank: number
+  featuredBadge: RankingFeaturedBadge
+}
+
+export interface SeedRankingLane
+{
+  criterionExternalId: string
+  titleSuffix: string
+  description: string
+  boostTerms: string[]
+  dropTerms: string[]
+  profileBoostOverrides: SeedRankingTermOverrides
+  profileDropOverrides: SeedRankingTermOverrides
+  chaosMultiplier: number
+  contrarianMultiplier: number
+  featuredProfiles: SeedRankingFeaturedProfile[]
+}
+
+interface SeedCuratedTierGroup
+{
+  tierName: string
+  labels: string[]
+}
+
+export interface SeedCuratedRanking
+{
+  externalId: string
+  authorKey: string
+  authorDisplayName: string
+  criterionExternalId: string
+  title: string
+  description: string
+  featuredRank: number | null
+  featuredBadge: RankingFeaturedBadge | null
+  coverage: 'full-template' | 'partial-authoritative'
+  parentLabelByLabel: Record<string, string>
+  tiers: TierPresetTier[]
+  tierGroups: SeedCuratedTierGroup[]
+}
+
+export interface SeedRankingTarget
+{
+  templateExternalId: string
+  sampleProfileCount: number
+  countAsTemplateUse: boolean
+  lanes: SeedRankingLane[]
+  curatedRankings: SeedCuratedRanking[]
+}
+
+export interface SeedRankingsManifest
+{
+  profileSet: string
+  defaultProfileCount: number
+  includeAllTemplates: boolean
+  profiles: SeedRankingProfile[]
+  targets: SeedRankingTarget[]
 }
 
 export interface SeedUploadVariantRequest

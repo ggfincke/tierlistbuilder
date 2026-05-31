@@ -17,6 +17,8 @@ import {
 } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  isItemTransformInRange,
+  ITEM_TRANSFORM_LIMITS,
   MAX_BOARD_ITEM_LABEL_LEN,
   MAX_BOARD_TITLE_LENGTH,
   MAX_TIER_NAME_LEN,
@@ -33,6 +35,8 @@ import * as imagePersistence from '~/shared/images/imagePersistence'
 import * as imageStore from '~/shared/images/imageStore'
 import * as downloadBlobModule from '~/shared/lib/downloadBlob'
 import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
+import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
+import type { BoardImageUploadResult } from '~/features/platform/media/imageUploader'
 
 // minimal valid board data — satisfies parseBoardJson validation
 const makeValidBoard = (overrides?: Partial<BoardSnapshot>): BoardSnapshot =>
@@ -90,6 +94,11 @@ const makeWireItem = (
   id: `item-${index}`,
   label: `Item ${index}`,
   ...overrides,
+})
+
+const emptyUploadResult = (): BoardImageUploadResult => ({
+  mediaExternalIdByHash: new Map(),
+  mediaExternalIdByItemId: new Map(),
 })
 
 afterEach(() =>
@@ -358,6 +367,38 @@ describe('parseBoardJson', () =>
     await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
       'Item "item-1" imageUrl exceeds import limit'
     )
+  })
+
+  it('normalizes imported transforms before cloud sync', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0, { itemIds: ['item-1'] })],
+        items: {
+          'item-1': makeWireItem(1, {
+            transform: {
+              rotation: 0,
+              zoom: 50,
+              offsetX: -10,
+              offsetY: 10,
+            },
+          }),
+        },
+      },
+    }
+
+    const imported = await parseBoardJson(JSON.stringify(payload))
+    const cloudPayload = snapshotToCloudPayload(imported, emptyUploadResult())
+    const transform = cloudPayload.items[0].transform
+
+    expect(transform).toEqual({
+      rotation: 0,
+      zoom: ITEM_TRANSFORM_LIMITS.zoomMax,
+      offsetX: ITEM_TRANSFORM_LIMITS.offsetMin,
+      offsetY: ITEM_TRANSFORM_LIMITS.offsetMax,
+    })
+    expect(transform && isItemTransformInRange(transform)).toBe(true)
   })
 
   it.each([

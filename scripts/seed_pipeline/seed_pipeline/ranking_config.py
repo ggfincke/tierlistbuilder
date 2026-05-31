@@ -14,6 +14,7 @@ def compile_ranking_seeds(
 	manifest: JsonObject,
 	compiled_templates: list[JsonObject],
 ) -> JsonObject | None:
+	# mirrors contracts SeedRankingsManifest + Convex seedRankingsManifestValidator
 	raw = manifest.get("rankingSeeds")
 	if not isinstance(raw, dict):
 		return None
