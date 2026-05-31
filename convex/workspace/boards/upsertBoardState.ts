@@ -18,6 +18,7 @@ import {
   MAX_BOARD_ITEM_LABEL_LEN,
   MAX_BOARD_ITEM_NOTES_LEN,
   normalizeBoardTitle,
+  pickCoverRenderFields,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   BOARD_ITEM_ASPECT_RATIO_MAX,
@@ -785,6 +786,7 @@ const buildLibrarySummaryFromArgs = (
       ),
       order: item.order,
       deletedAt: deletedItemExternalIds.has(item.externalId) ? 1 : null,
+      ...pickCoverRenderFields(item),
     })),
   })
 

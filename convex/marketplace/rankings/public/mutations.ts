@@ -14,7 +14,10 @@ import {
   generateTierId,
 } from '@tierlistbuilder/contracts/lib/ids'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  normalizeBoardTitle,
+  pickCoverRenderFields,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   isRankingSlug,
   type MarketplaceRankingPublishResult,
@@ -748,6 +751,7 @@ export const remixTemplateConsensus = mutation({
           storageId,
           order: item.order,
           deletedAt: null,
+          ...pickCoverRenderFields(item),
         }
       })
     )

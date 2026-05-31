@@ -16,7 +16,10 @@ import {
 } from '../rankings/aggregate/lib'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { isActiveTemplateJobStatus } from '@tierlistbuilder/contracts/marketplace/template'
-import { LIBRARY_BOARD_COVER_ITEM_LIMIT } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  LIBRARY_BOARD_COVER_ITEM_LIMIT,
+  pickCoverRenderFields,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   getLargeTemplateFeatureState,
   getPlanEntitlements,
@@ -291,6 +294,7 @@ const buildCloneBoardSummary = async (
       storageId: await loadPreviewOrTileStorageId(ctx, item.mediaAssetId),
       order: item.order,
       deletedAt: item.deletedAt,
+      ...pickCoverRenderFields(item),
     }))
   )
   return buildBoardLibrarySummary({

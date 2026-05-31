@@ -25,7 +25,10 @@ import {
   generateItemId,
   generateTierId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  normalizeBoardTitle,
+  pickCoverRenderFields,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { buildForkedBoardInsert } from '../workspace/boards/cloudFields'
 import {
   buildBoardLibrarySummary,
@@ -501,6 +504,7 @@ const materializeAndPublishSample = async (
         storageId,
         order,
         deletedAt: null,
+        ...pickCoverRenderFields(item),
       }
     })
   )

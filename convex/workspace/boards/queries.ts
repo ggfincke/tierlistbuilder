@@ -7,6 +7,7 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import {
   deriveLibraryPublishState,
   deriveLibrarySyncState,
+  pickCoverRenderFields,
   type BoardListItem,
   type DeletedBoardListItem,
   type LibraryBoardCoverItem,
@@ -427,6 +428,7 @@ const projectLibraryRow = async (
       mediaUrl: item.storageId
         ? await rowCtx.loadStorageUrl(item.storageId)
         : null,
+      ...pickCoverRenderFields(item),
     }))
   )
 
@@ -464,6 +466,10 @@ const projectLibraryRow = async (
     sourceTemplateCoverMedia: rowCtx.sourceCover.media,
     sourceTemplateCoverFraming: rowCtx.sourceCover.framing,
     coverItems,
+    autoPlate: board.autoPlate ?? null,
+    defaultItemImageFit: board.defaultItemImageFit ?? null,
+    defaultItemImagePadding: board.defaultItemImagePadding ?? null,
+    itemAspectRatio: board.itemAspectRatio ?? null,
     paletteId: board.paletteId ?? rowCtx.userDefaultPaletteId,
     tierCount: board.librarySummary.tierCount,
     tierColors: board.librarySummary.tierColors,

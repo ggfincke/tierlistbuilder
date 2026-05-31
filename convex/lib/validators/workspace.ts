@@ -74,6 +74,17 @@ export const boardMaterializationStateValidator = literalUnion(
 )
 export const boardPausedReasonValidator = literalUnion(BOARD_PAUSED_REASONS)
 
+// per-item render settings mirrored onto cover items (see contract
+// LibraryBoardCoverRenderFields) so the mosaic matches the board's own render
+const libraryCoverRenderFields = {
+  imageFit: v.optional(imageFitValidator),
+  imagePadding: v.optional(v.number()),
+  backgroundColor: v.optional(v.string()),
+  mediaPlate: v.optional(mediaPlateValidator),
+  transform: v.optional(itemTransformValidator),
+  aspectRatio: v.optional(v.number()),
+}
+
 const libraryBoardCoverItemValidator = v.object({
   label: v.union(v.string(), v.null()),
   externalId: v.string(),
@@ -81,6 +92,7 @@ const libraryBoardCoverItemValidator = v.object({
   mediaHash: v.optional(v.string()),
   mediaCloudExternalId: v.optional(v.string()),
   mediaVariant: v.optional(mediaVariantKindValidator),
+  ...libraryCoverRenderFields,
 })
 
 const libraryBoardTierBreakdownValidator = v.object({
@@ -95,6 +107,7 @@ export const boardLibrarySummaryValidator = v.object({
       label: v.union(v.string(), v.null()),
       externalId: v.string(),
       storageId: v.union(v.id('_storage'), v.null()),
+      ...libraryCoverRenderFields,
     })
   ),
   tierCount: v.number(),
@@ -119,6 +132,10 @@ export const libraryBoardListItemValidator = v.object({
   sourceTemplateCoverMedia: v.union(templateMediaRefValidator, v.null()),
   sourceTemplateCoverFraming: v.union(templateCoverFramingValidator, v.null()),
   coverItems: v.array(libraryBoardCoverItemValidator),
+  autoPlate: v.optional(v.union(boardAutoPlateSettingsValidator, v.null())),
+  defaultItemImageFit: v.optional(v.union(imageFitValidator, v.null())),
+  defaultItemImagePadding: v.optional(v.union(v.number(), v.null())),
+  itemAspectRatio: v.optional(v.union(v.number(), v.null())),
   paletteId: paletteIdValidator,
   tierCount: v.number(),
   tierColors: v.array(tierColorSpecValidator),

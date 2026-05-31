@@ -644,10 +644,42 @@ export const LIBRARY_BOARD_COVER_ITEM_LIMIT = 18
 // max tier colorSpecs per row — matches the canonical 5-tier preset cap
 export const LIBRARY_BOARD_TIER_LIMIT = 5
 
+// per-item render settings copied onto cover items so a board's mosaic renders
+// each tile the way the board itself does (plate / fit / crop) instead of a
+// blind cover-crop. all optional — absent fields fall back to a plain cover
+export interface LibraryBoardCoverRenderFields
+{
+  imageFit?: ImageFit
+  imagePadding?: number
+  backgroundColor?: string
+  mediaPlate?: MediaPlate
+  transform?: ItemTransform
+  aspectRatio?: number
+}
+
+// copy the per-item render fields off any item-like source onto a cover/summary
+// item, normalizing null -> undefined so every summary & projection builder
+// mirrors them identically (one place to add a field, no per-builder drift)
+export const pickCoverRenderFields = (item: {
+  imageFit?: ImageFit | null
+  imagePadding?: number | null
+  backgroundColor?: string | null
+  mediaPlate?: MediaPlate | null
+  transform?: ItemTransform | null
+  aspectRatio?: number | null
+}): LibraryBoardCoverRenderFields => ({
+  imageFit: item.imageFit ?? undefined,
+  imagePadding: item.imagePadding ?? undefined,
+  backgroundColor: item.backgroundColor ?? undefined,
+  mediaPlate: item.mediaPlate ?? undefined,
+  transform: item.transform ?? undefined,
+  aspectRatio: item.aspectRatio ?? undefined,
+})
+
 // single cover-item entry. label is null when the item has no caption;
 // mediaUrl is null when the item has no image bound (drafts, missing media)
 // — the renderer falls back to label or an externalId-derived code
-export interface LibraryBoardCoverItem
+export interface LibraryBoardCoverItem extends LibraryBoardCoverRenderFields
 {
   label: string | null
   externalId: string
@@ -688,6 +720,12 @@ export interface LibraryBoardListItem extends BoardListItem
     | import('../marketplace/template').TemplateCoverFraming
     | null
   coverItems: LibraryBoardCoverItem[]
+  // board-level render context for the cover mosaic — mirrors the board's own
+  // item-render settings so tiles resolve plates / fit the way the board does
+  autoPlate?: BoardAutoPlateSettings | null
+  defaultItemImageFit?: ImageFit | null
+  defaultItemImagePadding?: number | null
+  itemAspectRatio?: number | null
   paletteId: import('../lib/theme').PaletteId
   // total tier count; tierColors/tierBreakdown are capped at
   // LIBRARY_BOARD_TIER_LIMIT, so this is the source of truth for the count
