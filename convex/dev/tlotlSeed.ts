@@ -168,8 +168,7 @@ const loadSampleRankings = async (
 const deleteRankingTree = async (
   ctx: MutationCtx,
   ranking: Doc<'publishedRankings'>
-): Promise<void> =>
-  await deleteSeedRankingWithChildren(ctx, ranking)
+): Promise<void> => await deleteSeedRankingWithChildren(ctx, ranking)
 
 // sample boards carry the dataset/release markers; the prefix range over the
 // (seedDatasetKey, seedReleaseId) index finds them regardless of seedExternalId,
@@ -193,8 +192,7 @@ const loadSampleBoards = async (
 const deleteBoardTree = async (
   ctx: MutationCtx,
   board: Doc<'boards'>
-): Promise<void> =>
-  await deleteSeedBoardWithChildren(ctx, board)
+): Promise<void> => await deleteSeedBoardWithChildren(ctx, board)
 
 // re-runs purge the prior dataset's rankings & the boards that back them.
 // rankings first, then boards (both vanish in this one mutation regardless, so
@@ -350,10 +348,7 @@ const tierIndexForItem = (
   tierCount: number
 ): number =>
 {
-  const weights = Array.from(
-    { length: tierCount },
-    (_, k) => 2 * tierCount - k
-  )
+  const weights = Array.from({ length: tierCount }, (_, k) => 2 * tierCount - k)
   const weightSum = weights.reduce((sum, w) => sum + w, 0)
   const frac = (itemIndex + 0.5) / itemCount
   let acc = 0

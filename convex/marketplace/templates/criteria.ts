@@ -278,8 +278,10 @@ export const resolveHistoricalTemplateCriterionExternalId = (
 ): string | null | undefined =>
 {
   if (externalId === undefined) return undefined
-  return resolveTemplateCriterionForHistoricalRead(source, externalId)
-    ?.externalId ?? null
+  return (
+    resolveTemplateCriterionForHistoricalRead(source, externalId)?.externalId ??
+    null
+  )
 }
 
 export const toTemplateCriterionSnapshot = (

@@ -9,9 +9,7 @@ import type { SeedRankingReleaseStatus } from '@tierlistbuilder/contracts/market
 import { assertNonemptyString } from '../../../lib/assertions'
 import { BATCH_LIMITS } from '../../../lib/limits'
 import { assertSeedReleaseArgs } from '../../seedPipeline/runs'
-import {
-  queueTemplateRankingAggregateRecomputesForRankings,
-} from '../aggregate/lib'
+import { queueTemplateRankingAggregateRecomputesForRankings } from '../aggregate/lib'
 import {
   seedRankingActivationResultValidator,
   type SeedRankingActivationResult,

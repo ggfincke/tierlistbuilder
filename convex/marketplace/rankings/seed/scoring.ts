@@ -195,8 +195,7 @@ export const rankTemplateItemsWithScore = (
 
 export const resolveTemplateTiers = (
   template: Doc<'templates'>
-): readonly TierPresetTier[] =>
-  templateTiersOrDefault(template)
+): readonly TierPresetTier[] => templateTiersOrDefault(template)
 
 export const featuredForProfile = (
   lane: SeedRankingLane,

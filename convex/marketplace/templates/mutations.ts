@@ -297,13 +297,15 @@ const findActivePublishJobForBoard = async (
   ctx: MutationCtx,
   sourceBoardId: Id<'boards'>
 ): Promise<Doc<'templatePublishJobs'> | null> =>
-  await firstActiveStatusRow(ACTIVE_TEMPLATE_JOB_STATUSES, async (status) =>
-    await ctx.db
-      .query('templatePublishJobs')
-      .withIndex('bySourceBoardStatus', (q) =>
-        q.eq('sourceBoardId', sourceBoardId).eq('status', status)
-      )
-      .take(1)
+  await firstActiveStatusRow(
+    ACTIVE_TEMPLATE_JOB_STATUSES,
+    async (status) =>
+      await ctx.db
+        .query('templatePublishJobs')
+        .withIndex('bySourceBoardStatus', (q) =>
+          q.eq('sourceBoardId', sourceBoardId).eq('status', status)
+        )
+        .take(1)
   )
 
 const findActiveCloneJobForTemplate = async (
@@ -311,16 +313,18 @@ const findActiveCloneJobForTemplate = async (
   ownerId: Id<'users'>,
   sourceTemplateId: Id<'templates'>
 ): Promise<Doc<'templateCloneJobs'> | null> =>
-  await firstActiveStatusRow(ACTIVE_TEMPLATE_JOB_STATUSES, async (status) =>
-    await ctx.db
-      .query('templateCloneJobs')
-      .withIndex('byOwnerSourceTemplateStatus', (q) =>
-        q
-          .eq('ownerId', ownerId)
-          .eq('sourceTemplateId', sourceTemplateId)
-          .eq('status', status)
-      )
-      .take(1)
+  await firstActiveStatusRow(
+    ACTIVE_TEMPLATE_JOB_STATUSES,
+    async (status) =>
+      await ctx.db
+        .query('templateCloneJobs')
+        .withIndex('byOwnerSourceTemplateStatus', (q) =>
+          q
+            .eq('ownerId', ownerId)
+            .eq('sourceTemplateId', sourceTemplateId)
+            .eq('status', status)
+        )
+        .take(1)
   )
 
 const loadBoardTiersForTemplate = async (

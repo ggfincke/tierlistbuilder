@@ -287,8 +287,7 @@ const isMediaReferencedByPublishedRanking = async (
         .paginate({ cursor, numItems }),
     parentIds: (items) => items.map((item) => item.rankingId),
     loadParent: async (rankingId) => await ctx.db.get(rankingId),
-    parentMatches: (ranking) =>
-      ranking !== null && isPublicRankingRow(ranking),
+    parentMatches: (ranking) => ranking !== null && isPublicRankingRow(ranking),
   })
   return result === 'matched'
 }
