@@ -2,12 +2,12 @@
 // avatar + identity block atop a public profile; edit affordance when it's you
 
 import { MapPin } from 'lucide-react'
-import { Link } from 'react-router-dom'
 
 import type { PublicUserProfile } from '@tierlistbuilder/contracts/platform/profile'
 import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
 import { PlanBadge } from '~/features/platform/settings/ui/SettingsChrome'
 import { Avatar } from '~/shared/ui/Avatar'
+import { ButtonLink } from '~/shared/ui/Button'
 
 interface ProfileHeaderProps
 {
@@ -60,12 +60,13 @@ export const ProfileHeader = ({ profile, isSelf }: ProfileHeaderProps) =>
         </div>
       </div>
       {isSelf && (
-        <Link
+        <ButtonLink
           to={settingsTabPath('profile')}
-          className="focus-custom shrink-0 self-start rounded-lg border border-[var(--t-border)] px-3 py-1.5 text-[12px] font-bold text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          size="sm"
+          className="shrink-0 self-start rounded-lg text-[12px] font-bold"
         >
           Edit profile
-        </Link>
+        </ButtonLink>
       )}
     </header>
   )

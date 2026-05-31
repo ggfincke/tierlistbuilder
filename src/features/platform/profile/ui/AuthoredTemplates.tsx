@@ -1,11 +1,10 @@
 // src/features/platform/profile/ui/AuthoredTemplates.tsx
 // grid of public templates a profile's user has published
 
-import { Link } from 'react-router-dom'
-
 import type { MarketplaceTemplateSummary } from '@tierlistbuilder/contracts/marketplace/template'
 import { Card } from '~/features/marketplace/ui/cards/Card'
 import { BOARDS_ROUTE_PATH } from '~/shared/routes/pathname'
+import { ButtonLink } from '~/shared/ui/Button'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { ProfileSectionHeader } from './ProfileSectionHeader'
 
@@ -38,12 +37,13 @@ export const AuthoredTemplates = ({
           }
           action={
             isSelf ? (
-              <Link
+              <ButtonLink
                 to={BOARDS_ROUTE_PATH}
-                className="focus-custom rounded-lg border border-[var(--t-border)] px-3.5 py-1.5 text-[12px] font-bold text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                size="sm"
+                className="rounded-lg text-[12px] font-bold"
               >
                 Go to my boards
-              </Link>
+              </ButtonLink>
             ) : undefined
           }
         />

@@ -4,18 +4,11 @@
 import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
 
-import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
-import { LiveRegion } from '~/shared/a11y/LiveRegion'
-import { ToastContainer } from '~/shared/notifications/ToastContainer'
-import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { Footer } from '~/features/marketplace/ui/layout/Footer'
+import { AmbientPageShell } from '~/shared/ui/AmbientPageShell'
 
 export const MarketplaceLayout = () =>
 {
-  useThemeSync()
-
-  const reducedMotion = usePreferencesStore((state) => state.reducedMotion)
-
   const { pathname, hash } = useLocation()
   const navType = useNavigationType()
   const previousPathnameRef = useRef(pathname)
@@ -33,12 +26,8 @@ export const MarketplaceLayout = () =>
   }, [pathname, hash, navType])
 
   return (
-    <main className="ambient-layer dot-grid-bg relative min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]">
+    <AmbientPageShell footer={<Footer />}>
       <Outlet />
-      <Footer />
-
-      <ToastContainer reducedMotion={reducedMotion} />
-      <LiveRegion />
-    </main>
+    </AmbientPageShell>
   )
 }

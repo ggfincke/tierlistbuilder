@@ -20,7 +20,7 @@ import { toast } from '~/shared/notifications/useToastStore'
 import { Avatar } from '~/shared/ui/Avatar'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
-import { SetSection } from './SettingsChrome'
+import { SetSection } from '~/shared/ui/settings/SettingsChrome'
 
 type PreviewContext = 'profile' | 'byline'
 

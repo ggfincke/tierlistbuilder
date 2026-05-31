@@ -2,7 +2,7 @@
 // Data tab — account export/import scaffolds & permanent account deletion
 
 import { AccountDangerZone } from '~/features/platform/auth/ui/AccountDangerZone'
-import { SetSection } from './SettingsChrome'
+import { SetSection } from '~/shared/ui/settings/SettingsChrome'
 
 interface DataPanelProps
 {

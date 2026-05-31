@@ -21,7 +21,7 @@ import {
   SetSection,
   TextAreaField,
   TextField,
-} from './SettingsChrome'
+} from '~/shared/ui/settings/SettingsChrome'
 
 const PRONOUN_SELECT_OPTIONS = [
   { value: '', label: 'Not specified' },

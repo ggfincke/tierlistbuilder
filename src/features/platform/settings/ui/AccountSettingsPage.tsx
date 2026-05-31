@@ -11,8 +11,8 @@ import { useProfileDraft } from '~/features/platform/auth/model/useProfileDraft'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
-import { PAGE_SHELL } from '~/shared/ui/pageContainer'
-import { PrimaryButton } from '~/shared/ui/PrimaryButton'
+import { SignedOutPrompt } from '~/shared/ui/PageState'
+import { PAGE_TOP_LEVEL } from '~/shared/ui/pageContainer'
 import { AccountPanel } from './AccountPanel'
 import { AppearancePanel } from './AppearancePanel'
 import { DataPanel } from './DataPanel'
@@ -20,8 +20,6 @@ import { PrivacyPanel } from './PrivacyPanel'
 import { ProfilePanel } from './ProfilePanel'
 import { PlanBadge } from './SettingsChrome'
 import { SettingsTabs } from './SettingsTabs'
-
-const PAGE_CLASS = `${PAGE_SHELL} pb-24 pt-20 sm:pt-24`
 
 const PROFILE_PATH = settingsTabPath('profile')
 
@@ -67,7 +65,7 @@ const SettingsHero = ({ user }: { user: PublicUserMe }) => (
 )
 
 const SettingsShell = ({ children }: { children: ReactNode }) => (
-  <section className={PAGE_CLASS}>{children}</section>
+  <section className={PAGE_TOP_LEVEL}>{children}</section>
 )
 
 const SettingsLoading = () => (
@@ -82,15 +80,11 @@ const SettingsLoading = () => (
 
 const SettingsSignedOut = ({ onSignIn }: { onSignIn: () => void }) => (
   <SettingsShell>
-    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
-      <DisplayHeadline size="page" accent="Settings" />
-      <p className="max-w-sm text-[14px] text-[var(--t-text-muted)]">
-        Sign in to view and edit your account settings.
-      </p>
-      <PrimaryButton size="md" onClick={onSignIn}>
-        Sign in
-      </PrimaryButton>
-    </div>
+    <SignedOutPrompt
+      title={<DisplayHeadline size="page" accent="Settings" />}
+      body="Sign in to view and edit your account settings."
+      onSignIn={onSignIn}
+    />
   </SettingsShell>
 )
 

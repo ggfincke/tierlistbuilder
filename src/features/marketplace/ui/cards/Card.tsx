@@ -9,7 +9,7 @@ import {
   Sparkles,
   TrendingUp,
 } from 'lucide-react'
-import { memo, type ComponentType, type ReactNode, type SVGProps } from 'react'
+import { memo, type ComponentType, type SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 
 import type {
@@ -18,7 +18,6 @@ import type {
   TemplateCardAccessState,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { ACCESS_META } from '~/features/marketplace/model/accessMeta'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
@@ -27,6 +26,10 @@ import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { CHUNKY_SHADOW_ACCENT_STATIC } from '~/shared/ui/chunkyShadow'
 import { Avatar } from '~/shared/ui/Avatar'
 import type { MediaLoading } from '~/shared/board-ui/mediaImageAttrs'
+import {
+  InlineCardStat,
+  OverlayChip,
+} from '~/features/marketplace/ui/cards/cardPrimitives'
 import { Cover, type CoverStyle } from '../cover/Cover'
 import type { MosaicDensity } from '../discovery/Mosaic'
 
@@ -101,31 +104,6 @@ const SIZE_CONFIG: Record<
   },
 }
 
-interface CardStatProps
-{
-  icon: ComponentType<SVGProps<SVGSVGElement>>
-  label: string
-  value: number
-}
-
-// one community stat — a zero value demotes to the dim token so a freshly
-// published template reads honest instead of shouting placeholder zeroes
-const CardStat = ({ icon: Icon, label, value }: CardStatProps) =>
-{
-  return (
-    <span
-      className={`inline-flex items-center gap-1 tabular-nums ${
-        value <= 0 ? 'text-[var(--t-text-dim)]' : 'text-[var(--t-text-faint)]'
-      }`}
-      style={{ fontFamily: 'var(--ts-mono)' }}
-      title={`${value} ${label}`}
-    >
-      <Icon className="h-3 w-3" strokeWidth={1.8} aria-hidden />
-      {formatCount(value)}
-    </span>
-  )
-}
-
 // edit-time eyebrow + frame palettes — keyed off the editorial-elevated flag.
 // elevated cards carry an accent border & tint the category eyebrow (no
 // halo — the TRENDING/CURATED corner pills already signal 'featured')
@@ -136,30 +114,6 @@ const FRAME_DEFAULT =
   'border-[var(--t-border)] hover:border-[var(--t-border-hover)] hover:shadow-lg'
 
 const FRAME_ELEVATED = 'border-[var(--t-accent)]'
-
-const OVERLAY_CHIP_CLASS =
-  'inline-flex items-center gap-1 rounded bg-black/55 px-1.5 py-1 text-[9px] font-semibold tracking-[0.16em] text-white uppercase backdrop-blur-sm'
-
-interface OverlayChipProps
-{
-  icon?: ComponentType<SVGProps<SVGSVGElement>>
-  alignEnd?: boolean
-  children: ReactNode
-}
-
-const OverlayChip = ({
-  icon: Icon,
-  alignEnd = false,
-  children,
-}: OverlayChipProps) => (
-  <span
-    className={`${alignEnd ? 'ml-auto ' : ''}${OVERLAY_CHIP_CLASS}`}
-    style={{ fontFamily: 'var(--ts-mono)' }}
-  >
-    {Icon && <Icon className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />}
-    {children}
-  </span>
-)
 
 const CardImpl = ({
   template,
@@ -278,7 +232,7 @@ const CardImpl = ({
           className={`mt-auto flex items-center ${cfg.statGap} ${cfg.metaClass}`}
         >
           {TEMPLATE_STAT_META.map((stat) => (
-            <CardStat
+            <InlineCardStat
               key={stat.key}
               icon={stat.icon}
               label={stat.label}

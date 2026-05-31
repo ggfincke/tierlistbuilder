@@ -36,7 +36,7 @@ import { useRenameLibraryBoard } from '~/features/library/model/useRenameLibrary
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { LivePulse } from '~/shared/ui/LivePulse'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
-import { PAGE_SHELL } from '~/shared/ui/pageContainer'
+import { PAGE_TOP_LEVEL } from '~/shared/ui/pageContainer'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { foldForSearch } from '~/shared/lib/text'
 
@@ -144,7 +144,7 @@ export const MyBoardsPage = () =>
   }
 
   return (
-    <section className={`${PAGE_SHELL} pt-20 pb-24 sm:pt-24`}>
+    <section className={PAGE_TOP_LEVEL}>
       {/* editorial hero — eyebrow + wordmark left, search + mono stats right */}
       <div className="flex flex-wrap items-end justify-between gap-8 border-b border-[var(--t-border)] pb-6">
         <DisplayHeadline

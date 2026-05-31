@@ -18,6 +18,7 @@ import {
 } from '~/shared/board-ui/StaticBoard'
 import { ShowcaseRenderContext } from '~/shared/board-ui/ShowcaseRenderContext'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
+import { ButtonLink } from '~/shared/ui/Button'
 import {
   publicShowcaseToSnapshot,
   SHOWCASE_PALETTE_ID,
@@ -43,13 +44,14 @@ const SHOWCASE_APPEARANCE: StaticBoardAppearance = {
 }
 
 const ShowcaseEditLink = ({ label }: { label: string }) => (
-  <Link
+  <ButtonLink
     to={SHOWCASE_ROUTE_PATH}
-    className="focus-custom inline-flex items-center gap-1.5 rounded-lg border border-[var(--t-border)] px-3 py-1.5 text-[12px] font-bold text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+    size="sm"
+    className="rounded-lg text-[12px] font-bold"
   >
     <Pencil className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden />
     {label}
-  </Link>
+  </ButtonLink>
 )
 
 interface ProfileShowcaseViewProps

@@ -1,8 +1,7 @@
 // src/features/platform/settings/ui/PrivacyPanel.tsx
 // privacy controls for publish defaults, profile discovery, & future AI usage
 
-import { useMemo, useState } from 'react'
-import { Check } from 'lucide-react'
+import { useState } from 'react'
 
 import type { RankingVisibility } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { TemplateVisibility } from '@tierlistbuilder/contracts/marketplace/template'
@@ -12,26 +11,16 @@ import type {
 } from '@tierlistbuilder/contracts/platform/user'
 import { useUpdatePrivacySettingsMutation } from '~/features/platform/auth/model/useAccountMutations'
 import { formatError } from '~/shared/lib/errors'
-import { joinClassNames } from '~/shared/lib/className'
 import { toast } from '~/shared/notifications/useToastStore'
-import { useRovingSelection } from '~/shared/selection/useRovingSelection'
-import { Field, SetSection, ToggleRow } from './SettingsChrome'
-
-interface SegmentedOption<TValue extends string>
-{
-  value: TValue
-  label: string
-  hint: string
-}
-
-interface SegmentedChoiceProps<TValue extends string>
-{
-  value: TValue
-  options: readonly SegmentedOption<TValue>[]
-  onChange: (value: TValue) => void
-  disabled: boolean
-  label: string
-}
+import {
+  SegmentedChoice,
+  type SegmentedChoiceOption,
+} from '~/shared/ui/settings/SegmentedChoice'
+import {
+  Field,
+  SetSection,
+  ToggleRow,
+} from '~/shared/ui/settings/SettingsChrome'
 
 const TEMPLATE_VISIBILITY_OPTIONS = [
   {
@@ -44,7 +33,7 @@ const TEMPLATE_VISIBILITY_OPTIONS = [
     label: 'Unlisted',
     hint: 'Visible to anyone with the link.',
   },
-] as const satisfies readonly SegmentedOption<TemplateVisibility>[]
+] as const satisfies readonly SegmentedChoiceOption<TemplateVisibility>[]
 
 const RANKING_VISIBILITY_OPTIONS = [
   {
@@ -57,65 +46,7 @@ const RANKING_VISIBILITY_OPTIONS = [
     label: 'Unlisted',
     hint: 'Visible to anyone with the link.',
   },
-] as const satisfies readonly SegmentedOption<RankingVisibility>[]
-
-const SegmentedChoice = <TValue extends string>({
-  value,
-  options,
-  onChange,
-  disabled,
-  label,
-}: SegmentedChoiceProps<TValue>) =>
-{
-  const keys = useMemo(() => options.map((option) => option.value), [options])
-  // shared roving-tabindex nav (one tab stop, arrows move selection) w/
-  // radiogroup/radio semantics; columns matches the visual grid as it grows
-  const { groupProps, getItemProps, isActive } = useRovingSelection<TValue>({
-    items: keys,
-    activeKey: value,
-    onSelect: onChange,
-    kind: 'radio',
-    groupLabel: label,
-    columns: 2,
-  })
-
-  return (
-    <div
-      {...groupProps}
-      className="grid grid-cols-2 gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-1"
-    >
-      {options.map((option, index) =>
-      {
-        const selected = isActive(option.value)
-        return (
-          <button
-            key={option.value}
-            {...getItemProps(option.value, index)}
-            disabled={disabled}
-            className={joinClassNames(
-              'relative min-h-[64px] rounded-md px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-60',
-              selected
-                ? 'bg-[var(--t-bg-surface)] text-[var(--t-text)] shadow-[0_0_0_1px_var(--t-accent)]'
-                : 'text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)]'
-            )}
-          >
-            {selected && (
-              <span className="absolute right-2 top-2 text-[var(--t-accent)]">
-                <Check className="h-3.5 w-3.5" strokeWidth={3} />
-              </span>
-            )}
-            <span className="block text-[12px] font-bold leading-tight">
-              {option.label}
-            </span>
-            <span className="mt-1 block text-[10px] leading-snug text-[var(--t-text-faint)]">
-              {option.hint}
-            </span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
+] as const satisfies readonly SegmentedChoiceOption<RankingVisibility>[]
 
 interface PrivacyPanelProps
 {

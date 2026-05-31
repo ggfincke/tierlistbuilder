@@ -19,8 +19,9 @@ import {
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
-import { PAGE_SHELL } from '~/shared/ui/pageContainer'
-import { PrimaryButton } from '~/shared/ui/PrimaryButton'
+import { SignedOutPrompt } from '~/shared/ui/PageState'
+import { PAGE_TOP_LEVEL } from '~/shared/ui/pageContainer'
+import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { BoardRenderOverridesProvider } from '~/features/workspace/boards/model/BoardRenderOverridesProvider'
@@ -45,38 +46,15 @@ import {
   type ShowcaseSaveScheduler,
 } from '~/features/platform/showcase/model/showcaseSaveScheduler'
 
-const PAGE_CLASS = `${PAGE_SHELL} pb-24 pt-20 sm:pt-24`
-
 const SAVE_DEBOUNCE_MS = 500
 const SHOWCASE_ITEM_SIZE: ItemSize = 'large'
 // stable empty map for the render context while the showcase query loads
 const EMPTY_TILES: Map<string, ShowcaseRankingTile> = new Map()
 
-const TileModeToggle = ({
-  value,
-  onChange,
-}: {
-  value: ShowcaseTileMode
-  onChange: (mode: ShowcaseTileMode) => void
-}) => (
-  <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-[var(--t-border)] p-0.5">
-    {SHOWCASE_TILE_MODES.map((mode) => (
-      <button
-        key={mode}
-        type="button"
-        onClick={() => onChange(mode)}
-        aria-pressed={value === mode}
-        className={`focus-custom rounded-md px-2.5 py-1 text-[12px] font-bold transition focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${
-          value === mode
-            ? 'bg-[var(--t-bg-active)] text-[var(--t-text)]'
-            : 'text-[var(--t-text-secondary)] hover:text-[var(--t-text)]'
-        }`}
-      >
-        {SHOWCASE_TILE_MODE_LABELS[mode]}
-      </button>
-    ))}
-  </div>
-)
+const TILE_MODE_OPTIONS = SHOWCASE_TILE_MODES.map((mode) => ({
+  value: mode,
+  label: SHOWCASE_TILE_MODE_LABELS[mode],
+}))
 
 const ShowcaseToolbar = ({ onAddTier }: { onAddTier: () => void }) => (
   <div className="flex items-center">
@@ -92,7 +70,7 @@ const ShowcaseToolbar = ({ onAddTier }: { onAddTier: () => void }) => (
 )
 
 const ShowcaseEditorSkeleton = () => (
-  <div className={PAGE_CLASS} aria-hidden="true">
+  <div className={PAGE_TOP_LEVEL} aria-hidden="true">
     <SkeletonText className="w-48" tone="strong" />
     <div className="mt-6 space-y-2">
       {Array.from({ length: 5 }).map((_, index) => (
@@ -103,18 +81,16 @@ const ShowcaseEditorSkeleton = () => (
 )
 
 const ShowcaseEditorSignedOut = ({ onSignIn }: { onSignIn: () => void }) => (
-  <div className={PAGE_CLASS}>
-    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
-      <h1 className="text-[28px] font-black tracking-[-0.02em] text-[var(--t-text)]">
-        Your tier list
-      </h1>
-      <p className="max-w-sm text-[14px] text-[var(--t-text-muted)]">
-        Sign in to build and save the tier list shown on your profile.
-      </p>
-      <PrimaryButton size="md" onClick={onSignIn}>
-        Sign in
-      </PrimaryButton>
-    </div>
+  <div className={PAGE_TOP_LEVEL}>
+    <SignedOutPrompt
+      title={
+        <h1 className="text-[28px] font-black text-[var(--t-text)]">
+          Your tier list
+        </h1>
+      }
+      body="Sign in to build and save the tier list shown on your profile."
+      onSignIn={onSignIn}
+    />
   </div>
 )
 
@@ -241,7 +217,7 @@ const ShowcaseEditorSignedIn = () =>
   }
 
   return (
-    <div className={PAGE_CLASS}>
+    <div className={PAGE_TOP_LEVEL}>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
@@ -266,7 +242,12 @@ const ShowcaseEditorSignedIn = () =>
           <span className="text-[12px] font-semibold text-[var(--t-text-faint)]">
             Profile tiles
           </span>
-          <TileModeToggle value={tileMode} onChange={handleTileMode} />
+          <SegmentedControl<ShowcaseTileMode>
+            value={tileMode}
+            onChange={handleTileMode}
+            options={TILE_MODE_OPTIONS}
+            ariaLabel="Profile tile display"
+          />
         </div>
       </div>
 

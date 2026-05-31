@@ -2,14 +2,10 @@
 // rankings index placeholder — keeps /rankings from rendering blank chrome
 
 import { ArrowRight, ListChecks, Sparkles } from 'lucide-react'
-import { Link } from 'react-router-dom'
 
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
-import {
-  CHUNKY_SHADOW_ACCENT,
-  CHUNKY_SHADOW_TRANSITION,
-} from '~/shared/ui/chunkyShadow'
+import { ButtonLink } from '~/shared/ui/Button'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { PAGE_SHELL } from '~/shared/ui/pageContainer'
 
@@ -29,21 +25,23 @@ export const RankingsIndexPage = () =>
         />
 
         <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Link
+          <ButtonLink
             to={TEMPLATES_ROUTE_PATH}
-            className={`focus-custom inline-flex items-center gap-2 rounded-md bg-[var(--t-accent)] px-4 py-2 text-sm font-semibold text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_TRANSITION} ${CHUNKY_SHADOW_ACCENT} focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]`}
+            variant="primary"
+            size="md"
           >
             <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
             Browse templates
             <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
-          </Link>
-          <Link
+          </ButtonLink>
+          <ButtonLink
             to="/"
-            className="focus-custom inline-flex items-center gap-2 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-4 py-2 text-sm font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+            surface="filled"
+            size="md"
           >
             <ListChecks className="h-3.5 w-3.5" strokeWidth={2} />
             Open workspace
-          </Link>
+          </ButtonLink>
         </div>
       </div>
     </section>

@@ -2,8 +2,8 @@
 // Appearance tab — app-chrome look & feel plus the keyboard-shortcuts reference
 
 import { ShortcutsList } from '~/features/workspace/shortcuts/ui/ShortcutsList'
+import { SetSection } from '~/shared/ui/settings/SettingsChrome'
 import { AppearanceSection } from './AppearanceSection'
-import { SetSection } from './SettingsChrome'
 
 const ShortcutsSection = () => (
   <SetSection

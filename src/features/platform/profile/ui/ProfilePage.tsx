@@ -6,13 +6,11 @@ import { useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
-import { PAGE_SHELL } from '~/shared/ui/pageContainer'
+import { PAGE_TOP_LEVEL } from '~/shared/ui/pageContainer'
 import { AuthoredTemplates } from './AuthoredTemplates'
 import { ProfileHeader } from './ProfileHeader'
 import { ProfileShowcaseView } from './ProfileShowcaseView'
 import { ProfileNotFound, ProfileSkeleton } from './ProfileStates'
-
-const PAGE_CLASS = `${PAGE_SHELL} pb-24 pt-20 sm:pt-24`
 
 interface ProfilePageProps
 {
@@ -34,7 +32,7 @@ export const ProfilePage = ({ handle }: ProfilePageProps) =>
   if (!handle || profile === null)
   {
     return (
-      <section className={PAGE_CLASS}>
+      <section className={PAGE_TOP_LEVEL}>
         <ProfileNotFound />
       </section>
     )
@@ -42,7 +40,7 @@ export const ProfilePage = ({ handle }: ProfilePageProps) =>
   if (profile === undefined)
   {
     return (
-      <section className={PAGE_CLASS}>
+      <section className={PAGE_TOP_LEVEL}>
         <ProfileSkeleton />
       </section>
     )
@@ -52,7 +50,7 @@ export const ProfilePage = ({ handle }: ProfilePageProps) =>
     session.status === 'signed-in' && session.user._id === profile.id
 
   return (
-    <section className={PAGE_CLASS}>
+    <section className={PAGE_TOP_LEVEL}>
       <ProfileHeader profile={profile} isSelf={isSelf} />
       <ProfileShowcaseView showcase={profile.showcase} isSelf={isSelf} />
       <div className="mt-12">

@@ -3,9 +3,9 @@
 
 import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import type { ProfileDraftController } from '~/features/platform/auth/model/useProfileDraft'
+import { SettingsTabLayout } from '~/shared/ui/settings/SettingsChrome'
 import { IdentitySection } from './IdentitySection'
 import { ProfilePreviewCard } from './ProfilePreviewCard'
-import { SettingsTabLayout } from './SettingsChrome'
 
 interface ProfilePanelProps
 {

@@ -17,63 +17,17 @@ import { BaseModal } from '~/shared/overlay/BaseModal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { OverrideColorRow } from '~/shared/ui/settings/OverrideColorRow'
 import { PalettePicker } from '~/shared/ui/settings/PalettePicker'
+import {
+  SettingLabel,
+  ToggleRow,
+} from '~/shared/ui/settings/SettingsChrome'
 import { TextStylePicker } from '~/shared/ui/settings/TextStylePicker'
 import { ThemePicker } from '~/shared/ui/settings/ThemePicker'
-import { Toggle } from '~/shared/ui/settings/Toggle'
 
 interface PreferencesModalProps
 {
   open: boolean
   onClose: () => void
-}
-
-const SectionLabel = ({ children }: { children: string }) => (
-  <p className="mono mb-2 text-[10px] uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-    {children}
-  </p>
-)
-
-interface PrefToggleRowProps
-{
-  label: string
-  hint: string
-  checked: boolean
-  onChange: (value: boolean) => void
-}
-
-const PrefToggleRow = ({
-  label,
-  hint,
-  checked,
-  onChange,
-}: PrefToggleRowProps) =>
-{
-  const labelId = useId()
-  const hintId = useId()
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <p
-          id={labelId}
-          className="text-[12px] font-medium text-[var(--t-text)]"
-        >
-          {label}
-        </p>
-        <p
-          id={hintId}
-          className="text-[10px] leading-snug text-[var(--t-text-faint)]"
-        >
-          {hint}
-        </p>
-      </div>
-      <Toggle
-        checked={checked}
-        onChange={onChange}
-        ariaLabelledby={labelId}
-        ariaDescribedby={hintId}
-      />
-    </div>
-  )
 }
 
 export const PreferencesModal = ({ open, onClose }: PreferencesModalProps) =>
@@ -160,7 +114,7 @@ export const PreferencesModal = ({ open, onClose }: PreferencesModalProps) =>
 
       <div className="flex flex-col gap-5 px-6 py-5">
         <div>
-          <SectionLabel>Theme</SectionLabel>
+          <SettingLabel>Theme</SettingLabel>
           <ThemePicker value={themeId} onChange={setThemeId} />
         </div>
 
@@ -176,35 +130,35 @@ export const PreferencesModal = ({ open, onClose }: PreferencesModalProps) =>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1.6fr_1fr]">
           <div>
-            <SectionLabel>Tier palette</SectionLabel>
+            <SettingLabel>Tier palette</SettingLabel>
             <PalettePicker value={paletteId} onChange={setPaletteId} />
           </div>
           <div>
-            <SectionLabel>Text style</SectionLabel>
+            <SettingLabel>Text style</SettingLabel>
             <TextStylePicker value={textStyleId} onChange={setTextStyleId} />
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-x-6 gap-y-3 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-3 sm:grid-cols-2">
-          <PrefToggleRow
+          <ToggleRow
             label="Reduce motion"
             hint="Disable animations & transitions"
             checked={reducedMotion}
             onChange={setReducedMotion}
           />
-          <PrefToggleRow
+          <ToggleRow
             label="Compact board layouts"
             hint="Tighter row heights"
             checked={compactMode}
             onChange={setCompactMode}
           />
-          <PrefToggleRow
+          <ToggleRow
             label="High contrast"
             hint="Stronger borders & maximum text contrast"
             checked={isHighContrast}
             onChange={toggleHighContrast}
           />
-          <PrefToggleRow
+          <ToggleRow
             label="Lock navigation bar"
             hint="Keep the top bar pinned instead of auto-hiding"
             checked={topNavLocked}

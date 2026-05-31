@@ -5,7 +5,6 @@ import { Layers } from 'lucide-react'
 import { useMemo } from 'react'
 
 import {
-  isTemplateSlug,
   type MarketplaceTemplateDetail,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import {
@@ -14,16 +13,15 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useSelectedCriterion } from '~/features/marketplace/model/detail/useSelectedCriterion'
-import { useTemplateBySlug } from '~/features/marketplace/model/detail/useTemplateDetail'
-import { useValidatedSlug } from '~/features/marketplace/model/detail/useValidatedSlug'
 import { useRelatedTemplates } from '~/features/marketplace/model/detail/useTemplateDetail'
 import { useTemplateRankingAggregate } from '~/features/marketplace/model/detail/useRankingDetail'
+import { useTemplateDetailRoute } from '~/features/marketplace/model/detail/useMarketplaceDetailRoute'
 import { useRecordTemplateView } from '~/features/marketplace/model/analytics/useRecordTemplateView'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
-import { PAGE_SHELL } from '~/shared/ui/pageContainer'
+import { PAGE_DETAIL_TOP_LEVEL } from '~/shared/ui/pageContainer'
 import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
 import { Card } from '~/features/marketplace/ui/cards/Card'
@@ -72,7 +70,7 @@ const NotFound = () => (
 const DetailSkeleton = () => (
   <section
     aria-hidden="true"
-    className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}
+    className={PAGE_DETAIL_TOP_LEVEL}
   >
     <SkeletonText className="w-48" tone="soft" />
     <div className="mt-5 grid gap-6 lg:grid-cols-[1.25fr_0.95fr_320px]">
@@ -155,17 +153,18 @@ const CreditNote = ({ template }: CreditNoteProps) =>
 
 export const TemplateDetailPage = () =>
 {
-  const validSlug = useValidatedSlug(isTemplateSlug)
-  const detail = useTemplateBySlug(validSlug)
+  const route = useTemplateDetailRoute()
+  const readyDetail = route.status === 'ready' ? route.detail : null
   // only record once we have a valid published row; null/undefined skip
-  useRecordTemplateView(detail ? detail.slug : null)
-  useDocumentTitle(detail ? `${detail.title} · TierListBuilder` : null)
+  useRecordTemplateView(readyDetail ? readyDetail.slug : null)
+  useDocumentTitle(
+    readyDetail ? `${readyDetail.title} · TierListBuilder` : null
+  )
 
-  if (validSlug === null) return <NotFound />
-  if (detail === undefined) return <DetailSkeleton />
-  if (detail === null) return <NotFound />
+  if (route.status === 'missing') return <NotFound />
+  if (route.status === 'loading') return <DetailSkeleton />
 
-  return <TemplateDetailContent detail={detail} />
+  return <TemplateDetailContent detail={route.detail} />
 }
 
 interface TemplateDetailContentProps
@@ -278,7 +277,7 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
     ) : null
 
   return (
-    <article className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}>
+    <article className={PAGE_DETAIL_TOP_LEVEL}>
       <MarketplaceBreadcrumb
         items={[
           { label: 'Templates', to: TEMPLATES_ROUTE_PATH },

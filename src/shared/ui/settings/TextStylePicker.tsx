@@ -3,7 +3,7 @@
 
 import { TEXT_STYLES } from '~/shared/theme/textStyles'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
-import { PickerGrid } from '~/shared/ui/PickerGrid'
+import { PreviewPicker } from '~/shared/ui/settings/PreviewPicker'
 
 interface StyleOption
 {
@@ -49,7 +49,7 @@ export const TextStylePicker = ({
   disabled = false,
   ariaLabelledby,
 }: TextStylePickerProps) => (
-  <PickerGrid<TextStyleId, StyleOption>
+  <PreviewPicker<TextStyleId, StyleOption>
     items={STYLE_OPTIONS}
     activeKey={value}
     onSelect={onChange}

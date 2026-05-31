@@ -5,13 +5,14 @@ import { BaseModal } from '~/shared/overlay/BaseModal'
 import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useEffect, useId, useRef, useState } from 'react'
-import { Check, Copy, Link as LinkIcon, RefreshCw } from 'lucide-react'
+import { Link as LinkIcon, RefreshCw } from 'lucide-react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { formatError } from '~/shared/lib/errors'
 import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { CopyButton } from '~/shared/ui/CopyButton'
 import { TextArea } from '~/shared/ui/TextArea'
 import { TextInput } from '~/shared/ui/TextInput'
 import {
@@ -162,18 +163,11 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
               className="min-w-0 flex-1 font-mono"
               onFocus={(e) => e.currentTarget.select()}
             />
-            <SecondaryButton
-              variant="surface"
+            <CopyButton
+              copied={shareCopy.copied}
               onClick={handleCopyShare}
-              aria-label="Copy share link"
-            >
-              {shareCopy.copied ? (
-                <Check className="h-3.5 w-3.5 text-[var(--t-accent)]" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" />
-              )}
-              {shareCopy.copied ? 'Copied' : 'Copy'}
-            </SecondaryButton>
+              ariaLabel="Copy share link"
+            />
           </div>
 
           <label
@@ -191,18 +185,11 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
               className="flex-1 font-mono text-xs"
               onFocus={(e) => e.currentTarget.select()}
             />
-            <SecondaryButton
-              variant="surface"
+            <CopyButton
+              copied={embedCopy.copied}
               onClick={handleCopyEmbed}
-              aria-label="Copy embed code"
-            >
-              {embedCopy.copied ? (
-                <Check className="h-3.5 w-3.5 text-[var(--t-accent)]" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" />
-              )}
-              {embedCopy.copied ? 'Copied' : 'Copy'}
-            </SecondaryButton>
+              ariaLabel="Copy embed code"
+            />
           </div>
 
           <DialogActions className="flex items-center justify-end">

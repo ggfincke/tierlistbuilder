@@ -12,7 +12,7 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { toast } from '~/shared/notifications/useToastStore'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { Field, PasswordField } from './SettingsChrome'
+import { Field, PasswordField } from '~/shared/ui/settings/SettingsChrome'
 
 interface PasswordChangeDialogProps
 {

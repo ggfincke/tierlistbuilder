@@ -3,7 +3,7 @@
 
 import { THEME_META, THEMES } from '~/shared/theme/tokens'
 import type { ThemeId } from '@tierlistbuilder/contracts/lib/theme'
-import { PickerGrid } from '~/shared/ui/PickerGrid'
+import { PreviewPicker } from '~/shared/ui/settings/PreviewPicker'
 
 interface ThemePickerProps
 {
@@ -32,7 +32,7 @@ export const ThemePicker = ({
   disabled = false,
   ariaLabelledby,
 }: ThemePickerProps) => (
-  <PickerGrid<ThemeId, (typeof THEME_META)[number]>
+  <PreviewPicker<ThemeId, (typeof THEME_META)[number]>
     items={THEME_META}
     activeKey={value}
     onSelect={onChange}

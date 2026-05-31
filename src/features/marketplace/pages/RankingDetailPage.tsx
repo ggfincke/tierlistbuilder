@@ -3,11 +3,9 @@
 // & a Remix CTA that clones the snapshot into a fresh local board
 
 import { Eye, Loader2, Sparkles, TrendingUp } from 'lucide-react'
-import { useMemo, type ComponentType, type SVGProps } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
 
 import {
-  isRankingSlug,
   type MarketplaceRankingDetail,
   type MarketplaceRankingItem,
   type MarketplaceRankingTier,
@@ -19,14 +17,14 @@ import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { getTextColor } from '~/shared/lib/color'
-import { useRankingBySlug } from '~/features/marketplace/model/detail/useRankingDetail'
+import { useRankingDetailRoute } from '~/features/marketplace/model/detail/useMarketplaceDetailRoute'
 import { useRecordRankingView } from '~/features/marketplace/model/analytics/useRecordRankingView'
 import { useRemixRanking } from '~/features/marketplace/model/remix/useRemixRanking'
-import { useValidatedSlug } from '~/features/marketplace/model/detail/useValidatedSlug'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
+import { ButtonLink } from '~/shared/ui/Button'
 import { Avatar } from '~/shared/ui/Avatar'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
@@ -36,7 +34,8 @@ import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/Marketplac
 import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
 import { MetaPill } from '~/features/marketplace/ui/meta/MetaPill'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
-import { PAGE_SHELL } from '~/shared/ui/pageContainer'
+import { PAGE_DETAIL_TOP_LEVEL } from '~/shared/ui/pageContainer'
+import { DetailStatTile } from '~/features/marketplace/ui/cards/cardPrimitives'
 
 // neutral palette for ranking surfaces; viewers don't carry workspace prefs
 const RANKING_PALETTE_ID = 'classic' as const
@@ -169,23 +168,6 @@ const TierRow = ({
   )
 }
 
-interface StatTileProps
-{
-  label: string
-  value: string
-  icon: ComponentType<SVGProps<SVGSVGElement>>
-}
-
-const StatTile = ({ label, value, icon: Icon }: StatTileProps) => (
-  <div className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2.5">
-    <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-      <Icon className="h-3 w-3" strokeWidth={1.8} />
-      {label}
-    </span>
-    <p className="mt-1 text-lg font-semibold text-[var(--t-text)]">{value}</p>
-  </div>
-)
-
 const NotFound = () => (
   <MarketplaceNotFound
     title="Ranking not found"
@@ -196,7 +178,7 @@ const NotFound = () => (
 )
 
 const DetailSkeleton = () => (
-  <section aria-hidden="true" className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}>
+  <section aria-hidden="true" className={PAGE_DETAIL_TOP_LEVEL}>
     <SkeletonText className="w-48" tone="soft" />
     <SkeletonBlock className="mt-5 h-9 w-2/3 rounded" tone="strong" />
     <SkeletonText className="mt-2 w-1/3" tone="soft" />
@@ -271,16 +253,18 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
 
 export const RankingDetailPage = () =>
 {
-  const validSlug = useValidatedSlug(isRankingSlug)
-  const detail = useRankingBySlug(validSlug)
-  useRecordRankingView(detail ? detail.slug : null)
-  useDocumentTitle(detail ? `${detail.title} · TierListBuilder` : null)
+  const route = useRankingDetailRoute()
+  const readyDetail = route.status === 'ready' ? route.detail : null
+  useRecordRankingView(readyDetail ? readyDetail.slug : null)
+  useDocumentTitle(
+    readyDetail ? `${readyDetail.title} · TierListBuilder` : null
+  )
   const remix = useRemixRanking()
 
-  if (validSlug === null) return <NotFound />
-  if (detail === undefined) return <DetailSkeleton />
-  if (detail === null) return <NotFound />
+  if (route.status === 'missing') return <NotFound />
+  if (route.status === 'loading') return <DetailSkeleton />
 
+  const detail = route.detail
   const categoryLabel = CATEGORY_META[detail.template.category].label
   const handleRemix = () =>
   {
@@ -288,7 +272,7 @@ export const RankingDetailPage = () =>
   }
 
   return (
-    <article className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}>
+    <article className={PAGE_DETAIL_TOP_LEVEL}>
       <MarketplaceBreadcrumb
         items={[
           { label: 'Templates', to: TEMPLATES_ROUTE_PATH },
@@ -339,17 +323,17 @@ export const RankingDetailPage = () =>
         </div>
 
         <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-md">
-          <StatTile
+          <DetailStatTile
             label="Remixes"
             value={formatCount(detail.remixCount)}
             icon={Sparkles}
           />
-          <StatTile
+          <DetailStatTile
             label="Views"
             value={formatCount(detail.viewCount)}
             icon={Eye}
           />
-          <StatTile
+          <DetailStatTile
             label="Tiers"
             value={String(detail.tierCount)}
             icon={TrendingUp}
@@ -373,12 +357,14 @@ export const RankingDetailPage = () =>
               'Remix this ranking'
             )}
           </PrimaryButton>
-          <Link
+          <ButtonLink
             to={`${TEMPLATES_ROUTE_PATH}/${detail.template.slug}`}
-            className="focus-custom inline-flex h-10 items-center gap-1.5 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-4 text-sm font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+            surface="filled"
+            size="md"
+            className="h-10 px-4"
           >
             View source template
-          </Link>
+          </ButtonLink>
         </div>
       </header>
 

@@ -8,13 +8,11 @@ import { usePreferencesStore } from '~/features/platform/preferences/model/usePr
 import { PalettePicker } from '~/shared/ui/settings/PalettePicker'
 import { TextStylePicker } from '~/shared/ui/settings/TextStylePicker'
 import { ThemePicker } from '~/shared/ui/settings/ThemePicker'
-import { SetSection, ToggleRow } from './SettingsChrome'
-
-const ColumnLabel = ({ children }: { children: string }) => (
-  <p className="mono mb-2 text-[10px] uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-    {children}
-  </p>
-)
+import {
+  SetSection,
+  SettingLabel,
+  ToggleRow,
+} from '~/shared/ui/settings/SettingsChrome'
 
 export const AppearanceSection = () =>
 {
@@ -56,16 +54,16 @@ export const AppearanceSection = () =>
     >
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1.5fr_1fr]">
         <div>
-          <ColumnLabel>Theme</ColumnLabel>
+          <SettingLabel>Theme</SettingLabel>
           <ThemePicker value={themeId} onChange={setThemeId} />
         </div>
         <div>
-          <ColumnLabel>Tier palette</ColumnLabel>
+          <SettingLabel>Tier palette</SettingLabel>
           <PalettePicker value={paletteId} onChange={setPaletteId} />
         </div>
         <div className="flex flex-col gap-3">
           <div>
-            <ColumnLabel>Text style</ColumnLabel>
+            <SettingLabel>Text style</SettingLabel>
             <TextStylePicker value={textStyleId} onChange={setTextStyleId} />
           </div>
           {/* design's "Animated reorders / Compact / Reduce motion" row — wired

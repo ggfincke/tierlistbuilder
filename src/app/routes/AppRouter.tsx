@@ -19,6 +19,7 @@ import { AppChromeLayout } from '~/app/routes/AppChromeLayout'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import { NotFoundRoute } from '~/app/routes/NotFoundRoute'
 import { WorkspaceRoute } from '~/app/routes/WorkspaceRoute'
+import { AMBIENT_PAGE_CLASS } from '~/shared/ui/pageContainer'
 
 // embed bundle ships shared/board-ui + EmbedView which workspace users never
 // hit — lazy load keeps it out of the primary chunk
@@ -74,7 +75,7 @@ const RankingsIndexPage = lazyNamed(
 // matches the page-color shell each lazy chunk applies once mounted, so users
 // don't see a white flash while the JS arrives
 const RouteFallback = () => (
-  <main className="min-h-screen bg-[var(--t-bg-page)]" />
+  <main className={AMBIENT_PAGE_CLASS} />
 )
 
 const routerBasename = normalizeBasePath() || '/'
