@@ -36,5 +36,13 @@ export const createBoardSyncStatePatch = (
     next.pendingSyncAt = patch.pendingSyncAt
   }
 
+  if (
+    'pendingSyncOwnerUserId' in patch &&
+    patch.pendingSyncOwnerUserId !== current.pendingSyncOwnerUserId
+  )
+  {
+    next.pendingSyncOwnerUserId = patch.pendingSyncOwnerUserId
+  }
+
   return Object.keys(next).length === 0 ? null : next
 }

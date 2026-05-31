@@ -29,6 +29,7 @@ export const useSelectedItemHandlers = ({
   const {
     setItemAltText,
     setItemBackgroundColor,
+    setItemImagePadding,
     setItemLabel,
     setItemLabelOptions,
     setItemNotes,
@@ -36,6 +37,7 @@ export const useSelectedItemHandlers = ({
     useShallow((s) => ({
       setItemAltText: s.setItemAltText,
       setItemBackgroundColor: s.setItemBackgroundColor,
+      setItemImagePadding: s.setItemImagePadding,
       setItemLabel: s.setItemLabel,
       setItemLabelOptions: s.setItemLabelOptions,
       setItemNotes: s.setItemNotes,
@@ -68,6 +70,9 @@ export const useSelectedItemHandlers = ({
       handleSelectedCommit: withSelectedItem(
         (id, transform: ItemTransformInput) => onCommit(id, transform)
       ),
+      handleSelectedImagePaddingChange: withSelectedItem(
+        (id, padding: number | null) => setItemImagePadding(id, padding)
+      ),
       handleSelectedLabelChange: withSelectedItem((id, label: string) =>
         setItemLabel(id, label)
       ),
@@ -83,6 +88,7 @@ export const useSelectedItemHandlers = ({
       requestApplyLabelToAll,
       setItemAltText,
       setItemBackgroundColor,
+      setItemImagePadding,
       setItemLabel,
       setItemLabelOptions,
       setItemNotes,

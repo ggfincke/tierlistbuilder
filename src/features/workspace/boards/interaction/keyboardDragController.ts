@@ -2,7 +2,12 @@
 // keyboard browse & drag state-machine helpers for tier items
 
 import { announce } from '~/shared/a11y/announce'
-import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
+import {
+  announceDragCancelled,
+  announceItemsDropped,
+  announceItemsPickedUp,
+  getContainerLabel,
+} from '~/features/workspace/boards/lib/containerLabel'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
@@ -191,7 +196,6 @@ const handleKeyboardPickupDropKey = (itemId: ItemId) =>
   {
     const droppedItemId = state.activeItemId
     const groupCount = state.dragGroupIds.length
-    const label = state.items[droppedItemId]?.label ?? 'item'
     state.commitDragPreview()
     state.setActiveItemId(null)
     state.setKeyboardFocusItemId(droppedItemId)
@@ -199,14 +203,7 @@ const handleKeyboardPickupDropKey = (itemId: ItemId) =>
     scheduleKeyboardFocusRestore(droppedItemId)
 
     const fresh = useActiveBoardStore.getState()
-    const snapshot = getEffectiveContainerSnapshot(fresh)
-    const containerId = findContainer(snapshot, droppedItemId)
-    const dest = getContainerLabel(containerId, fresh.tiers)
-    announce(
-      groupCount > 1
-        ? `Dropped ${formatCountedWord(groupCount, 'item')} in ${dest}`
-        : `Dropped ${label} in ${dest}`
-    )
+    announceItemsDropped(fresh, droppedItemId, groupCount)
     return
   }
 
@@ -220,15 +217,9 @@ const handleKeyboardPickupDropKey = (itemId: ItemId) =>
   state.setKeyboardMode('dragging')
   scheduleKeyboardFocusRestore(focusedItemId)
   const groupCount = useActiveBoardStore.getState().dragGroupIds.length
-  const label = state.items[focusedItemId]?.label ?? 'item'
-  announce(
-    groupCount > 1
-      ? `Picked up ${formatCountedWord(
-          groupCount,
-          'item'
-        )}. Arrow keys to move, space or Enter to drop.`
-      : `Picked up ${label}. Arrow keys to move, space or Enter to drop.`
-  )
+  announceItemsPickedUp(state, focusedItemId, groupCount, {
+    includeKeyboardInstructions: true,
+  })
 }
 
 // safely reset keyboard drag state to idle — called when an exception leaves
@@ -300,7 +291,7 @@ export const handleKeyboardEscapeKey = (itemId: ItemId) =>
     state.setKeyboardMode('browse')
     state.setKeyboardFocusItemId(focusedItemId)
     scheduleKeyboardFocusRestore(focusedItemId)
-    announce('Drag cancelled')
+    announceDragCancelled()
     return
   }
 

@@ -8,10 +8,7 @@ import {
 import { toast } from '~/shared/notifications/useToastStore'
 
 let storageWarningLastMs = 0
-let templateMediaCacheWarningLastMs = 0
 const STORAGE_WARNING_COOLDOWN_MS = 60_000
-const TEMPLATE_MEDIA_CACHE_WARNING_MESSAGE =
-  'Some template images could not be cached for offline use.'
 
 const shouldReport = (lastReportedMs: number): boolean =>
   lastReportedMs === 0 ||
@@ -26,15 +23,4 @@ export const reportStorageWarningIfNeeded = (): void =>
 
   storageWarningLastMs = Date.now()
   toast(STORAGE_NEAR_FULL_MESSAGE, 'error')
-}
-
-export const reportTemplateMediaCacheWarningIfNeeded = (): void =>
-{
-  if (!shouldReport(templateMediaCacheWarningLastMs))
-  {
-    return
-  }
-
-  templateMediaCacheWarningLastMs = Date.now()
-  toast(TEMPLATE_MEDIA_CACHE_WARNING_MESSAGE, 'error')
 }

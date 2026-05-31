@@ -15,7 +15,7 @@ import {
 } from '~/shared/lib/imageTransform'
 import {
   applyAxisSnap,
-  PAN_SNAP_THRESHOLD_PX,
+  IMAGE_EDITOR_SNAP_THRESHOLD_PX,
   PAN_START_THRESHOLD_PX,
 } from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
 import type { ImageEditorTransformDraftSetter } from '~/features/workspace/imageEditor/model/transform/useImageEditorTransformDraft'
@@ -113,8 +113,8 @@ export const usePanGesture = ({
 
       if (!event.altKey)
       {
-        const thresholdX = PAN_SNAP_THRESHOLD_PX / canvasWidth
-        const thresholdY = PAN_SNAP_THRESHOLD_PX / canvasHeight
+        const thresholdX = IMAGE_EDITOR_SNAP_THRESHOLD_PX / canvasWidth
+        const thresholdY = IMAGE_EDITOR_SNAP_THRESHOLD_PX / canvasHeight
         const edgeOffsetX = (drag.visualW - 1) / 2
         const edgeOffsetY = (drag.visualH - 1) / 2
         const snapResultX = applyAxisSnap(

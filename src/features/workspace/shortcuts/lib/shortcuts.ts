@@ -28,4 +28,5 @@ export const SHORTCUTS = [
   { keys: ['Space'], description: 'Pick up / drop focused item' },
   { keys: ['Arrow Keys'], description: 'Browse items / move dragged item' },
   { keys: ['?'], description: 'Show keyboard shortcuts' },
+  { keys: [MOD_KEY, ','], description: 'Open preferences' },
 ] satisfies readonly ShortcutDefinition[]

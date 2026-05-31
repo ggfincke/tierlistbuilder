@@ -1,6 +1,10 @@
 // src/features/workspace/boards/model/slices/boardData/styleOverrideActions.ts
 // per-board style override setters for palette, text style, & page background
 
+import {
+  boardAutoPlateSettingsEqual,
+  type BoardAutoPlateSettings,
+} from '@tierlistbuilder/contracts/workspace/board'
 import type {
   ActiveBoardSliceCreator,
   BoardDataSlice,
@@ -11,6 +15,7 @@ type StyleOverrideActions = Pick<
   | 'setBoardPaletteOverride'
   | 'setBoardTextStyleOverride'
   | 'setBoardPageBackground'
+  | 'setBoardAutoPlate'
 >
 
 type SliceArgs = Parameters<ActiveBoardSliceCreator<BoardDataSlice>>
@@ -38,4 +43,11 @@ export const createStyleOverrideActions = (
   setBoardPaletteOverride: createNullableOverrideSetter(set, 'paletteId'),
   setBoardTextStyleOverride: createNullableOverrideSetter(set, 'textStyleId'),
   setBoardPageBackground: createNullableOverrideSetter(set, 'pageBackground'),
+  setBoardAutoPlate: (settings: BoardAutoPlateSettings | null) =>
+    set((state) =>
+    {
+      const next = settings ?? undefined
+      if (boardAutoPlateSettingsEqual(state.autoPlate, next)) return state
+      return { autoPlate: next } as Partial<BoardDataSlice>
+    }),
 })

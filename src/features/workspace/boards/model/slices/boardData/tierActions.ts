@@ -5,6 +5,7 @@ import { announce } from '~/shared/a11y/announce'
 import { clamp } from '~/shared/lib/math'
 import { areTierColorSpecsEqual } from '~/shared/theme/tierColors'
 import { createNewTier } from '~/shared/board-data/boardSnapshot'
+import { getNextTierName } from '~/shared/board-data/tierNaming'
 import {
   mapTier,
   withUndo,
@@ -65,7 +66,14 @@ export const createTierActions = (
       withUndo(
         state,
         {
-          tiers: [...state.tiers, createNewTier(paletteId, state.tiers.length)],
+          tiers: [
+            ...state.tiers,
+            createNewTier(
+              paletteId,
+              state.tiers.length,
+              getNextTierName(state.tiers)
+            ),
+          ],
         },
         'Add tier'
       )
@@ -204,7 +212,11 @@ export const createTierActions = (
       nextTiers.splice(
         clampedIndex,
         0,
-        createNewTier(paletteId, state.tiers.length)
+        createNewTier(
+          paletteId,
+          state.tiers.length,
+          getNextTierName(state.tiers, clampedIndex)
+        )
       )
 
       return withUndo(state, { tiers: nextTiers }, 'Add tier')

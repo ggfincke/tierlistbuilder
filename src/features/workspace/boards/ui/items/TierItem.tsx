@@ -11,6 +11,7 @@ import { Check, GripVertical } from 'lucide-react'
 
 import { useKeyboardDrag } from '~/features/workspace/boards/interaction/useKeyboardDrag'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
+import { useGlobalLabelDefaults } from '~/features/platform/preferences/model/useGlobalLabelDefaults'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   selectHasKeyboardSelection,
@@ -20,7 +21,7 @@ import { getEffectiveImageFit } from '~/shared/board-ui/aspectRatio'
 import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
 import { SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { resolveItemLabel } from '~/shared/board-ui/labelDisplay'
 import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
@@ -28,6 +29,7 @@ import { ItemContextMenu } from '~/features/workspace/boards/ui/items/ItemContex
 import { resolveItemVisualState } from '~/features/workspace/boards/ui/tier-list/itemVisualState'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
   ImageFit,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -42,7 +44,10 @@ interface TierItemProps
   slotHeight: number
   // board-wide image fit default — per-item override still wins
   boardDefaultFit: ImageFit | undefined
+  // board-wide plate inset default — per-item imagePadding still wins
+  boardDefaultPadding: number | undefined
   boardLabels: BoardLabelSettings | undefined
+  boardAutoPlate: BoardAutoPlateSettings | undefined
 }
 
 export const TierItem = memo(
@@ -52,7 +57,9 @@ export const TierItem = memo(
     slotWidth,
     slotHeight,
     boardDefaultFit,
+    boardDefaultPadding,
     boardLabels,
+    boardAutoPlate,
   }: TierItemProps) =>
   {
     const { item, isSelected } = useActiveBoardStore(
@@ -62,21 +69,13 @@ export const TierItem = memo(
       }))
     )
 
-    const {
-      itemShape,
-      showLabels,
-      defaultLabelPlacementMode,
-      defaultLabelFontSizePx,
-      boardLocked,
-    } = usePreferencesStore(
+    const { itemShape, boardLocked } = usePreferencesStore(
       useShallow((state) => ({
         itemShape: state.itemShape,
-        showLabels: state.showLabels,
-        defaultLabelPlacementMode: state.defaultLabelPlacementMode,
-        defaultLabelFontSizePx: state.defaultLabelFontSizePx,
         boardLocked: state.boardLocked,
       }))
     )
+    const globalLabelDefaults = useGlobalLabelDefaults()
 
     const effectiveFit = item
       ? getEffectiveImageFit(item, boardDefaultFit)
@@ -361,16 +360,9 @@ export const TierItem = memo(
         >
           <ItemContent
             item={item}
-            label={resolveLabelDisplay({
-              itemLabel: item.label,
-              itemOptions: item.labelOptions,
-              boardSettings: boardLabels,
-              globalLabelDefaults: {
-                showLabels,
-                placementMode: defaultLabelPlacementMode,
-                fontSizePx: defaultLabelFontSizePx,
-              },
-            })}
+            autoPlate={boardAutoPlate}
+            defaultItemImagePadding={boardDefaultPadding}
+            label={resolveItemLabel(item, boardLabels, globalLabelDefaults)}
             fit={effectiveFit}
             frameAspectRatio={slotWidth / slotHeight}
           />

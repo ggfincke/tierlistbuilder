@@ -37,21 +37,8 @@ const EMPTY_LABEL_DRAG_SNAP = { x: false, y: false } as const
 
 interface LabelDraftState
 {
-  itemId: TierItem['id']
   committedLabel: string
   value: string
-}
-
-interface PlacementDraftState
-{
-  itemId: TierItem['id']
-  draft: LabelOverlayPlacement | null
-}
-
-interface LabelDragSnapState
-{
-  itemId: TierItem['id']
-  snap: { x: boolean; y: boolean }
 }
 
 export const usePaneLabelEditor = ({
@@ -79,13 +66,11 @@ export const usePaneLabelEditor = ({
   const committedLabel = item.label ?? ''
   const [labelDraftState, setLabelDraftState] = useState<LabelDraftState>(
     () => ({
-      itemId: item.id,
       committedLabel,
       value: committedLabel,
     })
   )
   const labelDraft =
-    labelDraftState.itemId === item.id &&
     labelDraftState.committedLabel === committedLabel
       ? labelDraftState.value
       : committedLabel
@@ -93,9 +78,9 @@ export const usePaneLabelEditor = ({
   const updateLabelDraft = useCallback(
     (value: string) =>
     {
-      setLabelDraftState({ itemId: item.id, committedLabel, value })
+      setLabelDraftState({ committedLabel, value })
     },
-    [committedLabel, item.id]
+    [committedLabel]
   )
 
   const commitLabel = useCallback(() =>
@@ -124,78 +109,49 @@ export const usePaneLabelEditor = ({
     [item.labelOptions, onLabelOptionsChange]
   )
 
-  const handleFontSizePxChange = useCallback(
-    (px: number | undefined) =>
-    {
-      const current = item.labelOptions ?? {}
-      const next: ItemLabelOptions = { ...current }
-      if (px === undefined) delete next.fontSizePx
-      else next.fontSizePx = px
-      onLabelOptionsChange(Object.keys(next).length > 0 ? next : null)
-    },
-    [item.labelOptions, onLabelOptionsChange]
-  )
-
-  const [placementDraftState, setPlacementDraftState] =
-    useState<PlacementDraftState>(() => ({ itemId: item.id, draft: null }))
-  const placementDraft =
-    placementDraftState.itemId === item.id ? placementDraftState.draft : null
-  const placementDraftRef = useRef<PlacementDraftState>({
-    itemId: item.id,
-    draft: null,
-  })
-  const [labelDragSnapState, setLabelDragSnapState] =
-    useState<LabelDragSnapState>(() => ({
-      itemId: item.id,
-      snap: EMPTY_LABEL_DRAG_SNAP,
-    }))
-  const labelDragSnap =
-    labelDragSnapState.itemId === item.id
-      ? labelDragSnapState.snap
-      : EMPTY_LABEL_DRAG_SNAP
+  const [placementDraft, setPlacementDraft] =
+    useState<LabelOverlayPlacement | null>(null)
+  const placementDraftRef = useRef<LabelOverlayPlacement | null>(null)
+  const [labelDragSnap, setLabelDragSnap] = useState<{
+    x: boolean
+    y: boolean
+  }>(EMPTY_LABEL_DRAG_SNAP)
 
   const handleLabelDragMove = useCallback(
     (x: number, y: number, snap: { x: boolean; y: boolean }) =>
     {
       const nextDraft: LabelOverlayPlacement = { mode: 'overlay', x, y }
-      placementDraftRef.current = { itemId: item.id, draft: nextDraft }
-      setPlacementDraftState((prev) =>
-        prev.itemId === item.id &&
-        prev.draft?.mode === 'overlay' &&
-        prev.draft.x === x &&
-        prev.draft.y === y
+      placementDraftRef.current = nextDraft
+      setPlacementDraft((prev) =>
+        prev?.mode === 'overlay' && prev.x === x && prev.y === y
           ? prev
-          : { itemId: item.id, draft: nextDraft }
+          : nextDraft
       )
-      setLabelDragSnapState((prev) =>
-        prev.itemId === item.id &&
-        prev.snap.x === snap.x &&
-        prev.snap.y === snap.y
-          ? prev
-          : { itemId: item.id, snap }
+      setLabelDragSnap((prev) =>
+        prev.x === snap.x && prev.y === snap.y ? prev : snap
       )
     },
-    [item.id]
+    []
   )
 
   const handleLabelDragEnd = useCallback(() =>
   {
-    const { itemId, draft } = placementDraftRef.current
-    setLabelDragSnapState({ itemId: item.id, snap: EMPTY_LABEL_DRAG_SNAP })
-    if (!draft || itemId !== item.id) return
+    const draft = placementDraftRef.current
+    setLabelDragSnap(EMPTY_LABEL_DRAG_SNAP)
+    if (!draft) return
     updateLabelOption('placement', draft)
-    placementDraftRef.current = { itemId: item.id, draft: null }
-    setPlacementDraftState({ itemId: item.id, draft: null })
-  }, [item.id, updateLabelOption])
+    placementDraftRef.current = null
+    setPlacementDraft(null)
+  }, [updateLabelOption])
 
   const handlePlacementChange = useCallback(
     (placement: LabelPlacement) =>
     {
-      placementDraftRef.current = { itemId: item.id, draft: null }
-      setPlacementDraftState({ itemId: item.id, draft: null })
+      placementDraftRef.current = null
+      setPlacementDraft(null)
       updateLabelOption('placement', placement)
     },
-    [item.id, updateLabelOption]
+    [updateLabelOption]
   )
 
   const resolvedPlacement: LabelPlacement =
@@ -236,7 +192,6 @@ export const usePaneLabelEditor = ({
     updateLabelDraft,
     commitLabel,
     updateLabelOption,
-    handleFontSizePxChange,
     placementDraft,
     labelDragSnap,
     handleLabelDragMove,

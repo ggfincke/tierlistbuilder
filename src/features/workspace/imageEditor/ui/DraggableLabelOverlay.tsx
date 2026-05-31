@@ -13,7 +13,10 @@ import type { LabelOverlayPlacement } from '@tierlistbuilder/contracts/workspace
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { OverlayLabelBlock as SharedOverlayLabelBlock } from '~/shared/board-ui/labelBlocks'
 import { clamp } from '~/shared/lib/math'
-import { applyAxisSnap } from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
+import {
+  applyAxisSnap,
+  IMAGE_EDITOR_SNAP_THRESHOLD_PX,
+} from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
 
 interface DraggableLabelOverlayProps
 {
@@ -22,8 +25,6 @@ interface DraggableLabelOverlayProps
   onDragMove: (x: number, y: number, snap: { x: boolean; y: boolean }) => void
   onDragEnd: () => void
 }
-
-const LABEL_SNAP_THRESHOLD_PX = 5
 
 export const DraggableLabelOverlay = ({
   display,
@@ -89,8 +90,8 @@ export const DraggableLabelOverlay = ({
 
       if (!e.altKey)
       {
-        const thresholdX = LABEL_SNAP_THRESHOLD_PX / drag.canvasW
-        const thresholdY = LABEL_SNAP_THRESHOLD_PX / drag.canvasH
+        const thresholdX = IMAGE_EDITOR_SNAP_THRESHOLD_PX / drag.canvasW
+        const thresholdY = IMAGE_EDITOR_SNAP_THRESHOLD_PX / drag.canvasH
         const snapCandidatesX =
           0.5 >= drag.halfW && 0.5 <= 1 - drag.halfW
             ? [{ value: 0.5, guide: true }]

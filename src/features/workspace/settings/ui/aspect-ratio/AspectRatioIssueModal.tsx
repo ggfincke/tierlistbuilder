@@ -2,29 +2,20 @@
 // first-encounter prompt for mixed aspect ratio items w/ inline ratio picker
 
 import { ChevronRight } from 'lucide-react'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useId, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { ASPECT_RATIO_PRESETS } from '@tierlistbuilder/contracts/workspace/imageMath'
-import type {
-  GlobalLabelDefaults,
-  TierItem,
-} from '@tierlistbuilder/contracts/workspace/board'
 import { formatAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { ITEM_LONG_EDGE_PX } from '~/shared/board-ui/constants'
-import {
-  getItemLabelBandVariant,
-  type LabelBandVariant,
-} from '~/shared/board-ui/labelBandVariant'
-import {
-  resolveEffectiveShowLabels,
-  withBoardShowLabels,
-} from '~/shared/board-ui/labelSettings'
+import { resolveEffectiveShowLabels } from '~/shared/board-ui/labelSettings'
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { formatCountedWord } from '~/shared/lib/pluralize'
+import { useGlobalLabelDefaults } from '~/features/platform/preferences/model/useGlobalLabelDefaults'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useAspectRatioPrompt } from '~/features/workspace/settings/model/aspect-ratio/useAspectRatioPrompt'
 import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/auto-crop/useAutoCropTrimShadows'
@@ -34,7 +25,8 @@ import {
 } from '~/features/workspace/settings/model/aspect-ratio/aspectRatioPromptSnapshot'
 import { useAspectRatioPromptState } from '~/features/workspace/settings/model/aspect-ratio/useAspectRatioPromptState'
 import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/aspect-ratio/useBoardAspectRatioPicker'
-import { useLabelAwareEffectiveAspect } from '~/features/workspace/imageEditor/model/labels/useLabelAwareEffectiveAspect'
+import { useAutoCropAfterLabelsChange } from '~/features/workspace/imageEditor/model/auto-crop/useAutoCropAfterLabelsChange'
+import { useBulkAspectRatioForItems } from '~/features/workspace/imageEditor/model/labels/useBulkAspectRatioForItems'
 import { AspectRatioTiles } from '~/features/workspace/settings/ui/aspect-ratio/AspectRatioTiles'
 import { BulkFitSegmentedControl } from '~/features/workspace/settings/ui/aspect-ratio/BulkFitSegmentedControl'
 import {
@@ -100,32 +92,16 @@ const AspectRatioIssueModalBody = ({
         setBoardLabelSettings: state.setBoardLabelSettings,
       }))
     )
-  const {
-    itemSize,
-    itemShape,
-    globalShowLabels,
-    globalLabelPlacementMode,
-    globalLabelFontSizePx,
-  } = usePreferencesStore(
+  const { itemSize, itemShape } = usePreferencesStore(
     useShallow((state) => ({
       itemSize: state.itemSize,
       itemShape: state.itemShape,
-      globalShowLabels: state.showLabels,
-      globalLabelPlacementMode: state.defaultLabelPlacementMode,
-      globalLabelFontSizePx: state.defaultLabelFontSizePx,
     }))
   )
-  const globalLabelDefaults = useMemo<GlobalLabelDefaults>(
-    () => ({
-      showLabels: globalShowLabels,
-      placementMode: globalLabelPlacementMode,
-      fontSizePx: globalLabelFontSizePx,
-    }),
-    [globalShowLabels, globalLabelPlacementMode, globalLabelFontSizePx]
-  )
+  const globalLabelDefaults = useGlobalLabelDefaults()
   const effectiveShowLabels = resolveEffectiveShowLabels(
     boardLabels,
-    globalShowLabels
+    globalLabelDefaults.showLabels
   )
   // capture opening mismatch set at mount; cleanup keeps these ids even if the
   // picker ratio later resolves the mismatch before Done
@@ -143,36 +119,17 @@ const AspectRatioIssueModalBody = ({
       }),
     [items, boardAspectRatio, promptSnapshot]
   )
-  const promptLabelVariants = useMemo<readonly LabelBandVariant[]>(() =>
-  {
-    const variants: LabelBandVariant[] = []
-    for (const item of cleanupTargets)
-    {
-      const variant = getItemLabelBandVariant({
-        item,
-        boardLabels,
-        globalLabelDefaults,
-      })
-      if (variant) variants.push(variant)
-    }
-    return variants
-  }, [cleanupTargets, boardLabels, globalLabelDefaults])
   const {
-    getEffectiveAspectRatio: getPromptEffectiveAspectRatio,
+    getBoardAspectRatioForItem,
     measurementsReady: promptMeasurementsReady,
     measurementNodes: promptMeasurementNodes,
-  } = useLabelAwareEffectiveAspect({
+  } = useBulkAspectRatioForItems({
+    items: cleanupTargets,
     boardAspectRatio,
     itemSize,
-    variants: promptLabelVariants,
+    boardLabels,
+    globalLabelDefaults,
   })
-  const getBoardAspectRatioForItem = useCallback(
-    (item: TierItem): number =>
-      getPromptEffectiveAspectRatio(
-        getItemLabelBandVariant({ item, boardLabels, globalLabelDefaults })
-      ),
-    [getPromptEffectiveAspectRatio, boardLabels, globalLabelDefaults]
-  )
   // alert reads the global trim setting but doesn't expose the toggle here —
   // the editor has it where users are already engaged w/ per-item tuning
   const { trimSoftShadows } = useAutoCropTrimShadows()
@@ -197,50 +154,26 @@ const AspectRatioIssueModalBody = ({
     trimSoftShadows,
   })
   const activeAutoCropPreparing = pendingBulkFit === null && autoCropPreparing
-  const rerunAutoCropAfterLabelChangeRef = useRef(false)
-  const handleShowLabelsChange = useCallback(
-    (show: boolean) =>
-    {
-      const shouldRerunAutoCrop =
-        pendingBulkFit === null &&
-        (autoCrop.selected ||
-          autoCrop.progress.running ||
-          activeAutoCropPreparing)
-      if (shouldRerunAutoCrop)
-      {
-        rerunAutoCropAfterLabelChangeRef.current = true
-        autoCrop.clearPreview('labels')
-      }
-      setBoardLabelSettings(withBoardShowLabels(boardLabels, show))
-    },
-    [
-      autoCrop,
-      activeAutoCropPreparing,
-      boardLabels,
-      pendingBulkFit,
-      setBoardLabelSettings,
-    ]
-  )
-
-  useEffect(() =>
+  const clearAutoCropPreviewAfterLabelChange = useCallback(() =>
   {
-    if (!rerunAutoCropAfterLabelChangeRef.current) return
-    if (pendingBulkFit !== null)
-    {
-      rerunAutoCropAfterLabelChangeRef.current = false
-      return
-    }
-    if (
-      activeAutoCropPreparing ||
-      autoCrop.progress.running ||
-      !autoCrop.available
-    )
-    {
-      return
-    }
-    rerunAutoCropAfterLabelChangeRef.current = false
-    autoCrop.run()
-  }, [activeAutoCropPreparing, autoCrop, pendingBulkFit])
+    autoCrop.clearPreview('labels')
+  }, [autoCrop])
+  const handleShowLabelsChange = useAutoCropAfterLabelsChange({
+    boardLabels,
+    setBoardLabelSettings,
+    shouldRerunAutoCrop:
+      pendingBulkFit === null &&
+      (autoCrop.selected ||
+        autoCrop.progress.running ||
+        activeAutoCropPreparing),
+    onCancelAutoCrop: clearAutoCropPreviewAfterLabelChange,
+    canRunAutoCrop:
+      !activeAutoCropPreparing &&
+      !autoCrop.progress.running &&
+      autoCrop.available,
+    onRunAutoCrop: autoCrop.run,
+    clearPendingRerun: pendingBulkFit !== null,
+  })
 
   const handleDone = useCallback(() =>
   {
@@ -390,7 +323,7 @@ const AspectRatioIssueModalBody = ({
             Re-enable in board settings
           </span>
         </div>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+        <DialogActions className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {onAdjustEach && (
             <SecondaryButton
               onClick={handleAdjustEach}
@@ -411,7 +344,7 @@ const AspectRatioIssueModalBody = ({
           >
             Done
           </SecondaryButton>
-        </div>
+        </DialogActions>
       </div>
     </BaseModal>
   )

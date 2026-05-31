@@ -9,7 +9,7 @@ import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { formatError } from '~/shared/lib/errors'
 import { logger } from '~/shared/lib/logger'
-import { THEMES } from '~/shared/theme/tokens'
+import { resolveExportBackground } from '~/shared/theme/tokens'
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
@@ -42,11 +42,16 @@ export type ExportStatus = ImageFormat | 'pdf' | 'clipboard' | 'render' | null
 const getExportBackgroundColor = () =>
 {
   const { exportBackgroundOverride, themeId } = usePreferencesStore.getState()
-  return exportBackgroundOverride ?? THEMES[themeId]['export-bg']
+  return resolveExportBackground(exportBackgroundOverride, themeId)
 }
 
 const getCurrentExportAppearance = () =>
   getExportAppearance(usePreferencesStore.getState())
+
+const getExportContext = () => ({
+  bgColor: getExportBackgroundColor(),
+  appearance: getCurrentExportAppearance(),
+})
 
 export const useExportController = () =>
 {
@@ -113,8 +118,7 @@ export const useExportController = () =>
       FALLBACK_EXPORT_ERROR,
       async () =>
       {
-        const bgColor = getExportBackgroundColor()
-        const appearance = getCurrentExportAppearance()
+        const { bgColor, appearance } = getExportContext()
         const data = extractBoardData(useActiveBoardStore.getState())
 
         return await withExportSession(
@@ -134,8 +138,7 @@ export const useExportController = () =>
     (type: ImageFormat | 'pdf') =>
       guardExport(type, FALLBACK_EXPORT_ERROR, async () =>
       {
-        const bgColor = getExportBackgroundColor()
-        const appearance = getCurrentExportAppearance()
+        const { bgColor, appearance } = getExportContext()
         const data = extractBoardData(useActiveBoardStore.getState())
         const title = useActiveBoardStore.getState().title
 
@@ -158,8 +161,7 @@ export const useExportController = () =>
       FALLBACK_CLIPBOARD_ERROR,
       async () =>
       {
-        const bgColor = getExportBackgroundColor()
-        const appearance = getCurrentExportAppearance()
+        const { bgColor, appearance } = getExportContext()
         const data = extractBoardData(useActiveBoardStore.getState())
         await copyBoardToClipboard(data, appearance, bgColor)
         return true
@@ -194,8 +196,7 @@ export const useExportController = () =>
         return
       }
 
-      const bgColor = getExportBackgroundColor()
-      const appearance = getCurrentExportAppearance()
+      const { bgColor, appearance } = getExportContext()
       const onProgress = (current: number, total: number) =>
         setExportAllProgress({ current, total })
 
