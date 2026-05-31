@@ -286,9 +286,9 @@ export const BoardManager = ({
                   setOpen(false)
                   setShowRecentlyDeleted(true)
                 }}
-                className="focus-custom flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
+                className="focus-custom flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
               >
-                <History className="h-3 w-3" />
+                <History className="h-3.5 w-3.5" />
                 Recently deleted
               </button>
               <button
@@ -298,9 +298,9 @@ export const BoardManager = ({
                   setOpen(false)
                   setShowRecentShares(true)
                 }}
-                className="focus-custom mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
+                className="focus-custom mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
               >
-                <LinkIcon className="h-3 w-3" />
+                <LinkIcon className="h-3.5 w-3.5" />
                 Recent shares
               </button>
             </div>

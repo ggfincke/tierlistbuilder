@@ -121,6 +121,7 @@ export const makeLibraryBoardListItem = (
       colorSpec: createPaletteTierColorSpec(0),
     },
   ],
+  mini: null,
   pinned: false,
   ...overrides,
 })

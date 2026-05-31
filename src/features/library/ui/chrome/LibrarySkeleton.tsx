@@ -5,7 +5,7 @@ import type { LibraryBoardDensity } from '@tierlistbuilder/contracts/workspace/b
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { BOARD_LIST_GRID_TEMPLATE } from '~/features/library/ui/list/boardListGrid'
 import {
-  LIBRARY_COVER_HEIGHT_BY_DENSITY,
+  LIBRARY_COVER_ASPECT_BY_DENSITY,
   LIBRARY_GRID_CLASS_BY_DENSITY,
 } from '~/features/library/lib/densityLayout'
 
@@ -21,7 +21,7 @@ const GridSkeletonCard = ({ density }: { density: LibraryBoardDensity }) => (
     aria-hidden="true"
     className="flex flex-col overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
   >
-    <SkeletonBlock className={LIBRARY_COVER_HEIGHT_BY_DENSITY[density]} />
+    <SkeletonBlock className={LIBRARY_COVER_ASPECT_BY_DENSITY[density]} />
     <div className="space-y-2 px-3 py-3">
       <SkeletonBlock className="h-2 w-1/3 rounded" tone="soft" />
       <SkeletonText className="w-3/4" tone="strong" />
