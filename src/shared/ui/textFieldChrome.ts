@@ -16,6 +16,14 @@ export const TEXT_INPUT_SIZE_CLASS: Record<TextFieldSize, string> = {
   settings: 'h-9 px-3 text-[13px]',
 }
 
+// corner radius travels w/ the variant so settings fields match the settings
+// SelectField (rounded-lg) instead of drifting to the default md
+export const TEXT_FIELD_RADIUS_CLASS: Record<TextFieldVariant, string> = {
+  surface: 'rounded-md',
+  ghost: 'rounded-md',
+  settings: 'rounded-lg',
+}
+
 export const TEXT_FIELD_VARIANT_CLASS: Record<TextFieldVariant, string> = {
   surface:
     'border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text)] placeholder:text-[var(--t-text-faint)] transition focus:border-[var(--t-border-hover)]',

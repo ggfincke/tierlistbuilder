@@ -4,6 +4,7 @@
 import { forwardRef, type InputHTMLAttributes } from 'react'
 
 import {
+  TEXT_FIELD_RADIUS_CLASS,
   TEXT_FIELD_VARIANT_CLASS,
   TEXT_INPUT_SIZE_CLASS,
   type TextFieldSize,
@@ -30,10 +31,10 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
     },
     ref
   ) => (
-      <input
+    <input
       ref={ref}
       type={type}
-      className={`focus-custom min-w-0 rounded-md outline-none disabled:cursor-not-allowed disabled:opacity-50 ${TEXT_INPUT_SIZE_CLASS[size]} ${TEXT_FIELD_VARIANT_CLASS[variant]} ${className}`}
+      className={`focus-custom min-w-0 outline-none disabled:cursor-not-allowed disabled:opacity-50 ${TEXT_FIELD_RADIUS_CLASS[variant]} ${TEXT_INPUT_SIZE_CLASS[size]} ${TEXT_FIELD_VARIANT_CLASS[variant]} ${className}`}
       {...props}
     />
   )

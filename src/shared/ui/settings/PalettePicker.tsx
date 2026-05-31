@@ -3,7 +3,7 @@
 
 import { PALETTE_META, PALETTES } from '~/shared/theme/palettes'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
-import { PreviewPicker } from '~/shared/ui/settings/PreviewPicker'
+import { PickerGrid } from '~/shared/ui/PickerGrid'
 
 // preview swatch count — capped at 6 so palettes w/ larger hue counts
 // render a consistent card size across the grid
@@ -47,7 +47,7 @@ export const PalettePicker = ({
   disabled = false,
   ariaLabelledby,
 }: PalettePickerProps) => (
-  <PreviewPicker<PaletteId, (typeof PALETTE_META)[number]>
+  <PickerGrid<PaletteId, (typeof PALETTE_META)[number]>
     items={PALETTE_META}
     activeKey={value}
     onSelect={onChange}
