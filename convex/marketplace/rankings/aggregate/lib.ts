@@ -19,7 +19,7 @@ import {
   type TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import { DEFAULT_TEMPLATE_TIERS } from '../../templates/lib/normalize'
+import { templateTiersOrDefault } from '../../templates/lib/normalize'
 import { createTemplateProjectionCache } from '../../templates/lib/trending'
 import { findTemplateCardByTemplateId } from '../../templates/lib/projections'
 import {
@@ -28,6 +28,7 @@ import {
   type TemplateCriteriaSource,
 } from '../../templates/criteria'
 import { toRankingItemRenderFields } from '../lib'
+import { firstActiveStatusRow } from '../../../lib/jobs'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -124,7 +125,7 @@ export const resolveTemplateRankingAggregateBucketCount = (
     1,
     Math.min(
       MAX_SYNC_TIERS,
-      template.suggestedTiers.length || DEFAULT_TEMPLATE_TIERS.length
+      templateTiersOrDefault(template).length
     )
   )
 
@@ -149,13 +150,7 @@ const templateRankingAggregateBucketTiers = (
   template: Pick<Doc<'templates'>, 'suggestedTiers'>,
   bucketCount: number
 ): readonly TierPresetTier[] =>
-{
-  const tiers =
-    template.suggestedTiers.length > 0
-      ? template.suggestedTiers
-      : DEFAULT_TEMPLATE_TIERS
-  return tiers.slice(0, bucketCount)
-}
+  templateTiersOrDefault(template).slice(0, bucketCount)
 
 export const resolveTemplateRankingAggregateBucketLabels = (
   template: Pick<Doc<'templates'>, 'suggestedTiers'>,
@@ -263,22 +258,17 @@ const findActiveAggregateJob = async (
   templateId: Id<'templates'>,
   criterionExternalId: string
 ): Promise<Doc<'templateRankingAggregateJobs'> | null> =>
-{
-  const matches = await Promise.all(
-    ACTIVE_JOB_STATUSES.map((status) =>
-      ctx.db
-        .query('templateRankingAggregateJobs')
-        .withIndex('byTemplateIdAndCriterionAndStatus', (q) =>
-          q
-            .eq('templateId', templateId)
-            .eq('criterionExternalId', criterionExternalId)
-            .eq('status', status)
-        )
-        .take(1)
-    )
+  await firstActiveStatusRow(ACTIVE_JOB_STATUSES, async (status) =>
+    await ctx.db
+      .query('templateRankingAggregateJobs')
+      .withIndex('byTemplateIdAndCriterionAndStatus', (q) =>
+        q
+          .eq('templateId', templateId)
+          .eq('criterionExternalId', criterionExternalId)
+          .eq('status', status)
+      )
+      .take(1)
   )
-  return matches.flatMap((match) => match).at(0) ?? null
-}
 
 const nextAggregateGeneration = (
   now: number,
@@ -291,16 +281,16 @@ export const queueTemplateRankingAggregateRecompute = async (
   criterionExternalId: string,
   now: number,
   options: { scheduleAdmission?: boolean } = {}
-): Promise<void> =>
+): Promise<boolean> =>
 {
   const template = await ctx.db.get(templateId)
-  if (!template) return
+  if (!template) return false
 
   const criterion = resolveTemplateCriterionForHistoricalRead(
     template,
     criterionExternalId
   )
-  if (!criterion) return
+  if (!criterion) return false
 
   const aggregate = await findTemplateRankingAggregate(
     ctx,
@@ -359,7 +349,7 @@ export const queueTemplateRankingAggregateRecompute = async (
     {
       await scheduleTemplateRankingAggregateJobAdmission(ctx)
     }
-    return
+    return activeJob.status === 'queued'
   }
 
   await ctx.db.insert('templateRankingAggregateJobs', {
@@ -392,6 +382,7 @@ export const queueTemplateRankingAggregateRecompute = async (
   {
     await scheduleTemplateRankingAggregateJobAdmission(ctx)
   }
+  return true
 }
 
 export const queueTemplateRankingAggregateRecomputesForActiveCriteria = async (
@@ -406,7 +397,7 @@ export const queueTemplateRankingAggregateRecomputesForActiveCriteria = async (
   const activeCriteria = resolveTemplateCriteria(template).filter(
     (criterion) => criterion.status === 'active'
   )
-  await Promise.all(
+  const admissionNeeded = await Promise.all(
     activeCriteria.map((criterion) =>
       queueTemplateRankingAggregateRecompute(
         ctx,
@@ -417,11 +408,53 @@ export const queueTemplateRankingAggregateRecomputesForActiveCriteria = async (
       )
     )
   )
-  if (activeCriteria.length > 0)
+  if (admissionNeeded.some(Boolean))
   {
     await scheduleTemplateRankingAggregateJobAdmission(ctx)
   }
   return activeCriteria.length
+}
+
+const rankingAggregateLaneKey = (
+  ranking: Pick<
+    Doc<'publishedRankings'>,
+    'sourceTemplateId' | 'sourceCriterionExternalId'
+  >
+): string => `${ranking.sourceTemplateId}:${ranking.sourceCriterionExternalId}`
+
+type RankingAggregateLane = Pick<
+  Doc<'publishedRankings'>,
+  'sourceTemplateId' | 'sourceCriterionExternalId'
+>
+
+export const queueTemplateRankingAggregateRecomputesForRankings = async (
+  ctx: MutationCtx,
+  rankings: readonly RankingAggregateLane[],
+  now: number
+): Promise<number> =>
+{
+  const dedup = new Map<string, RankingAggregateLane>()
+  for (const ranking of rankings)
+  {
+    const key = rankingAggregateLaneKey(ranking)
+    if (!dedup.has(key)) dedup.set(key, ranking)
+  }
+  const admissionNeeded = await Promise.all(
+    [...dedup.values()].map((ranking) =>
+      queueTemplateRankingAggregateRecompute(
+        ctx,
+        ranking.sourceTemplateId,
+        ranking.sourceCriterionExternalId,
+        now,
+        { scheduleAdmission: false }
+      )
+    )
+  )
+  if (admissionNeeded.some(Boolean))
+  {
+    await scheduleTemplateRankingAggregateJobAdmission(ctx)
+  }
+  return dedup.size
 }
 
 type AggregateParentCleanupPhase = 'aggregates' | 'jobs'

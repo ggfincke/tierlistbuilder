@@ -3,9 +3,14 @@
 
 import type { TierPresetTier } from '../workspace/tierPreset'
 import { generateBase62Slug, isBase62Slug } from '../lib/ids'
+import {
+  COVER_RENDER_FIELD_KEYS,
+  pickNullableCoverRenderFields,
+} from '../workspace/board'
 import type {
   BoardAutoPlateSettings,
   BoardLabelSettings,
+  CoverRenderFieldSource,
   ImageFit,
   ItemTransform,
   MediaPlate,
@@ -179,6 +184,24 @@ export interface TemplateCoverItem
   imageFit: ImageFit | null
   transform: ItemTransform | null
   imagePadding: number | null
+}
+
+export type TemplateCoverItemPresentationFields = Omit<
+  TemplateCoverItem,
+  'media'
+>
+
+export const pickTemplateCoverItemPresentationFields = (
+  item: CoverRenderFieldSource & { label?: string | null }
+): TemplateCoverItemPresentationFields =>
+{
+  const renderFields = pickNullableCoverRenderFields(item)
+  return {
+    label: item.label ?? null,
+    ...(Object.fromEntries(
+      COVER_RENDER_FIELD_KEYS.map((key) => [key, renderFields[key]])
+    ) as Omit<TemplateCoverItemPresentationFields, 'label'>),
+  }
 }
 
 export interface MarketplaceItemRenderFields

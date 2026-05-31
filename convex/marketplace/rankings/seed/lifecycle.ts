@@ -10,8 +10,7 @@ import { assertNonemptyString } from '../../../lib/assertions'
 import { BATCH_LIMITS } from '../../../lib/limits'
 import { assertSeedReleaseArgs } from '../../seedPipeline/runs'
 import {
-  queueTemplateRankingAggregateRecompute,
-  scheduleTemplateRankingAggregateJobAdmission,
+  queueTemplateRankingAggregateRecomputesForRankings,
 } from '../aggregate/lib'
 import {
   seedRankingActivationResultValidator,
@@ -135,36 +134,12 @@ const patchSeedBoardStatuses = async (
   )
 }
 
-const laneKey = (ranking: Doc<'publishedRankings'>): string =>
-  `${ranking.sourceTemplateId}:${ranking.sourceCriterionExternalId}`
-
 const queueTouchedAggregates = async (
   ctx: MutationCtx,
   rankings: readonly Doc<'publishedRankings'>[],
   now: number
 ): Promise<number> =>
-{
-  const dedup = new Map<string, Doc<'publishedRankings'>>()
-  for (const ranking of rankings)
-  {
-    const key = laneKey(ranking)
-    if (!dedup.has(key)) dedup.set(key, ranking)
-  }
-  if (dedup.size === 0) return 0
-  await Promise.all(
-    [...dedup.values()].map((ranking) =>
-      queueTemplateRankingAggregateRecompute(
-        ctx,
-        ranking.sourceTemplateId,
-        ranking.sourceCriterionExternalId,
-        now,
-        { scheduleAdmission: false }
-      )
-    )
-  )
-  await scheduleTemplateRankingAggregateJobAdmission(ctx)
-  return dedup.size
-}
+  await queueTemplateRankingAggregateRecomputesForRankings(ctx, rankings, now)
 
 export const activateSeedRankingReleaseInternal = async (
   ctx: MutationCtx,

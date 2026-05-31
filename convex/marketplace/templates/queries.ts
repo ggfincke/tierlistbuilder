@@ -5,7 +5,6 @@ import { v } from 'convex/values'
 import { paginationOptsValidator } from 'convex/server'
 import { query, type QueryCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
-import { clamp } from '@tierlistbuilder/contracts/lib/math'
 import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateDraftListResult,
@@ -30,6 +29,7 @@ import {
   isTemplateSlug,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { getCurrentUser, getCurrentUserId } from '../../lib/auth'
+import { clampPageSize, emptyPaginatedResult } from '../../lib/pagination'
 import {
   marketplaceTemplateGalleryResultValidator,
   marketplaceTemplateGalleryRailResultValidator,
@@ -86,18 +86,16 @@ const defaultGalleryRailLimit = (rail: TemplateGalleryRail): number =>
   rail === 'featured' ? FEATURED_LIMIT : RAIL_LIMIT
 
 const normalizeTemplateItemPageSize = (raw: number): number =>
-{
-  if (!Number.isFinite(raw)) return DEFAULT_TEMPLATE_ITEM_PAGE_SIZE
-  return clamp(Math.floor(raw), 1, MAX_TEMPLATE_ITEM_PAGE_SIZE)
-}
+  clampPageSize(
+    raw,
+    DEFAULT_TEMPLATE_ITEM_PAGE_SIZE,
+    MAX_TEMPLATE_ITEM_PAGE_SIZE
+  )
 
 const emptyTemplateItemsResult = (
   cursor: string | null
-): MarketplaceTemplateItemsResult => ({
-  page: [],
-  isDone: true,
-  continueCursor: cursor ?? '',
-})
+): MarketplaceTemplateItemsResult =>
+  emptyPaginatedResult<MarketplaceTemplateItemsResult['page'][number]>(cursor)
 
 const toBaseJobProgress = (
   job: Doc<'templatePublishJobs'> | Doc<'templateCloneJobs'>
@@ -142,29 +140,30 @@ const toCloneJobProgress = async (
   }
 }
 
-const takePublicRows = async (
+type PublicTemplateCardRowsReader = (
   ctx: QueryCtx,
-  options: {
-    category: TemplateCategory | null
-    sort: TemplateListSort
-    limit: number
-  }
-): Promise<Doc<'templateCards'>[]> =>
-{
-  if (options.sort === 'featured')
+  category: TemplateCategory | null,
+  limit: number
+) => Promise<Doc<'templateCards'>[]>
+
+const PUBLIC_TEMPLATE_CARD_READERS: Record<
+  TemplateListSort,
+  PublicTemplateCardRowsReader
+> = {
+  featured: async (ctx, category, limit) =>
   {
-    if (options.category)
+    if (category)
     {
       return await ctx.db
         .query('templateCards')
         .withIndex('byCategoryIsPubliclyListableFeaturedRank', (q) =>
           q
-            .eq('category', options.category!)
+            .eq('category', category)
             .eq('isPubliclyListable', true)
             .gt('featuredRank', -1)
         )
         .order('asc')
-        .take(options.limit)
+        .take(limit)
     }
 
     return await ctx.db
@@ -173,20 +172,19 @@ const takePublicRows = async (
         q.eq('isPubliclyListable', true).gt('featuredRank', -1)
       )
       .order('asc')
-      .take(options.limit)
-  }
-
-  if (options.sort === 'popular')
+      .take(limit)
+  },
+  popular: async (ctx, category, limit) =>
   {
-    if (options.category)
+    if (category)
     {
       return await ctx.db
         .query('templateCards')
         .withIndex('byCategoryIsPubliclyListableForkCount', (q) =>
-          q.eq('category', options.category!).eq('isPubliclyListable', true)
+          q.eq('category', category).eq('isPubliclyListable', true)
         )
         .order('desc')
-        .take(options.limit)
+        .take(limit)
     }
 
     return await ctx.db
@@ -195,20 +193,19 @@ const takePublicRows = async (
         q.eq('isPubliclyListable', true)
       )
       .order('desc')
-      .take(options.limit)
-  }
-
-  if (options.sort === 'trending')
+      .take(limit)
+  },
+  trending: async (ctx, category, limit) =>
   {
-    if (options.category)
+    if (category)
     {
       return await ctx.db
         .query('templateCards')
         .withIndex('byCategoryIsPubliclyListableTrendingScore', (q) =>
-          q.eq('category', options.category!).eq('isPubliclyListable', true)
+          q.eq('category', category).eq('isPubliclyListable', true)
         )
         .order('desc')
-        .take(options.limit)
+        .take(limit)
     }
 
     return await ctx.db
@@ -217,28 +214,44 @@ const takePublicRows = async (
         q.eq('isPubliclyListable', true)
       )
       .order('desc')
-      .take(options.limit)
-  }
-
-  if (options.category)
+      .take(limit)
+  },
+  recent: async (ctx, category, limit) =>
   {
+    if (category)
+    {
+      return await ctx.db
+        .query('templateCards')
+        .withIndex('byCategoryIsPubliclyListableUpdatedAt', (q) =>
+          q.eq('category', category).eq('isPubliclyListable', true)
+        )
+        .order('desc')
+        .take(limit)
+    }
+
     return await ctx.db
       .query('templateCards')
-      .withIndex('byCategoryIsPubliclyListableUpdatedAt', (q) =>
-        q.eq('category', options.category!).eq('isPubliclyListable', true)
+      .withIndex('byIsPubliclyListableUpdatedAt', (q) =>
+        q.eq('isPubliclyListable', true)
       )
       .order('desc')
-      .take(options.limit)
-  }
-
-  return await ctx.db
-    .query('templateCards')
-    .withIndex('byIsPubliclyListableUpdatedAt', (q) =>
-      q.eq('isPubliclyListable', true)
-    )
-    .order('desc')
-    .take(options.limit)
+      .take(limit)
+  },
 }
+
+const takePublicRows = async (
+  ctx: QueryCtx,
+  options: {
+    category: TemplateCategory | null
+    sort: TemplateListSort
+    limit: number
+  }
+): Promise<Doc<'templateCards'>[]> =>
+  await PUBLIC_TEMPLATE_CARD_READERS[options.sort](
+    ctx,
+    options.category,
+    options.limit
+  )
 
 // handle search & tag together by over-fetching search results.
 // seed an id Set from templateTags for the active tag.

@@ -15,7 +15,10 @@ import {
   UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
   unwrapUploadEnvelope,
 } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
-import { deleteStorageSilently } from '../../lib/storage'
+import {
+  assertStorageMetadataWithinLimit,
+  deleteStorageSilently,
+} from '../../lib/storage'
 import type { Id } from '../../_generated/dataModel'
 
 const uploadUrlResultValidator = v.object({
@@ -61,30 +64,20 @@ export const createSnapshotShortLink = action({
       })
     }
 
-    // pre-fetch size gate — reject oversized blobs before ctx.storage.get
-    // forces a full arrayBuffer() allocation. slack absorbs envelope header
     const metadata = await ctx.runQuery(
       internal.lib.storage.getStorageMetadata,
       { storageId: args.snapshotStorageId }
     )
-    if (metadata === null)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.storageMissing,
-        message: 'snapshot blob not found in storage',
-      })
-    }
-    if (
-      metadata.size >
-      MAX_SNAPSHOT_COMPRESSED_BYTES + UPLOAD_ENVELOPE_MAX_HEADER_BYTES
+    await assertStorageMetadataWithinLimit(
+      ctx,
+      args.snapshotStorageId,
+      metadata,
+      {
+        label: 'snapshot blob',
+        maxBytes: MAX_SNAPSHOT_COMPRESSED_BYTES,
+        slackBytes: UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
+      }
     )
-    {
-      await deleteStorageSilently(ctx, args.snapshotStorageId)
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.payloadTooLarge,
-        message: `snapshot blob too large: ${metadata.size} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`,
-      })
-    }
 
     const rawBlob = await ctx.storage.get(args.snapshotStorageId)
     if (!rawBlob)

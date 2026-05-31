@@ -7,6 +7,7 @@ import type { Doc } from '../../_generated/dataModel'
 import type { SeedTemplateReleaseStatus } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import { SEED_LIMITS } from '../../lib/limits'
 import type { SeedDiagnosticRow } from './types'
+import { loadSeedTemplateLookupForRelease } from './templates'
 
 export type SeedReleaseDiagnosticTotals = {
   templateCount: number
@@ -32,6 +33,24 @@ export const seedWarningDiagnostic = (
   path: string,
   message: string
 ): SeedDiagnosticRow => seedDiagnostic('warning', code, path, message)
+
+export const pushCountMismatchDiagnostic = (
+  diagnostics: SeedDiagnosticRow[],
+  code: string,
+  path: string,
+  expected: number,
+  actual: number,
+  label: string
+): void =>
+{
+  diagnostics.push(
+    seedErrorDiagnostic(
+      code,
+      path,
+      `${label} expected ${expected} but found ${actual}`
+    )
+  )
+}
 
 export const buildSeedReleaseDiagnosticsForTemplates = async (
   ctx: MutationCtx,
@@ -199,12 +218,13 @@ export const appendExpectedTotalsDiagnostics = (
   for (const key of Object.keys(actual) as (keyof typeof actual)[])
   {
     if (actual[key] === expectedTotals[key]) continue
-    diagnostics.push(
-      seedErrorDiagnostic(
-        `${key}Mismatch`,
-        `$.totals.${key}`,
-        `${key} expected ${expectedTotals[key]} but found ${actual[key]}`
-      )
+    pushCountMismatchDiagnostic(
+      diagnostics,
+      `${key}Mismatch`,
+      `$.totals.${key}`,
+      expectedTotals[key],
+      actual[key],
+      key
     )
   }
 }
@@ -255,30 +275,20 @@ const loadDiagnosticsTemplates = async (
 }> =>
 {
   const diagnostics: SeedDiagnosticRow[] = []
-  const rows = await Promise.all(
-    templateExternalIds.map(
-      async (externalId) =>
-        await ctx.db
-          .query('templates')
-          .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-            q
-              .eq('seedDatasetKey', datasetKey)
-              .eq('seedReleaseId', releaseId)
-              .eq('seedExternalId', externalId)
-          )
-          .unique()
-    )
+  const { byExternalId } = await loadSeedTemplateLookupForRelease(
+    ctx,
+    datasetKey,
+    releaseId
   )
   const templates: Doc<'templates'>[] = []
-  for (let index = 0; index < templateExternalIds.length; index += 1)
+  for (const externalId of templateExternalIds)
   {
-    const row = rows[index]
+    const row = byExternalId.get(externalId)
     if (row)
     {
       templates.push(row)
       continue
     }
-    const externalId = templateExternalIds[index]
     diagnostics.push(
       seedErrorDiagnostic(
         'missingTemplate',

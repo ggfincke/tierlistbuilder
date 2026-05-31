@@ -57,6 +57,7 @@ import {
   paletteIdValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
+  validateBoardAutoPlateUniformColor,
 } from '../../lib/validators/common'
 import { validateTierSpec } from '../../lib/validators/tierSpec'
 import type {
@@ -251,17 +252,6 @@ const validateLabelFontSize = (
   }
 }
 
-const validateBoardAutoPlate = (
-  autoPlate: BoardAutoPlateSettings | undefined
-): void =>
-{
-  if (autoPlate?.mode !== 'uniform' || autoPlate.uniformColor === undefined)
-  {
-    return
-  }
-  validateHexColor(autoPlate.uniformColor, 'autoPlate.uniformColor')
-}
-
 const validateImagePadding = (
   padding: number | undefined,
   field: string
@@ -450,7 +440,7 @@ const validateInputs = (args: UpsertArgs): void =>
   validateImagePadding(args.defaultItemImagePadding, 'defaultItemImagePadding')
   validateLabelPlacement(args.labels?.placement, 'labels.placement')
   validateLabelFontSize(args.labels?.fontSizePx, 'labels.fontSizePx')
-  validateBoardAutoPlate(args.autoPlate)
+  validateBoardAutoPlateUniformColor(args.autoPlate)
 }
 
 // --- phase 2: ensure board + early revision check ----------------------------

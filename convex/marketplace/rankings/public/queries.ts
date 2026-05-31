@@ -38,6 +38,7 @@ import {
   templateRankingAggregateItemSortValidator,
 } from '../../../lib/validators/marketplace'
 import { getCurrentUserId } from '../../../lib/auth'
+import { emptyPaginatedResult } from '../../../lib/pagination'
 import {
   MAX_AGGREGATE_SEARCH_LENGTH,
   MAX_SYNC_ITEMS,
@@ -53,9 +54,10 @@ import { createTemplateProjectionCache } from '../../templates/lib/trending'
 import { isPublishedTemplateRow } from '../../templates/lib/state'
 import {
   findActiveTemplateCriterion,
-  resolvePrimaryTemplateCriterion,
+  resolveActiveRequestedOrPrimaryTemplateCriterion,
+  resolveHistoricalTemplateCriterionExternalId,
+  resolveRequestedOrPrimaryTemplateCriterion,
   resolveTemplateCriteria,
-  resolveTemplateCriterionForHistoricalRead,
 } from '../../templates/criteria'
 import {
   DEFAULT_TEMPLATE_RANKING_AGGREGATE_SORT,
@@ -118,14 +120,6 @@ const unavailableRankingPublish = (
   preferredCriterionExternalId,
 })
 
-const emptyPaginatedResult = <T>(
-  cursor: string | null
-): { page: T[]; isDone: true; continueCursor: string } => ({
-  page: [],
-  isDone: true,
-  continueCursor: cursor ?? '',
-})
-
 const emptyAggregateItemsResult = (
   cursor: string | null
 ): MarketplaceTemplateRankingAggregateItemsResult =>
@@ -165,28 +159,13 @@ const resolveRequestedOrPrimaryCriterion = (
   template: Doc<'templates'>,
   criterionExternalId: string | undefined
 ): MarketplaceTemplateCriterion | null =>
-{
-  if (criterionExternalId === undefined)
-  {
-    return resolvePrimaryTemplateCriterion(template)
-  }
-  return resolveTemplateCriterionForHistoricalRead(
-    template,
-    criterionExternalId
-  )
-}
+  resolveRequestedOrPrimaryTemplateCriterion(template, criterionExternalId)
 
 const resolveHistoricalCriterionExternalId = (
   template: Doc<'templates'>,
   criterionExternalId: string | undefined
 ): string | null | undefined =>
-{
-  if (criterionExternalId === undefined) return undefined
-  return (
-    resolveTemplateCriterionForHistoricalRead(template, criterionExternalId)
-      ?.externalId ?? null
-  )
-}
+  resolveHistoricalTemplateCriterionExternalId(template, criterionExternalId)
 
 const resolveMyRankingCriterionExternalId = (
   template: Doc<'templates'>,
@@ -218,14 +197,10 @@ const resolveAggregateCriterionExternalId = (
   template: Doc<'templates'>,
   criterionExternalId: string | undefined
 ): string | null =>
-{
-  const criterion = resolveRequestedOrPrimaryCriterion(
+  resolveActiveRequestedOrPrimaryTemplateCriterion(
     template,
     criterionExternalId
-  )
-  if (!criterion || criterion.status !== 'active') return null
-  return criterion.externalId
-}
+  )?.externalId ?? null
 
 const normalizeAggregateSearch = (
   raw: string | null | undefined

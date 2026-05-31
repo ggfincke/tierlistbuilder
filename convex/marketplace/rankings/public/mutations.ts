@@ -63,9 +63,10 @@ import {
   isPublishedRankingRow,
   normalizeRankingDescription,
   normalizeRankingTitle,
+  pickRankingRenderFieldsForWrite,
   rankingTopScore,
 } from '../lib'
-import { DEFAULT_TEMPLATE_TIERS } from '../../templates/lib/normalize'
+import { templateTiersOrDefault } from '../../templates/lib/normalize'
 import { loadTemplateItems } from '../../templates/lib/projections'
 import {
   incrementTemplateForkStats,
@@ -454,16 +455,7 @@ export const publishRankingCore = async (
         templateItemExternalId: templateItem.externalId,
         externalId: boardItem.externalId,
         tierExternalId,
-        label: boardItem.label ?? null,
-        backgroundColor: boardItem.backgroundColor ?? null,
-        mediaPlate: boardItem.mediaPlate ?? null,
-        altText: boardItem.altText ?? null,
-        mediaAssetId: boardItem.mediaAssetId,
-        order,
-        aspectRatio: boardItem.aspectRatio ?? null,
-        imageFit: boardItem.imageFit ?? null,
-        transform: boardItem.transform ?? null,
-        imagePadding: boardItem.imagePadding ?? null,
+        ...pickRankingRenderFieldsForWrite({ ...boardItem, order }),
       })
     ),
   ])
@@ -620,10 +612,7 @@ export const remixTemplateConsensus = mutation({
       itemCount: templateItems.length,
     })
 
-    const tierTemplate =
-      template.suggestedTiers.length > 0
-        ? template.suggestedTiers
-        : DEFAULT_TEMPLATE_TIERS
+    const tierTemplate = templateTiersOrDefault(template)
     const boardTitle = normalizeBoardTitle(
       args.title ?? templateTitleToBoardTitle(template.title)
     )

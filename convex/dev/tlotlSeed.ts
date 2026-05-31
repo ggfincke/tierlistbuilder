@@ -8,7 +8,6 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
   DEFAULT_SHOWCASE_TIERS,
   MAX_SHOWCASE_PLACED_ITEMS,
-  MAX_SHOWCASE_TIERS,
 } from '@tierlistbuilder/contracts/platform/showcase'
 import {
   BUILTIN_PRESETS,
@@ -40,9 +39,14 @@ import {
 import { loadTileStorageId } from '../lib/mediaVariants'
 import { resolveTemplateProgressState } from '../lib/templateProgress'
 import { publishRankingCore } from '../marketplace/rankings/public/mutations'
+import {
+  deleteSeedBoardWithChildren,
+  deleteSeedRankingWithChildren,
+} from '../marketplace/rankings/seed/cleanup'
+import { deleteShowcaseWithChildren } from '../platform/showcase'
+import { requireDevSampleSeedAuthorized } from './seedGate'
 
 const TARGET_EMAIL = 'tterrag456@gmail.com'
-const TLOTL_SAMPLE_SEED_ENABLED_ENV = 'CONVEX_TLOTL_SAMPLE_SEED_ALLOWED'
 const DATASET_KEY = 'dev-tlotl-samples'
 const RELEASE_ID = '2026-05-25-tlotl-samples'
 const SEED_PROFILE_KEY = 'tterrag456-tlotl'
@@ -118,15 +122,7 @@ const normalizeTargetEmail = (raw: string | undefined): string =>
 }
 
 const requireSampleSeedAuthorized = (): void =>
-{
-  if (process.env[TLOTL_SAMPLE_SEED_ENABLED_ENV] !== 'true')
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.forbidden,
-      message: `tlotl sample seed is disabled - set ${TLOTL_SAMPLE_SEED_ENABLED_ENV}=true on this deployment to allow it`,
-    })
-  }
-}
+  requireDevSampleSeedAuthorized('tlotl sample seed')
 
 const findUserByEmail = async (
   ctx: MutationCtx,
@@ -173,21 +169,7 @@ const deleteRankingTree = async (
   ctx: MutationCtx,
   ranking: Doc<'publishedRankings'>
 ): Promise<void> =>
-{
-  const [items, tiers] = await Promise.all([
-    ctx.db
-      .query('publishedRankingItems')
-      .withIndex('byRanking', (q) => q.eq('rankingId', ranking._id))
-      .take(MAX_ITEMS_PER_RANKING + 1),
-    ctx.db
-      .query('publishedRankingTiers')
-      .withIndex('byRanking', (q) => q.eq('rankingId', ranking._id))
-      .take(MAX_COUNT + 8),
-  ])
-  for (const item of items) await ctx.db.delete(item._id)
-  for (const tier of tiers) await ctx.db.delete(tier._id)
-  await ctx.db.delete(ranking._id)
-}
+  await deleteSeedRankingWithChildren(ctx, ranking)
 
 // sample boards carry the dataset/release markers; the prefix range over the
 // (seedDatasetKey, seedReleaseId) index finds them regardless of seedExternalId,
@@ -212,21 +194,7 @@ const deleteBoardTree = async (
   ctx: MutationCtx,
   board: Doc<'boards'>
 ): Promise<void> =>
-{
-  const [items, tiers] = await Promise.all([
-    ctx.db
-      .query('boardItems')
-      .withIndex('byBoardDeletedAtOrder', (q) => q.eq('boardId', board._id))
-      .take(MAX_ITEMS_PER_RANKING + 1),
-    ctx.db
-      .query('boardTiers')
-      .withIndex('byBoard', (q) => q.eq('boardId', board._id))
-      .take(MAX_COUNT + 8),
-  ])
-  for (const item of items) await ctx.db.delete(item._id)
-  for (const tier of tiers) await ctx.db.delete(tier._id)
-  await ctx.db.delete(board._id)
-}
+  await deleteSeedBoardWithChildren(ctx, board)
 
 // re-runs purge the prior dataset's rankings & the boards that back them.
 // rankings first, then boards (both vanish in this one mutation regardless, so
@@ -612,17 +580,7 @@ const wipeShowcase = async (
     .withIndex('byOwner', (q) => q.eq('ownerId', ownerId))
     .unique()
   if (!showcase) return
-  const tiers = await ctx.db
-    .query('profileShowcaseTiers')
-    .withIndex('byShowcase', (q) => q.eq('showcaseId', showcase._id))
-    .take(MAX_SHOWCASE_TIERS + 8)
-  for (const row of tiers) await ctx.db.delete(row._id)
-  const placements = await ctx.db
-    .query('profileShowcaseItems')
-    .withIndex('byShowcase', (q) => q.eq('showcaseId', showcase._id))
-    .take(MAX_SHOWCASE_PLACED_ITEMS + 8)
-  for (const row of placements) await ctx.db.delete(row._id)
-  await ctx.db.delete(showcase._id)
+  await deleteShowcaseWithChildren(ctx, showcase._id)
 }
 
 // fresh showcase w/ default S-E tiers & every seeded ranking placed via the

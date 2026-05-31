@@ -34,6 +34,7 @@ import {
   itemTransformValidator,
   literalUnion,
   mediaPlateValidator,
+  optionalItemRenderFields,
   paletteIdValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
@@ -48,20 +49,18 @@ import {
 } from './marketplace'
 import { showcaseMiniSnapshotValidator } from '../../platform/showcase'
 
-export const boardListItemValidator = v.object({
+const boardListItemBaseFields = {
   externalId: v.string(),
   title: v.string(),
   createdAt: v.number(),
   updatedAt: v.number(),
   revision: v.number(),
-})
+}
+
+export const boardListItemValidator = v.object(boardListItemBaseFields)
 
 export const deletedBoardListItemValidator = v.object({
-  externalId: v.string(),
-  title: v.string(),
-  createdAt: v.number(),
-  updatedAt: v.number(),
-  revision: v.number(),
+  ...boardListItemBaseFields,
   deletedAt: v.number(),
 })
 
@@ -75,17 +74,6 @@ export const boardMaterializationStateValidator = literalUnion(
 )
 export const boardPausedReasonValidator = literalUnion(BOARD_PAUSED_REASONS)
 
-// per-item render settings mirrored onto cover items (see contract
-// LibraryBoardCoverRenderFields) so the mosaic matches the board's own render
-const libraryCoverRenderFields = {
-  imageFit: v.optional(imageFitValidator),
-  imagePadding: v.optional(v.number()),
-  backgroundColor: v.optional(v.string()),
-  mediaPlate: v.optional(mediaPlateValidator),
-  transform: v.optional(itemTransformValidator),
-  aspectRatio: v.optional(v.number()),
-}
-
 const libraryBoardCoverItemValidator = v.object({
   label: v.union(v.string(), v.null()),
   externalId: v.string(),
@@ -93,7 +81,7 @@ const libraryBoardCoverItemValidator = v.object({
   mediaHash: v.optional(v.string()),
   mediaCloudExternalId: v.optional(v.string()),
   mediaVariant: v.optional(mediaVariantKindValidator),
-  ...libraryCoverRenderFields,
+  ...optionalItemRenderFields,
 })
 
 const libraryBoardTierBreakdownValidator = v.object({
@@ -108,7 +96,7 @@ export const boardLibrarySummaryValidator = v.object({
       label: v.union(v.string(), v.null()),
       externalId: v.string(),
       storageId: v.union(v.id('_storage'), v.null()),
-      ...libraryCoverRenderFields,
+      ...optionalItemRenderFields,
     })
   ),
   tierCount: v.number(),
@@ -117,11 +105,7 @@ export const boardLibrarySummaryValidator = v.object({
 })
 
 export const libraryBoardListItemValidator = v.object({
-  externalId: v.string(),
-  title: v.string(),
-  createdAt: v.number(),
-  updatedAt: v.number(),
-  revision: v.number(),
+  ...boardListItemBaseFields,
   activeItemCount: v.number(),
   unrankedItemCount: v.number(),
   rankedItemCount: v.number(),

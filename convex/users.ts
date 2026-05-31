@@ -33,13 +33,10 @@ import {
   type PublicUserMe,
   type UserPrivacySettings,
 } from '@tierlistbuilder/contracts/platform/user'
-import {
-  MAX_SHOWCASE_PLACED_ITEMS,
-  MAX_SHOWCASE_TIERS,
-} from '@tierlistbuilder/contracts/platform/showcase'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import { getCurrentUser, requireCurrentUserId } from './lib/auth'
+import { resolveUserAvatarUrl } from './lib/avatar'
 import { BATCH_LIMITS } from './lib/limits'
 import { literalUnion } from './lib/validators/common'
 import {
@@ -57,13 +54,18 @@ import {
   type PublicCategoryDelta,
 } from './marketplace/templates/lib/writes'
 import { isPublicTemplateRow } from './marketplace/templates/lib/state'
-import { queueTemplateRankingAggregateRecompute } from './marketplace/rankings/aggregate/lib'
+import { queueTemplateRankingAggregateRecomputesForRankings } from './marketplace/rankings/aggregate/lib'
 import {
   deleteMediaAssetWithVariants,
   hasMediaAssetReferences,
 } from './platform/media/internal'
+import { deleteShowcaseWithChildren } from './platform/showcase'
 import { parseUploadedImageMetadata } from './lib/imageValidation'
-import { deleteStorageSilently, type StorageMetadata } from './lib/storage'
+import {
+  assertStorageMetadataWithinLimit,
+  deleteStorageSilently,
+  type StorageMetadata,
+} from './lib/storage'
 import {
   UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
   unwrapUploadEnvelope,
@@ -174,15 +176,13 @@ export const getMe = query({
     {
       return null
     }
-    const avatarUrl = user.avatarStorageId
-      ? await ctx.storage.getUrl(user.avatarStorageId)
-      : null
+    const avatarUrl = await resolveUserAvatarUrl(ctx, user)
     return {
       _id: user._id,
       email: user.email ?? null,
       name: user.name ?? null,
       displayName: user.displayName ?? null,
-      image: avatarUrl ?? user.image ?? null,
+      image: avatarUrl,
       hasAvatar: user.avatarStorageId !== undefined,
       externalId: user.externalId ?? null,
       plan: user.plan ?? 'free',
@@ -972,26 +972,10 @@ const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
     .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
 
   const now = Date.now()
-  const affectedLanes = new Map<Id<'templates'>, Set<string>>()
-  for (const ranking of page.page)
-  {
-    if (!ranking.isPubliclyListable) continue
-    const lanes =
-      affectedLanes.get(ranking.sourceTemplateId) ?? new Set<string>()
-    lanes.add(ranking.sourceCriterionExternalId)
-    affectedLanes.set(ranking.sourceTemplateId, lanes)
-  }
-  await Promise.all(
-    [...affectedLanes.entries()].flatMap(([templateId, criterionIds]) =>
-      [...criterionIds].map((criterionExternalId) =>
-        queueTemplateRankingAggregateRecompute(
-          ctx,
-          templateId,
-          criterionExternalId,
-          now
-        )
-      )
-    )
+  await queueTemplateRankingAggregateRecomputesForRankings(
+    ctx,
+    page.page.filter((ranking) => ranking.isPubliclyListable),
+    now
   )
 
   await Promise.all(
@@ -1007,35 +991,15 @@ const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
   return await advanceCascade(ctx, args.userId, page, 'rankings')
 }
 
-const deleteProfileShowcase = async (
-  ctx: MutationCtx,
-  showcaseId: Id<'profileShowcases'>
-): Promise<void> =>
-{
-  const [items, tiers] = await Promise.all([
-    ctx.db
-      .query('profileShowcaseItems')
-      .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
-      .take(MAX_SHOWCASE_PLACED_ITEMS + 1),
-    ctx.db
-      .query('profileShowcaseTiers')
-      .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
-      .take(MAX_SHOWCASE_TIERS + 1),
-  ])
-  await Promise.all([
-    ...items.map((item) => ctx.db.delete(item._id)),
-    ...tiers.map((tier) => ctx.db.delete(tier._id)),
-  ])
-  await ctx.db.delete(showcaseId)
-}
-
 const handleProfileShowcasesPhase: CascadePhaseHandler = async (ctx, args) =>
 {
   const page = await ctx.db
     .query('profileShowcases')
     .withIndex('byOwner', (q) => q.eq('ownerId', args.userId))
     .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
-  await Promise.all(page.page.map((row) => deleteProfileShowcase(ctx, row._id)))
+  await Promise.all(
+    page.page.map((row) => deleteShowcaseWithChildren(ctx, row._id))
+  )
   return await advanceCascade(ctx, args.userId, page, 'profileShowcases')
 }
 
@@ -1045,9 +1009,7 @@ const handleBookmarksPhase: CascadePhaseHandler = async (ctx, args) =>
     .query('userTemplateBookmarks')
     .withIndex('byUserCreatedAt', (q) => q.eq('userId', args.userId))
     .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
-
-  await Promise.all(page.page.map((bookmark) => ctx.db.delete(bookmark._id)))
-  return await advanceCascade(ctx, args.userId, page, 'bookmarks')
+  return await deletePageRowsAndAdvance(ctx, args.userId, page, 'bookmarks')
 }
 
 const handleTierPresetsPhase: CascadePhaseHandler = async (ctx, args) =>
@@ -1232,30 +1194,12 @@ const assertAvatarStorageMetadata = async (
   const metadata = await ctx.runQuery(internal.lib.storage.getStorageMetadata, {
     storageId,
   })
-  if (!metadata)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.storageMissing,
-      message: 'uploaded avatar blob not found in storage',
-    })
-  }
-  if (!metadata.sha256)
-  {
-    await deleteStorageSilently(ctx, storageId)
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: 'uploaded avatar blob missing storage sha256 metadata',
-    })
-  }
-  if (metadata.size > MAX_IMAGE_BYTE_SIZE + UPLOAD_ENVELOPE_MAX_HEADER_BYTES)
-  {
-    await deleteStorageSilently(ctx, storageId)
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.payloadTooLarge,
-      message: `uploaded avatar blob too large: ${metadata.size} > ${MAX_IMAGE_BYTE_SIZE}`,
-    })
-  }
-  return metadata
+  return await assertStorageMetadataWithinLimit(ctx, storageId, metadata, {
+    label: 'uploaded avatar blob',
+    maxBytes: MAX_IMAGE_BYTE_SIZE,
+    slackBytes: UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
+    requireSha256: true,
+  })
 }
 
 const validateUploadedAvatar = async (

@@ -18,6 +18,7 @@ import {
   assertPositiveFinite,
   assertPositiveInteger,
 } from '../../lib/assertions'
+import { validateBoardAutoPlateUniformColor } from '../../lib/validators/common'
 import {
   IMAGE_PADDING_MAX,
   IMAGE_PADDING_MIN,
@@ -40,7 +41,6 @@ import {
   validateTemplateTiers,
 } from '../templates/lib/normalize'
 import { valuesEqual } from '../../lib/equality'
-import { validateHexColor } from '../../lib/hexColor'
 import { resolveSeedMediaAssetIdByDedupeHash } from './media'
 import type { SeedTemplateApplyPatch, SeedTemplateUpsertArg } from './types'
 
@@ -184,13 +184,7 @@ export const normalizeSeedTemplateUpsert = (
   assertPositiveInteger('itemCount', template.itemCount)
   assertCountRange('suggestedTiers', template.suggestedTiers.length, 1, 16)
   validateTemplateTiers(template.suggestedTiers)
-  if (
-    template.autoPlate?.mode === 'uniform' &&
-    template.autoPlate.uniformColor !== undefined
-  )
-  {
-    validateHexColor(template.autoPlate.uniformColor, 'autoPlate.uniformColor')
-  }
+  validateBoardAutoPlateUniformColor(template.autoPlate)
   const coverMediaAssetId = template.coverMediaDedupeHash
     ? resolveSeedMediaAssetIdByDedupeHash(
         mediaAssetCache,

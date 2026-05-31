@@ -6,6 +6,7 @@ import { query, type QueryCtx } from '../_generated/server'
 import type { Id } from '../_generated/dataModel'
 import type { PublicUserProfile } from '@tierlistbuilder/contracts/platform/profile'
 import { marketplaceTemplateSummaryValidator } from '../lib/validators/marketplace'
+import { resolveUserAvatarUrl } from '../lib/avatar'
 import { toTemplateCardSummary } from '../marketplace/templates/lib/projections'
 import { createTemplateProjectionCache } from '../marketplace/templates/lib/trending'
 import { buildPublicShowcase, publicProfileShowcaseValidator } from './showcase'
@@ -80,9 +81,7 @@ export const getPublicProfileByHandle = query({
     const [showcase, authored, avatarUrl] = await Promise.all([
       buildPublicShowcase(ctx, user._id),
       resolveAuthoredTemplates(ctx, user._id, cache),
-      user.avatarStorageId
-        ? ctx.storage.getUrl(user.avatarStorageId)
-        : Promise.resolve(user.image ?? null),
+      resolveUserAvatarUrl(ctx, user),
     ])
 
     return {
@@ -92,7 +91,7 @@ export const getPublicProfileByHandle = query({
       bio: user.bio ?? null,
       location: user.location ?? null,
       pronouns: user.pronouns ?? null,
-      avatarUrl: avatarUrl ?? user.image ?? null,
+      avatarUrl,
       plan: user.plan ?? 'free',
       createdAt: user.createdAt ?? user._creationTime,
       showcase,

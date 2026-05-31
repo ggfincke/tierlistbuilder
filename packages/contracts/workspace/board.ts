@@ -657,17 +657,45 @@ export interface LibraryBoardCoverRenderFields
   aspectRatio?: number
 }
 
-// copy the per-item render fields off any item-like source onto a cover/summary
-// item, normalizing null -> undefined so every summary & projection builder
-// mirrors them identically (one place to add a field, no per-builder drift)
-export const pickCoverRenderFields = (item: {
+export const COVER_RENDER_FIELD_KEYS = [
+  'imageFit',
+  'imagePadding',
+  'backgroundColor',
+  'mediaPlate',
+  'transform',
+  'aspectRatio',
+] as const satisfies readonly (keyof LibraryBoardCoverRenderFields)[]
+
+export type CoverRenderFieldSource = {
   imageFit?: ImageFit | null
   imagePadding?: number | null
   backgroundColor?: string | null
   mediaPlate?: MediaPlate | null
   transform?: ItemTransform | null
   aspectRatio?: number | null
-}): LibraryBoardCoverRenderFields => ({
+}
+
+export type NullableCoverRenderFields = {
+  [K in keyof LibraryBoardCoverRenderFields]-?: LibraryBoardCoverRenderFields[K] | null
+}
+
+export const pickNullableCoverRenderFields = (
+  item: CoverRenderFieldSource
+): NullableCoverRenderFields => ({
+  imageFit: item.imageFit ?? null,
+  imagePadding: item.imagePadding ?? null,
+  backgroundColor: item.backgroundColor ?? null,
+  mediaPlate: item.mediaPlate ?? null,
+  transform: item.transform ?? null,
+  aspectRatio: item.aspectRatio ?? null,
+})
+
+// copy the per-item render fields off any item-like source onto a cover/summary
+// item, normalizing null -> undefined so every summary & projection builder
+// mirrors them identically (one place to add a field, no per-builder drift)
+export const pickCoverRenderFields = (
+  item: CoverRenderFieldSource
+): LibraryBoardCoverRenderFields => ({
   imageFit: item.imageFit ?? undefined,
   imagePadding: item.imagePadding ?? undefined,
   backgroundColor: item.backgroundColor ?? undefined,

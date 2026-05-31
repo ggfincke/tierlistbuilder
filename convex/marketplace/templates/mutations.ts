@@ -26,6 +26,7 @@ import {
 import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
+import { firstActiveStatusRow } from '../../lib/jobs'
 import {
   assertCanPublishTemplate,
   assertCanUseTemplate,
@@ -50,16 +51,15 @@ import {
   adjustPublicTemplateCount,
   allocateTemplateSlug,
   clearSourceBoardLivePublicTemplate,
-  createTemplateStats,
   creditTemplateAsPublic,
   incrementTemplateForkStats,
   incrementTemplateViewStats,
+  insertTemplateWithStatsAndCard,
   markTemplateUnpublished,
   patchTemplateAndSyncCard,
   patchTemplateTagRows,
   setSourceBoardLivePublicTemplate,
   syncTemplateTagRows,
-  writeTemplateCard,
 } from './lib/writes'
 import { buildTemplateStateFields, isPublicTemplateRow } from './lib/state'
 import {
@@ -79,6 +79,7 @@ import {
   normalizeDescription,
   normalizeTags,
   normalizeTemplateTitle,
+  templateTiersOrDefault,
   tiersFromBoardRows,
   validateTemplateTiers,
 } from './lib/normalize'
@@ -264,9 +265,7 @@ const resolveTemplateTiers = async (
   const mode = selection ?? { kind: 'template' as const }
   if (mode.kind === 'template')
   {
-    return template.suggestedTiers.length > 0
-      ? template.suggestedTiers
-      : [...DEFAULT_TEMPLATE_TIERS]
+    return [...templateTiersOrDefault(template)]
   }
   if (mode.kind === 'default')
   {
@@ -298,41 +297,31 @@ const findActivePublishJobForBoard = async (
   ctx: MutationCtx,
   sourceBoardId: Id<'boards'>
 ): Promise<Doc<'templatePublishJobs'> | null> =>
-{
-  const results = await Promise.all(
-    ACTIVE_TEMPLATE_JOB_STATUSES.map((status) =>
-      ctx.db
-        .query('templatePublishJobs')
-        .withIndex('bySourceBoardStatus', (q) =>
-          q.eq('sourceBoardId', sourceBoardId).eq('status', status)
-        )
-        .take(1)
-    )
+  await firstActiveStatusRow(ACTIVE_TEMPLATE_JOB_STATUSES, async (status) =>
+    await ctx.db
+      .query('templatePublishJobs')
+      .withIndex('bySourceBoardStatus', (q) =>
+        q.eq('sourceBoardId', sourceBoardId).eq('status', status)
+      )
+      .take(1)
   )
-  return results.flat()[0] ?? null
-}
 
 const findActiveCloneJobForTemplate = async (
   ctx: MutationCtx,
   ownerId: Id<'users'>,
   sourceTemplateId: Id<'templates'>
 ): Promise<Doc<'templateCloneJobs'> | null> =>
-{
-  const results = await Promise.all(
-    ACTIVE_TEMPLATE_JOB_STATUSES.map((status) =>
-      ctx.db
-        .query('templateCloneJobs')
-        .withIndex('byOwnerSourceTemplateStatus', (q) =>
-          q
-            .eq('ownerId', ownerId)
-            .eq('sourceTemplateId', sourceTemplateId)
-            .eq('status', status)
-        )
-        .take(1)
-    )
+  await firstActiveStatusRow(ACTIVE_TEMPLATE_JOB_STATUSES, async (status) =>
+    await ctx.db
+      .query('templateCloneJobs')
+      .withIndex('byOwnerSourceTemplateStatus', (q) =>
+        q
+          .eq('ownerId', ownerId)
+          .eq('sourceTemplateId', sourceTemplateId)
+          .eq('status', status)
+      )
+      .take(1)
   )
-  return results.flat()[0] ?? null
-}
 
 const loadBoardTiersForTemplate = async (
   ctx: MutationCtx,
@@ -434,9 +423,11 @@ const queueLargeTemplatePublish = async (
     board,
     now,
   })
-  const templateId = await ctx.db.insert('templates', templateFields)
-  const stats = await createTemplateStats(ctx, templateId, now)
-  await writeTemplateCard(ctx, { _id: templateId, ...templateFields }, stats)
+  const { templateId } = await insertTemplateWithStatsAndCard(
+    ctx,
+    templateFields,
+    now
+  )
   const jobId = await ctx.db.insert('templatePublishJobs', {
     ownerId: userId,
     sourceBoardId: board._id,
@@ -641,35 +632,39 @@ export const publishFromBoard = mutation({
       board,
       now,
     })
-    const templateId = await ctx.db.insert('templates', templateFields)
-    const stats = await createTemplateStats(ctx, templateId, now)
-
-    await Promise.all(
-      activeItems.map((item, order) =>
-        ctx.db.insert(
-          'templateItems',
-          buildTemplateItemInsert(templateId, item, order)
+    await insertTemplateWithStatsAndCard(
+      ctx,
+      templateFields,
+      now,
+      async (templateId) =>
+      {
+        await Promise.all(
+          activeItems.map((item, order) =>
+            ctx.db.insert(
+              'templateItems',
+              buildTemplateItemInsert(templateId, item, order)
+            )
+          )
         )
-      )
-    )
-    if (templateState.isPubliclyListable)
-    {
-      await creditTemplateAsPublic(
-        ctx,
-        { _id: templateId, category: args.category },
-        board,
-        now
-      )
-    }
+        if (templateState.isPubliclyListable)
+        {
+          await creditTemplateAsPublic(
+            ctx,
+            { _id: templateId, category: args.category },
+            board,
+            now
+          )
+        }
 
-    await syncTemplateTagRows(ctx, {
-      _id: templateId,
-      tags,
-      category: args.category,
-      isPubliclyListable: templateState.isPubliclyListable,
-      updatedAt: now,
-    })
-    await writeTemplateCard(ctx, { _id: templateId, ...templateFields }, stats)
+        await syncTemplateTagRows(ctx, {
+          _id: templateId,
+          tags,
+          category: args.category,
+          isPubliclyListable: templateState.isPubliclyListable,
+          updatedAt: now,
+        })
+      }
+    )
 
     return { status: 'published', slug }
   },

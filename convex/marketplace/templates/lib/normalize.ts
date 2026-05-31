@@ -27,6 +27,13 @@ const MAX_SEARCH_QUERY_LENGTH = 120
 
 export const DEFAULT_TEMPLATE_TIERS = DEFAULT_SE_TIERS
 
+export const templateTiersOrDefault = (
+  template: Pick<Doc<'templates'>, 'suggestedTiers'>
+): readonly TierPresetTier[] =>
+  template.suggestedTiers.length > 0
+    ? template.suggestedTiers
+    : DEFAULT_TEMPLATE_TIERS
+
 export const failState = (message: string): never =>
 {
   throw new ConvexError({

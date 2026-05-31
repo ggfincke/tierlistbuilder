@@ -20,7 +20,10 @@ import {
   UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
   unwrapUploadEnvelope,
 } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
-import { deleteStorageSilently } from '../../lib/storage'
+import {
+  assertStorageMetadataWithinLimit,
+  deleteStorageSilently,
+} from '../../lib/storage'
 import { sha256Hex } from '../../lib/sha256'
 import type { Id } from '../../_generated/dataModel'
 
@@ -141,29 +144,12 @@ const assertStorageMetadata = async (
   const metadata = await ctx.runQuery(internal.lib.storage.getStorageMetadata, {
     storageId,
   })
-  if (!metadata)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.storageMissing,
-      message: 'uploaded image blob not found in storage',
-    })
-  }
-  if (!metadata.sha256)
-  {
-    await deleteStorageSilently(ctx, storageId)
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: 'uploaded image blob missing storage sha256 metadata',
-    })
-  }
-  if (metadata.size > MAX_IMAGE_BYTE_SIZE + UPLOAD_ENVELOPE_MAX_HEADER_BYTES)
-  {
-    await deleteStorageSilently(ctx, storageId)
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.payloadTooLarge,
-      message: `uploaded image blob too large: ${metadata.size} > ${MAX_IMAGE_BYTE_SIZE}`,
-    })
-  }
+  await assertStorageMetadataWithinLimit(ctx, storageId, metadata, {
+    label: 'uploaded image blob',
+    maxBytes: MAX_IMAGE_BYTE_SIZE,
+    slackBytes: UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
+    requireSha256: true,
+  })
 }
 
 const loadVerifiedVariant = async (

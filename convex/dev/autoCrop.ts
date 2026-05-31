@@ -2,29 +2,15 @@
 // dev tool: load auto-crop targets & write computed crop transforms onto sample
 // published-ranking items. image decode + math live in the node action sibling
 
-import { ConvexError, v } from 'convex/values'
+import { v } from 'convex/values'
 import { internalMutation, internalQuery } from '../_generated/server'
 import type { Id } from '../_generated/dataModel'
-import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { itemTransformValidator } from '../lib/validators/common'
 import { loadRankingItems } from '../marketplace/rankings/lib'
+import { requireDevSampleSeedAuthorized } from './seedGate'
 
 const TARGET_EMAIL = 'tterrag456@gmail.com'
 const RANKING_SCAN_LIMIT = 300
-const SEED_ENABLED_ENV = 'CONVEX_TLOTL_SAMPLE_SEED_ALLOWED'
-
-// dev seeding tools share one opt-in flag so they can't run (read or write) on
-// a deployment that hasn't explicitly allowed sample seeding (e.g. prod)
-const requireSeedAuthorized = (): void =>
-{
-  if (process.env[SEED_ENABLED_ENV] !== 'true')
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.forbidden,
-      message: `auto-crop is disabled - set ${SEED_ENABLED_ENV}=true on this deployment to allow it`,
-    })
-  }
-}
 
 interface TemplatePolicy
 {
@@ -63,7 +49,7 @@ export const listAutoCropTargets = internalQuery({
   ),
   handler: async (ctx, args) =>
   {
-    requireSeedAuthorized()
+    requireDevSampleSeedAuthorized('auto-crop')
     const email = (args.email ?? TARGET_EMAIL).trim().toLowerCase()
     const user = await ctx.db
       .query('users')
@@ -130,7 +116,7 @@ export const applyItemTransforms = internalMutation({
   returns: v.object({ patched: v.number() }),
   handler: async (ctx, args) =>
   {
-    requireSeedAuthorized()
+    requireDevSampleSeedAuthorized('auto-crop')
     for (const { itemId, transform } of args.items)
     {
       await ctx.db.patch(itemId, { transform })

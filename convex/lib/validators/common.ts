@@ -3,6 +3,7 @@
 
 import type { Infer, Validator } from 'convex/values'
 import { v } from 'convex/values'
+import { validateHexColor } from '../hexColor'
 import {
   PALETTE_IDS,
   TEXT_STYLE_IDS,
@@ -137,6 +138,26 @@ export const boardAutoPlateSettingsValidator = v.union(
     uniformColor: v.optional(v.string()),
   })
 )
+
+export const optionalItemRenderFields = {
+  imageFit: v.optional(imageFitValidator),
+  imagePadding: v.optional(v.number()),
+  backgroundColor: v.optional(v.string()),
+  mediaPlate: v.optional(mediaPlateValidator),
+  transform: v.optional(itemTransformValidator),
+  aspectRatio: v.optional(v.number()),
+}
+
+export const validateBoardAutoPlateUniformColor = (
+  autoPlate: BoardAutoPlateSettings | undefined | null
+): void =>
+{
+  if (autoPlate?.mode !== 'uniform' || autoPlate.uniformColor === undefined)
+  {
+    return
+  }
+  validateHexColor(autoPlate.uniformColor, 'autoPlate.uniformColor')
+}
 
 export type _ImageFitExact = _Assert<
   _Exact<ImageFit, Infer<typeof imageFitValidator>>

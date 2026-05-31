@@ -188,6 +188,48 @@ type RankingItemRenderSource = Pick<
   | 'imagePadding'
 >
 
+type RankingItemRenderWriteFields = Pick<
+  Doc<'publishedRankingItems'>,
+  | 'label'
+  | 'backgroundColor'
+  | 'mediaPlate'
+  | 'altText'
+  | 'mediaAssetId'
+  | 'order'
+  | 'aspectRatio'
+  | 'imageFit'
+  | 'transform'
+  | 'imagePadding'
+>
+
+type RankingItemRenderWriteSource = {
+  label?: RankingItemRenderWriteFields['label']
+  backgroundColor?: RankingItemRenderWriteFields['backgroundColor']
+  mediaPlate?: RankingItemRenderWriteFields['mediaPlate']
+  altText?: RankingItemRenderWriteFields['altText']
+  mediaAssetId: RankingItemRenderWriteFields['mediaAssetId']
+  order: RankingItemRenderWriteFields['order']
+  aspectRatio?: RankingItemRenderWriteFields['aspectRatio']
+  imageFit?: RankingItemRenderWriteFields['imageFit']
+  transform?: RankingItemRenderWriteFields['transform']
+  imagePadding?: RankingItemRenderWriteFields['imagePadding']
+}
+
+export const pickRankingRenderFieldsForWrite = (
+  item: RankingItemRenderWriteSource
+): RankingItemRenderWriteFields => ({
+  label: item.label ?? null,
+  backgroundColor: item.backgroundColor ?? null,
+  mediaPlate: item.mediaPlate ?? null,
+  altText: item.altText ?? null,
+  mediaAssetId: item.mediaAssetId,
+  order: item.order,
+  aspectRatio: item.aspectRatio ?? null,
+  imageFit: item.imageFit ?? null,
+  transform: item.transform ?? null,
+  imagePadding: item.imagePadding ?? null,
+})
+
 export const toRankingItemRenderFields = async (
   ctx: DbCtx,
   item: RankingItemRenderSource,

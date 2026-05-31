@@ -5,15 +5,11 @@ import { v } from 'convex/values'
 import { internalMutation } from '../../_generated/server'
 import { internal } from '../../_generated/api'
 import {
-  CASCADE_DELETE_PAGE_SIZE,
+  buildBoardChildCascadePhases,
+  type BoardChildCascadePhase,
   runCascadePhaseMachine,
 } from '../../lib/cascadeDelete'
 import { retractBoardPublications } from '../../marketplace/rankings/public/mutations'
-
-// cascade phases — items first, then tiers, then the board row itself.
-// each phase walks its own cursor so a large board that exceeds the batch
-// size doesn't loop forever on the first 256 rows (as .take() would)
-type CascadePhase = 'items' | 'tiers'
 
 // cascade delete a board's items, tiers, & final board row in phases.
 // phase+cursor state passed through ctx.scheduler.runAfter so each
@@ -41,7 +37,7 @@ export const cascadeDeleteBoard = internalMutation({
       await retractBoardPublications(ctx, board, Date.now())
     }
 
-    const phase: CascadePhase = args.phase ?? 'items'
+    const phase: BoardChildCascadePhase = args.phase ?? 'items'
     const scheduled = await runCascadePhaseMachine({
       ctx,
       schedule: async (nextArgs) =>
@@ -54,30 +50,7 @@ export const cascadeDeleteBoard = internalMutation({
       parentId: args.boardId,
       phase,
       cursor: args.cursor,
-      phases: [
-        {
-          phase: 'items',
-          page: async (cursor) =>
-            await ctx.db
-              .query('boardItems')
-              .withIndex('byBoardAndTier', (q) => q.eq('boardId', args.boardId))
-              .paginate({
-                numItems: CASCADE_DELETE_PAGE_SIZE,
-                cursor,
-              }),
-        },
-        {
-          phase: 'tiers',
-          page: async (cursor) =>
-            await ctx.db
-              .query('boardTiers')
-              .withIndex('byBoard', (q) => q.eq('boardId', args.boardId))
-              .paginate({
-                numItems: CASCADE_DELETE_PAGE_SIZE,
-                cursor,
-              }),
-        },
-      ],
+      phases: buildBoardChildCascadePhases(ctx, args.boardId),
     })
     if (scheduled) return null
 

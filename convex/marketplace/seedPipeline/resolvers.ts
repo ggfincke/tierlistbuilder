@@ -11,7 +11,7 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import { SEED_LIMITS } from '../../lib/limits'
 import { loadOwnedSeedMediaVariantLookup } from './mediaLookup'
-import { assertSeedTemplateReadLimit } from './templates'
+import { loadSeedTemplateLookupForRelease } from './templates'
 import type { SeedResolvedTemplateRow } from './types'
 
 export const toResolvedTemplate = (
@@ -39,21 +39,16 @@ export const resolveTemplates = async (
 ): Promise<Map<string, Doc<'templates'>>> =>
 {
   if (externalIds.length === 0) return new Map()
-  // single index scan + in-memory filter beats N unique() lookups.
-  // bySeedDatasetReleaseAndExternalId is prefix-scanned on (dataset, release)
   const requested = new Set(externalIds)
-  const all = await ctx.db
-    .query('templates')
-    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-      q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
-    )
-    .take(SEED_LIMITS.templatesPerDiff + 1)
-  assertSeedTemplateReadLimit(all, releaseId)
+  const { byExternalId } = await loadSeedTemplateLookupForRelease(
+    ctx,
+    datasetKey,
+    releaseId
+  )
   const map = new Map<string, Doc<'templates'>>()
-  for (const template of all)
+  for (const [externalId, template] of byExternalId)
   {
-    const externalId = template.seedExternalId
-    if (externalId && requested.has(externalId)) map.set(externalId, template)
+    if (requested.has(externalId)) map.set(externalId, template)
   }
   return map
 }
