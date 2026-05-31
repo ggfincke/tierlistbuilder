@@ -36,7 +36,7 @@ import {
   findRankingBySlug,
   findTemplateBySlug,
 } from '../../../lib/marketplaceLookups'
-import { loadPreviewOrTileStorageId } from '../../../lib/mediaVariants'
+import { loadTileStorageId } from '../../../lib/mediaVariants'
 import { loadBoundedBoardRows } from '../../../workspace/sync/loadBoundedBoardRows'
 import { buildFreshBoardCloudFields } from '../../../workspace/boards/cloudFields'
 import {
@@ -725,7 +725,7 @@ export const remixTemplateConsensus = mutation({
           tierIndex === null ? null : (insertedTiers[tierIndex] ?? null)
         const externalId = generateItemId()
         const storageId = item.mediaAssetId
-          ? await loadPreviewOrTileStorageId(ctx, item.mediaAssetId)
+          ? await loadTileStorageId(ctx, item.mediaAssetId)
           : null
         await ctx.db.insert('boardItems', {
           boardId,

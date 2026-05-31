@@ -12,7 +12,7 @@ import {
   DEFAULT_BOARD_TITLE,
   pickCoverRenderFields,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { loadPreviewOrTileStorageId } from '../../../lib/mediaVariants'
+import { loadTileStorageId } from '../../../lib/mediaVariants'
 import type { BoardLibrarySummaryItem } from '../../../workspace/boards/librarySummary'
 
 export const templateTitleToBoardTitle = (title: string): string =>
@@ -88,7 +88,7 @@ export const insertBoardItemsFromTemplate = async (
     templateItems.map(async (item) =>
     {
       const storageId = item.mediaAssetId
-        ? await loadPreviewOrTileStorageId(ctx, item.mediaAssetId)
+        ? await loadTileStorageId(ctx, item.mediaAssetId)
         : null
       const externalId = generateItemId()
 

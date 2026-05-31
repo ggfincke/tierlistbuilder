@@ -80,7 +80,7 @@ import {
   findOwnedBoardByExternalIdIncludingDeleted,
   findMediaAssetByExternalId,
 } from '../../lib/permissions'
-import { selectPreviewOrTileStorageId } from '../../lib/mediaVariants'
+import { selectTileStorageId } from '../../lib/mediaVariants'
 import {
   countTemplateProgressItems,
   resolveTemplateProgressState,
@@ -688,7 +688,7 @@ const resolveMediaState = async (
       assetCache.set(asset._id, Promise.resolve(asset))
       return [
         extId,
-        { assetId: asset._id, storageId: selectPreviewOrTileStorageId(asset) },
+        { assetId: asset._id, storageId: selectTileStorageId(asset) },
       ] as const
     })
   )
@@ -708,7 +708,7 @@ const resolveMediaState = async (
     {
       serverStorageByItemExternalId.set(
         item.externalId,
-        selectPreviewOrTileStorageId(asset)
+        selectTileStorageId(asset)
       )
     }
   }

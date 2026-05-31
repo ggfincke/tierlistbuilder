@@ -24,7 +24,7 @@ import {
   getLargeTemplateFeatureState,
   getPlanEntitlements,
 } from '../../lib/entitlements'
-import { loadPreviewOrTileStorageId } from '../../lib/mediaVariants'
+import { loadTileStorageId } from '../../lib/mediaVariants'
 import { buildBoardLibrarySummary } from '../../workspace/boards/librarySummary'
 import {
   creditTemplateAsPublic,
@@ -291,7 +291,7 @@ const buildCloneBoardSummary = async (
       tierKey: null,
       externalId: item.externalId,
       label: item.label,
-      storageId: await loadPreviewOrTileStorageId(ctx, item.mediaAssetId),
+      storageId: await loadTileStorageId(ctx, item.mediaAssetId),
       order: item.order,
       deletedAt: item.deletedAt,
       ...pickCoverRenderFields(item),

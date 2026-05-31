@@ -35,7 +35,7 @@ import {
   type BoardLibrarySummaryItem,
   type BoardLibrarySummaryTier,
 } from '../workspace/boards/librarySummary'
-import { loadPreviewOrTileStorageId } from '../lib/mediaVariants'
+import { loadTileStorageId } from '../lib/mediaVariants'
 import { resolveTemplateProgressState } from '../lib/templateProgress'
 import { publishRankingCore } from '../marketplace/rankings/public/mutations'
 
@@ -478,7 +478,7 @@ const materializeAndPublishSample = async (
         ]
       const externalId = generateItemId()
       const storageId = item.mediaAssetId
-        ? await loadPreviewOrTileStorageId(ctx, item.mediaAssetId)
+        ? await loadTileStorageId(ctx, item.mediaAssetId)
         : null
       await ctx.db.insert('boardItems', {
         boardId,
