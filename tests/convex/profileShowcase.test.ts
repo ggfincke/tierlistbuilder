@@ -115,7 +115,7 @@ const seedShowcaseRanking = async (
 
 describe('profile showcase queries', () =>
 {
-  it('loads mini snapshots only when the editor tile mode needs them', async () =>
+  it('loads cropped mini snapshots for the editor', async () =>
   {
     const t = makeTest()
     const ownerId = await seedUser(
@@ -131,56 +131,31 @@ describe('profile showcase queries', () =>
       {}
     )
 
-    expect(coverMode).toMatchObject({
-      tileMode: 'cover',
-      unranked: [
-        expect.objectContaining({
-          title: 'Showcase Ranking',
-          mini: null,
+    expect(coverMode.unranked).toMatchObject([
+      expect.objectContaining({
+        title: 'Showcase Ranking',
+        mini: expect.objectContaining({
+          tiers: [
+            expect.objectContaining({
+              name: 'S',
+            }),
+          ],
         }),
-      ],
-    })
-
-    await owner.mutation(api.platform.showcase.saveProfileShowcase, {
-      tileMode: 'mini',
-      tiers: DEFAULT_SHOWCASE_TIERS,
-      placements: [],
-    })
-    const miniMode = await owner.query(
-      api.platform.showcase.getMyProfileShowcase,
-      {}
-    )
-
-    expect(miniMode.unranked[0]?.mini).toMatchObject({
-      rankedCount: 1,
-      topPickLabel: 'S Pick',
-      bottomPickLabel: 'S Pick',
-      tiers: [
-        expect.objectContaining({
-          name: 'S',
-          itemCount: 1,
-        }),
-      ],
-    })
+      }),
+    ])
   })
 
-  it('keeps winners labels from the full ranking when mini tiers are capped', async () =>
+  it('caps cropped mini tiers', async () =>
   {
     const t = makeTest()
     const ownerId = await seedUser(
       t,
-      'Showcase Winners Owner',
-      'showcase-winners-owner@example.com'
+      'Showcase Capped Owner',
+      'showcase-capped-owner@example.com'
     )
     await seedShowcaseRanking(t, ownerId, ['S', 'A', 'B', 'C', 'D', 'F'])
 
     const owner = asUser(t, ownerId)
-    await owner.mutation(api.platform.showcase.saveProfileShowcase, {
-      tileMode: 'winners',
-      tiers: DEFAULT_SHOWCASE_TIERS,
-      placements: [],
-    })
-
     const data = await owner.query(
       api.platform.showcase.getMyProfileShowcase,
       {}
@@ -188,11 +163,6 @@ describe('profile showcase queries', () =>
     const mini = data.unranked[0]?.mini
 
     expect(mini?.tiers.map((tier) => tier.name)).toEqual(['S', 'A', 'B', 'C'])
-    expect(mini).toMatchObject({
-      rankedCount: 6,
-      topPickLabel: 'S Pick',
-      bottomPickLabel: 'F Pick',
-    })
   })
 
   it('hides placed public tiles when the source template is no longer reachable', async () =>
@@ -206,7 +176,6 @@ describe('profile showcase queries', () =>
     const owner = asUser(t, ownerId)
 
     await owner.mutation(api.platform.showcase.saveProfileShowcase, {
-      tileMode: 'cover',
       tiers: DEFAULT_SHOWCASE_TIERS,
       placements: [
         {

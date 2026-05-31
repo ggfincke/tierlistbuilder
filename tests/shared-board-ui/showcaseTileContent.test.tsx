@@ -44,17 +44,11 @@ const mini = (
       name: 'S',
       colorSpec: { kind: 'palette', index: 0 },
       rowColorSpec: null,
-      itemCount: 1,
       items: [item('S Pick')],
-      labels: ['S Pick'],
     },
   ],
   itemAspectRatio: null,
   autoPlate: null,
-  topPickLabel: 'S Pick',
-  bottomPickLabel: 'S Pick',
-  rankedCount: 1,
-  updatedAt: 1_000,
   ...patch,
 })
 
@@ -68,7 +62,7 @@ const tile = (snapshot: ShowcaseMiniSnapshot): ShowcaseRankingTile => ({
 
 describe('ShowcaseTileContent', () =>
 {
-  it('applies auto-plates in full mini mode', () =>
+  it('applies auto-plates in cropped mode', () =>
   {
     const html = renderToStaticMarkup(
       <ShowcaseTileContent
@@ -80,55 +74,15 @@ describe('ShowcaseTileContent', () =>
                 name: 'S',
                 colorSpec: { kind: 'palette', index: 0 },
                 rowColorSpec: null,
-                itemCount: 1,
                 items: [item('Dark Logo', { mediaPlate: 'light' })],
-                labels: ['Dark Logo'],
               },
             ],
           })
         )}
-        tileMode="mini"
         title="Ranking"
       />
     )
 
     expect(html).toContain('background-color:var(--t-media-plate-light)')
-  })
-
-  it('renders winners labels from snapshot picks instead of shown tiers', () =>
-  {
-    const html = renderToStaticMarkup(
-      <ShowcaseTileContent
-        tile={tile(
-          mini({
-            tiers: [
-              {
-                name: 'S',
-                colorSpec: { kind: 'palette', index: 0 },
-                rowColorSpec: null,
-                itemCount: 1,
-                items: [item('S Pick')],
-                labels: ['S Pick'],
-              },
-              {
-                name: 'C',
-                colorSpec: { kind: 'palette', index: 3 },
-                rowColorSpec: null,
-                itemCount: 1,
-                items: [item('C Pick')],
-                labels: ['C Pick'],
-              },
-            ],
-            bottomPickLabel: 'F Pick',
-            rankedCount: 6,
-          })
-        )}
-        tileMode="winners"
-        title="Ranking"
-      />
-    )
-
-    expect(html).toContain('F Pick')
-    expect(html).not.toContain('C Pick')
   })
 })

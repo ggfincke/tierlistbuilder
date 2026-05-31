@@ -52,7 +52,6 @@ const renderWithBasename = (node: ReactNode, route = '/app/'): string =>
   )
 
 const showcase = (): PublicProfileShowcase => ({
-  tileMode: 'cover',
   placedCount: 1,
   tiers: [
     {
