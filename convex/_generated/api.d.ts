@@ -40,6 +40,7 @@ import type * as lib_storage from "../lib/storage.js";
 import type * as lib_templateProgress from "../lib/templateProgress.js";
 import type * as lib_text from "../lib/text.js";
 import type * as lib_uploadToken from "../lib/uploadToken.js";
+import type * as lib_uploadedImage from "../lib/uploadedImage.js";
 import type * as lib_userUpsert from "../lib/userUpsert.js";
 import type * as lib_validators_common from "../lib/validators/common.js";
 import type * as lib_validators_marketplace from "../lib/validators/marketplace.js";
@@ -150,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   "lib/templateProgress": typeof lib_templateProgress;
   "lib/text": typeof lib_text;
   "lib/uploadToken": typeof lib_uploadToken;
+  "lib/uploadedImage": typeof lib_uploadedImage;
   "lib/userUpsert": typeof lib_userUpsert;
   "lib/validators/common": typeof lib_validators_common;
   "lib/validators/marketplace": typeof lib_validators_marketplace;

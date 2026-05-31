@@ -13,7 +13,6 @@ import {
   internalQuery,
   mutation,
   query,
-  type ActionCtx,
   type MutationCtx,
 } from './_generated/server'
 import { internal } from './_generated/api'
@@ -34,7 +33,6 @@ import {
   type UserPrivacySettings,
 } from '@tierlistbuilder/contracts/platform/user'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import { getCurrentUser, requireCurrentUserId } from './lib/auth'
 import { resolveUserAvatarUrl } from './lib/avatar'
 import { BATCH_LIMITS } from './lib/limits'
@@ -60,16 +58,8 @@ import {
   hasMediaAssetReferences,
 } from './platform/media/internal'
 import { deleteShowcaseWithChildren } from './platform/showcase'
-import { parseUploadedImageMetadata } from './lib/imageValidation'
-import {
-  assertStorageMetadataWithinLimit,
-  deleteStorageSilently,
-  type StorageMetadata,
-} from './lib/storage'
-import {
-  UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
-  unwrapUploadEnvelope,
-} from '@tierlistbuilder/contracts/platform/uploadEnvelope'
+import { deleteStorageSilently } from './lib/storage'
+import { loadVerifiedEnvelopeImage } from './lib/uploadedImage'
 
 const RESERVED_HANDLE_SET = new Set<string>(RESERVED_HANDLES)
 const CASCADE_PAGE_SIZE = BATCH_LIMITS.cascadeDelete
@@ -444,7 +434,12 @@ export const setAvatar = action({
   handler: async (ctx, args): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
-    const cleanStorageId = await validateUploadedAvatar(ctx, userId, args)
+    const { storageId: cleanStorageId } = await loadVerifiedEnvelopeImage(ctx, {
+      storageId: args.storageId,
+      userId,
+      uploadToken: args.uploadToken,
+      label: 'avatar',
+    })
     try
     {
       await ctx.runMutation(internal.users.commitAvatar, {
@@ -1184,73 +1179,6 @@ const scheduleAuthorCardSync = async (
     internal.marketplace.templates.internal.syncTemplateCardsForAuthor,
     { authorId: userId, cursor: null }
   )
-}
-
-const assertAvatarStorageMetadata = async (
-  ctx: ActionCtx,
-  storageId: Id<'_storage'>
-): Promise<StorageMetadata> =>
-{
-  const metadata = await ctx.runQuery(internal.lib.storage.getStorageMetadata, {
-    storageId,
-  })
-  return await assertStorageMetadataWithinLimit(ctx, storageId, metadata, {
-    label: 'uploaded avatar blob',
-    maxBytes: MAX_IMAGE_BYTE_SIZE,
-    slackBytes: UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
-    requireSha256: true,
-  })
-}
-
-const validateUploadedAvatar = async (
-  ctx: ActionCtx,
-  userId: Id<'users'>,
-  args: { storageId: Id<'_storage'>; uploadToken: string }
-): Promise<Id<'_storage'>> =>
-{
-  await assertAvatarStorageMetadata(ctx, args.storageId)
-  const rawBlob = await ctx.storage.get(args.storageId)
-  if (!rawBlob)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.storageMissing,
-      message: 'uploaded avatar blob not found in storage',
-    })
-  }
-
-  try
-  {
-    const wrappedBytes = new Uint8Array(await rawBlob.arrayBuffer())
-    const payload = unwrapUploadEnvelope(
-      'media',
-      userId,
-      args.uploadToken,
-      wrappedBytes
-    )
-    if (!payload)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.forbidden,
-        message: 'upload token mismatch for avatar blob',
-      })
-    }
-    if (payload.byteLength < 1 || payload.byteLength > MAX_IMAGE_BYTE_SIZE)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.payloadTooLarge,
-        message: `avatar byteSize out of range: must be 1..${MAX_IMAGE_BYTE_SIZE}`,
-      })
-    }
-
-    const { mimeType } = parseUploadedImageMetadata(payload)
-    return await ctx.storage.store(
-      new Blob([payload as BlobPart], { type: mimeType })
-    )
-  }
-  finally
-  {
-    await deleteStorageSilently(ctx, args.storageId)
-  }
 }
 
 const paginateOwnedAuthParentPage = async (

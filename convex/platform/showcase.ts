@@ -15,9 +15,7 @@ import {
   MAX_SHOWCASE_PLACED_ITEMS,
   MAX_SHOWCASE_TIERS,
   SHOWCASE_MINI_ITEMS_PER_TIER,
-  SHOWCASE_MINI_LABELS_PER_TIER,
   SHOWCASE_MINI_TIER_LIMIT,
-  SHOWCASE_TILE_MODE_DEFAULT,
   type ProfileShowcaseEditData,
   type ProfileShowcaseSaveInput,
   type PublicProfileShowcase,
@@ -27,7 +25,6 @@ import {
   type ShowcasePlacementInput,
   type ShowcaseRankingTile,
   type ShowcaseTier,
-  type ShowcaseTileMode,
 } from '@tierlistbuilder/contracts/platform/showcase'
 import {
   MAX_TIER_DESCRIPTION_LEN,
@@ -69,15 +66,6 @@ const SHOWCASE_BOARD_SCAN_LIMIT = 300
 // gains its mini once dragged into a tier), keeping the read bounded at scale
 const SHOWCASE_EDITOR_MINI_BUDGET = 80
 
-const showcaseTileModeValidator = v.union(
-  v.literal('cover'),
-  v.literal('mini'),
-  v.literal('topRow'),
-  v.literal('cropped'),
-  v.literal('summary'),
-  v.literal('winners')
-)
-
 const showcaseTierValidator = v.object({
   externalId: v.string(),
   name: v.string(),
@@ -93,9 +81,7 @@ const showcaseMiniTierValidator = v.object({
   name: v.string(),
   colorSpec: tierColorSpecValidator,
   rowColorSpec: v.union(tierColorSpecValidator, v.null()),
-  itemCount: v.number(),
   items: v.array(showcaseMiniItemValidator),
-  labels: v.array(v.string()),
 })
 
 // exported so the library row validator can reuse the same mini shape
@@ -103,10 +89,6 @@ export const showcaseMiniSnapshotValidator = v.object({
   tiers: v.array(showcaseMiniTierValidator),
   itemAspectRatio: v.union(v.number(), v.null()),
   autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
-  topPickLabel: v.union(v.string(), v.null()),
-  bottomPickLabel: v.union(v.string(), v.null()),
-  rankedCount: v.number(),
-  updatedAt: v.number(),
 })
 
 const showcaseRankingTileValidator = v.object({
@@ -124,7 +106,6 @@ const showcasePlacedTileValidator = v.object({
 })
 
 const profileShowcaseEditDataValidator = v.object({
-  tileMode: showcaseTileModeValidator,
   tiers: v.array(showcaseTierValidator),
   placed: v.array(showcasePlacedTileValidator),
   unranked: v.array(showcaseRankingTileValidator),
@@ -136,7 +117,6 @@ const publicProfileShowcaseTierValidator = v.object({
 })
 
 export const publicProfileShowcaseValidator = v.object({
-  tileMode: showcaseTileModeValidator,
   tiers: v.array(publicProfileShowcaseTierValidator),
   placedCount: v.number(),
 })
@@ -148,7 +128,6 @@ const showcasePlacementInputValidator = v.object({
 })
 
 const profileShowcaseSaveInputValidator = v.object({
-  tileMode: showcaseTileModeValidator,
   tiers: v.array(showcaseTierValidator),
   placements: v.array(showcasePlacementInputValidator),
 })
@@ -253,23 +232,6 @@ const toShowcaseTier = (tier: Doc<'profileShowcaseTiers'>): ShowcaseTier => ({
   rowColorSpec: tier.rowColorSpec ?? null,
   order: tier.order,
 })
-
-const firstItemLabel = (
-  items: readonly Doc<'publishedRankingItems'>[] | undefined
-): string | null => items?.find((item) => item.label)?.label ?? null
-
-const lastItemLabel = (
-  items: readonly Doc<'publishedRankingItems'>[] | undefined
-): string | null =>
-{
-  if (!items) return null
-  for (let index = items.length - 1; index >= 0; index -= 1)
-  {
-    const label = items[index]?.label
-    if (label) return label
-  }
-  return null
-}
 
 // exported so the library cover query can reuse the resolved ranking + template
 export interface PublicBoardRanking
@@ -440,13 +402,6 @@ export const buildMiniSnapshot = async (
   )
   if (nonEmptyTiers.length === 0) return null
 
-  const firstNonEmptyTier = nonEmptyTiers[0]
-  const lastNonEmptyTier = nonEmptyTiers[nonEmptyTiers.length - 1]
-  if (!firstNonEmptyTier || !lastNonEmptyTier) return null
-
-  const topPickLabel = firstItemLabel(byTier.get(firstNonEmptyTier.externalId))
-  const bottomPickLabel = lastItemLabel(byTier.get(lastNonEmptyTier.externalId))
-
   // keep only the top tiers (by order) & fill each shown row. media reads per
   // tile stay bounded by tierLimit * SHOWCASE_MINI_ITEMS_PER_TIER
   const tierLimit = opts?.tierLimit ?? SHOWCASE_MINI_TIER_LIMIT
@@ -457,23 +412,15 @@ export const buildMiniSnapshot = async (
   for (const tier of shownTiers)
   {
     const tierItems = byTier.get(tier.externalId) ?? []
-    const labels: string[] = []
-    for (const item of tierItems)
-    {
-      if (labels.length >= SHOWCASE_MINI_LABELS_PER_TIER) break
-      if (item.label) labels.push(item.label)
-    }
     miniTiers.push({
       name: tier.name,
       colorSpec: tier.colorSpec,
       rowColorSpec: tier.rowColorSpec,
-      itemCount: tierItems.length,
       items: await Promise.all(
         tierItems
           .slice(0, perTier)
           .map((item) => toRankingItemRenderFields(ctx, item, cache))
       ),
-      labels,
     })
   }
   if (miniTiers.length === 0) return null
@@ -481,19 +428,12 @@ export const buildMiniSnapshot = async (
     tiers: miniTiers,
     itemAspectRatio: template.itemAspectRatio ?? null,
     autoPlate: template.autoPlate ?? null,
-    topPickLabel,
-    bottomPickLabel,
-    rankedCount: ranked.length,
-    updatedAt: ranking.updatedAt,
   }
 }
 
-// every tile mode except plain cover renders from the ranking's own tiers/items
-const tileModeNeedsMini = (mode: ShowcaseTileMode): boolean => mode !== 'cover'
-
 // board identity + resolved render payload. cover always resolves (cheap); the
-// mini snapshot only when a tile mode needs it. title/cover/mini come from the
-// board's current live public ranking, so a re-publish updates the tile in place
+// mini snapshot resolves when the read budget allows it. title/cover/mini come
+// from the board's current live public ranking, so a re-publish updates the tile
 const buildBoardTile = async (
   ctx: DbCtx,
   board: Doc<'boards'>,
@@ -527,8 +467,6 @@ const buildEditData = async (
 ): Promise<ProfileShowcaseEditData> =>
 {
   const showcase = await findShowcase(ctx, ownerId)
-  const tileMode: ShowcaseTileMode =
-    showcase?.tileMode ?? SHOWCASE_TILE_MODE_DEFAULT
   const cache = createTemplateProjectionCache()
   const boardRankings = await loadOwnerPublicBoardRankings(ctx, ownerId)
 
@@ -556,7 +494,7 @@ const buildEditData = async (
           entry.board,
           entry.ranking,
           entry.template,
-          tileModeNeedsMini(tileMode),
+          true,
           cache
         ).then((tile) => ({
           ...tile,
@@ -570,10 +508,10 @@ const buildEditData = async (
   // unranked: the owner's remaining boards, newest first. placed tiles already
   // spent part of the mini budget; the newest pool boards get the rest & the
   // tail renders as covers (gaining a mini once placed), bounding the read
-  const needsMini = tileModeNeedsMini(tileMode)
-  let poolMiniBudget = needsMini
-    ? Math.max(0, SHOWCASE_EDITOR_MINI_BUDGET - placedPromises.length)
-    : 0
+  let poolMiniBudget = Math.max(
+    0,
+    SHOWCASE_EDITOR_MINI_BUDGET - placedPromises.length
+  )
   const unrankedPromises: Promise<ShowcaseRankingTile>[] = []
   for (const [boardId, entry] of boardRankings)
   {
@@ -597,7 +535,7 @@ const buildEditData = async (
     Promise.all(unrankedPromises),
   ])
 
-  return { tileMode, tiers, placed, unranked }
+  return { tiers, placed, unranked }
 }
 
 // public read-only projection used by getPublicProfileByHandle. returns null
@@ -635,7 +573,7 @@ export const buildPublicShowcase = async (
         entry.board,
         entry.ranking,
         entry.template,
-        tileModeNeedsMini(showcase.tileMode),
+        true,
         cache
       ).then((tile) => ({ tile, tierExternalId: placement.tierExternalId }))
     )
@@ -651,7 +589,6 @@ export const buildPublicShowcase = async (
   const placedCount = builtTiles.length
 
   return {
-    tileMode: showcase.tileMode,
     tiers: tierRows.map((tier) => ({
       ...toShowcaseTier(tier),
       tiles: tilesByTier.get(tier.externalId) ?? [],
@@ -670,7 +607,6 @@ const getOrCreateShowcaseId = async (
   const now = Date.now()
   return await ctx.db.insert('profileShowcases', {
     ownerId,
-    tileMode: SHOWCASE_TILE_MODE_DEFAULT,
     createdAt: now,
     updatedAt: now,
   })
@@ -793,7 +729,6 @@ export const getMyProfileShowcase = query({
     if (!userId)
     {
       return {
-        tileMode: SHOWCASE_TILE_MODE_DEFAULT,
         tiers: DEFAULT_SHOWCASE_TIERS,
         placed: [],
         unranked: [],
@@ -842,7 +777,6 @@ export const saveProfileShowcase = mutation({
       existingPlacements
     )
     await ctx.db.patch(showcaseId, {
-      tileMode: args.tileMode,
       updatedAt: Date.now(),
     })
     return null

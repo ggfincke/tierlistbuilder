@@ -596,7 +596,6 @@ const seedShowcasePlacements = async (
   const now = Date.now()
   const showcaseId = await ctx.db.insert('profileShowcases', {
     ownerId,
-    tileMode: 'cropped',
     createdAt: now,
     updatedAt: now,
   })

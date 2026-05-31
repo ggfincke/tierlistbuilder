@@ -134,13 +134,6 @@ const patchSeedBoardStatuses = async (
   )
 }
 
-const queueTouchedAggregates = async (
-  ctx: MutationCtx,
-  rankings: readonly Doc<'publishedRankings'>[],
-  now: number
-): Promise<number> =>
-  await queueTemplateRankingAggregateRecomputesForRankings(ctx, rankings, now)
-
 export const activateSeedRankingReleaseInternal = async (
   ctx: MutationCtx,
   params: {
@@ -219,7 +212,7 @@ export const activateSeedRankingReleaseInternal = async (
   const aggregateJobsQueued =
     params.queueAggregates === false
       ? 0
-      : await queueTouchedAggregates(
+      : await queueTemplateRankingAggregateRecomputesForRankings(
           ctx,
           [...rolledBackRows, ...targetRows],
           now
@@ -288,11 +281,12 @@ export const queueActiveSeedRankingAggregates = internalMutation({
       args.datasetKey,
       args.releaseId
     )
-    const aggregateJobsQueued = await queueTouchedAggregates(
-      ctx,
-      rows,
-      Date.now()
-    )
+    const aggregateJobsQueued =
+      await queueTemplateRankingAggregateRecomputesForRankings(
+        ctx,
+        rows,
+        Date.now()
+      )
     return {
       datasetKey: args.datasetKey,
       releaseId: args.releaseId,

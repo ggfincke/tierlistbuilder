@@ -17,6 +17,25 @@ export const buildFreshBoardCloudFields = (now: number) => ({
   pausedReason: null,
 })
 
+// seed-provenance columns; null on every board created outside the seed
+// pipeline (forks, from-scratch, consensus remixes) — spread into the insert
+export const EMPTY_BOARD_SEED_FIELDS = {
+  seedDatasetKey: null,
+  seedReleaseId: null,
+  seedExternalId: null,
+  seedContentHash: null,
+  seedKind: null,
+  seedReleaseStatus: null,
+} satisfies Pick<
+  Doc<'boards'>,
+  | 'seedDatasetKey'
+  | 'seedReleaseId'
+  | 'seedExternalId'
+  | 'seedContentHash'
+  | 'seedKind'
+  | 'seedReleaseStatus'
+>
+
 type ForkedBoardInsert = Omit<
   Doc<'boards'>,
   | '_id'
@@ -74,11 +93,6 @@ export const buildForkedBoardInsert = (
       progressCounts
     ),
     librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-    seedDatasetKey: null,
-    seedReleaseId: null,
-    seedExternalId: null,
-    seedContentHash: null,
-    seedKind: null,
-    seedReleaseStatus: null,
+    ...EMPTY_BOARD_SEED_FIELDS,
   }
 }

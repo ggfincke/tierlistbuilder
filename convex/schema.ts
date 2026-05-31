@@ -999,14 +999,6 @@ export default defineSchema({
   // pool is derived (owner's published lanes minus placed), never stored
   profileShowcases: defineTable({
     ownerId: v.id('users'),
-    tileMode: v.union(
-      v.literal('cover'),
-      v.literal('mini'),
-      v.literal('topRow'),
-      v.literal('cropped'),
-      v.literal('summary'),
-      v.literal('winners')
-    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('byOwner', ['ownerId']),

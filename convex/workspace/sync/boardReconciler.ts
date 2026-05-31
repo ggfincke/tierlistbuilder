@@ -12,7 +12,7 @@ import type {
   MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { itemLabelOptionsEqual } from '@tierlistbuilder/contracts/workspace/board'
-import { itemTransformsEqual } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { isSameItemTransform } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { tierColorSpecEqual } from '@tierlistbuilder/contracts/lib/theme'
 
 export interface TierDiff
@@ -121,7 +121,7 @@ const buildItemPatchFields = (
     fields.aspectRatio = wire.aspectRatio
   }
   if (server.imageFit !== wire.imageFit) fields.imageFit = wire.imageFit
-  if (!itemTransformsEqual(server.transform, wire.transform))
+  if (!isSameItemTransform(server.transform, wire.transform))
   {
     fields.transform = wire.transform
   }

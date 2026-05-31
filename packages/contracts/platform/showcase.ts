@@ -10,31 +10,6 @@ import type {
   TemplateMediaRef,
 } from '../marketplace/template'
 
-// tile rendering modes for a ranking on the profile showcase. cover = source
-// template cover; the rest derive from the ranking's own tiers/items (see
-// ShowcaseTileContent). topRow/cropped/summary/winners are profile-card variants
-export const SHOWCASE_TILE_MODES = [
-  'cover',
-  'mini',
-  'topRow',
-  'cropped',
-  'summary',
-  'winners',
-] as const
-export type ShowcaseTileMode = (typeof SHOWCASE_TILE_MODES)[number]
-
-export const SHOWCASE_TILE_MODE_DEFAULT: ShowcaseTileMode = 'cover'
-
-// short labels for the editor's tile-mode tabs
-export const SHOWCASE_TILE_MODE_LABELS: Record<ShowcaseTileMode, string> = {
-  cover: 'Cover',
-  mini: 'Full',
-  topRow: 'Top row',
-  cropped: 'Cropped',
-  summary: 'Summary',
-  winners: 'Winners',
-}
-
 // caps — keep the showcase legible & the public read query bounded
 export const MAX_SHOWCASE_TIERS = 8
 export const MAX_SHOWCASE_PLACED_ITEMS = 60
@@ -44,10 +19,6 @@ export const SHOWCASE_MINI_TIER_LIMIT = 4
 // library board-card cover shows more tiers than the profile tile (taller surface)
 export const LIBRARY_COVER_MINI_TIER_LIMIT = 6
 export const SHOWCASE_MINI_ITEMS_PER_TIER = 9
-// label cap per tier — labels-only (no media reads); bounds the payload while
-// keeping enough text for topRow/summary cards even when the leading items in
-// a tier are unlabeled logos that pushed labeled picks past the items[] slice
-export const SHOWCASE_MINI_LABELS_PER_TIER = 24
 
 // a tier row in the showcase — mirrors the board tier shape so the workspace
 // editor's tier data maps in & out w/o translation
@@ -71,16 +42,10 @@ export interface ShowcaseMiniTier
   name: string
   colorSpec: TierColorSpec
   rowColorSpec: TierColorSpec | null
-  // total items in this tier; items[] below is truncated for the render
-  itemCount: number
   items: MarketplaceItemRenderFields[]
-  // labels of labeled items in the tier (no media), capped to
-  // SHOWCASE_MINI_LABELS_PER_TIER — independent of items[]'s media-bounded
-  // truncation so topRow/summary cards still see labels past the 9-item slice
-  labels: string[]
 }
 
-// compact projection of a ranking driving every non-cover tile mode
+// compact projection of a ranking driving the cropped profile tile
 export interface ShowcaseMiniSnapshot
 {
   tiers: ShowcaseMiniTier[]
@@ -89,16 +54,10 @@ export interface ShowcaseMiniSnapshot
   // the ranking's plate policy so logos get the same auto-plate backdrop as the
   // board — else dark logos vanish on the dark mini lane
   autoPlate: BoardAutoPlateSettings | null
-  // full-rank labels for Winners mode; tiers[] above is intentionally truncated
-  topPickLabel: string | null
-  bottomPickLabel: string | null
-  // ranking-level facts for the summary card
-  rankedCount: number
-  updatedAt: number
 }
 
-// board identity + resolved render payload for one ranking tile. cover/mini are
-// resolved server-side; the client picks which to draw per the active tileMode
+// board identity + resolved render payload for one ranking tile. mini drives
+// the cropped tile; cover is a fallback when the mini cannot be resolved
 export interface ShowcaseRankingTile
 {
   // the owner's board this tile came from — the stable per-tile identity
@@ -107,7 +66,7 @@ export interface ShowcaseRankingTile
   title: string
   // source-template cover for 'cover' mode; null when the template has none
   cover: TemplateMediaRef | null
-  // compact ranking render for 'mini' mode; null when empty or not requested
+  // compact cropped render; null when empty or skipped by the read budget
   mini: ShowcaseMiniSnapshot | null
 }
 
@@ -121,7 +80,6 @@ export interface ShowcasePlacedTile extends ShowcaseRankingTile
 // editor query response — full editable state for the owner
 export interface ProfileShowcaseEditData
 {
-  tileMode: ShowcaseTileMode
   tiers: ShowcaseTier[]
   placed: ShowcasePlacedTile[]
   // owner's published lanes not yet placed — the derived unranked pool
@@ -136,7 +94,6 @@ interface PublicProfileShowcaseTier extends ShowcaseTier
 
 export interface PublicProfileShowcase
 {
-  tileMode: ShowcaseTileMode
   tiers: PublicProfileShowcaseTier[]
   // total placed tiles across all tiers — lets the profile hide an empty
   // showcase for visitors w/o walking every tier
@@ -155,7 +112,6 @@ export interface ShowcasePlacementInput
 // save mutation input — unranked is never sent (derived server-side)
 export interface ProfileShowcaseSaveInput
 {
-  tileMode: ShowcaseTileMode
   tiers: ShowcaseTier[]
   placements: ShowcasePlacementInput[]
 }

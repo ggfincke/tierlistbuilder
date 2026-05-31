@@ -155,24 +155,12 @@ const aggregateBandArg = v.optional(templateRankingAggregateItemBandValidator)
 const rankingSortArg = v.optional(rankingListSortValidator)
 const SEARCH_CURSOR_PREFIX = 'offset:'
 
-const resolveRequestedOrPrimaryCriterion = (
-  template: Doc<'templates'>,
-  criterionExternalId: string | undefined
-): MarketplaceTemplateCriterion | null =>
-  resolveRequestedOrPrimaryTemplateCriterion(template, criterionExternalId)
-
-const resolveHistoricalCriterionExternalId = (
-  template: Doc<'templates'>,
-  criterionExternalId: string | undefined
-): string | null | undefined =>
-  resolveHistoricalTemplateCriterionExternalId(template, criterionExternalId)
-
 const resolveMyRankingCriterionExternalId = (
   template: Doc<'templates'>,
   criterionExternalId: string | undefined
 ): string | null =>
 {
-  const criterion = resolveRequestedOrPrimaryCriterion(
+  const criterion = resolveRequestedOrPrimaryTemplateCriterion(
     template,
     criterionExternalId
   )
@@ -184,7 +172,7 @@ const criterionPublishBlockReason = (
   criterionExternalId: string | undefined
 ): RankingPublishBlockReason | null =>
 {
-  const criterion = resolveRequestedOrPrimaryCriterion(
+  const criterion = resolveRequestedOrPrimaryTemplateCriterion(
     template,
     criterionExternalId
   )
@@ -564,7 +552,7 @@ export const getRankingsForTemplate = query({
     {
       return { items: [] }
     }
-    const criterionExternalId = resolveHistoricalCriterionExternalId(
+    const criterionExternalId = resolveHistoricalTemplateCriterionExternalId(
       template,
       args.criterionExternalId
     )
@@ -610,7 +598,7 @@ export const listRankingsForTemplate = query({
     {
       return emptyRankingPaginatedResult(args.paginationOpts.cursor)
     }
-    const criterionExternalId = resolveHistoricalCriterionExternalId(
+    const criterionExternalId = resolveHistoricalTemplateCriterionExternalId(
       template,
       args.criterionExternalId
     )

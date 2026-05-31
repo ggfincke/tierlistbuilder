@@ -89,7 +89,10 @@ import {
   buildBoardLibrarySummary,
   EMPTY_BOARD_LIBRARY_SUMMARY,
 } from './librarySummary'
-import { buildFreshBoardCloudFields } from './cloudFields'
+import {
+  buildFreshBoardCloudFields,
+  EMPTY_BOARD_SEED_FIELDS,
+} from './cloudFields'
 import {
   boardSourceRankingFromMaybeRanking,
   boardSourceTemplateFromMaybeTemplate,
@@ -494,12 +497,7 @@ const ensureBoard = async (
         progressCounts
       ),
       librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-      seedDatasetKey: null,
-      seedReleaseId: null,
-      seedExternalId: null,
-      seedContentHash: null,
-      seedKind: null,
-      seedReleaseStatus: null,
+      ...EMPTY_BOARD_SEED_FIELDS,
     })
     board = (await ctx.db.get(boardId))!
     isNewBoard = true
