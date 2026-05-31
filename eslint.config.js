@@ -13,6 +13,20 @@ export default defineConfig([
   // exclude build output & local agent metadata from linting
   globalIgnores(['dist', '.agents', '.claude', 'skills-lock.json']),
   {
+    files: ['scripts/**/*.{js,mjs}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: globals.node,
+    },
+    plugins: {
+      ggfincke: localRules,
+    },
+    rules: {
+      'ggfincke/file-header': 'error',
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,
