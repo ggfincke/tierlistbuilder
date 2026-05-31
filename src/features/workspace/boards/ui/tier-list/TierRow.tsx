@@ -36,6 +36,11 @@ import {
 import { useBoardItemRenderSettings } from '~/features/workspace/boards/model/useBoardItemRenderSettings'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import { tierContainerTestId } from '~/shared/board-ui/boardTestIds'
+import {
+  TIER_ROW_COLOR_SWATCH,
+  TIER_ROW_CONTROLS_COLUMN,
+  TIER_ROW_CONTROLS_CONTAINER,
+} from '~/features/workspace/boards/ui/tier-list/tierRowControlsChrome'
 import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '~/shared/overlay/uiMeasurements'
 import {
   computeColorPickerStyle,
@@ -332,8 +337,8 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
         </BoardRowContent>
 
         {!hideRowControls && !boardLocked && (
-          <div className="flex shrink-0 items-center gap-1 border-l border-[var(--t-border)] bg-[var(--t-bg-page)] px-1.5 max-sm:px-1">
-            <div className="flex flex-col items-center justify-center gap-1">
+          <div className={TIER_ROW_CONTROLS_CONTAINER}>
+            <div className={TIER_ROW_CONTROLS_COLUMN}>
               <button
                 type="button"
                 className="focus-custom rounded px-1 py-0.5 text-xs text-[var(--t-text-faint)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:opacity-30 max-sm:px-2 max-sm:py-1.5"
@@ -347,7 +352,7 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
               <button
                 ref={colorButtonRef}
                 type="button"
-                className="focus-custom h-4 w-4 rounded-full border border-[var(--t-border-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--t-bg-page)]"
+                className={`focus-custom ${TIER_ROW_COLOR_SWATCH} focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--t-bg-page)]`}
                 style={{ backgroundColor: resolvedTierColor }}
                 onClick={() =>
                 {

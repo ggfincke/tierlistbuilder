@@ -9,7 +9,7 @@ import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { formatError } from '~/shared/lib/errors'
 import { logger } from '~/shared/lib/logger'
-import { THEMES } from '~/shared/theme/tokens'
+import { resolveExportBackground } from '~/shared/theme/tokens'
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
@@ -42,7 +42,7 @@ export type ExportStatus = ImageFormat | 'pdf' | 'clipboard' | 'render' | null
 const getExportBackgroundColor = () =>
 {
   const { exportBackgroundOverride, themeId } = usePreferencesStore.getState()
-  return exportBackgroundOverride ?? THEMES[themeId]['export-bg']
+  return resolveExportBackground(exportBackgroundOverride, themeId)
 }
 
 const getCurrentExportAppearance = () =>

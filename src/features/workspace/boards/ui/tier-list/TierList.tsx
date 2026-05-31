@@ -14,7 +14,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useEffectiveTiers } from '~/features/workspace/boards/model/useEffectiveBoard'
-import { THEMES } from '~/shared/theme/tokens'
+import { resolveExportBackground } from '~/shared/theme/tokens'
 import { announceDragCancelled } from '~/features/workspace/boards/lib/containerLabel'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/preferences'
 import { isVerticalPosition } from '~/shared/overlay/toolbarPosition'
@@ -70,8 +70,10 @@ export const TierList = ({ toolbar, toolbarPosition, pool }: TierListProps) =>
         compactMode: state.compactMode,
       }))
     )
-  const exportBackgroundColor =
-    exportBackgroundOverride ?? THEMES[themeId]['export-bg']
+  const exportBackgroundColor = resolveExportBackground(
+    exportBackgroundOverride,
+    themeId
+  )
   const { dragGroupCount, keyboardMode } = useActiveBoardStore(
     useShallow((state) => ({
       dragGroupCount: state.dragGroupIds.length,

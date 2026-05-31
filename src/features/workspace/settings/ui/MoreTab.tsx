@@ -22,7 +22,7 @@ import {
   STORAGE_QUOTA_BYTES,
 } from '~/features/workspace/boards/model/storageMetering'
 import { GITHUB_REPO_URL } from '~/shared/lib/urls'
-import { THEMES } from '~/shared/theme/tokens'
+import { resolveExportBackground } from '~/shared/theme/tokens'
 import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { ShortcutsList } from '~/features/workspace/shortcuts/ui/ShortcutsList'
@@ -68,8 +68,10 @@ export const MoreTab = ({
   const [showPresetPicker, setShowPresetPicker] = useState(false)
   const exportBackgroundInputId = useId()
 
-  const effectiveExportBg =
-    exportBackgroundOverride ?? THEMES[themeId]['export-bg']
+  const effectiveExportBg = resolveExportBackground(
+    exportBackgroundOverride,
+    themeId
+  )
   const storageMb = storageBytes / (1024 * 1024)
   const storageMaxMb = STORAGE_QUOTA_BYTES / (1024 * 1024)
   const storagePercent = Math.min((storageMb / storageMaxMb) * 100, 100)
