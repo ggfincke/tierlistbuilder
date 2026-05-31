@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-31
+
+### Added
+
+- **Marketplace**: Routed `/templates` gallery & `/rankings/:slug` surfaces — discovery rails & hero, template detail, ranking detail & compare w/ consensus views (bars, heatmap, scatter, tier rows), remix & use-template flows, cover image editor/crop (react-easy-crop), & publish modals for templates & rankings (#47)
+- **Profiles**: Public `/u/:handle` pages w/ profile header, authored templates, & showcase view (#47)
+- **Showcase Editor**: `/tier-list` "tier list of tier lists" profile showcase — editor page, pool, snapshot, & debounced save scheduler (#47)
+- **Account Settings**: `/settings` route w/ account, profile, appearance, privacy, & data panels (#47)
+- **Auth UI**: Sign-in modal (email+password), account sessions & danger zone, profile draft & avatar upload, & a sign-in prompt store gating cloud-only actions (#47)
+- **Short-Link Sharing**: `shortLinkCodec` & share repository for compact share URLs, w/ a recent-shares modal (#47)
+- **Image Editor**: Padding slider w/ debounced drafts, bulk aspect-ratio across items, & post-label auto-crop (#47)
+
+### Changed
+
+- **Self-Hosted Fonts**: Bundled `@fontsource` variable families (Inter, JetBrains Mono, Nunito, Outfit, Source Serif 4) + Bungee replace the Google Fonts CDN preload & runtime caching — no 3rd-party roundtrip on first paint (#47)
+- **Board Render Overrides**: `BoardRenderOverridesProvider` & per-item render settings drive mosaic / plate / showcase tile rendering across cover, consensus, & showcase surfaces (#47)
+- **Shared UI Primitives**: New `AmbientPageShell`, `PageState`, `NotFoundSurface`, `Avatar` (replaces `InitialAvatar`), `CopyButton`, `IconButton`, `ToggleButton`, `RelativeTime`, & settings chrome (`SegmentedChoice`, `OverrideColorRow`, `SettingsChrome`) (#47)
+- **Library Restructure**: `library/components` → `library/ui` (cards, chips, chrome, list, modals); new `useBoardsLibrary`, `boardClickHandler`, density layout, & signed-out state (#47)
+- **Contracts**: Collapsed per-path exports to a single `./*` glob; added platform `profile` / `showcase` schemas & lib `publicTier` / `sha256` / `strings`; dropped the workspace `settings` contract (#47)
+- **App Shell**: Profile / settings / showcase routes registered; `AppTopNav` relocated into the `topNav/` shell (#47)
+- **Lint**: File-header rule now covers `scripts/**`; comment-style ampersand/with checks table-driven; screenshots script gains per-section output (#47)
+
+### Removed
+
+- **Dead Hooks & Helpers**: `useConfirmationGate`, `usePointInTimeQuery`, `useViewportWidth`, `proceedGuard`, `libraryBoardAria`, & the monolithic `autoCrop` module (split into `shared/lib/autoCrop/`) (#47)
+
 ## [0.9.0] - 2026-05-18
 
 ### Added
