@@ -3,7 +3,6 @@
 
 import {
   LIBRARY_BOARD_DENSITIES,
-  LIBRARY_BOARD_FILTERS,
   LIBRARY_BOARD_SORTS,
   LIBRARY_BOARD_VIEWS,
   type LibraryBoardDensity,
@@ -11,6 +10,7 @@ import {
   type LibraryBoardSort,
   type LibraryBoardView,
 } from '@tierlistbuilder/contracts/workspace/board'
+import { VISIBLE_LIBRARY_BOARD_FILTERS } from '~/features/library/lib/sortAndFilter'
 import {
   createPatchedSearchParams,
   isStringMember,
@@ -30,6 +30,11 @@ const DEFAULT_LIBRARY_FILTER_PARAMS = {
   density: 'default' as LibraryBoardDensity,
 }
 
+const LOCAL_LIBRARY_BOARD_FILTERS = [
+  'all',
+  ...VISIBLE_LIBRARY_BOARD_FILTERS,
+] as const satisfies readonly LibraryBoardFilter[]
+
 interface LibraryFilterParams
 {
   search: string
@@ -39,10 +44,8 @@ interface LibraryFilterParams
   density: LibraryBoardDensity
 }
 
-// URL filter parsing accepts any LIBRARY_BOARD_FILTERS member — every publish
-// state (draft/wip/live) has a visible chip, so deep links & chips stay in sync
 const isFilter = (value: string | null): value is LibraryBoardFilter =>
-  isStringMember(value, LIBRARY_BOARD_FILTERS)
+  isStringMember(value, LOCAL_LIBRARY_BOARD_FILTERS)
 
 const isSort = (value: string | null): value is LibraryBoardSort =>
   isStringMember(value, LIBRARY_BOARD_SORTS)

@@ -1,4 +1,4 @@
-// src/features/library/components/chrome/LibrarySearchInput.tsx
+// src/features/library/ui/chrome/LibrarySearchInput.tsx
 // search input for the My Boards page header — compact pill variant
 
 import { SearchField } from '~/shared/ui/SearchField'

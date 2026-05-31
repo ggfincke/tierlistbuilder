@@ -1,4 +1,4 @@
-// src/features/library/components/cards/TierPills.tsx
+// src/features/library/ui/cards/TierPills.tsx
 // discrete per-tier item-count pills for board cards — the editorial
 // counterpart to TierBar's continuous fill. overflow collapses into +N
 

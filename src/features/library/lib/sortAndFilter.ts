@@ -1,5 +1,5 @@
 // src/features/library/lib/sortAndFilter.ts
-// pure helpers for the My Boards publish-state filter & sort options
+// pure helpers for the My Boards local-state filter & sort options
 
 import {
   PUBLISH_STATES,
@@ -9,8 +9,11 @@ import {
   type LibraryBoardSort,
 } from '@tierlistbuilder/contracts/workspace/board'
 
-// every publish state has a visible filter chip — the rail is All + these
-export const VISIBLE_LIBRARY_BOARD_FILTERS = PUBLISH_STATES
+type VisibleLibraryBoardFilter = Exclude<LibraryBoardFilter, 'all' | 'live'>
+
+export const VISIBLE_LIBRARY_BOARD_FILTERS = PUBLISH_STATES.filter(
+  (state): state is VisibleLibraryBoardFilter => state !== 'live'
+)
 
 export const filterLibraryBoards = (
   rows: readonly LibraryBoardListItem[],

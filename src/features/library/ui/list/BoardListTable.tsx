@@ -1,4 +1,4 @@
-// src/features/library/components/list/BoardListTable.tsx
+// src/features/library/ui/list/BoardListTable.tsx
 // dense table-style list view for the My Boards page
 
 import { memo } from 'react'
@@ -6,16 +6,16 @@ import { Pin } from 'lucide-react'
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 
+import { makeBoardClickHandler } from '~/features/library/lib/boardClickHandler'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { formatCountedWord } from '~/shared/lib/pluralize'
-import { BoardCardMenu } from '~/features/library/components/cards/BoardCardMenu'
-import { BoardMosaicCover } from '~/features/library/components/cards/BoardMosaicCover'
-import { getLibraryBoardAriaLabel } from '~/features/library/lib/libraryBoardAria'
-import { TierBar } from '~/features/library/components/cards/TierBar'
-import { PublishChip } from '~/features/library/components/chips/PublishChip'
-import { SyncChip } from '~/features/library/components/chips/SyncChip'
-import { VisibilityChip } from '~/features/library/components/chips/VisibilityChip'
-import { BOARD_LIST_GRID_TEMPLATE } from '~/features/library/components/list/boardListGrid'
+import { BoardCardMenu } from '../cards/BoardCardMenu'
+import { BoardMosaicCover } from '../cards/BoardMosaicCover'
+import { TierBar } from '../cards/TierBar'
+import { PublishChip } from '../chips/PublishChip'
+import { SyncChip } from '../chips/SyncChip'
+import { VisibilityChip } from '../chips/VisibilityChip'
+import { BOARD_LIST_GRID_TEMPLATE } from './boardListGrid'
 
 // right padding reserved on every row + the header so the absolutely-positioned
 // overflow menu doesn't collide w/ the last column's content
@@ -41,11 +41,7 @@ const BoardListRow = memo(
     isPending,
   }: BoardListRowProps) =>
   {
-    const handleClick = () =>
-    {
-      if (!onOpen || isPending) return
-      onOpen(board)
-    }
+    const openAction = makeBoardClickHandler(onOpen, isPending, board)
 
     return (
       <div
@@ -54,9 +50,9 @@ const BoardListRow = memo(
       >
         <button
           type="button"
-          onClick={handleClick}
-          disabled={!onOpen || isPending}
-          aria-label={getLibraryBoardAriaLabel(board)}
+          onClick={openAction.onClick}
+          disabled={openAction.disabled}
+          aria-label={board.title}
           aria-busy={isPending || undefined}
           className={`focus-custom grid w-full items-center gap-4 py-3 ${ROW_HORIZONTAL_PADDING} text-left transition hover:bg-[rgb(var(--t-overlay)/0.025)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] disabled:cursor-progress disabled:opacity-70`}
           style={{ gridTemplateColumns: BOARD_LIST_GRID_TEMPLATE }}
@@ -65,6 +61,10 @@ const BoardListRow = memo(
             <BoardMosaicCover
               items={board.coverItems}
               density="dense"
+              itemAspectRatio={board.itemAspectRatio}
+              autoPlate={board.autoPlate}
+              defaultItemImageFit={board.defaultItemImageFit}
+              defaultItemImagePadding={board.defaultItemImagePadding}
               sourceCoverMedia={board.sourceTemplateCoverMedia}
               sourceCoverFraming={board.sourceTemplateCoverFraming}
               title={board.title}
@@ -85,11 +85,13 @@ const BoardListRow = memo(
             </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[var(--t-text-muted)]">
               <span className="truncate">
+                {board.activeItemCount}{' '}
                 {formatCountedWord(board.activeItemCount, 'item')}
-                {board.tierColors.length > 0 && (
+                {board.tierCount > 0 && (
                   <>
                     {' · '}
-                    {formatCountedWord(board.tierColors.length, 'tier')}
+                    {board.tierCount}{' '}
+                    {formatCountedWord(board.tierCount, 'tier')}
                   </>
                 )}
               </span>

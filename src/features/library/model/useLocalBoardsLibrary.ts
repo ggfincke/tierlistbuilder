@@ -1,6 +1,6 @@
 // src/features/library/model/useLocalBoardsLibrary.ts
 // projects locally-persisted boards into LibraryBoardListItem rows for the
-// My Boards grid
+// signed-out My Boards grid — every row is syncState 'localOnly'
 
 import { useMemo } from 'react'
 
@@ -16,42 +16,47 @@ import {
   type TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import {
-  PALETTE_IDS,
-  type PaletteId,
-  type TierColorSpec,
+import type {
+  PaletteId,
+  TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
 import { loadBoardFromStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 import { getImageRenditionRefs } from '~/shared/lib/imageRefs'
 import { getCachedImageUrl } from '~/shared/images/imageBlobCache'
+import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 
 const DEFAULT_LOCAL_PALETTE_ID: PaletteId = 'classic'
 
 type LocalLibrarySnapshot = BoardSnapshot
 
-const selectSnapshotPaletteId = (
-  snapshot: Partial<BoardSnapshot> | null
-): PaletteId =>
+interface LocalBoardsLibraryResult
 {
-  const paletteId = snapshot?.paletteId
-  return typeof paletteId === 'string' &&
-    (PALETTE_IDS as readonly string[]).includes(paletteId)
-    ? (paletteId as PaletteId)
-    : DEFAULT_LOCAL_PALETTE_ID
+  // null while disabled (signed-in) so the page can treat this like the cloud
+  // subscription hook & share the same downstream rendering
+  rows: LibraryBoardListItem[] | null
+  isLoading: boolean
 }
 
 const toLocalLibrarySnapshot = (
   snapshot: Partial<BoardSnapshot> | null
 ): LocalLibrarySnapshot | null =>
 {
-  if (!snapshot)
+  if (
+    !snapshot ||
+    !Array.isArray(snapshot.tiers) ||
+    !Array.isArray(snapshot.unrankedItemIds) ||
+    !snapshot.items ||
+    typeof snapshot.items !== 'object'
+  )
   {
     return null
   }
 
-  return normalizeBoardSnapshot(snapshot, selectSnapshotPaletteId(snapshot))
+  return normalizeBoardSnapshot(
+    snapshot,
+    snapshot.paletteId ?? DEFAULT_LOCAL_PALETTE_ID
+  )
 }
 
 const orderedLiveItems = (
@@ -86,6 +91,12 @@ const toCoverItem = (item: TierItem): LibraryBoardCoverItem =>
     label: item.label ?? null,
     externalId: item.id,
     mediaUrl: media ? getCachedImageUrl(media.ref.hash) : null,
+    imageFit: item.imageFit,
+    imagePadding: item.imagePadding,
+    backgroundColor: item.backgroundColor,
+    mediaPlate: item.mediaPlate,
+    transform: item.transform,
+    aspectRatio: item.aspectRatio,
     ...(media
       ? {
           mediaHash: media.ref.hash,
@@ -142,7 +153,7 @@ export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
     rankedItemCount,
     publishState: deriveLibraryPublishState({
       rankedItemCount,
-      hasPublishedTemplate: false,
+      hasPublishedOutput: false,
     }),
     syncState: 'localOnly',
     visibility: 'private',
@@ -151,19 +162,34 @@ export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
     sourceTemplateCoverMedia: snapshot?.sourceTemplateCoverMedia ?? null,
     sourceTemplateCoverFraming: snapshot?.sourceTemplateCoverFraming ?? null,
     coverItems: buildCoverItems(snapshot),
+    autoPlate: snapshot?.autoPlate ?? null,
+    defaultItemImageFit: snapshot?.defaultItemImageFit ?? null,
+    defaultItemImagePadding: snapshot?.defaultItemImagePadding ?? null,
+    itemAspectRatio: snapshot?.itemAspectRatio ?? null,
     paletteId: snapshot?.paletteId ?? DEFAULT_LOCAL_PALETTE_ID,
+    tierCount: tiers.length,
     tierColors,
     tierBreakdown,
+    // local boards have no live public ranking -> no mini cover
+    mini: null,
     pinned: false,
   }
 }
 
-export const projectLocalRows = (
+const projectLocalRows = (
   boards: readonly BoardMeta[]
 ): LibraryBoardListItem[] => boards.map(projectLocalRow)
 
-export const useLocalBoardsLibrary = (): LibraryBoardListItem[] =>
+export const useLocalBoardsLibrary = (
+  enabled: boolean
+): LocalBoardsLibraryResult =>
 {
   const boards = useWorkspaceBoardRegistryStore((state) => state.boards)
-  return useMemo(() => projectLocalRows(boards), [boards])
+
+  const rows = useMemo(
+    () => (enabled ? projectLocalRows(boards) : null),
+    [enabled, boards]
+  )
+
+  return { rows, isLoading: false }
 }

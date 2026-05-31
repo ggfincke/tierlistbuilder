@@ -1,6 +1,5 @@
 // src/features/library/lib/statusMeta.ts
-// presentation taxonomy for the My Boards two-axis status model — publish
-// state (Draft/WIP/Live) & sync state (Local only/Synced/...)
+// presentation taxonomy for the My Boards two-axis status model
 
 import {
   AlertCircle,

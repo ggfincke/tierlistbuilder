@@ -1,4 +1,4 @@
-// src/features/library/components/cards/NewBoardTile.tsx
+// src/features/library/ui/cards/NewBoardTile.tsx
 // dashed "New board" CTA tile — creates a blank local board from grid view
 
 import { Plus } from 'lucide-react'

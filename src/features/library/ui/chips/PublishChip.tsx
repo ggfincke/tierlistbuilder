@@ -1,4 +1,4 @@
-// src/features/library/components/chips/PublishChip.tsx
+// src/features/library/ui/chips/PublishChip.tsx
 // publish-state chip — Draft / WIP / Live. 'overlay' variant sits over cover
 // art on a dark scrim; 'inline' sits on a themed surface. Live carries a pulse
 

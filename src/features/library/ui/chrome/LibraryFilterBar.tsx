@@ -1,4 +1,4 @@
-// src/features/library/components/chrome/LibraryFilterBar.tsx
+// src/features/library/ui/chrome/LibraryFilterBar.tsx
 // horizontal control rail — publish-state filter chips, sort menu, view &
 // density toggles. The chip rail shares the Scoreboard +New CTA register
 
@@ -24,7 +24,7 @@ import {
 } from '~/shared/ui/IconToggleGroup'
 import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 import { Chip } from '~/shared/ui/Chip'
-import { DensityToggle } from '~/features/library/components/chrome/DensityToggle'
+import { DensityToggle } from '~/features/library/ui/chrome/DensityToggle'
 
 interface LibraryFilterBarProps
 {

@@ -1,4 +1,4 @@
-// src/features/library/components/chips/SyncChip.tsx
+// src/features/library/ui/chips/SyncChip.tsx
 // sync-state chip — Local only / Synced / Syncing / Sync failed / Conflict.
 // 'overlay' is icon-only over cover art; 'inline' adds the label on a surface
 

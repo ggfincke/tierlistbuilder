@@ -1,4 +1,4 @@
-// src/features/library/components/chrome/LibraryEmptyState.tsx
+// src/features/library/ui/chrome/LibraryEmptyState.tsx
 // shown when filtering yields zero rows OR the user has zero boards
 
 import { Plus } from 'lucide-react'

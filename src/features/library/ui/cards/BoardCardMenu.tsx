@@ -1,4 +1,4 @@
-// src/features/library/components/cards/BoardCardMenu.tsx
+// src/features/library/ui/cards/BoardCardMenu.tsx
 // per-row overflow menu for library boards. lifts the destructive action out
 // of the card's open trigger so we can render a real button without nesting
 

@@ -1,6 +1,6 @@
-// src/features/library/components/cards/BoardCard.tsx
-// grid-card repeat unit — cover artwork w/ sync chip + publish chip + overflow
-// menu in the corners, a mono eyebrow, title, & tier-pill meta strip
+// src/features/library/ui/cards/BoardCard.tsx
+// grid-card repeat unit — cover artwork w/ publish chip + overflow menu in the
+// corners, a mono eyebrow, title, & tier-pill meta strip
 
 import { memo } from 'react'
 import { ArrowRight } from 'lucide-react'
@@ -10,17 +10,17 @@ import type {
   LibraryBoardListItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 
-import { getLibraryBoardAriaLabel } from '~/features/library/lib/libraryBoardAria'
+import { makeBoardClickHandler } from '~/features/library/lib/boardClickHandler'
+import { LIBRARY_COVER_ASPECT_BY_DENSITY } from '~/features/library/lib/densityLayout'
 import { PUBLISH_STATE_META } from '~/shared/board-ui/publishStateMeta'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { CHUNKY_SHADOW_ACCENT_STATIC } from '~/shared/ui/chunkyShadow'
-import { BoardCardMenu } from '~/features/library/components/cards/BoardCardMenu'
-import { BoardMosaicCover } from '~/features/library/components/cards/BoardMosaicCover'
-import { TierPills } from '~/features/library/components/cards/TierPills'
-import { PublishChip } from '~/features/library/components/chips/PublishChip'
-import { SyncChip } from '~/features/library/components/chips/SyncChip'
-import { VisibilityChip } from '~/features/library/components/chips/VisibilityChip'
+import { BoardCardMenu } from './BoardCardMenu'
+import { BoardMosaicCover } from './BoardMosaicCover'
+import { TierPills } from './TierPills'
+import { PublishChip } from '../chips/PublishChip'
+import { VisibilityChip } from '../chips/VisibilityChip'
 
 interface BoardCardProps
 {
@@ -36,7 +36,7 @@ interface BoardCardProps
 
 interface DensityCfg
 {
-  coverHeight: string
+  coverAspect: string
   bodyPadding: string
   titleSize: string
   coverDensity: 'dense' | 'default' | 'loose'
@@ -46,21 +46,21 @@ interface DensityCfg
 
 const DENSITY_CFG: Record<LibraryBoardDensity, DensityCfg> = {
   dense: {
-    coverHeight: 'h-36',
+    coverAspect: LIBRARY_COVER_ASPECT_BY_DENSITY.dense,
     bodyPadding: 'px-3 py-2.5',
     titleSize: 'text-[13px]',
     coverDensity: 'dense',
     showMeta: false,
   },
   default: {
-    coverHeight: 'h-44',
+    coverAspect: LIBRARY_COVER_ASPECT_BY_DENSITY.default,
     bodyPadding: 'px-3.5 py-3',
     titleSize: 'text-[15px]',
     coverDensity: 'default',
     showMeta: true,
   },
   loose: {
-    coverHeight: 'h-56',
+    coverAspect: LIBRARY_COVER_ASPECT_BY_DENSITY.loose,
     bodyPadding: 'px-4 py-3.5',
     titleSize: 'text-[16px]',
     coverDensity: 'loose',
@@ -82,35 +82,31 @@ const BoardCardImpl = ({
   const cfg = DENSITY_CFG[density]
   const isLive = board.publishState === 'live'
   const publishMeta = PUBLISH_STATE_META[board.publishState]
-
-  const handleClick = () =>
-  {
-    if (!onOpen || isPending) return
-    onOpen(board)
-  }
+  const openAction = makeBoardClickHandler(onOpen, isPending, board)
 
   return (
     <div className="group relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] transition focus-within:border-[var(--t-border-secondary)] hover:-translate-y-0.5 hover:border-[var(--t-border-secondary)] hover:shadow-lg">
       <button
         type="button"
-        onClick={handleClick}
-        disabled={!onOpen || isPending}
-        aria-label={getLibraryBoardAriaLabel(board)}
+        onClick={openAction.onClick}
+        disabled={openAction.disabled}
+        aria-label={`${board.title} — ${publishMeta.label}`}
         aria-busy={isPending || undefined}
         className="focus-custom relative flex h-full w-full min-w-0 flex-col text-left focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] disabled:cursor-progress disabled:opacity-70"
       >
-        <div className={`relative w-full overflow-hidden ${cfg.coverHeight}`}>
+        <div className={`relative w-full overflow-hidden ${cfg.coverAspect}`}>
           <BoardMosaicCover
             items={board.coverItems}
+            mini={board.mini}
             density={cfg.coverDensity}
+            itemAspectRatio={board.itemAspectRatio}
+            autoPlate={board.autoPlate}
+            defaultItemImageFit={board.defaultItemImageFit}
+            defaultItemImagePadding={board.defaultItemImagePadding}
             sourceCoverMedia={board.sourceTemplateCoverMedia}
             sourceCoverFraming={board.sourceTemplateCoverFraming}
             title={board.title}
           />
-
-          <div className="pointer-events-none absolute left-2 top-2">
-            <SyncChip state={board.syncState} variant="overlay" />
-          </div>
 
           {/* hover CTA — names the next action for this publish state */}
           <div

@@ -1,4 +1,4 @@
-// src/features/library/components/modals/RenameBoardModal.tsx
+// src/features/library/ui/modals/RenameBoardModal.tsx
 // small prompt-style modal for renaming a library board
 
 import { useId, useRef, useState, type FormEvent } from 'react'

@@ -1,4 +1,4 @@
-// src/features/library/components/list/boardListGrid.ts
+// src/features/library/ui/list/boardListGrid.ts
 // shared list-view grid template for library rows & skeletons
 
 export const BOARD_LIST_GRID_TEMPLATE =

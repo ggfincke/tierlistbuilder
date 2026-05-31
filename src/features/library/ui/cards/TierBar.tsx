@@ -1,8 +1,9 @@
-// src/features/library/components/cards/TierBar.tsx
+// src/features/library/ui/cards/TierBar.tsx
 // horizontal progress bar segmented by tier; unranked items fill the tail
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 
+import { clamp } from '~/shared/lib/math'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 
 interface TierBarProps
@@ -43,7 +44,7 @@ export const TierBar = ({
     )
   }
 
-  const ranked = Math.max(0, Math.min(board.rankedItemCount, total))
+  const ranked = clamp(board.rankedItemCount, 0, total)
   // sum may diverge from `ranked` when the cached breakdown is capped (see
   // LIBRARY_BOARD_TIER_LIMIT) or stale — scale segments against the breakdown
   // sum so colored fill always lands at exactly ranked/total of the track.

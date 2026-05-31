@@ -1,4 +1,4 @@
-// src/features/library/components/chrome/DensityToggle.tsx
+// src/features/library/ui/chrome/DensityToggle.tsx
 // 3-segment dense/default/loose control for the grid view; hidden in list view
 
 import { Columns2, Columns3, Columns4 } from 'lucide-react'

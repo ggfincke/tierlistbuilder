@@ -1,4 +1,4 @@
-// src/features/library/components/chips/VisibilityChip.tsx
+// src/features/library/ui/chips/VisibilityChip.tsx
 // public/private icon + label chip used on cards & list rows
 
 import { Globe2, Lock } from 'lucide-react'

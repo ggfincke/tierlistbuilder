@@ -1,9 +1,13 @@
-// src/features/library/components/chrome/LibrarySkeleton.tsx
+// src/features/library/ui/chrome/LibrarySkeleton.tsx
 // loading-state placeholders for the page's content section
 
 import type { LibraryBoardDensity } from '@tierlistbuilder/contracts/workspace/board'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
-import { BOARD_LIST_GRID_TEMPLATE } from '~/features/library/components/list/boardListGrid'
+import { BOARD_LIST_GRID_TEMPLATE } from '~/features/library/ui/list/boardListGrid'
+import {
+  LIBRARY_COVER_ASPECT_BY_DENSITY,
+  LIBRARY_GRID_CLASS_BY_DENSITY,
+} from '~/features/library/lib/densityLayout'
 
 interface LibrarySkeletonProps
 {
@@ -12,18 +16,12 @@ interface LibrarySkeletonProps
   layout: 'grid' | 'list'
 }
 
-const COVER_HEIGHT_BY_DENSITY: Record<LibraryBoardDensity, string> = {
-  dense: 'h-36',
-  default: 'h-44',
-  loose: 'h-56',
-}
-
 const GridSkeletonCard = ({ density }: { density: LibraryBoardDensity }) => (
   <div
     aria-hidden="true"
     className="flex flex-col overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
   >
-    <SkeletonBlock className={COVER_HEIGHT_BY_DENSITY[density]} />
+    <SkeletonBlock className={LIBRARY_COVER_ASPECT_BY_DENSITY[density]} />
     <div className="space-y-2 px-3 py-3">
       <SkeletonBlock className="h-2 w-1/3 rounded" tone="soft" />
       <SkeletonText className="w-3/4" tone="strong" />
@@ -91,12 +89,8 @@ export const LibrarySkeleton = ({
     )
   }
 
-  const cols = density === 'dense' ? 4 : density === 'loose' ? 2 : 3
   return (
-    <div
-      className="grid gap-3.5"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-    >
+    <div className={`grid gap-5 ${LIBRARY_GRID_CLASS_BY_DENSITY[density]}`}>
       {Array.from({ length: count }).map((_, i) => (
         <GridSkeletonCard key={i} density={density} />
       ))}
