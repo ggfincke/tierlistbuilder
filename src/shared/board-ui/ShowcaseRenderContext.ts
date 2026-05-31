@@ -3,14 +3,10 @@
 // resolved cover/mini payload so ItemContent can draw the tile
 
 import { createContext, type ReactNode } from 'react'
-import type {
-  ShowcaseRankingTile,
-  ShowcaseTileMode,
-} from '@tierlistbuilder/contracts/platform/showcase'
+import type { ShowcaseRankingTile } from '@tierlistbuilder/contracts/platform/showcase'
 
 export interface ShowcaseRenderState
 {
-  tileMode: ShowcaseTileMode
   // keyed by board externalId
   tiles: Map<string, ShowcaseRankingTile>
   // optional per-tile link wrapper — the read-only profile supplies a router

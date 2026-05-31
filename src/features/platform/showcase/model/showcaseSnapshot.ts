@@ -17,7 +17,6 @@ import {
   type ShowcasePlacementInput,
   type ShowcaseRankingTile,
   type ShowcaseTier,
-  type ShowcaseTileMode,
 } from '@tierlistbuilder/contracts/platform/showcase'
 import type { ShowcaseRenderState } from '~/shared/board-ui/ShowcaseRenderContext'
 
@@ -103,7 +102,7 @@ export const publicShowcaseToSnapshot = (
       items,
       deletedItems: [],
     },
-    render: { tileMode: showcase.tileMode, tiles },
+    render: { tiles },
   }
 }
 
@@ -156,15 +155,14 @@ export const editShowcaseToSnapshot = (
       items,
       deletedItems: [],
     },
-    render: { tileMode: data.tileMode, tiles },
+    render: { tiles },
   }
 }
 
 // edited board snapshot -> save input. items left in the unranked pool are
 // dropped (re-derived as available lanes on the next load)
 export const boardSnapshotToShowcaseSave = (
-  snapshot: BoardSnapshot,
-  tileMode: ShowcaseTileMode
+  snapshot: BoardSnapshot
 ): ProfileShowcaseSaveInput =>
 {
   const tiers: ShowcaseTier[] = snapshot.tiers.map((tier, order) => ({
@@ -193,5 +191,5 @@ export const boardSnapshotToShowcaseSave = (
     }
   }
 
-  return { tileMode, tiers, placements }
+  return { tiers, placements }
 }

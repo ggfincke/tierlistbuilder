@@ -2,26 +2,19 @@
 // self-only tlotl editor — reuses the workspace dnd over a Convex-backed
 // showcase. the global autosave is gated while this page owns the board store
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 
 import { api } from '@convex/_generated/api'
 import type { ItemSize } from '@tierlistbuilder/contracts/platform/preferences'
-import {
-  SHOWCASE_TILE_MODES,
-  SHOWCASE_TILE_MODE_DEFAULT,
-  SHOWCASE_TILE_MODE_LABELS,
-  type ShowcaseRankingTile,
-  type ShowcaseTileMode,
-} from '@tierlistbuilder/contracts/platform/showcase'
+import type { ShowcaseRankingTile } from '@tierlistbuilder/contracts/platform/showcase'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { SignedOutPrompt } from '~/shared/ui/PageState'
 import { PAGE_TOP_LEVEL } from '~/shared/ui/pageContainer'
-import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { BoardRenderOverridesProvider } from '~/features/workspace/boards/model/BoardRenderOverridesProvider'
@@ -50,11 +43,6 @@ const SAVE_DEBOUNCE_MS = 500
 const SHOWCASE_ITEM_SIZE: ItemSize = 'large'
 // stable empty map for the render context while the showcase query loads
 const EMPTY_TILES: Map<string, ShowcaseRankingTile> = new Map()
-
-const TILE_MODE_OPTIONS = SHOWCASE_TILE_MODES.map((mode) => ({
-  value: mode,
-  label: SHOWCASE_TILE_MODE_LABELS[mode],
-}))
 
 const ShowcaseToolbar = ({ onAddTier }: { onAddTier: () => void }) => (
   <div className="flex items-center">
@@ -107,29 +95,14 @@ const ShowcaseEditorSignedIn = () =>
     [editData]
   )
 
-  // toggle override layered over the saved mode so we never seed state from the
-  // query inside an effect
-  const [tileModeOverride, setTileModeOverride] =
-    useState<ShowcaseTileMode | null>(null)
-  const tileMode =
-    tileModeOverride ?? editData?.tileMode ?? SHOWCASE_TILE_MODE_DEFAULT
-  const tileModeRef = useRef(tileMode)
   const loadedRef = useRef(false)
   const saveSchedulerRef = useRef<ShowcaseSaveScheduler | null>(null)
-
-  // keep the ref current so the debounced save closure reads the latest mode
-  useEffect(() =>
-  {
-    tileModeRef.current = tileMode
-  }, [tileMode])
 
   const saveCurrentShowcase = useCallback(() =>
   {
     if (!loadedRef.current) return
     const snapshot = extractBoardData(useActiveBoardStore.getState())
-    void saveShowcase(
-      boardSnapshotToShowcaseSave(snapshot, tileModeRef.current)
-    )
+    void saveShowcase(boardSnapshotToShowcaseSave(snapshot))
   }, [saveShowcase])
 
   useEffect(() =>
@@ -183,17 +156,6 @@ const ShowcaseEditorSignedIn = () =>
     return unsubscribe
   }, [])
 
-  const handleTileMode = useCallback(
-    (mode: ShowcaseTileMode) =>
-    {
-      if (mode === tileModeRef.current) return
-      setTileModeOverride(mode)
-      const snapshot = extractBoardData(useActiveBoardStore.getState())
-      void saveShowcase(boardSnapshotToShowcaseSave(snapshot, mode))
-    },
-    [saveShowcase]
-  )
-
   const handleAddTier = useCallback(
     () => useActiveBoardStore.getState().addTier(SHOWCASE_PALETTE_ID),
     []
@@ -206,10 +168,7 @@ const ShowcaseEditorSignedIn = () =>
   }, [navigate])
 
   const tiles = board?.render.tiles
-  const renderValue = useMemo(
-    () => ({ tileMode, tiles: tiles ?? EMPTY_TILES }),
-    [tileMode, tiles]
-  )
+  const renderValue = useMemo(() => ({ tiles: tiles ?? EMPTY_TILES }), [tiles])
 
   if (!board)
   {
@@ -218,36 +177,23 @@ const ShowcaseEditorSignedIn = () =>
 
   return (
     <div className={PAGE_TOP_LEVEL}>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleDoneEditing}
-            aria-label="Done editing"
-            className="focus-custom grid h-9 w-9 place-items-center rounded-lg border border-[var(--t-border)] text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-          >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2.2} aria-hidden />
-          </button>
-          <div>
-            <h1 className="text-[22px] font-black tracking-[-0.01em] text-[var(--t-text)]">
-              Your tier list
-            </h1>
-            <p className="text-[13px] text-[var(--t-text-muted)]">
-              Drag your published rankings into tiers. The rest stay in the
-              pool. Changes save automatically.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[12px] font-semibold text-[var(--t-text-faint)]">
-            Profile tiles
-          </span>
-          <SegmentedControl<ShowcaseTileMode>
-            value={tileMode}
-            onChange={handleTileMode}
-            options={TILE_MODE_OPTIONS}
-            ariaLabel="Profile tile display"
-          />
+      <div className="mb-6 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleDoneEditing}
+          aria-label="Done editing"
+          className="focus-custom grid h-9 w-9 place-items-center rounded-lg border border-[var(--t-border)] text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+        >
+          <ArrowLeft className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+        </button>
+        <div>
+          <h1 className="text-[22px] font-black tracking-[-0.01em] text-[var(--t-text)]">
+            Your tier list
+          </h1>
+          <p className="text-[13px] text-[var(--t-text-muted)]">
+            Drag your published rankings into tiers. The rest stay in the pool.
+            Changes save automatically.
+          </p>
         </div>
       </div>
 

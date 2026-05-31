@@ -92,8 +92,8 @@ export const ItemContent = ({
   ])
   const imageUrl = item.imageUrl ?? cachedUrl
 
-  // showcase tile: draw the ranking's cover / mini board from context, keyed by
-  // board externalId. every hook above runs unconditionally so this stays hook-safe
+  // showcase tile: draw the ranking's cropped mini / cover fallback from context,
+  // keyed by board externalId. every hook above runs unconditionally so this stays hook-safe
   if (item.showcaseRanking)
   {
     const ranking = item.showcaseRanking
@@ -101,7 +101,6 @@ export const ItemContent = ({
     const content = (
       <ShowcaseTileContent
         tile={tile}
-        tileMode={showcaseState?.tileMode ?? 'cover'}
         title={ranking.title}
         frameAspectRatio={frameAspectRatio}
         imageLoading={imageLoading}
