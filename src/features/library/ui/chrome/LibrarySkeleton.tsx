@@ -6,7 +6,7 @@ import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { BOARD_LIST_GRID_TEMPLATE } from '~/features/library/ui/list/boardListGrid'
 import {
   LIBRARY_COVER_HEIGHT_BY_DENSITY,
-  LIBRARY_GRID_COLUMNS_BY_DENSITY,
+  LIBRARY_GRID_CLASS_BY_DENSITY,
 } from '~/features/library/lib/densityLayout'
 
 interface LibrarySkeletonProps
@@ -89,12 +89,8 @@ export const LibrarySkeleton = ({
     )
   }
 
-  const cols = LIBRARY_GRID_COLUMNS_BY_DENSITY[density]
   return (
-    <div
-      className="grid gap-3.5"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-    >
+    <div className={`grid gap-5 ${LIBRARY_GRID_CLASS_BY_DENSITY[density]}`}>
       {Array.from({ length: count }).map((_, i) => (
         <GridSkeletonCard key={i} density={density} />
       ))}

@@ -15,7 +15,10 @@ import { LibrarySignedOutState } from '~/features/library/ui/chrome/LibrarySigne
 import { LibrarySkeleton } from '~/features/library/ui/chrome/LibrarySkeleton'
 import { NewBoardTile } from '~/features/library/ui/cards/NewBoardTile'
 import { getLibraryFilterStatusLabel } from '~/features/library/lib/statusMeta'
-import { LIBRARY_GRID_COLUMNS_BY_DENSITY } from '~/features/library/lib/densityLayout'
+import {
+  LIBRARY_GRID_CLASS_BY_DENSITY,
+  LIBRARY_GRID_COLUMNS_BY_DENSITY,
+} from '~/features/library/lib/densityLayout'
 import {
   countLibraryPublishStates,
   filterLibraryBoards,
@@ -119,13 +122,6 @@ export const MyBoardsPage = () =>
     deferredSearch,
     foldedTitleByExternalId,
   ])
-
-  const gridStyle = useMemo(
-    () => ({
-      gridTemplateColumns: `repeat(${LIBRARY_GRID_COLUMNS_BY_DENSITY[filters.density]}, minmax(0, 1fr))`,
-    }),
-    [filters.density]
-  )
 
   const showSignedOutBanner = !isAuthLoading && !isSignedIn
   const filtersActive =
@@ -267,7 +263,9 @@ export const MyBoardsPage = () =>
             pendingActionExternalId={pendingActionExternalId}
           />
         ) : (
-          <div className="grid gap-3.5" style={gridStyle}>
+          <div
+            className={`grid gap-5 ${LIBRARY_GRID_CLASS_BY_DENSITY[filters.density]}`}
+          >
             {!filtersActive && (
               <NewBoardTile
                 onCreate={createBoard.start}

@@ -61,6 +61,10 @@ const BoardListRow = memo(
             <BoardMosaicCover
               items={board.coverItems}
               density="dense"
+              itemAspectRatio={board.itemAspectRatio}
+              autoPlate={board.autoPlate}
+              defaultItemImageFit={board.defaultItemImageFit}
+              defaultItemImagePadding={board.defaultItemImagePadding}
               sourceCoverMedia={board.sourceTemplateCoverMedia}
               sourceCoverFraming={board.sourceTemplateCoverFraming}
               title={board.title}

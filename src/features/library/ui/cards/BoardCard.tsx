@@ -101,6 +101,10 @@ const BoardCardImpl = ({
           <BoardMosaicCover
             items={board.coverItems}
             density={cfg.coverDensity}
+            itemAspectRatio={board.itemAspectRatio}
+            autoPlate={board.autoPlate}
+            defaultItemImageFit={board.defaultItemImageFit}
+            defaultItemImagePadding={board.defaultItemImagePadding}
             sourceCoverMedia={board.sourceTemplateCoverMedia}
             sourceCoverFraming={board.sourceTemplateCoverFraming}
             title={board.title}

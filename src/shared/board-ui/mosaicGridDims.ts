@@ -1,11 +1,11 @@
-// src/features/marketplace/ui/discovery/mosaicGrid.ts
-// grid sizing helpers for marketplace mosaic covers
+// src/shared/board-ui/mosaicGridDims.ts
+// grid sizing helpers for mosaic covers (marketplace cards & library boards)
 
 const DIM_CAP = 16
 
-// pick (cols, rows) for itemCount in a container of shape coverAspect. cells
-// use cellAspect (matching board slots); grid is centered, leaving symmetric
-// matte where the natural aspect doesn't fill the cover exactly
+// pick (cols, rows) for itemCount in a container of shape coverAspect. cols/
+// rows are chosen so the grid aspect ~ coverAspect, so the top-left cover-fill
+// clips as little as possible off the right/bottom edge
 export const computeGridDims = (
   itemCount: number,
   maxSlots: number,
@@ -13,9 +13,13 @@ export const computeGridDims = (
   cellAspect: number
 ): { cols: number; rows: number } =>
 {
+  // guard the divisor: a 0/negative cell aspect (corrupt or unset) would make
+  // the dims non-finite, so fall back to square
+  const safeCellAspect = cellAspect > 0 ? cellAspect : 1
+
   if (itemCount <= 0)
   {
-    const targetColsRows = Math.max(coverAspect / cellAspect, 0.05)
+    const targetColsRows = Math.max(coverAspect / safeCellAspect, 0.05)
     const cols = Math.max(1, Math.round(Math.sqrt(maxSlots * targetColsRows)))
     return { cols, rows: Math.max(1, Math.ceil(maxSlots / cols)) }
   }
@@ -43,10 +47,10 @@ export const computeGridDims = (
       const slots = cols * rows
       if (slots < budget || slots > slotCeiling) continue
 
-      // asymmetric: narrow grids leave horizontal matte (looks off), wide
-      // grids letterbox vertically (reads as designed marquee). penalize
-      // narrowness ~3.6x harder so widthBound layouts win across cell aspects
-      const gridAspect = (cols * cellAspect) / rows
+      // asymmetric: a narrow grid overflows the bottom (whole rows clipped,
+      // looks off), a wide grid overflows the right (a marquee). penalize
+      // narrowness ~3.6x harder so wide layouts win across aspects
+      const gridAspect = (cols * safeCellAspect) / rows
       const ratioPenalty =
         gridAspect < coverAspect
           ? Math.log(coverAspect / gridAspect) * 18
