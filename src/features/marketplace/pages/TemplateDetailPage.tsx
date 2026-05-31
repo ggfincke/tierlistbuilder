@@ -23,6 +23,7 @@ import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
+import { PAGE_SHELL } from '~/shared/ui/pageContainer'
 import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
 import { Card } from '~/features/marketplace/ui/cards/Card'
@@ -71,7 +72,7 @@ const NotFound = () => (
 const DetailSkeleton = () => (
   <section
     aria-hidden="true"
-    className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
+    className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}
   >
     <SkeletonText className="w-48" tone="soft" />
     <div className="mt-5 grid gap-6 lg:grid-cols-[1.25fr_0.95fr_320px]">
@@ -277,7 +278,7 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
     ) : null
 
   return (
-    <article className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
+    <article className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}>
       <MarketplaceBreadcrumb
         items={[
           { label: 'Templates', to: TEMPLATES_ROUTE_PATH },

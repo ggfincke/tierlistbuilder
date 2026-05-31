@@ -4,13 +4,14 @@
 import { ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import { PAGE_SHELL } from '~/shared/ui/pageContainer'
+
 interface MarketplaceNotFoundProps
 {
   title: string
   body: string
   actionLabel: string
   to: string
-  maxWidthClassName?: string
 }
 
 export const MarketplaceNotFound = ({
@@ -18,10 +19,9 @@ export const MarketplaceNotFound = ({
   body,
   actionLabel,
   to,
-  maxWidthClassName = 'max-w-[1320px]',
 }: MarketplaceNotFoundProps) => (
   <section
-    className={`relative z-10 mx-auto flex min-h-[60vh] w-full ${maxWidthClassName} items-center justify-center px-5 pt-20 text-center sm:px-8 sm:pt-24`}
+    className={`${PAGE_SHELL} flex min-h-[60vh] items-center justify-center pt-20 text-center sm:pt-24`}
   >
     <div className="max-w-md">
       <h1 className="text-2xl font-semibold text-[var(--t-text)]">{title}</h1>

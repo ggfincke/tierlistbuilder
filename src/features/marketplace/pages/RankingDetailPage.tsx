@@ -38,6 +38,7 @@ import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/Marketplac
 import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
 import { MetaPill } from '~/features/marketplace/ui/meta/MetaPill'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
+import { PAGE_SHELL } from '~/shared/ui/pageContainer'
 
 // neutral palette for ranking surfaces; viewers don't carry workspace prefs
 const RANKING_PALETTE_ID = 'classic' as const
@@ -193,14 +194,13 @@ const NotFound = () => (
     body="It may have been unpublished or the link might be wrong."
     actionLabel="Browse templates"
     to={TEMPLATES_ROUTE_PATH}
-    maxWidthClassName="max-w-[1240px]"
   />
 )
 
 const DetailSkeleton = () => (
   <section
     aria-hidden="true"
-    className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
+    className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}
   >
     <SkeletonText className="w-48" tone="soft" />
     <SkeletonBlock className="mt-5 h-9 w-2/3 rounded" tone="strong" />
@@ -311,7 +311,7 @@ export const RankingDetailPage = () =>
   }
 
   return (
-    <article className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
+    <article className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}>
       <MarketplaceBreadcrumb
         items={[
           { label: 'Templates', to: TEMPLATES_ROUTE_PATH },

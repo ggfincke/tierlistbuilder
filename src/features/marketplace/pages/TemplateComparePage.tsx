@@ -34,6 +34,7 @@ import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
+import { PAGE_SHELL } from '~/shared/ui/pageContainer'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
 import { templateFrame } from '~/features/marketplace/ui/consensus/lib/utils'
@@ -147,7 +148,7 @@ const NotFound = () => (
 const PageSkeleton = () => (
   <section
     aria-hidden="true"
-    className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
+    className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}
   >
     <SkeletonBlock className="h-4 w-48 rounded" tone="soft" />
     <SkeletonBlock className="mt-5 h-9 w-2/3 rounded" tone="strong" />
@@ -287,7 +288,7 @@ const CompareBody = ({
     })
 
   return (
-    <article className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
+    <article className={`${PAGE_SHELL} pt-20 pb-20 sm:pt-24`}>
       <MarketplaceBreadcrumb
         items={[
           { label: 'Templates', to: TEMPLATES_ROUTE_PATH },

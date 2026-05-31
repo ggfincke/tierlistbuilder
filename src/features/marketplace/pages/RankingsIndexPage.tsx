@@ -11,13 +11,14 @@ import {
   CHUNKY_SHADOW_TRANSITION,
 } from '~/shared/ui/chunkyShadow'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
+import { PAGE_SHELL } from '~/shared/ui/pageContainer'
 
 export const RankingsIndexPage = () =>
 {
   useDocumentTitle('Rankings · TierListBuilder')
 
   return (
-    <section className="relative z-10 mx-auto flex min-h-[70vh] w-full max-w-[1200px] items-center px-6 pt-20 pb-12 sm:px-10 sm:pt-24">
+    <section className={`${PAGE_SHELL} flex min-h-[70vh] items-center pt-20 pb-12 sm:pt-24`}>
       <div className="max-w-2xl">
         <DisplayHeadline
           eyebrow="Community rankings · Coming soon"
