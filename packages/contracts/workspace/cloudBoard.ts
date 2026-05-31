@@ -10,6 +10,7 @@ import type {
   ItemLabelOptions,
   ItemTransform,
   MediaPlate,
+  TierItem,
 } from './board'
 
 // cloud board sync caps; server enforces these before writing row diffs.
@@ -55,6 +56,47 @@ export interface CloudBoardItemWire
   // resolves it to boardItems.templateItemId.
   sourceTemplateItemExternalId?: string
 }
+
+type _AssertNever<T extends never> = T
+
+type CloudBoardItemLocalOnlyField =
+  | 'id'
+  | 'imageRef'
+  | 'tileImageRef'
+  | 'sourceImageRef'
+  | 'showcaseRanking'
+
+export type CloudBoardItemScalarField = Exclude<
+  keyof TierItem,
+  CloudBoardItemLocalOnlyField
+>
+
+export const CLOUD_BOARD_ITEM_SCALAR_FIELDS = [
+  'label',
+  'backgroundColor',
+  'mediaPlate',
+  'altText',
+  'notes',
+  'aspectRatio',
+  'imageFit',
+  'transform',
+  'imagePadding',
+  'labelOptions',
+  'sourceTemplateItemExternalId',
+] as const satisfies readonly CloudBoardItemScalarField[]
+
+// fails if the runtime scalar manifest drifts from the item wire scalar type
+const _cloudBoardItemScalarFieldsExact: _AssertNever<
+  | Exclude<
+      CloudBoardItemScalarField,
+      (typeof CLOUD_BOARD_ITEM_SCALAR_FIELDS)[number]
+    >
+  | Exclude<
+      (typeof CLOUD_BOARD_ITEM_SCALAR_FIELDS)[number],
+      CloudBoardItemScalarField
+    >
+> = undefined as never
+void _cloudBoardItemScalarFieldsExact
 
 // board-wide aspect-ratio config shared by payload & state so a synced board
 // doesn't lose its ratio settings on a push/pull cycle

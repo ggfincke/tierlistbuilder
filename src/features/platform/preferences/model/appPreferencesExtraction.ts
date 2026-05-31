@@ -3,32 +3,36 @@
 
 import type { AppPreferences } from '@tierlistbuilder/contracts/platform/preferences'
 
-const APP_PREFERENCES_KEYS = [
-  'itemSize',
-  'showLabels',
-  'defaultLabelPlacementMode',
-  'defaultLabelFontSizePx',
-  'itemShape',
-  'compactMode',
-  'exportBackgroundOverride',
-  'exportItemsPerRow',
-  'boardBackgroundOverride',
-  'labelWidth',
-  'hideRowControls',
-  'confirmBeforeDelete',
-  'themeId',
-  'paletteId',
-  'textStyleId',
-  'tierLabelBold',
-  'tierLabelItalic',
-  'tierLabelFontSize',
-  'boardLocked',
-  'topNavLocked',
-  'reducedMotion',
-  'toolbarPosition',
-  'showItemEditButton',
-  'autoCropTrimSoftShadows',
-] as const satisfies readonly (keyof AppPreferences)[]
+const APP_PREFERENCES_KEY_MAP = {
+  itemSize: true,
+  showLabels: true,
+  defaultLabelPlacementMode: true,
+  defaultLabelFontSizePx: true,
+  itemShape: true,
+  compactMode: true,
+  exportBackgroundOverride: true,
+  exportItemsPerRow: true,
+  boardBackgroundOverride: true,
+  labelWidth: true,
+  hideRowControls: true,
+  confirmBeforeDelete: true,
+  themeId: true,
+  paletteId: true,
+  textStyleId: true,
+  tierLabelBold: true,
+  tierLabelItalic: true,
+  tierLabelFontSize: true,
+  boardLocked: true,
+  topNavLocked: true,
+  reducedMotion: true,
+  toolbarPosition: true,
+  showItemEditButton: true,
+  autoCropTrimSoftShadows: true,
+} as const satisfies Record<keyof AppPreferences, true>
+
+const APP_PREFERENCES_KEYS = Object.keys(
+  APP_PREFERENCES_KEY_MAP
+) as (keyof AppPreferences)[]
 
 export const extractAppPreferences = <T extends AppPreferences>(
   source: T

@@ -40,6 +40,25 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
 	return upserts
 
 
+def items_content_hash(template_external_id: str, items: list[JsonObject]) -> str:
+	return _child_content_hash("items", template_external_id, items)
+
+
+def criteria_content_hash(template_external_id: str, criteria: list[JsonObject]) -> str:
+	return _child_content_hash("criteria", template_external_id, criteria)
+
+
+def _child_content_hash(
+	child_key: str,
+	template_external_id: str,
+	rows: list[JsonObject],
+) -> str:
+	return seed_content_hash(
+		f"template-{child_key}",
+		{"templateExternalId": template_external_id, child_key: rows},
+	)
+
+
 def build_template_metadata_payload(template: JsonObject) -> JsonObject:
 	cover = template.get("coverImage")
 	upsert = {

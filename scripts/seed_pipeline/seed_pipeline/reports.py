@@ -17,7 +17,12 @@ from .settings import (
 if TYPE_CHECKING:
 	from .run_context import SeedRunContext
 
-from .report_layout import _append_section, report_header, write_report
+from .report_layout import (
+	append_section,
+	compiled_report_header,
+	report_header,
+	write_report,
+)
 
 
 def write_preflight_report(
@@ -27,30 +32,32 @@ def write_preflight_report(
 	error_count: int,
 ) -> None:
 	totals = compiled_manifest["totals"]
-	lines = [
-		"# Seed Preflight Report",
-		"",
-		f"- Dataset: `{compiled_manifest['datasetKey']}`",
-		f"- Release: `{compiled_manifest['releaseId']}`",
-		f"- Author: `{compiled_manifest['authorEmail']}`",
-		f"- Templates: {totals['templateCount']}",
-		f"- Items: {totals['itemCount']}",
-		f"- Criteria: {totals['criterionCount']}",
-		f"- Source images: {totals['sourceImageCount']}",
-		f"- Variants: {totals['variantCount']}",
-		f"- Estimated upload bytes: {totals['estimatedUploadBytes']}",
-		f"- Estimated storage bytes: {totals['estimatedStorageBytes']}",
-		f"- Warnings: {warning_count}",
-		f"- Errors: {error_count}",
-		"",
-		"## Variant Policies",
-		"",
-		f"- Tile: <= {TILE_MAX_SIZE}px, <= {TILE_MAX_BYTES} bytes",
-		f"- Preview: <= {PREVIEW_MAX_SIZE}px, <= {PREVIEW_MAX_BYTES} bytes",
-		"",
-		"## Template Ratios",
-		"",
-	]
+	lines = compiled_report_header(
+		compiled_manifest,
+		"Seed Preflight Report",
+		after=[
+			f"- Templates: {totals['templateCount']}",
+			f"- Items: {totals['itemCount']}",
+			f"- Criteria: {totals['criterionCount']}",
+			f"- Source images: {totals['sourceImageCount']}",
+			f"- Variants: {totals['variantCount']}",
+			f"- Estimated upload bytes: {totals['estimatedUploadBytes']}",
+			f"- Estimated storage bytes: {totals['estimatedStorageBytes']}",
+			f"- Warnings: {warning_count}",
+			f"- Errors: {error_count}",
+		],
+	)
+	lines.extend(
+		[
+			"## Variant Policies",
+			"",
+			f"- Tile: <= {TILE_MAX_SIZE}px, <= {TILE_MAX_BYTES} bytes",
+			f"- Preview: <= {PREVIEW_MAX_SIZE}px, <= {PREVIEW_MAX_BYTES} bytes",
+			"",
+			"## Template Ratios",
+			"",
+		]
+	)
 	for template in compiled_manifest["templates"]:
 		# transformed count is the quickest sanity check for crop behavior drift
 		transformed = sum(1 for item in template["items"] if item["transform"])
@@ -194,7 +201,7 @@ def write_run_report(context: SeedRunContext, steps: list[str]) -> Path:
 
 def _append_result_summary(lines: list[str], title: str, results: list[JsonObject]) -> None:
 	keys = sorted({key for result in results for key in result.keys()})
-	_append_section(
+	append_section(
 		lines,
 		title,
 		keys,
@@ -209,4 +216,4 @@ def _append_report_rows(lines: list[str], title: str, rows: object, label_key: s
 		label = row.get(label_key) or row
 		return f"- `{label}`"
 
-	_append_section(lines, title, as_list(rows), _format)
+	append_section(lines, title, as_list(rows), _format)

@@ -38,3 +38,26 @@ export const announceItemsDropped = (
       : `Dropped ${label} in ${dest}`
   )
 }
+
+export const announceItemsPickedUp = (
+  state: ActiveBoardStore,
+  pickedItemId: ItemId,
+  groupCount: number,
+  options: { includeKeyboardInstructions?: boolean } = {}
+): void =>
+{
+  const suffix = options.includeKeyboardInstructions
+    ? '. Arrow keys to move, space or Enter to drop.'
+    : ''
+  const label = state.items[pickedItemId]?.label ?? 'item'
+  announce(
+    groupCount > 1
+      ? `Picked up ${formatCountedWord(groupCount, 'item')}${suffix}`
+      : `Picked up ${label}${suffix}`
+  )
+}
+
+export const announceDragCancelled = (): void =>
+{
+  announce('Drag cancelled')
+}

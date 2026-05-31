@@ -2,7 +2,7 @@
 // richer card sat above the rail when the Featured tab is active & there's
 // at least one curated ranking. uses the first featured ranking's metadata
 
-import { Crown, Eye } from 'lucide-react'
+import { Eye } from 'lucide-react'
 
 import type { MarketplaceRankingSummary } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { RANKING_FEATURED_BADGE_LABELS } from '@tierlistbuilder/contracts/marketplace/ranking'
@@ -11,6 +11,7 @@ import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
 
 import { avatarColor } from '../lib/utils'
+import { RankingAuthorSwatch } from './RankingAuthorSwatch'
 
 interface ConsensusFeaturedSpotlightProps
 {
@@ -40,13 +41,7 @@ export const ConsensusFeaturedSpotlight = ({
       }}
     >
       <div className="flex items-start gap-3 px-3 py-3">
-        <span
-          aria-hidden="true"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-black/70"
-          style={{ background: swatch }}
-        >
-          <Crown className="h-4 w-4" strokeWidth={2} />
-        </span>
+        <RankingAuthorSwatch slug={ranking.slug} size="lg" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <SectionEyebrow tone="warning">{badgeLabel} ranking</SectionEyebrow>

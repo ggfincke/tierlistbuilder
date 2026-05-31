@@ -4,8 +4,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { ShowcaseEditorPage } from '~/features/platform/showcase/ui/ShowcaseEditorPage'
+import { makeSignedInSession } from '@tests/fixtures'
 
 const mocks = vi.hoisted(() => ({
   showSignIn: vi.fn(),
@@ -32,32 +32,12 @@ vi.mock('~/shared/hooks/useDocumentTitle', () => ({
   useDocumentTitle: vi.fn(),
 }))
 
-const signedInSession = (): AuthSession => ({
-  status: 'signed-in',
-  user: {
-    _id: 'user-1',
+const signedInSession = () =>
+  makeSignedInSession({
     email: 'owner@example.test',
     name: 'Owner',
-    displayName: null,
-    image: null,
-    hasAvatar: false,
-    externalId: null,
-    plan: 'free',
-    createdAt: 1,
-    updatedAt: null,
     handle: 'owner',
-    bio: null,
-    location: null,
-    pronouns: null,
-    privacy: {
-      defaultTemplateVisibility: 'public',
-      defaultRankingVisibility: 'public',
-      showInMembersDirectory: true,
-      hideProfileFromSearch: false,
-      allowAiTraining: false,
-    },
-  },
-})
+  })
 
 const renderEditor = (): string =>
   renderToStaticMarkup(

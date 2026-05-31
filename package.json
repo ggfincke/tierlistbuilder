@@ -19,7 +19,7 @@
     "format:check": "prettier --check . && eslint .",
     "audit:dead-code": "knip --no-progress",
     "bundle:report": "node scripts/report-bundle-size.mjs",
-    "measure:sync-payload": "tsx scripts/measure-board-sync-payload.ts",
+    "measure:sync-payload": "tsx --tsconfig tsconfig.app.json scripts/measure-board-sync-payload.ts",
     "audit:drag": "node scripts/drag-audit.mjs",
     "preview:cover": "tsx scripts/preview-cover.ts",
     "seed:marketplace": "node scripts/seed-pipeline.mjs run data/seeds/marketplace-core.json --confirm-activation",

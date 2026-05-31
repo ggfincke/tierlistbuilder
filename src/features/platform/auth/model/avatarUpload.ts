@@ -8,6 +8,7 @@ import {
   generateUploadUrlsImperative,
   uploadEnvelopedBlob,
 } from '~/features/platform/media/uploadsRepository'
+import { withImageBitmap } from '~/shared/images/imageBitmap'
 import { canvasToBlob } from '~/shared/images/imageEncode'
 
 export const AVATAR_FILE_ACCEPT = SUPPORTED_IMAGE_MIME_TYPES.join(',')
@@ -32,8 +33,7 @@ const centerCropAvatar = async (file: File): Promise<Blob> =>
     throw new Error(validation.message ?? 'Invalid avatar image.')
   }
 
-  const bitmap = await createImageBitmap(file)
-  try
+  return withImageBitmap(file, async (bitmap) =>
   {
     const sourceSize = Math.min(bitmap.width, bitmap.height)
     const sourceX = Math.floor((bitmap.width - sourceSize) / 2)
@@ -64,11 +64,7 @@ const centerCropAvatar = async (file: File): Promise<Blob> =>
       mimeType: AVATAR_MIME_TYPE,
       quality: AVATAR_QUALITY,
     })
-  }
-  finally
-  {
-    bitmap.close()
-  }
+  })
 }
 
 export const uploadAvatarFile = async (

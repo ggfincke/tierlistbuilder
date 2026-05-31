@@ -28,6 +28,7 @@ import {
   PLACEMENT_MODE_LABELS_FULL,
 } from '~/features/workspace/imageEditor/lib/labelEditorOptions'
 import { NumberStepper } from '~/shared/ui/NumberStepper'
+import { ToggleButton } from '~/shared/ui/ToggleButton'
 
 const INHERIT_TEXT_STYLE_VALUE = '__inherit'
 
@@ -180,16 +181,18 @@ export const LabelEditorRow = ({
                   } regardless of the board default`
             }
           >
-            <SegmentedChip
+            <ToggleButton
               active={itemOptions?.visible === true}
               onClick={() => onVisibleChange(true)}
-              label="Show"
-            />
-            <SegmentedChip
+            >
+              Show
+            </ToggleButton>
+            <ToggleButton
               active={itemOptions?.visible === false}
               onClick={() => onVisibleChange(false)}
-              label="Hide"
-            />
+            >
+              Hide
+            </ToggleButton>
           </div>
           <div
             className="flex items-center gap-1 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] p-0.5"
@@ -197,12 +200,13 @@ export const LabelEditorRow = ({
             aria-label="Placement"
           >
             {PLACEMENT_MODE_ORDER.map((mode) => (
-              <SegmentedChip
+              <ToggleButton
                 key={mode}
                 active={resolvedPlacement.mode === mode}
                 onClick={() => handleModeSelect(mode)}
-                label={PLACEMENT_MODE_LABELS_FULL[mode]}
-              />
+              >
+                {PLACEMENT_MODE_LABELS_FULL[mode]}
+              </ToggleButton>
             ))}
           </div>
           <OverlayOnlyGroup
@@ -221,15 +225,16 @@ export const LabelEditorRow = ({
             {
               const preset = LABEL_PLACEMENT_OVERLAY_PRESETS[presetKey]
               return (
-                <SegmentedChip
+                <ToggleButton
                   key={presetKey}
                   active={
                     isOverlay && isOverlayPresetMatch(resolvedPlacement, preset)
                   }
                   onClick={() => onPlacementChange(preset)}
-                  label={PLACEMENT_PRESET_LABELS[presetKey]}
                   disabled={!isOverlay}
-                />
+                >
+                  {PLACEMENT_PRESET_LABELS[presetKey]}
+                </ToggleButton>
               )
             })}
           </OverlayOnlyGroup>
@@ -430,32 +435,3 @@ const FontSizeInput = ({ id, value, onChange, active }: FontSizeInputProps) =>
     </div>
   )
 }
-
-interface SegmentedChipProps
-{
-  active: boolean
-  onClick: () => void
-  label: string
-  disabled?: boolean
-}
-
-const SegmentedChip = ({
-  active,
-  onClick,
-  label,
-  disabled,
-}: SegmentedChipProps) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    aria-pressed={active}
-    className={`focus-custom rounded px-2 py-0.5 text-[11px] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-not-allowed ${
-      active
-        ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]'
-        : 'text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)]'
-    }`}
-  >
-    {label}
-  </button>
-)

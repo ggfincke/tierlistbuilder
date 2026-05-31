@@ -51,7 +51,7 @@ import {
   toCriterionSnapshot,
   withSeedEnv,
   withFakeTimers,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 // seed maintenance fns are internal-only; auth lives on /api/seed/* routes.
 // most tests call impls directly; route regressions use HTTP when dispatch matters
@@ -877,16 +877,14 @@ describe('marketplace template Convex functions', () =>
   it('does not expose private author identifiers on public template reads', async () =>
   {
     const t = makeTest()
-    const { authorId, slug } = await t.run(async (ctx) =>
+    const now = Date.now()
+    const authorId = await seedUser(t, 'private-author-email@example.com', {
+      name: 'private-author-name@example.com',
+      email: 'private-author-email@example.com',
+      image: 'https://private-author-email.example/avatar.png',
+    })
+    const slug = await t.run(async (ctx) =>
     {
-      const now = Date.now()
-      const authorId = await ctx.db.insert('users', {
-        name: 'private-author-name@example.com',
-        email: 'private-author-email@example.com',
-        createdAt: now,
-        updatedAt: now,
-        plan: 'free',
-      })
       const slug = 'PrivAuth01'
       await seedPublishedTemplate(ctx, {
         authorId,
@@ -896,7 +894,7 @@ describe('marketplace template Convex functions', () =>
         sizeClass: 'standard',
         now,
       })
-      return { authorId, slug }
+      return slug
     })
 
     const detail = await t.query(
@@ -926,6 +924,9 @@ describe('marketplace template Convex functions', () =>
     )
     expect(serializedPublicPayload).not.toContain(
       'private-author-email@example.com'
+    )
+    expect(serializedPublicPayload).not.toContain(
+      'private-author-email.example'
     )
     expect(serializedPublicPayload).not.toContain(authorId)
 

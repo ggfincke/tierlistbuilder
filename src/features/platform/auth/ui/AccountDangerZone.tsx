@@ -6,8 +6,7 @@ import { Trash2 } from 'lucide-react'
 
 import { useDeleteAccountMutation } from '~/features/platform/auth/model/useAccountMutations'
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
-import { formatError } from '~/shared/lib/errors'
-import { toast } from '~/shared/notifications/useToastStore'
+import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 import { DialogActions } from '~/shared/overlay/DialogActions'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -26,7 +25,7 @@ export const AccountDangerZone = ({ onClose }: AccountDangerZoneProps) =>
   const { signOut } = useAuthActions()
   const [confirming, setConfirming] = useState(false)
   const [confirmText, setConfirmText] = useState('')
-  const [pending, setPending] = useState(false)
+  const { pending, run } = useAsyncAction()
   const confirmInputId = useId()
 
   const canConfirm =
@@ -35,19 +34,17 @@ export const AccountDangerZone = ({ onClose }: AccountDangerZoneProps) =>
   const handleDelete = async () =>
   {
     if (!canConfirm) return
-    setPending(true)
-    try
-    {
-      await deleteAccount()
-      await signOut()
-      toast('Account deleted', 'success')
-      onClose()
-    }
-    catch (error)
-    {
-      toast(formatError(error, 'Failed to delete account'), 'error')
-      setPending(false)
-    }
+    await run({
+      action: async () =>
+      {
+        await deleteAccount()
+        await signOut()
+      },
+      successMessage: 'Account deleted',
+      errorMessage: 'Failed to delete account',
+      onSuccess: onClose,
+      resetPending: 'error',
+    })
   }
 
   if (!confirming)

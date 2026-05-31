@@ -18,8 +18,8 @@ import {
   getCachedImageUrl,
 } from '~/shared/images/imageBlobCache'
 import { getBlob } from '~/shared/images/imageStore'
-import { mockObjectUrls } from '../shared-lib/objectUrl'
-import { resetBoardStores } from '../shared-lib/boardStores'
+import { mockObjectUrls } from '@tests/shared-lib/objectUrl'
+import { resetBoardStores } from '@tests/shared-lib/boardStores'
 
 let objectUrls: ReturnType<typeof mockObjectUrls> | null = null
 

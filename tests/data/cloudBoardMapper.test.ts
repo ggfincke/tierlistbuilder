@@ -6,13 +6,18 @@ import type {
   BoardSnapshot,
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  CloudBoardPayload,
+  CloudBoardState,
+} from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   serverStateToSnapshot,
   snapshotToCloudPayload,
 } from '~/features/workspace/boards/data/cloud/boardMapper'
+import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 import type { BoardImageUploadResult } from '~/features/platform/media/imageUploader'
-import { makeBoardSnapshot, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeTier } from '@tests/fixtures'
 
 const makeBoardWithItem = (
   item: BoardSnapshot['items'][ItemId]
@@ -29,6 +34,35 @@ const emptyUploadResult = (): BoardImageUploadResult => ({
   mediaExternalIdByHash: new Map(),
   mediaExternalIdByItemId: new Map(),
 })
+
+const payloadToCloudState = (payload: CloudBoardPayload): CloudBoardState =>
+{
+  const deletedItemIds = new Set(payload.deletedItemIds)
+  return {
+    title: payload.title,
+    revision: 1,
+    itemAspectRatio: payload.itemAspectRatio,
+    itemAspectRatioMode: payload.itemAspectRatioMode,
+    aspectRatioPromptDismissed: payload.aspectRatioPromptDismissed,
+    defaultItemImageFit: payload.defaultItemImageFit,
+    defaultItemImagePadding: payload.defaultItemImagePadding,
+    paletteId: payload.paletteId,
+    textStyleId: payload.textStyleId,
+    pageBackground: payload.pageBackground,
+    labels: payload.labels,
+    autoPlate: payload.autoPlate,
+    sourceTemplateId: payload.sourceTemplateId ?? null,
+    sourceRankingId: payload.sourceRankingId ?? null,
+    sourceTemplateTitle: payload.sourceTemplateTitle ?? null,
+    sourceRankingTitle: payload.sourceRankingTitle ?? null,
+    preferredCriterionExternalId: payload.preferredCriterionExternalId ?? null,
+    tiers: payload.tiers.map((tier, order) => ({ ...tier, order })),
+    items: payload.items.map((item) => ({
+      ...item,
+      deletedAt: deletedItemIds.has(item.externalId) ? 100 : null,
+    })),
+  }
+}
 
 describe('snapshotToCloudPayload', () =>
 {
@@ -196,6 +230,79 @@ describe('snapshotToCloudPayload', () =>
 
 describe('serverStateToSnapshot', () =>
 {
+  it('roundtrips imported scalar fields through cloud payload/state mapping', () =>
+  {
+    const tieredId = asItemId('item-tiered')
+    const unrankedId = asItemId('item-unranked')
+    const deletedId = asItemId('item-deleted')
+    const snapshot = makeBoardSnapshot({
+      title: 'Roundtrip Board',
+      itemAspectRatio: 16 / 9,
+      itemAspectRatioMode: 'manual',
+      aspectRatioPromptDismissed: true,
+      defaultItemImageFit: 'contain',
+      defaultItemImagePadding: 0.12,
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
+      labels: {
+        show: true,
+        placement: { mode: 'overlay', x: 0.25, y: 0.75 },
+        scrim: 'dark',
+        fontSizePx: 18,
+        textStyleId: 'mono',
+        textColor: 'white',
+      },
+      autoPlate: { mode: 'uniform', uniformColor: '#abcdef' },
+      sourceTemplateId: 'template-slug',
+      sourceRankingId: 'ranking-slug',
+      sourceTemplateTitle: 'Template',
+      sourceRankingTitle: 'Ranking',
+      preferredCriterionExternalId: 'criterion-1',
+      tiers: [makeTier({ id: 'tier-s', itemIds: [tieredId] })],
+      unrankedItemIds: [unrankedId],
+      items: {
+        [tieredId]: {
+          id: tieredId,
+          label: 'Tiered',
+          backgroundColor: '#334455',
+          mediaPlate: 'light',
+          altText: 'Tiered alt',
+          notes: 'Tiered note',
+          aspectRatio: 4 / 3,
+          imageFit: 'contain',
+          transform: { rotation: 90, zoom: 1.5, offsetX: 0.1, offsetY: -0.2 },
+          imagePadding: 0.08,
+          labelOptions: {
+            visible: true,
+            placement: { mode: 'captionBelow' },
+            fontSizePx: 16,
+            textColor: 'black',
+          },
+          sourceTemplateItemExternalId: 'template-item-1',
+        },
+        [unrankedId]: {
+          id: unrankedId,
+          label: 'Unranked',
+          notes: 'Unranked note',
+        },
+      },
+      deletedItems: [
+        {
+          id: deletedId,
+          label: 'Deleted',
+          backgroundColor: '#445566',
+          notes: 'Deleted note',
+        },
+      ],
+    })
+
+    const payload = snapshotToCloudPayload(snapshot, emptyUploadResult())
+    const pulled = serverStateToSnapshot(payloadToCloudState(payload))
+
+    expect(pulled).toEqual(normalizeBoardSnapshot(snapshot, 'twilight'))
+  })
+
   it('restores image refs (preview + tile + source) & board style overrides from cloud state', () =>
   {
     const itemId = asItemId('item-1')
@@ -290,5 +397,40 @@ describe('serverStateToSnapshot', () =>
         notes: 'Trash note',
       }),
     ])
+  })
+
+  it('finalizes cloud state through snapshot normalization', () =>
+  {
+    const itemId = asItemId('item-1')
+    const snapshot = serverStateToSnapshot({
+      title: 'Board',
+      revision: 5,
+      tiers: [
+        {
+          externalId: 'tier-s',
+          name: 'S',
+          colorSpec: { kind: 'palette', index: 0 },
+          order: 0,
+          itemIds: [itemId],
+        },
+      ],
+      items: [
+        {
+          externalId: itemId,
+          tierId: 'tier-s',
+          label: 'Invalid color survives as text',
+          backgroundColor: 'not-a-hex-color',
+          order: 0,
+          deletedAt: null,
+        },
+      ],
+      pageBackground: 'not-a-hex-color',
+    })
+
+    expect(snapshot.pageBackground).toBeUndefined()
+    expect(snapshot.items[itemId]).toMatchObject({
+      label: 'Invalid color survives as text',
+    })
+    expect(snapshot.items[itemId].backgroundColor).toBeUndefined()
   })
 })

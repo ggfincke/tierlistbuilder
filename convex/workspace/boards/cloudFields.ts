@@ -33,12 +33,16 @@ export const buildForkedBoardInsert = (
     forkCounted: boolean
     now: number
     itemCount?: number
+    progressCounts?: {
+      activeItemCount: number
+      unrankedItemCount: number
+    }
     materializationState?: Doc<'boards'>['materializationState']
   }
 ): ForkedBoardInsert =>
 {
   const itemCount = options.itemCount ?? template.itemCount
-  const progressCounts = {
+  const progressCounts = options.progressCounts ?? {
     activeItemCount: itemCount,
     unrankedItemCount: itemCount,
   }

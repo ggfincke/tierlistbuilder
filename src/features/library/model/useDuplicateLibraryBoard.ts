@@ -9,8 +9,7 @@ import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/
 import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
 import { duplicateBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
+import { useSyncOwnerUserId } from '~/features/platform/auth/model/useSyncOwnerUserId'
 import { toast } from '~/shared/notifications/useToastStore'
 
 import { useLibraryBoardAction } from './useLibraryBoardAction'
@@ -24,9 +23,7 @@ interface DuplicateLibraryBoardAction
 export const useDuplicateLibraryBoard = (): DuplicateLibraryBoardAction =>
 {
   const { run, pendingExternalId } = useLibraryBoardAction()
-  const session = useAuthSession()
-  const pendingSyncOwnerUserId =
-    session.status === 'signed-in' ? getUserStableId(session.user) : null
+  const pendingSyncOwnerUserId = useSyncOwnerUserId()
 
   const duplicate = useCallback(
     async (board: LibraryBoardListItem): Promise<void> =>

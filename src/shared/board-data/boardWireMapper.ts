@@ -8,16 +8,6 @@ import type {
   TierItemImageRef,
   TierItemWire,
 } from '@tierlistbuilder/contracts/workspace/board'
-import {
-  PALETTE_IDS,
-  TEXT_STYLE_IDS,
-} from '@tierlistbuilder/contracts/lib/theme'
-import {
-  MEDIA_PLATES,
-  normalizeImagePadding,
-} from '@tierlistbuilder/contracts/workspace/board'
-import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
-import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
 import {
   collectSnapshotExportImageHashes,
@@ -35,17 +25,7 @@ import { getBlobsBatch, probeImageStore } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { decodeImageAspectRatioFromBlob } from '~/shared/images/imageLoad'
 import { isOptionalString, isRecord } from '~/shared/lib/typeGuards'
-import {
-  ASPECT_RATIO_MODES,
-  IMAGE_FITS,
-  normalizeBoardAutoPlate,
-  normalizeBoardLabelSettings,
-  normalizeEnum,
-  normalizeItemLabelOptions,
-  normalizeItemTransform,
-  normalizePositiveFinite,
-} from '~/shared/board-data/boardNormalizers'
-import { normalizeSourceTemplateFields } from '~/shared/board-data/sourceTemplateFields'
+import { assignNormalizedItemScalars } from '~/shared/board-data/boardNormalizers'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
 
@@ -270,39 +250,13 @@ const wireItemToSnapshotItem = (
   prepared: PreparedWireImage | undefined
 ): TierItem =>
 {
-  const {
-    id,
-    imageUrl,
-    label,
-    backgroundColor,
-    altText,
-    notes,
-    sourceTemplateItemExternalId,
-  } = item
+  const { id, imageUrl } = item
   // prefer the wire's captured aspect ratio; fall back to the ratio decoded
   // during persist so items without an explicit wire field still render right
-  const aspectRatio =
-    normalizePositiveFinite(item.aspectRatio) ?? prepared?.aspectRatio
-  const imageFit = normalizeEnum(item.imageFit, IMAGE_FITS)
-  const mediaPlate = normalizeEnum(item.mediaPlate, MEDIA_PLATES)
-  const transform = normalizeItemTransform(item.transform)
-  const imagePadding = normalizeImagePadding(item.imagePadding)
-  const labelOptions = normalizeItemLabelOptions(item.labelOptions)
   const base: TierItem = { id }
-  if (label !== undefined) base.label = label
-  if (backgroundColor !== undefined) base.backgroundColor = backgroundColor
-  if (mediaPlate !== undefined) base.mediaPlate = mediaPlate
-  if (altText !== undefined) base.altText = altText
-  if (notes !== undefined) base.notes = notes
-  if (sourceTemplateItemExternalId !== undefined)
-  {
-    base.sourceTemplateItemExternalId = sourceTemplateItemExternalId
-  }
-  if (aspectRatio !== undefined) base.aspectRatio = aspectRatio
-  if (imageFit !== undefined) base.imageFit = imageFit
-  if (transform !== undefined) base.transform = transform
-  if (imagePadding !== undefined) base.imagePadding = imagePadding
-  if (labelOptions !== undefined) base.labelOptions = labelOptions
+  assignNormalizedItemScalars(base, item, {
+    aspectRatioFallback: prepared?.aspectRatio,
+  })
 
   if (prepared)
   {
@@ -377,25 +331,6 @@ export const wireToSnapshot = async (
       : [],
     items,
     deletedItems,
-    itemAspectRatio: normalizeBoardItemAspectRatio(wire.itemAspectRatio),
-    itemAspectRatioMode: normalizeEnum(
-      wire.itemAspectRatioMode,
-      ASPECT_RATIO_MODES
-    ),
-    aspectRatioPromptDismissed:
-      wire.aspectRatioPromptDismissed === true ? true : undefined,
-    defaultItemImageFit: normalizeEnum(wire.defaultItemImageFit, IMAGE_FITS),
-    defaultItemImagePadding: normalizeImagePadding(
-      wire.defaultItemImagePadding
-    ),
-    paletteId: normalizeEnum(wire.paletteId, PALETTE_IDS),
-    textStyleId: normalizeEnum(wire.textStyleId, TEXT_STYLE_IDS),
-    pageBackground: isHexColor(wire.pageBackground)
-      ? wire.pageBackground
-      : undefined,
-    labels: normalizeBoardLabelSettings(wire.labels),
-    autoPlate: normalizeBoardAutoPlate(wire.autoPlate),
-    ...normalizeSourceTemplateFields(wire as Record<string, unknown>),
   }
 }
 

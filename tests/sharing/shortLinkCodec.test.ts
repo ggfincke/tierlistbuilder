@@ -14,7 +14,7 @@ import {
 import { inflateSnapshotBytes } from '~/shared/sharing/hashShare'
 import * as imagePersistence from '~/shared/images/imagePersistence'
 import * as imageStore from '~/shared/images/imageStore'
-import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
 
 afterEach(() =>
 {

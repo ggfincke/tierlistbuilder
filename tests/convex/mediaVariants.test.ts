@@ -5,11 +5,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
-import {
-  EMPTY_BOARD_SOURCE_RANKING,
-  EMPTY_BOARD_SOURCE_TEMPLATE,
-} from '../../convex/workspace/boards/sourceFields'
 import {
   asUser,
   type ConvexTestHandle,
@@ -21,7 +16,7 @@ import {
   seedTileMediaAsset,
   seedUser,
   withFakeTimers,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const storeImageBlob = async (
   t: ConvexTestHandle,
@@ -487,43 +482,19 @@ describe('media variants', () =>
         byteSize: 1,
         createdAt: 0,
       })
-      const boardId = await ctx.db.insert('boards', {
+      const boardId = await seedCloudBoard(ctx, {
         externalId: 'board-shared',
         ownerId: userId,
         title: 'Shared Board',
-        createdAt: 0,
-        updatedAt: 0,
-        deletedAt: null,
-        revision: 1,
-        itemAspectRatio: null,
-        itemAspectRatioMode: null,
-        aspectRatioPromptDismissed: false,
-        defaultItemImageFit: null,
-        sourceTemplate: EMPTY_BOARD_SOURCE_TEMPLATE,
-        sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
-        forkCounted: false,
-        preferredCriterionExternalId: null,
-        ...buildFreshBoardCloudFields(0),
-        materializationState: 'ready',
+        now: 0,
         activeItemCount: 1,
         unrankedItemCount: 1,
-        templateProgressState: 'none',
         librarySummary: {
           coverItems: [],
           tierCount: 0,
           tierColors: [],
           tierBreakdown: [],
         },
-        paletteId: null,
-        textStyleId: null,
-        pageBackground: null,
-        labels: null,
-        seedDatasetKey: null,
-        seedReleaseId: null,
-        seedExternalId: null,
-        seedContentHash: null,
-        seedKind: null,
-        seedReleaseStatus: null,
       })
       const boardItemId = await ctx.db.insert('boardItems', {
         boardId,

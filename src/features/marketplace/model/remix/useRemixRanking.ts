@@ -5,8 +5,7 @@
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
+import { useSyncOwnerUserId } from '~/features/platform/auth/model/useSyncOwnerUserId'
 import { getRankingBySlugImperative } from '~/features/marketplace/data/rankingsRepository'
 import { loadAllTemplateItemsImperative } from '~/features/marketplace/data/templatesRepository'
 import { createLocalBoardFromRanking } from '~/features/workspace/boards/model/localBoardFork'
@@ -14,7 +13,7 @@ import {
   useMarketplaceAsyncAction,
   useVoidRun,
 } from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
-import { notifyLocalBoardForked } from '~/features/marketplace/model/remix/localBoardForkToast'
+import { runLocalFork } from '~/features/marketplace/model/remix/runLocalFork'
 import { toast } from '~/shared/notifications/useToastStore'
 
 interface RemixRankingAction
@@ -25,10 +24,8 @@ interface RemixRankingAction
 
 export const useRemixRanking = (): RemixRankingAction =>
 {
-  const session = useAuthSession()
   const navigate = useNavigate()
-  const syncOwnerUserId =
-    session.status === 'signed-in' ? getUserStableId(session.user) : null
+  const syncOwnerUserId = useSyncOwnerUserId()
   const signedIn = syncOwnerUserId !== null
 
   const remixRanking = useCallback(
@@ -45,20 +42,20 @@ export const useRemixRanking = (): RemixRankingAction =>
         ranking.template.slug
       )
 
-      await createLocalBoardFromRanking({
-        ranking,
-        templateItems,
-        title: rankingTitle,
-        markPendingSync: signedIn,
-        pendingSyncOwnerUserId: syncOwnerUserId,
-      })
-
-      notifyLocalBoardForked({
+      await runLocalFork({
         verb: 'Remixed',
         title: rankingTitle,
         signedIn,
+        navigate,
+        fork: () =>
+          createLocalBoardFromRanking({
+            ranking,
+            templateItems,
+            title: rankingTitle,
+            markPendingSync: signedIn,
+            pendingSyncOwnerUserId: syncOwnerUserId,
+          }),
       })
-      navigate('/')
     },
     [navigate, signedIn, syncOwnerUserId]
   )

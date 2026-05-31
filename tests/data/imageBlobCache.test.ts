@@ -9,7 +9,7 @@ import {
   handlePageHide,
   subscribeCachedImageUrl,
 } from '~/shared/images/imageBlobCache'
-import { mockObjectUrls } from '../shared-lib/objectUrl'
+import { mockObjectUrls } from '@tests/shared-lib/objectUrl'
 
 let objectUrlId = 0
 let objectUrls: ReturnType<typeof mockObjectUrls> | null = null

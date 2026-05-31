@@ -6,10 +6,10 @@ import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PublicProfileShowcase } from '@tierlistbuilder/contracts/platform/showcase'
-import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import { TopNavAccountMenu } from '~/app/shells/topNav/TopNavAccountMenu'
 import { ProfileShowcaseView } from '~/features/platform/profile/ui/ProfileShowcaseView'
 import { AccountSettingsPage } from '~/features/platform/settings/ui/AccountSettingsPage'
+import { makePublicUserMe } from '@tests/fixtures'
 
 const mocks = vi.hoisted(() => ({
   useAuthSession: vi.fn(),
@@ -51,30 +51,6 @@ const renderWithBasename = (node: ReactNode, route = '/app/'): string =>
     </MemoryRouter>
   )
 
-const user = (): PublicUserMe => ({
-  _id: 'user-1',
-  email: 'alice@example.test',
-  name: 'Alice',
-  displayName: null,
-  image: null,
-  hasAvatar: false,
-  externalId: null,
-  plan: 'free',
-  createdAt: 1,
-  updatedAt: null,
-  handle: 'alice',
-  bio: null,
-  location: null,
-  pronouns: null,
-  privacy: {
-    defaultTemplateVisibility: 'public',
-    defaultRankingVisibility: 'public',
-    showInMembersDirectory: true,
-    hideProfileFromSearch: false,
-    allowAiTraining: false,
-  },
-})
-
 const showcase = (): PublicProfileShowcase => ({
   tileMode: 'cover',
   placedCount: 1,
@@ -108,7 +84,7 @@ describe('router-relative React Router links', () =>
   {
     mocks.useAuthSession.mockReturnValue({
       status: 'signed-in',
-      user: user(),
+      user: makePublicUserMe(),
     })
     mocks.useProfileDraft.mockReturnValue({ dirty: false })
   })
@@ -129,7 +105,7 @@ describe('router-relative React Router links', () =>
   {
     const html = renderWithBasename(
       <TopNavAccountMenu
-        session={{ status: 'signed-in', user: user() }}
+        session={{ status: 'signed-in', user: makePublicUserMe() }}
         onClose={noop}
         menuId="account-menu"
         onOpenSettings={noop}

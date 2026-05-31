@@ -16,7 +16,7 @@ import {
   expectConvexCode,
   makeTest,
   seedUser,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const makePreferences = (
   patch: Partial<AppPreferences> = {}

@@ -3,7 +3,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { reserveSessionDedupedActionRun } from '~/shared/hooks/useSessionDedupedAction'
-import { createMemoryStorage } from '../shared-lib/memoryStorage'
+import { createMemoryStorage } from '@tests/shared-lib/memoryStorage'
 
 const stubSessionStorage = (): Storage =>
 {

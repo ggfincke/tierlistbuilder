@@ -22,11 +22,13 @@ import sys
 from pathlib import Path
 
 from .convex_client import (
+	CONVEX_SEED_SECRET_ENV,
 	ConvexClientError,
 	ConvexSeedClient,
 	ConvexSeedSettings,
 	load_dotenv,
 	resolve_convex_site_url,
+	resolve_seed_secret,
 )
 from .manifest import find_repo_root
 
@@ -80,9 +82,7 @@ def main() -> int:
 		return 2
 
 	convex_url = resolve_convex_site_url(REPO_ROOT, args.convex_url)
-	seed_secret = (
-		args.seed_secret or os.environ.get("CONVEX_SEED_SECRET") or env.get("CONVEX_SEED_SECRET")
-	)
+	seed_secret = resolve_seed_secret(env, args.seed_secret)
 	if not convex_url:
 		print(
 			"CONVEX_SITE_URL / VITE_CONVEX_SITE_URL is not set",
@@ -90,7 +90,7 @@ def main() -> int:
 		)
 		return 2
 	if not seed_secret:
-		print("CONVEX_SEED_SECRET is not set", file=sys.stderr)
+		print(f"{CONVEX_SEED_SECRET_ENV} is not set", file=sys.stderr)
 		return 2
 
 	marker = derive_marker(convex_url)

@@ -17,7 +17,7 @@ import {
   __resetPublishableBoardsCacheForTests,
   projectPublishableBoards,
 } from '~/features/workspace/boards/model/usePublishableBoards'
-import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
 
 const boardId = 'board-publishable-test' as BoardId
 const tierId = 'tier-publishable' as TierId

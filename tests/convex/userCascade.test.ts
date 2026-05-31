@@ -25,7 +25,7 @@ import {
   seedPublishedTemplate,
   seedUser,
   withFakeTimers,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const TEMPLATE_SLUG = 'Cascade001'
 const AVATAR_UPLOAD_TOKEN = 'a'.repeat(64)
@@ -728,7 +728,9 @@ describe('user cascade cleanup', () =>
     await withFakeTimers(async () =>
     {
       const t = makeTest()
-      const userId = await seedUser(t)
+      const userId = await seedUser(t, 'avatar-author@example.com', {
+        externalId: 'avatar-author-public',
+      })
       const templateId = await seedTemplate(t, userId, 4)
       const storageId = await storeAvatarUpload(t, userId)
 

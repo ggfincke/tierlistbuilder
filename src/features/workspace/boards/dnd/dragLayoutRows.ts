@@ -4,7 +4,7 @@
 import type { ClientRect } from '@dnd-kit/core'
 import type { Coordinates } from '@dnd-kit/utilities'
 
-import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { RENDERED_ROW_TOP_TOLERANCE_PX } from '~/shared/overlay/uiMeasurements'
 
 export interface RenderedItemPosition
@@ -353,24 +353,19 @@ export const isPointerInVisualAppendSpace = ({
     return false
   }
 
-  let lastRowTop = -Infinity
-  for (const rect of itemRects)
-  {
-    lastRowTop = Math.max(lastRowTop, rect.top)
-  }
-
-  let rowTop = Infinity
-  let rowBottom = -Infinity
-  let rightmostEdge = -Infinity
-
-  for (const rect of itemRects)
-  {
-    if (Math.abs(rect.top - lastRowTop) > RENDERED_ROW_TOP_TOLERANCE_PX)
-      continue
-    rowTop = Math.min(rowTop, rect.top)
-    rowBottom = Math.max(rowBottom, rect.bottom)
-    rightmostEdge = Math.max(rightmostEdge, rect.right)
-  }
+  const rows = groupIntoRows(
+    itemRects.map((rect, index) => ({
+      itemId: asItemId(`append-rect-${index}`),
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+    }))
+  )
+  const lastRow = rows[rows.length - 1]
+  const rowTop = Math.min(...lastRow.map((rect) => rect.top))
+  const rowBottom = Math.max(...lastRow.map((rect) => rect.bottom))
+  const rightmostEdge = Math.max(...lastRow.map((rect) => rect.right))
 
   return (
     (pointerCoordinates.y >= rowTop &&

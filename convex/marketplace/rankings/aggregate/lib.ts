@@ -11,14 +11,13 @@ import {
   MAX_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
   TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN,
   TEMPLATE_RANKING_AGGREGATE_TOP_BUCKET_MAX,
+  buildAggregateBucketsFromTiers,
   makeEmptyBucketSpread,
   type MarketplaceTemplateRankingAggregate,
-  type MarketplaceTemplateRankingAggregateBucket,
   type MarketplaceTemplateRankingAggregateHighlight,
   type MarketplaceTemplateRankingAggregateItem,
   type TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { templateTiersOrDefault } from '../../templates/lib/normalize'
 import { createTemplateProjectionCache } from '../../templates/lib/trending'
 import { findTemplateCardByTemplateId } from '../../templates/lib/projections'
@@ -121,13 +120,7 @@ export const normalizeTemplateRankingAggregateItemPageSize = (
 export const resolveTemplateRankingAggregateBucketCount = (
   template: Pick<Doc<'templates'>, 'suggestedTiers'>
 ): number =>
-  Math.max(
-    1,
-    Math.min(
-      MAX_SYNC_TIERS,
-      templateTiersOrDefault(template).length
-    )
-  )
+  Math.max(1, Math.min(MAX_SYNC_TIERS, templateTiersOrDefault(template).length))
 
 export const makeEmptyDistribution = (
   bucketCount: number
@@ -137,19 +130,10 @@ export const makeEmptyDistribution = (
     count: 0,
   }))
 
-const bucketLabel = (tiers: readonly TierPresetTier[], index: number): string =>
-  tiers[index]?.name.trim() || `Tier ${index + 1}`
-
-const bucketColor = (
-  tiers: readonly TierPresetTier[],
-  index: number
-): MarketplaceTemplateRankingAggregateBucket['colorSpec'] =>
-  tiers[index]?.colorSpec ?? null
-
 const templateRankingAggregateBucketTiers = (
   template: Pick<Doc<'templates'>, 'suggestedTiers'>,
   bucketCount: number
-): readonly TierPresetTier[] =>
+): ReturnType<typeof templateTiersOrDefault> =>
   templateTiersOrDefault(template).slice(0, bucketCount)
 
 export const resolveTemplateRankingAggregateBucketLabels = (
@@ -159,19 +143,6 @@ export const resolveTemplateRankingAggregateBucketLabels = (
   templateRankingAggregateBucketTiers(template, bucketCount).map((tier) =>
     tier.name.trim()
   )
-
-const toBuckets = (
-  template: Pick<Doc<'templates'>, 'suggestedTiers'>,
-  bucketCount: number
-): MarketplaceTemplateRankingAggregateBucket[] =>
-{
-  const tiers = templateRankingAggregateBucketTiers(template, bucketCount)
-  return Array.from({ length: bucketCount }, (_, index) => ({
-    index,
-    label: bucketLabel(tiers, index),
-    colorSpec: bucketColor(tiers, index),
-  }))
-}
 
 export const toAggregateHighlight = (source: {
   templateItemExternalId: string | null
@@ -225,7 +196,10 @@ export const toTemplateRankingAggregate = (
     itemCount: aggregate.itemCount,
     computedAt: aggregate.computedAt,
     staleAt: aggregate.staleAt,
-    buckets: toBuckets(template, aggregate.bucketCount),
+    buckets: buildAggregateBucketsFromTiers(
+      templateRankingAggregateBucketTiers(template, aggregate.bucketCount),
+      aggregate.bucketCount
+    ),
     bucketSpread:
       aggregate.bucketSpread ?? makeEmptyBucketSpread(aggregate.bucketCount),
     mostAgreed: toAggregateHighlight({
@@ -258,16 +232,18 @@ const findActiveAggregateJob = async (
   templateId: Id<'templates'>,
   criterionExternalId: string
 ): Promise<Doc<'templateRankingAggregateJobs'> | null> =>
-  await firstActiveStatusRow(ACTIVE_JOB_STATUSES, async (status) =>
-    await ctx.db
-      .query('templateRankingAggregateJobs')
-      .withIndex('byTemplateIdAndCriterionAndStatus', (q) =>
-        q
-          .eq('templateId', templateId)
-          .eq('criterionExternalId', criterionExternalId)
-          .eq('status', status)
-      )
-      .take(1)
+  await firstActiveStatusRow(
+    ACTIVE_JOB_STATUSES,
+    async (status) =>
+      await ctx.db
+        .query('templateRankingAggregateJobs')
+        .withIndex('byTemplateIdAndCriterionAndStatus', (q) =>
+          q
+            .eq('templateId', templateId)
+            .eq('criterionExternalId', criterionExternalId)
+            .eq('status', status)
+        )
+        .take(1)
   )
 
 const nextAggregateGeneration = (

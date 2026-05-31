@@ -1,5 +1,7 @@
-// rules/no-unicode-arrow.js
+// eslint-rules/no-unicode-arrow.js
 // bans Unicode arrow glyphs (->) in comments; use ASCII `->` per CLAUDE.md
+
+import { getSourceCode, wrapCommentText } from './ruleContext.js'
 
 const UNICODE_ARROW = '\u2192'
 
@@ -19,7 +21,7 @@ const rule = {
 
   create(context)
   {
-    const sourceCode = context.sourceCode ?? context.getSourceCode()
+    const sourceCode = getSourceCode(context)
 
     return {
       Program()
@@ -36,9 +38,10 @@ const rule = {
             fix(fixer)
             {
               const replaced = comment.value.split(UNICODE_ARROW).join('->')
-              const wrapped =
-                comment.type === 'Line' ? `//${replaced}` : `/*${replaced}*/`
-              return fixer.replaceText(comment, wrapped)
+              return fixer.replaceText(
+                comment,
+                wrapCommentText(comment, replaced)
+              )
             },
           })
         }

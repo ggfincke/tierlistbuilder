@@ -21,7 +21,7 @@ import {
   TEST_CRITERIA,
   toCriterionSnapshot,
   withSeedEnv,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const DATASET = 'marketplace-core'
 const RELEASE = '2026-05-templates-v2'

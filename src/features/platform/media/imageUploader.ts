@@ -23,11 +23,8 @@ import {
 } from '@tierlistbuilder/contracts/platform/media'
 import { getPrimaryImageRef } from '~/shared/lib/imageRefs'
 import {
-  finalizeUploadVariantsImperative,
-  generateUploadUrlsImperative,
   getReusableMediaExternalIdsImperative,
-  uploadEnvelopedBlob,
-  type UploadedVariant,
+  uploadEnvelopedVariants,
 } from '~/features/platform/media/uploadsRepository'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 import {
@@ -196,26 +193,12 @@ const uploadMediaGroup = async (
     assertSupportedMimeType(input.record.mimeType)
   }
 
-  // single rate-limit token per group covers all variant uploads
-  const { envelopeUserId, urls } = await generateUploadUrlsImperative(
-    variantInputs.length
+  const { externalId } = await uploadEnvelopedVariants(
+    variantInputs.map((input) => ({
+      kind: input.kind,
+      blob: new Blob([input.record.bytes as BlobPart]),
+    }))
   )
-
-  const variants: UploadedVariant[] = await Promise.all(
-    variantInputs.map(async (input, i) =>
-    {
-      const { uploadUrl, uploadToken } = urls[i]
-      const storageId = await uploadEnvelopedBlob({
-        uploadUrl,
-        uploadToken,
-        envelopeUserId,
-        blob: new Blob([input.record.bytes as BlobPart]),
-      })
-      return { kind: input.kind, storageId, uploadToken }
-    })
-  )
-
-  const { externalId } = await finalizeUploadVariantsImperative({ variants })
   await markUploaded(uploadIndexUserId, group.uploadKey, externalId)
   return { hashes: groupVariantHashes(group), externalId }
 }

@@ -13,6 +13,7 @@ import {
 } from '~/features/platform/auth/model/useAccountMutations'
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { formatError } from '~/shared/lib/errors'
+import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 import { toast } from '~/shared/notifications/useToastStore'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
@@ -81,7 +82,7 @@ export const AccountSessionsSection = ({
   const revokeSession = useRevokeSessionMutation()
   const signOutEverywhere = useSignOutEverywhereMutation()
   const { signOut } = useAuthActions()
-  const [pending, setPending] = useState(false)
+  const { pending, run } = useAsyncAction()
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null)
 
   const handleRevoke = async (session: PublicUserSession) =>
@@ -114,20 +115,17 @@ export const AccountSessionsSection = ({
 
   const handleClick = async () =>
   {
-    if (pending) return
-    setPending(true)
-    try
-    {
-      await signOutEverywhere()
-      await signOut()
-      toast('Signed out from every device', 'success')
-      onClose()
-    }
-    catch (error)
-    {
-      toast(formatError(error, 'Failed to sign out everywhere'), 'error')
-      setPending(false)
-    }
+    await run({
+      action: async () =>
+      {
+        await signOutEverywhere()
+        await signOut()
+      },
+      successMessage: 'Signed out from every device',
+      errorMessage: 'Failed to sign out everywhere',
+      onSuccess: onClose,
+      resetPending: 'error',
+    })
   }
 
   return (

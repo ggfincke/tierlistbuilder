@@ -13,19 +13,15 @@ import {
   markUploaded,
 } from '~/shared/images/imageStore'
 import {
-  finalizeUploadVariantsImperative,
-  generateUploadUrlsImperative,
   getReusableMediaExternalIdsImperative,
-  uploadEnvelopedBlob,
+  uploadEnvelopedVariants,
 } from '~/features/platform/media/uploadsRepository'
 import { PermanentSyncError } from '~/features/platform/sync/lib/errors'
-import { makeBoardSnapshot, makeItem } from '../fixtures'
+import { makeBoardSnapshot, makeItem } from '@tests/fixtures'
 
 vi.mock('~/features/platform/media/uploadsRepository', () => ({
-  generateUploadUrlsImperative: vi.fn(),
-  finalizeUploadVariantsImperative: vi.fn(),
   getReusableMediaExternalIdsImperative: vi.fn(),
-  uploadEnvelopedBlob: vi.fn(),
+  uploadEnvelopedVariants: vi.fn(),
 }))
 
 vi.mock('~/shared/images/imageStore', () => ({
@@ -61,24 +57,9 @@ const makeLocalBlobRecord = (hash: string) => ({
   bytes: new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'image/png' }),
 })
 
-const uploadUrlKinds = ['tile', 'preview', 'editor'] as const
-
-const mockUploadUrls = (
-  uploadTokens: readonly string[],
-  envelopeUserId = 'server-user-1'
-): void =>
+const mockUploadedMedia = (externalId: string): void =>
 {
-  vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
-    envelopeUserId,
-    urls: uploadTokens.map((uploadToken, index) =>
-    {
-      const kind = uploadUrlKinds[index] ?? `variant-${index}`
-      return {
-        uploadUrl: `https://uploads.example.test/${kind}`,
-        uploadToken,
-      }
-    }),
-  })
+  vi.mocked(uploadEnvelopedVariants).mockResolvedValue({ externalId })
 }
 
 describe('uploadBoardImages', () =>
@@ -115,13 +96,7 @@ describe('uploadBoardImages', () =>
   {
     const record = makeLocalBlobRecord('marketplace-hash')
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
-    mockUploadUrls(['tile', 'preview'])
-    vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
-      'storage-1' as unknown as never
-    )
-    vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
-      externalId: 'media-user-copy',
-    })
+    mockUploadedMedia('media-user-copy')
 
     const result = await uploadBoardImages(
       makeImageBoard({
@@ -136,7 +111,7 @@ describe('uploadBoardImages', () =>
       'media-user-copy'
     )
     expect(result.mediaExternalIdByItemId.get('item-1')).toBe('media-user-copy')
-    expect(finalizeUploadVariantsImperative).toHaveBeenCalledTimes(1)
+    expect(uploadEnvelopedVariants).toHaveBeenCalledTimes(1)
   })
 
   it('uploads a fresh copy instead of reusing stale persisted cloud media refs', async () =>
@@ -144,13 +119,7 @@ describe('uploadBoardImages', () =>
     const record = makeLocalBlobRecord('stale-cloud-hash')
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
     vi.mocked(getReusableMediaExternalIdsImperative).mockResolvedValue([false])
-    mockUploadUrls(['tile', 'preview'])
-    vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
-      'storage-1' as unknown as never
-    )
-    vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
-      externalId: 'media-fresh-copy',
-    })
+    mockUploadedMedia('media-fresh-copy')
 
     const result = await uploadBoardImages(
       makeImageBoard({
@@ -181,13 +150,7 @@ describe('uploadBoardImages', () =>
     )
     vi.mocked(getReusableMediaExternalIdsImperative).mockResolvedValue([false])
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
-    mockUploadUrls(['tile', 'preview'])
-    vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
-      'storage-1' as unknown as never
-    )
-    vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
-      externalId: 'media-fresh',
-    })
+    mockUploadedMedia('media-fresh')
 
     const result = await uploadBoardImages(
       makeImageBoard({ hash: record.hash }),
@@ -203,31 +166,20 @@ describe('uploadBoardImages', () =>
     )
   })
 
-  it('uploads blobs via the envelope helper using a single batched URL request', async () =>
+  it('uploads blobs via the envelope helper with one grouped variant call', async () =>
   {
-    const uploadToken = 'a'.repeat(64)
-    const envelopeUserId = 'server-user-1'
     const record = makeLocalBlobRecord('hash-1')
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
-    mockUploadUrls([uploadToken, uploadToken], envelopeUserId)
-    vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
-      'storage-1' as unknown as never
-    )
-    vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
-      externalId: 'media-1',
-    })
+    mockUploadedMedia('media-1')
 
     const result = await uploadBoardImages(
       makeImageBoard({ hash: record.hash }),
       'local-user-1'
     )
-    expect(generateUploadUrlsImperative).toHaveBeenCalledWith(2)
-    expect(uploadEnvelopedBlob).toHaveBeenCalledWith({
-      uploadUrl: 'https://uploads.example.test/tile',
-      uploadToken,
-      envelopeUserId,
-      blob: expect.any(Blob),
-    })
+    expect(uploadEnvelopedVariants).toHaveBeenCalledWith([
+      { kind: 'tile', blob: expect.any(Blob) },
+      { kind: 'preview', blob: expect.any(Blob) },
+    ])
     expect(result.mediaExternalIdByHash.get(record.hash)).toBe('media-1')
     expect(markUploaded).toHaveBeenCalledWith(
       'local-user-1',
@@ -238,9 +190,6 @@ describe('uploadBoardImages', () =>
 
   it('uploads preview, tile, & source refs under one media asset', async () =>
   {
-    const previewToken = 'a'.repeat(64)
-    const tileToken = 'b'.repeat(64)
-    const editorToken = 'c'.repeat(64)
     const preview = makeLocalBlobRecord('preview-hash')
     const tile = makeLocalBlobRecord('tile-hash')
     const source = makeLocalBlobRecord('source-hash')
@@ -251,11 +200,7 @@ describe('uploadBoardImages', () =>
         [source.hash, source],
       ])
     )
-    mockUploadUrls([tileToken, previewToken, editorToken])
-    vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
-      'storage-1' as unknown as never
-    )
-    vi.mocked(finalizeUploadVariantsImperative).mockResolvedValueOnce({
+    vi.mocked(uploadEnvelopedVariants).mockResolvedValueOnce({
       externalId: 'media-1',
     })
 
@@ -267,7 +212,11 @@ describe('uploadBoardImages', () =>
       ),
       'user-1'
     )
-    expect(generateUploadUrlsImperative).toHaveBeenCalledWith(3)
+    expect(uploadEnvelopedVariants).toHaveBeenCalledWith([
+      { kind: 'tile', blob: expect.any(Blob) },
+      { kind: 'preview', blob: expect.any(Blob) },
+      { kind: 'editor', blob: expect.any(Blob) },
+    ])
     expect(both.mediaExternalIdByHash.get(preview.hash)).toBe('media-1')
     expect(both.mediaExternalIdByHash.get(tile.hash)).toBe('media-1')
     expect(both.mediaExternalIdByHash.get(source.hash)).toBe('media-1')
@@ -277,32 +226,9 @@ describe('uploadBoardImages', () =>
       'media:preview-hash:tile-hash:source-hash',
       'media-1'
     )
-    expect(finalizeUploadVariantsImperative).toHaveBeenCalledWith({
-      variants: [
-        {
-          kind: 'tile',
-          storageId: 'storage-1',
-          uploadToken: tileToken,
-        },
-        {
-          kind: 'preview',
-          storageId: 'storage-1',
-          uploadToken: previewToken,
-        },
-        {
-          kind: 'editor',
-          storageId: 'storage-1',
-          uploadToken: editorToken,
-        },
-      ],
-    })
 
     vi.clearAllMocks()
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map())
-    mockUploadUrls([])
-    vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
-      externalId: 'media-display',
-    })
 
     const reusedSource = await uploadBoardImages(
       makeImageBoard(
@@ -338,15 +264,7 @@ describe('uploadBoardImages', () =>
         [sourceB.hash, sourceB],
       ])
     )
-    mockUploadUrls(['tile', 'preview', 'editor'])
-    vi.mocked(uploadEnvelopedBlob)
-      .mockResolvedValueOnce('storage-tile-a' as unknown as never)
-      .mockResolvedValueOnce('storage-preview-a' as unknown as never)
-      .mockResolvedValueOnce('storage-source-a' as unknown as never)
-      .mockResolvedValueOnce('storage-tile-b' as unknown as never)
-      .mockResolvedValueOnce('storage-preview-b' as unknown as never)
-      .mockResolvedValueOnce('storage-source-b' as unknown as never)
-    vi.mocked(finalizeUploadVariantsImperative)
+    vi.mocked(uploadEnvelopedVariants)
       .mockResolvedValueOnce({ externalId: 'media-a' })
       .mockResolvedValueOnce({ externalId: 'media-b' })
 
@@ -373,7 +291,7 @@ describe('uploadBoardImages', () =>
       'user-1'
     )
 
-    expect(finalizeUploadVariantsImperative).toHaveBeenCalledTimes(2)
+    expect(uploadEnvelopedVariants).toHaveBeenCalledTimes(2)
     expect(result.mediaExternalIdByItemId.get(itemA)).toBe('media-a')
     expect(result.mediaExternalIdByItemId.get(itemB)).toBe('media-b')
     expect(markUploaded).toHaveBeenCalledWith(
@@ -396,11 +314,11 @@ describe('uploadBoardImages', () =>
     })
     const record = makeLocalBlobRecord('hash-1')
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
-    vi.mocked(generateUploadUrlsImperative).mockRejectedValue(rateLimited)
+    vi.mocked(uploadEnvelopedVariants).mockRejectedValue(rateLimited)
 
     await expect(
       uploadBoardImages(makeImageBoard({ hash: record.hash }), 'user-1')
     ).rejects.toBe(rateLimited)
-    expect(finalizeUploadVariantsImperative).not.toHaveBeenCalled()
+    expect(uploadEnvelopedVariants).toHaveBeenCalledTimes(1)
   })
 })

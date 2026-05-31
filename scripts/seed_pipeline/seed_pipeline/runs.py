@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Callable
 
 from .assets import asset_dedupe_hash, asset_variants
-from .content_hash import seed_content_hash
 from .diff import build_seed_diff, resolve_seed_state
 from .manifest import (
 	JsonObject,
@@ -38,7 +37,11 @@ from .reports import (
 	write_upload_report,
 	write_verify_report,
 )
-from .template_payloads import build_template_upserts
+from .template_payloads import (
+	build_template_upserts,
+	criteria_content_hash,
+	items_content_hash,
+)
 
 
 SEED_ENSURE_AUTHOR_FUNCTION = "marketplace/seedRuns:ensureSeedAuthor"
@@ -349,31 +352,17 @@ def build_criterion_upserts(compiled: JsonObject) -> list[JsonObject]:
 					"status": criterion["status"],
 				}
 			)
-		criteria_content_hash = _criteria_content_hash(
+		content_hash = criteria_content_hash(
 			str(template["externalId"]), template_criteria
 		)
 		upserts.extend(
 			{
 				**criterion,
-				"criteriaContentHash": criteria_content_hash,
+				"criteriaContentHash": content_hash,
 			}
 			for criterion in template_criteria
 		)
 	return upserts
-
-
-def _items_content_hash(template_external_id: str, items: list[JsonObject]) -> str:
-	return seed_content_hash(
-		"template-items",
-		{"templateExternalId": template_external_id, "items": items},
-	)
-
-
-def _criteria_content_hash(template_external_id: str, criteria: list[JsonObject]) -> str:
-	return seed_content_hash(
-		"template-criteria",
-		{"templateExternalId": template_external_id, "criteria": criteria},
-	)
 
 
 def _compiled_template_hashes(context: SeedRunContext) -> dict[str, JsonObject]:
@@ -387,7 +376,7 @@ def _compiled_template_hashes(context: SeedRunContext) -> dict[str, JsonObject]:
 			{key: value for key, value in row.items() if key != "templateExternalId"}
 			for row in rows
 		]
-		hashes.setdefault(template_external_id, {})["itemsContentHash"] = _items_content_hash(
+		hashes.setdefault(template_external_id, {})["itemsContentHash"] = items_content_hash(
 			template_external_id, items
 		)
 	criteria_rows_by_template = _rows_by_template_external_id(cached_criterion_upserts(context))
@@ -399,8 +388,8 @@ def _compiled_template_hashes(context: SeedRunContext) -> dict[str, JsonObject]:
 	for template in compiled_templates(context.compiled):
 		template_external_id = str(template["externalId"])
 		bucket = hashes.setdefault(template_external_id, {})
-		bucket.setdefault("itemsContentHash", _items_content_hash(template_external_id, []))
-		bucket.setdefault("criteriaContentHash", _criteria_content_hash(template_external_id, []))
+		bucket.setdefault("itemsContentHash", items_content_hash(template_external_id, []))
+		bucket.setdefault("criteriaContentHash", criteria_content_hash(template_external_id, []))
 	return hashes
 
 
@@ -757,7 +746,7 @@ def _upsert_items(context: SeedRunContext, diff: JsonObject | None = None) -> li
 				{
 					**run_request(context),
 					"templateExternalId": template_external_id,
-					"itemsContentHash": _items_content_hash(template_external_id, items),
+					"itemsContentHash": items_content_hash(template_external_id, items),
 					"allowContentHashSkip": diff is not None
 					and template_external_id not in force_template_external_ids,
 					"items": items,

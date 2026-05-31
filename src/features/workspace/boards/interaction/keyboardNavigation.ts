@@ -45,6 +45,28 @@ type DraggingKeyboardNavigationResult =
   | { kind: 'move'; containerId: string; nextPreview: ContainerSnapshot }
   | { kind: 'noop' }
 
+const resolveRenderedVerticalTarget = (
+  snapshot: ContainerSnapshot,
+  containerId: string,
+  itemId: ItemId,
+  direction: KeyboardDragDirection,
+  getRowLayout: DragRowLayoutLookup
+) =>
+{
+  if (direction !== 'ArrowUp' && direction !== 'ArrowDown')
+  {
+    return null
+  }
+
+  const containerItems = getItemsInContainer(snapshot, containerId)
+  return resolveIntraContainerRowMoveFromLayout(
+    getRowLayout(containerId),
+    itemId,
+    direction,
+    containerItems
+  )
+}
+
 export const resolveBrowseKeyboardNavigation = ({
   snapshot,
   itemId,
@@ -63,12 +85,12 @@ export const resolveBrowseKeyboardNavigation = ({
 
   if (direction === 'ArrowUp' || direction === 'ArrowDown')
   {
-    const containerItems = getItemsInContainer(snapshot, focusContainerId)
-    const intraMove = resolveIntraContainerRowMoveFromLayout(
-      getRowLayout(focusContainerId),
+    const intraMove = resolveRenderedVerticalTarget(
+      snapshot,
+      focusContainerId,
       activeFocusItemId,
       direction,
-      containerItems
+      getRowLayout
     )
 
     if (intraMove)
@@ -130,12 +152,12 @@ export const resolveDraggingKeyboardNavigation = ({
 
   if (direction === 'ArrowUp' || direction === 'ArrowDown')
   {
-    const containerItems = getItemsInContainer(snapshot, activeContainerId)
-    const intraMove = resolveIntraContainerRowMoveFromLayout(
-      getRowLayout(activeContainerId),
+    const intraMove = resolveRenderedVerticalTarget(
+      snapshot,
+      activeContainerId,
       itemId,
       direction,
-      containerItems
+      getRowLayout
     )
 
     if (intraMove)

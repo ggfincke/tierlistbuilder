@@ -23,6 +23,10 @@ import type {
 import { DEFAULT_TEMPLATE_ITEM_PAGE_SIZE } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
+import {
+  optionalLimitArg,
+  shouldRunSlugQuery,
+} from '~/features/marketplace/data/queryArgs'
 
 export interface ListTemplatesArgs
 {
@@ -57,7 +61,7 @@ export const useTemplateBySlug = (
 ): MarketplaceTemplateDetail | null | undefined =>
   useQuery(
     api.marketplace.templates.queries.getTemplateBySlug,
-    typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip'
+    shouldRunSlugQuery(slug) ? { slug } : 'skip'
   )
 
 // imperative variant for the local-fork path — fetches the full template
@@ -126,9 +130,7 @@ export const useTemplateBookmarkState = (
 ): MarketplaceTemplateBookmarkState | undefined =>
   useQuery(
     api.marketplace.templates.bookmarks.getTemplateBookmarkState,
-    enabled && typeof templateSlug === 'string' && templateSlug.length > 0
-      ? { templateSlug }
-      : 'skip'
+    shouldRunSlugQuery(templateSlug, enabled) ? { templateSlug } : 'skip'
   )
 
 export const useToggleTemplateBookmarkMutation = () =>
@@ -140,7 +142,7 @@ export const useMyTemplateDrafts = (
 ): MarketplaceTemplateDraftListResult | undefined =>
   useQuery(
     api.marketplace.templates.queries.getMyTemplateDrafts,
-    enabled ? (limit === undefined ? {} : { limit }) : 'skip'
+    enabled ? optionalLimitArg(limit) : 'skip'
   )
 
 export interface PublishFromBoardArgs

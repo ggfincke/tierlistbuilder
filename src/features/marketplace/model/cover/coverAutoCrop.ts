@@ -17,8 +17,8 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/template'
 
 import { scanBlobForAutoCrop } from '~/shared/lib/autoCrop/pipeline'
+import { createScanCache } from '~/shared/lib/autoCrop/scanCache'
 import { logger } from '~/shared/lib/logger'
-import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 
 // breathing room around the detected content, as a fraction of source-image
 // extents on each side. mirrors the workspace auto-crop default so cover
@@ -35,20 +35,15 @@ interface ScanCoverInput
 
 // in-memory cache keyed by a stable identity (file fingerprint or URL).
 // dedupes re-scans across "Auto-fit" clicks within the same editor session
-const scanCache = new Map<string, AutoCropScan | null>()
+const scanCache = createScanCache<string>(MAX_COVER_SCAN_CACHE_ENTRIES)
 
 const rememberScan = (key: string, scan: AutoCropScan | null): void =>
 {
-  setMapEntryLru(scanCache, key, scan, MAX_COVER_SCAN_CACHE_ENTRIES)
+  scanCache.remember(key, scan)
 }
 
 const readCachedScan = (key: string): AutoCropScan | null | undefined =>
-{
-  if (!scanCache.has(key)) return undefined
-  const scan = scanCache.get(key) ?? null
-  touchMapEntry(scanCache, key)
-  return scan
-}
+  scanCache.read(key)
 
 const cacheKey = (source: ScanCoverInput['source']): string =>
 {

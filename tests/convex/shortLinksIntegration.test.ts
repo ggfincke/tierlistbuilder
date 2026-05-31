@@ -7,7 +7,7 @@ import {
   DEFAULT_SHARE_LINK_TTL_MS,
   MAX_OWNED_SHORT_LINKS,
 } from '@tierlistbuilder/contracts/platform/shortLink'
-import { asUser, makeTest, seedUser } from './convexTestHelpers'
+import { asUser, makeTest, seedUser } from '@tests/convex/convexTestHelpers'
 
 describe('short link Convex listing', () =>
 {

@@ -8,6 +8,7 @@ import { formatCountedWord } from '~/shared/lib/pluralize'
 
 import { CompareCard, COMPARE_EYEBROW_CLASS } from './CompareCard'
 import {
+  classifyCorrelation,
   correlationCopy,
   LEFT_LANE_TONE,
   RIGHT_LANE_TONE,
@@ -34,15 +35,6 @@ interface GaugeProps
   correlation: number | null
 }
 
-const correlationTone = (correlation: number | null): string =>
-{
-  if (correlation === null) return 'var(--t-text-muted)'
-  if (correlation >= 0.6) return 'var(--t-success)'
-  if (correlation >= 0.2) return 'var(--t-warning, #facc15)'
-  if (correlation >= -0.2) return 'var(--t-text-muted)'
-  return 'var(--t-destructive)'
-}
-
 const InsightGauge = ({ correlation }: GaugeProps) =>
 {
   const t = correlation === null ? 0.5 : (correlation + 1) / 2
@@ -62,7 +54,7 @@ const InsightGauge = ({ correlation }: GaugeProps) =>
     const sweep = a2 > a1 ? 1 : 0
     return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${large} ${sweep} ${p2.x} ${p2.y}`
   }
-  const tone = correlationTone(correlation)
+  const tone = classifyCorrelation(correlation).tone
   // value sweep: positive runs from zero->valueAngle, negative reverses
   const showValue = correlation !== null
   const valueArc =

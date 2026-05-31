@@ -1,5 +1,7 @@
 // src/shared/images/imageLoad.ts
-// shared Image() wrappers — element loading w/ timeout & aspect-ratio decode
+// shared Image() wrappers - element loading w/ timeout & aspect-ratio decode
+
+import { withImageBitmap } from '~/shared/images/imageBitmap'
 
 const DEFAULT_LOAD_TIMEOUT_MS = 15_000
 
@@ -59,17 +61,11 @@ export const decodeImageAspectRatioFromBlob = async (
       return null
     }
 
-    const bitmap = await createImageBitmap(blob)
-    try
-    {
-      return bitmap.width > 0 && bitmap.height > 0
+    return await withImageBitmap(blob, (bitmap) =>
+      bitmap.width > 0 && bitmap.height > 0
         ? bitmap.width / bitmap.height
         : null
-    }
-    finally
-    {
-      bitmap.close()
-    }
+    )
   }
   catch
   {

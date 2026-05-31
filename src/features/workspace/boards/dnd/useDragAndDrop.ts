@@ -17,7 +17,11 @@ import {
 import { animateDropDistribute } from '~/features/workspace/boards/dnd/dragDropAnimation'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { announce } from '~/shared/a11y/announce'
-import { announceItemsDropped } from '~/features/workspace/boards/lib/containerLabel'
+import {
+  announceDragCancelled,
+  announceItemsDropped,
+  announceItemsPickedUp,
+} from '~/features/workspace/boards/lib/containerLabel'
 import { resolveDragCollisions } from '~/features/workspace/boards/dnd/dragCollision'
 import { resolveDragEndDecision } from '~/features/workspace/boards/dnd/dragEndDecision'
 import {
@@ -345,12 +349,7 @@ export const useDragAndDrop = () =>
         }
       })
     }
-    const itemLabel = state.items[activeId]?.label ?? 'item'
-    announce(
-      groupCount > 1
-        ? `Picked up ${formatCountedWord(groupCount, 'item')}`
-        : `Picked up ${itemLabel}`
-    )
+    announceItemsPickedUp(state, activeId, groupCount)
   }
 
   const syncItemDrag = (event: DragMoveEvent | DragOverEvent) =>
@@ -483,7 +482,7 @@ export const useDragAndDrop = () =>
       discardDragPreview()
     }
     resetDragState()
-    announce('Drag cancelled')
+    announceDragCancelled()
   }
 
   const overlayModifier: Modifier = useCallback(

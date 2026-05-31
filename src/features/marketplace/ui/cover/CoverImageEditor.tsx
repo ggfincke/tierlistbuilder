@@ -23,6 +23,10 @@ import {
   bboxToCoverFraming,
   scanCoverImage,
 } from '~/features/marketplace/model/cover/coverAutoCrop'
+import {
+  cropAreaToFrame,
+  frameToCropArea,
+} from '~/features/marketplace/model/cover/coverFrameArea'
 import { computeFramedPlacement } from '~/shared/board-ui/coverFramingPlacement'
 import { SnapGuide } from '~/shared/board-ui/SnapGuide'
 import { useCoverFramingPicker } from '~/features/marketplace/model/cover/useCoverFramingPicker'
@@ -479,26 +483,6 @@ const CoverImageEditorBody = ({
     </BaseModal>
   )
 }
-
-// `area` is in % of the source image. w/ restrictPosition=false + minZoom<1 the
-// values may go outside [0, 100] when the crop extends past the image edges
-// (letterboxed). store as-is; isValidCoverFrame allows the out-of-image case
-const cropAreaToFrame = (area: Area): CoverFrame => ({
-  x: area.x / 100,
-  y: area.y / 100,
-  width: area.width / 100,
-  height: area.height / 100,
-})
-
-const frameToCropArea = (frame: CoverFrame | null): Area | undefined =>
-  frame
-    ? {
-        x: frame.x * 100,
-        y: frame.y * 100,
-        width: frame.width * 100,
-        height: frame.height * 100,
-      }
-    : undefined
 
 interface ZoomSliderProps
 {

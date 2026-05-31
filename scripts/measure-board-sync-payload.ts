@@ -13,12 +13,19 @@ import {
   MAX_STANDARD_CLOUD_BOARD_ITEMS,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { asItemId, asTierId } from '@tierlistbuilder/contracts/lib/ids'
+import type { TierPaletteColorSpec } from '@tierlistbuilder/contracts/lib/theme'
 
-import { createPaletteTierColorSpec } from '../src/shared/theme/tierColors'
 import { snapshotToCloudPayload } from '../src/features/workspace/boards/data/cloud/boardMapper'
 import type { BoardImageUploadResult } from '../src/features/platform/media/imageUploader'
 
+import { formatBytes } from './lib/formatBytes.mjs'
+
 const TIER_COUNT = 10
+
+const createPaletteTierColorSpec = (index: number): TierPaletteColorSpec => ({
+  kind: 'palette',
+  index,
+})
 
 interface Scenario
 {
@@ -36,11 +43,6 @@ interface PayloadMeasurement
   jsonBytes: number
   gzipBytes: number
   mapMs: number
-}
-
-const uploadResult: BoardImageUploadResult = {
-  mediaExternalIdByHash: new Map(),
-  mediaExternalIdByItemId: new Map(),
 }
 
 const scenarios: readonly Scenario[] = [
@@ -106,6 +108,29 @@ const buildItem = (index: number, richItems: boolean): TierItem =>
   }
 }
 
+const buildUploadResult = ({
+  itemCount,
+  richItems,
+}: Scenario): BoardImageUploadResult =>
+{
+  const mediaExternalIdByHash = new Map<string, string>()
+  const mediaExternalIdByItemId = new Map<string, string>()
+  if (!richItems)
+  {
+    return { mediaExternalIdByHash, mediaExternalIdByItemId }
+  }
+
+  for (let index = 0; index < itemCount; index++)
+  {
+    const mediaExternalId = `media-${index}`
+    mediaExternalIdByHash.set(`hash-${index}`, mediaExternalId)
+    mediaExternalIdByHash.set(`editor-hash-${index}`, mediaExternalId)
+    mediaExternalIdByItemId.set(`item-${index}`, mediaExternalId)
+  }
+
+  return { mediaExternalIdByHash, mediaExternalIdByItemId }
+}
+
 const buildSnapshot = ({
   itemCount,
   richItems,
@@ -159,6 +184,7 @@ const buildSnapshot = ({
 const measureScenario = (scenario: Scenario): PayloadMeasurement =>
 {
   const snapshot = buildSnapshot(scenario)
+  const uploadResult = buildUploadResult(scenario)
   const start = performance.now()
   const payload = snapshotToCloudPayload(snapshot, uploadResult)
   const mapMs = performance.now() - start
@@ -173,9 +199,6 @@ const measureScenario = (scenario: Scenario): PayloadMeasurement =>
     mapMs,
   }
 }
-
-const formatBytes = (bytes: number): string =>
-  `${(bytes / 1024 / 1024).toFixed(2)} MB`
 
 const measurements = scenarios.map(measureScenario)
 
@@ -193,8 +216,8 @@ for (const measurement of measurements)
       measurement.name,
       String(measurement.itemCount),
       String(measurement.payloadItems),
-      formatBytes(measurement.jsonBytes),
-      formatBytes(measurement.gzipBytes),
+      formatBytes(measurement.jsonBytes, { unit: 'mb' }),
+      formatBytes(measurement.gzipBytes, { unit: 'mb' }),
       measurement.mapMs.toFixed(2),
     ].join('\t')
   )

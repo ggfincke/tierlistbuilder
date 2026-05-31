@@ -401,6 +401,46 @@ describe('parseBoardJson', () =>
     expect(transform && isItemTransformInRange(transform)).toBe(true)
   })
 
+  it('drops invalid item background colors at the import finalizer', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0, { itemIds: ['item-1'] })],
+        items: {
+          'item-1': makeWireItem(1, {
+            backgroundColor: 'not-a-hex-color',
+          }),
+        },
+      },
+    }
+
+    const imported = await parseBoardJson(JSON.stringify(payload))
+
+    expect(imported.items[asItemId('item-1')].label).toBe('Item 1')
+    expect(imported.items[asItemId('item-1')].backgroundColor).toBeUndefined()
+  })
+
+  it('does not count invalid item background colors as visible content', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0)],
+        items: {
+          'item-1': {
+            id: 'item-1',
+            backgroundColor: 'not-a-hex-color',
+          },
+        },
+      },
+    }
+
+    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+      'Item "item-1" has no image, label, or backgroundColor'
+    )
+  })
+
   it.each([
     [
       'missing a valid "id"',

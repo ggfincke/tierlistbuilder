@@ -248,7 +248,7 @@ const buildCoverItems = async <TMedia>(
   resolveMedia: (item: TemplateCoverItemSource) => Promise<TMedia | null>
 ): Promise<Array<TemplateCoverItemFields & { media: TMedia }>> =>
 {
-  const refs: Array<TemplateCoverItemFields & { media: TMedia } | null> =
+  const refs: Array<(TemplateCoverItemFields & { media: TMedia }) | null> =
     await Promise.all(
       rows.map(async (item) =>
       {
@@ -261,8 +261,7 @@ const buildCoverItems = async <TMedia>(
       })
     )
   return refs.filter(
-    (item): item is TemplateCoverItemFields & { media: TMedia } =>
-      item !== null
+    (item): item is TemplateCoverItemFields & { media: TMedia } => item !== null
   )
 }
 // load denormalized cover items in template order. publish stores only
@@ -298,7 +297,9 @@ const loadTemplateAuthor = async (
 {
   const author = await requireTemplateAuthorRow(ctx, authorId)
   const displayName = toAuthorDisplayName(author)
-  const avatarUrl = await resolveUserAvatarUrl(ctx, author)
+  const avatarUrl = isPublicTemplateAuthor(author)
+    ? await resolveUserAvatarUrl(ctx, author)
+    : null
 
   return {
     id: toPublicAuthorId(author),
@@ -324,14 +325,20 @@ export const toTemplateAuthor = async (
 }
 
 const toAuthorDisplayName = (
-  author: Pick<Doc<'users'>, 'handle' | 'displayName'>
+  author: Pick<Doc<'users'>, 'externalId' | 'handle' | 'displayName'>
 ): string =>
-  author.handle
-    ? `@${author.handle}`
-    : (author.displayName ?? FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME)
+{
+  if (author.handle) return `@${author.handle}`
+  if (!author.externalId) return FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME
+  return author.displayName ?? FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME
+}
 
 const toPublicAuthorId = (author: Pick<Doc<'users'>, 'externalId'>): string =>
   author.externalId ?? FALLBACK_TEMPLATE_AUTHOR_ID
+
+const isPublicTemplateAuthor = (
+  author: Pick<Doc<'users'>, 'externalId' | 'handle'>
+): boolean => !!author.externalId || !!author.handle
 
 const requireTemplateAuthorRow = async (
   ctx: DbCtx,
@@ -394,12 +401,14 @@ const toTemplateCardAuthorFields = async (
 > =>
 {
   const author = await requireTemplateAuthorRow(ctx, authorId)
+  const isPublic = isPublicTemplateAuthor(author)
 
   return {
     authorExternalId: toPublicAuthorId(author),
     authorDisplayName: toAuthorDisplayName(author),
-    authorImageUrl: author.avatarStorageId ? null : (author.image ?? null),
-    authorAvatarStorageId: author.avatarStorageId ?? null,
+    authorImageUrl:
+      isPublic && !author.avatarStorageId ? (author.image ?? null) : null,
+    authorAvatarStorageId: isPublic ? (author.avatarStorageId ?? null) : null,
   }
 }
 

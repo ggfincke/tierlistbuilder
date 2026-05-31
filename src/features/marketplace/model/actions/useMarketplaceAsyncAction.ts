@@ -1,7 +1,7 @@
 // src/features/marketplace/model/actions/useMarketplaceAsyncAction.ts
 // marketplace command runner w/ shared logging, toast, & auth-gate behavior
 
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
@@ -36,19 +36,35 @@ export const useMarketplaceAsyncAction = <
   action: (...args: TArgs) => Promise<TResult>
 ): MarketplaceAsyncActionState<TArgs, TResult> =>
 {
-  const onError = useCallback(
-    (error: unknown) =>
+  const { pending, run: runAsync } = useAsyncAction()
+  const [error, setError] = useState<string | null>(null)
+  const clearError = useCallback(() => setError(null), [])
+
+  const run = useCallback(
+    async (...args: TArgs): Promise<TResult | null> =>
     {
-      logger.error('marketplace', logTag, error)
-      toast(formatMarketplaceError(error), 'error')
+      let result: TResult | null = null
+      const ok = await runAsync({
+        action: async () =>
+        {
+          result = await action(...args)
+        },
+        errorMessage: 'Marketplace action failed',
+        formatError: formatMarketplaceError,
+        onError: (message, cause) =>
+        {
+          logger.error('marketplace', logTag, cause)
+          setError(message)
+          toast(message, 'error')
+        },
+        onSuccess: clearError,
+      })
+      return ok ? result : null
     },
-    [logTag]
+    [action, clearError, logTag, runAsync]
   )
 
-  return useAsyncAction<TArgs, TResult>(action, {
-    onError,
-    getErrorMessage: formatMarketplaceError,
-  })
+  return { run, isPending: pending, error, setError, clearError }
 }
 
 export const useVoidRun = <TArgs extends readonly unknown[]>(

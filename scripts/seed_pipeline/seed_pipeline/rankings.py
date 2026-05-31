@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .convex_client import ConvexClientError, is_convex_write_rate_error
 from .manifest import JsonObject, as_list
-from .report_layout import _append_section, report_header, write_report
+from .report_layout import append_section, report_header, write_report
 from .run_context import (
 	SeedRunContext,
 	SeedRunOptions,
@@ -605,7 +605,7 @@ def _write_ranking_run_report(
 
 def _append_ranking_lanes(lines: list[str], lanes: object) -> None:
 	lane_list = [lane for lane in as_list(lanes) if isinstance(lane, dict)]
-	_append_section(
+	append_section(
 		lines,
 		"Ranking Lanes",
 		lane_list,
@@ -620,7 +620,7 @@ def _append_ranking_lanes(lines: list[str], lanes: object) -> None:
 
 def _append_diagnostics(lines: list[str], diagnostics: object) -> None:
 	rows = [item for item in as_list(diagnostics) if isinstance(item, dict)]
-	_append_section(
+	append_section(
 		lines,
 		"Diagnostics",
 		rows,

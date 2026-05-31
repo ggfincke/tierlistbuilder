@@ -15,7 +15,7 @@ import {
   expectConvexCode,
   makeTest,
   seedUser,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const makeTier = (patch: Partial<TierPresetTier> = {}): TierPresetTier => ({
   name: 'S',

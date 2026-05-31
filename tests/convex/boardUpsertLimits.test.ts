@@ -27,7 +27,7 @@ import {
   seedCloudBoard,
   seedTileMediaAsset,
   seedUser,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const makeMediaExternalIds = (count: number): string[] =>
   Array.from({ length: count }, (_, i) => `media-${i}`)

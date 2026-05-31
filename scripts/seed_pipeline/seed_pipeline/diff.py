@@ -19,7 +19,7 @@ from .manifest import (
 	read_json,
 )
 from .progress import ProgressLogger
-from .report_layout import _append_section
+from .report_layout import append_section, compiled_report_header
 from .template_payloads import build_template_upserts
 
 
@@ -226,20 +226,18 @@ def render_diff_report(
 	totals = compiled["totals"]
 	media = diff["media"]
 	active_release = state.get("activeReleaseId") or "none"
-	lines = [
-		"# Seed Diff Report",
-		"",
-		f"- Environment: `{env_name}`",
-		f"- Dataset: `{compiled['datasetKey']}`",
-		f"- Release: `{compiled['releaseId']}`",
-		f"- Author: `{compiled['authorEmail']}`",
-		f"- Active release: `{active_release}`",
-		f"- Templates: {totals['templateCount']}",
-		f"- Items: {totals['itemCount']}",
-		f"- Media assets present: {len(media['present'])}",
-		f"- Media assets needing upload: {len(media['missing'])}",
-		"",
-	]
+	lines = compiled_report_header(
+		compiled,
+		"Seed Diff Report",
+		before=[f"- Environment: `{env_name}`"],
+		after=[
+			f"- Active release: `{active_release}`",
+			f"- Templates: {totals['templateCount']}",
+			f"- Items: {totals['itemCount']}",
+			f"- Media assets present: {len(media['present'])}",
+			f"- Media assets needing upload: {len(media['missing'])}",
+		],
+	)
 	_append_diff_section(lines, "Templates To Create", diff["templates"]["create"])
 	_append_diff_section(lines, "Templates To Update", diff["templates"]["update"])
 	_append_diff_section(lines, "Templates Unchanged", diff["templates"]["unchanged"])
@@ -442,7 +440,7 @@ def _compiled_variant_hashes(compiled: JsonObject) -> set[str]:
 
 
 def _append_diff_section(lines: list[str], title: str, entries: list[object]) -> None:
-	_append_section(lines, title, entries, lambda entry: f"- `{_format_entry(entry)}`")
+	append_section(lines, title, entries, lambda entry: f"- `{_format_entry(entry)}`")
 
 
 def _changed_fields(left: JsonObject, right: JsonObject, fields: list[str]) -> list[str]:

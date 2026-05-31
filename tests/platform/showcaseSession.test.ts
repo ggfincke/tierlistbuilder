@@ -16,7 +16,7 @@ import {
   exitShowcaseEditing,
 } from '~/features/platform/showcase/model/showcaseSession'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { resetBoardStores } from '../shared-lib/boardStores'
+import { resetBoardStores } from '@tests/shared-lib/boardStores'
 
 const TEST_BOARD_ID = 'board-showcase-session-test' as BoardId
 

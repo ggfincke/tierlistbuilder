@@ -38,19 +38,13 @@ import {
 } from '../../../lib/marketplaceLookups'
 import { loadTileStorageId } from '../../../lib/mediaVariants'
 import { loadBoundedBoardRows } from '../../../workspace/sync/loadBoundedBoardRows'
-import { buildFreshBoardCloudFields } from '../../../workspace/boards/cloudFields'
+import { buildForkedBoardInsert } from '../../../workspace/boards/cloudFields'
 import {
   buildBoardLibrarySummary,
-  EMPTY_BOARD_LIBRARY_SUMMARY,
   type BoardLibrarySummaryItem,
   type BoardLibrarySummaryTier,
 } from '../../../workspace/boards/librarySummary'
-import {
-  EMPTY_BOARD_SOURCE_RANKING,
-  boardSourceTemplateFromTemplate,
-  getBoardSourceTemplateId,
-} from '../../../workspace/boards/sourceFields'
-import { resolveTemplateProgressState } from '../../../lib/templateProgress'
+import { getBoardSourceTemplateId } from '../../../workspace/boards/sourceFields'
 import {
   marketplaceRankingPublishResultValidator,
   marketplaceRankingRemixResultValidator,
@@ -641,40 +635,14 @@ export const remixTemplateConsensus = mutation({
     const boardId = await ctx.db.insert('boards', {
       externalId: boardExternalId,
       ownerId: userId,
-      title: boardTitle,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-      revision: 0,
-      sourceTemplate: boardSourceTemplateFromTemplate(template),
-      // consensus remix is sourced from the aggregate, not a single ranking
-      sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
-      forkCounted: true,
       preferredCriterionExternalId: criterion.externalId,
-      ...buildFreshBoardCloudFields(now),
-      materializationState: 'ready',
-      itemAspectRatio: template.itemAspectRatio ?? null,
-      itemAspectRatioMode: template.itemAspectRatioMode ?? null,
-      aspectRatioPromptDismissed: false,
-      defaultItemImageFit: template.defaultItemImageFit ?? null,
-      defaultItemImagePadding: template.defaultItemImagePadding ?? null,
-      paletteId: null,
-      textStyleId: null,
-      pageBackground: null,
-      labels: template.labels ?? null,
-      autoPlate: template.autoPlate,
-      ...progressCounts,
-      templateProgressState: resolveTemplateProgressState(
-        template._id,
-        progressCounts
-      ),
-      librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-      seedDatasetKey: null,
-      seedReleaseId: null,
-      seedExternalId: null,
-      seedContentHash: null,
-      seedKind: null,
-      seedReleaseStatus: null,
+      ...buildForkedBoardInsert(template, {
+        title: boardTitle,
+        forkCounted: true,
+        now,
+        itemCount: templateItems.length,
+        progressCounts,
+      }),
     })
 
     interface InsertedTier

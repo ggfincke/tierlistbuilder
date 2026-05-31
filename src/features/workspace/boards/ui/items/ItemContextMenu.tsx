@@ -12,11 +12,10 @@ import { ArrowRight, ChevronRight, Eye, Pencil, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { selectTiersMeta } from '~/features/workspace/boards/model/slices/selectors'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
-import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useTierMoveTargets } from '~/features/workspace/boards/ui/shared/useTierMoveTargets'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
 import {
@@ -26,7 +25,6 @@ import {
 } from '~/shared/overlay/OverlaySurface'
 import { computePointAnchoredPopupStyle } from '~/shared/overlay/popupPosition'
 import { hasAnyImageRef } from '~/shared/lib/imageRefs'
-import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
@@ -60,10 +58,7 @@ export const ItemContextMenu = ({
       deleteSelectedItems: s.deleteSelectedItems,
     }))
   )
-  // separate subscription so we re-render only when (id, name, colorSpec)
-  // changes — itemIds churn during drag preview no longer triggers updates
-  const tiers = useActiveBoardStore(selectTiersMeta)
-  const paletteId = useCurrentPaletteId()
+  const tiers = useTierMoveTargets()
 
   const menuRef = useRef<HTMLDivElement | null>(null)
   const { getRef: getOverflowRef } = useMenuOverflowFlipRefs<'move'>()
@@ -206,28 +201,24 @@ export const ItemContextMenu = ({
               />
               Unranked
             </OverlayMenuItem>
-            {tiers.map((tier) =>
-            {
-              const bg = resolveTierColorSpec(paletteId, tier.colorSpec)
-              return (
-                <OverlayMenuItem
-                  key={tier.id}
-                  role="menuitem"
-                  onClick={() =>
-                  {
-                    moveSelectedToTier(tier.id)
-                    onClose()
-                  }}
-                >
-                  <span
-                    className="inline-block h-3 w-3 shrink-0 rounded"
-                    style={{ backgroundColor: bg }}
-                    aria-hidden="true"
-                  />
-                  {tier.name}
-                </OverlayMenuItem>
-              )
-            })}
+            {tiers.map((tier) => (
+              <OverlayMenuItem
+                key={tier.id}
+                role="menuitem"
+                onClick={() =>
+                {
+                  moveSelectedToTier(tier.id)
+                  onClose()
+                }}
+              >
+                <span
+                  className="inline-block h-3 w-3 shrink-0 rounded"
+                  style={{ backgroundColor: tier.color }}
+                  aria-hidden="true"
+                />
+                {tier.name}
+              </OverlayMenuItem>
+            ))}
           </OverlayMenuSurface>
         )}
       </div>

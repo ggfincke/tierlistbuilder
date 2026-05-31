@@ -10,8 +10,8 @@ import {
   type PendingBoardSync,
 } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
-import { flushPromises } from '../shared-lib/async'
-import { makeBoardSnapshot } from '../fixtures'
+import { flushPromises } from '@tests/shared-lib/async'
+import { makeBoardSnapshot } from '@tests/fixtures'
 
 const makeWork = (boardId: BoardId, title: string): PendingBoardSync =>
 {

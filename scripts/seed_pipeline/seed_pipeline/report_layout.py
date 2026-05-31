@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
@@ -11,6 +11,30 @@ if TYPE_CHECKING:
 	from .run_context import SeedRunContext
 
 T = TypeVar("T")
+
+
+def compiled_report_header(
+	compiled_manifest: Mapping[str, object],
+	title: str,
+	before: list[str] | None = None,
+	after: list[str] | None = None,
+) -> list[str]:
+	lines = [f"# {title}", ""]
+	if before:
+		lines.extend(before)
+	lines.extend(
+		[
+			f"- Dataset: `{compiled_manifest['datasetKey']}`",
+			f"- Release: `{compiled_manifest['releaseId']}`",
+		]
+	)
+	author = compiled_manifest.get("authorEmail")
+	if isinstance(author, str):
+		lines.append(f"- Author: `{author}`")
+	if after:
+		lines.extend(after)
+	lines.append("")
+	return lines
 
 
 def report_header(
@@ -41,7 +65,7 @@ def write_report(context: SeedRunContext, name: str, lines: list[str]) -> Path:
 	return report_path
 
 
-def _append_section(
+def append_section(
 	lines: list[str],
 	title: str,
 	rows: Iterable[T],

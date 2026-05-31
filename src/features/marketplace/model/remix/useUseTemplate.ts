@@ -5,8 +5,7 @@
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
+import { useSyncOwnerUserId } from '~/features/platform/auth/model/useSyncOwnerUserId'
 import {
   getTemplateBySlugImperative,
   loadAllTemplateItemsImperative,
@@ -19,7 +18,7 @@ import {
   useMarketplaceAsyncAction,
   useVoidRun,
 } from '~/features/marketplace/model/actions/useMarketplaceAsyncAction'
-import { notifyLocalBoardForked } from '~/features/marketplace/model/remix/localBoardForkToast'
+import { runLocalFork } from '~/features/marketplace/model/remix/runLocalFork'
 import { toast } from '~/shared/notifications/useToastStore'
 import { BOARDS_ROUTE_PATH } from '~/shared/routes/pathname'
 
@@ -48,11 +47,9 @@ const requiresServerQueuedClone = (sizeClass: 'standard' | 'large'): boolean =>
 
 export const useUseTemplate = (): UseTemplateAction =>
 {
-  const session = useAuthSession()
   const navigate = useNavigate()
   const cloneTemplate = useUseTemplateMutation()
-  const syncOwnerUserId =
-    session.status === 'signed-in' ? getUserStableId(session.user) : null
+  const syncOwnerUserId = useSyncOwnerUserId()
   const signedIn = syncOwnerUserId !== null
 
   const useTemplate = useCallback(
@@ -106,21 +103,21 @@ export const useUseTemplate = (): UseTemplateAction =>
       // viewers' sync subscriber picks the new board up immediately & ticks
       // the fork counter via upsertBoardState's first-sync trigger
       const templateItems = await loadAllTemplateItemsImperative(slug)
-      await createLocalBoardFromTemplate({
-        template: detail,
-        templateItems,
-        title: templateTitle,
-        markPendingSync: signedIn,
-        pendingSyncOwnerUserId: syncOwnerUserId,
-        preferredCriterionExternalId: options?.preferredCriterionExternalId,
-      })
-
-      notifyLocalBoardForked({
+      await runLocalFork({
         verb: 'Forked',
         title: templateTitle,
         signedIn,
+        navigate,
+        fork: () =>
+          createLocalBoardFromTemplate({
+            template: detail,
+            templateItems,
+            title: templateTitle,
+            markPendingSync: signedIn,
+            pendingSyncOwnerUserId: syncOwnerUserId,
+            preferredCriterionExternalId: options?.preferredCriterionExternalId,
+          }),
       })
-      navigate('/')
     },
     [cloneTemplate, navigate, signedIn, syncOwnerUserId]
   )

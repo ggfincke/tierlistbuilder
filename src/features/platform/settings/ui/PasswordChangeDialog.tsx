@@ -5,11 +5,10 @@ import { useId, useState } from 'react'
 
 import { MIN_PASSWORD_LENGTH } from '@tierlistbuilder/contracts/platform/user'
 import { useChangePasswordAction } from '~/features/platform/auth/model/useAccountMutations'
-import { formatError } from '~/shared/lib/errors'
+import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
-import { toast } from '~/shared/notifications/useToastStore'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { Field, PasswordField } from '~/shared/ui/settings/SettingsChrome'
@@ -35,7 +34,7 @@ export const PasswordChangeDialog = ({
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [pending, setPending] = useState(false)
+  const { pending, run } = useAsyncAction()
   const [error, setError] = useState<string | null>(null)
 
   const resetAndClose = () =>
@@ -65,25 +64,23 @@ export const PasswordChangeDialog = ({
       return
     }
 
-    setPending(true)
     setError(null)
-    try
-    {
-      await changePassword({ currentPassword, newPassword })
-      toast('Password updated', 'success')
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
-      onClose()
-    }
-    catch (err)
-    {
-      setError(formatError(err, 'Failed to update password.'))
-    }
-    finally
-    {
-      setPending(false)
-    }
+    await run({
+      action: async () =>
+      {
+        await changePassword({ currentPassword, newPassword })
+      },
+      successMessage: 'Password updated',
+      errorMessage: 'Failed to update password.',
+      onError: setError,
+      onSuccess: () =>
+      {
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+        onClose()
+      },
+    })
   }
 
   return (

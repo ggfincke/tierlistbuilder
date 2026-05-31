@@ -64,6 +64,17 @@ export const bucketLabel = (
   return buckets[index]?.label ?? `Tier ${index + 1}`
 }
 
+export const projectBucketToSvg = (
+  value: number,
+  bucketCount: number,
+  size: number,
+  padding: number
+): number =>
+{
+  const denom = Math.max(1, bucketCount - 1)
+  return padding + (value / denom) * (size - 2 * padding)
+}
+
 export const getAggregateItemLabel = (
   row: Pick<
     MarketplaceTemplateRankingAggregateItem,

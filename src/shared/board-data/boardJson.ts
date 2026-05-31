@@ -23,7 +23,7 @@ import {
 import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import { MAX_TEMPLATE_TITLE_LENGTH } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_RANKING_TITLE_LENGTH } from '@tierlistbuilder/contracts/marketplace/ranking'
-import { HEX_COLOR_PATTERN } from '@tierlistbuilder/contracts/lib/hexColor'
+import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
 import { MAX_EXTERNAL_ID_LENGTH } from '@tierlistbuilder/contracts/lib/ids'
 import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 import {
@@ -72,7 +72,7 @@ const assertStringLengthAtMost = (
 const assertHexColor = (label: string, value: unknown): void =>
 {
   if (typeof value !== 'string' || value.length === 0) return
-  if (!HEX_COLOR_PATTERN.test(value))
+  if (!isHexColor(value))
   {
     throw new Error(`${label} must be a #rrggbb hex color.`)
   }
@@ -223,11 +223,7 @@ const validateItemEntry = (
     return `Item "${id}" is not a valid object.`
   }
   const requireVisible = options.requireVisible ?? true
-  assertStringLengthAtMost(
-    `Item "${id}" id`,
-    id,
-    MAX_EXTERNAL_ID_LENGTH
-  )
+  assertStringLengthAtMost(`Item "${id}" id`, id, MAX_EXTERNAL_ID_LENGTH)
   assertStringLengthAtMost(
     `Item "${id}" wire id`,
     item.id,
@@ -235,13 +231,8 @@ const validateItemEntry = (
   )
   for (const { field, maxLength } of BOARD_ITEM_TEXT_FIELD_LIMITS)
   {
-    assertStringLengthAtMost(
-      `Item "${id}" ${field}`,
-      item[field],
-      maxLength
-    )
+    assertStringLengthAtMost(`Item "${id}" ${field}`, item[field], maxLength)
   }
-  assertHexColor(`Item "${id}" backgroundColor`, item.backgroundColor)
   assertStringLengthAtMost(
     `Item "${id}" sourceTemplateItemExternalId`,
     item.sourceTemplateItemExternalId,
@@ -262,7 +253,7 @@ const validateItemEntry = (
     isHashedRef(item.tileImageRef) ||
     isHashedRef(item.sourceImageRef)
   const hasLabel = isNonEmptyString(item.label)
-  const hasBgColor = isNonEmptyString(item.backgroundColor)
+  const hasBgColor = isHexColor(item.backgroundColor)
 
   if (itemUsesLocalImageRef(item))
   {

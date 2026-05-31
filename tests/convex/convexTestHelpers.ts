@@ -16,7 +16,7 @@ import {
   SEED_ENABLED_ENV,
   SEED_SECRET_ENV,
 } from '../../convex/marketplace/seedAuth'
-import { buildSearchText } from '@convex/marketplace/templates/lib/normalize'
+import { writeTemplateCard } from '@convex/marketplace/templates/lib/writes'
 import { buildFreshBoardCloudFields } from '@convex/workspace/boards/cloudFields'
 import {
   boardSourceTemplateFromTemplate,
@@ -375,9 +375,6 @@ const defaultBoardLibrarySummary = (): Doc<'boards'>['librarySummary'] => ({
   tierBreakdown: [],
 })
 
-const TEST_FALLBACK_TEMPLATE_AUTHOR_ID = 'unknown-author'
-const TEST_FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME = 'Tier list creator'
-
 export const seedPublishedTemplate = async (
   ctx: MutationCtx,
   args: SeedPublishedTemplateArgs
@@ -386,12 +383,6 @@ export const seedPublishedTemplate = async (
   const now = args.now ?? Date.now()
   const category = args.category ?? 'gaming'
   const tags = args.tags ?? []
-  const author = await ctx.db.get(args.authorId)
-  if (!author) throw new Error('template author missing')
-  const authorDisplayName = author.handle
-    ? `@${author.handle}`
-    : (author.displayName ?? TEST_FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME)
-  const authorExternalId = author.externalId ?? TEST_FALLBACK_TEMPLATE_AUTHOR_ID
   const templateId = await ctx.db.insert('templates', {
     slug: args.slug,
     authorId: args.authorId,
@@ -426,48 +417,9 @@ export const seedPublishedTemplate = async (
     viewCount: 0,
     updatedAt: now,
   })
-  await ctx.db.insert('templateCards', {
-    templateId,
-    slug: args.slug,
-    title: args.title,
-    description: null,
-    category,
-    tags,
-    visibility: 'public',
-    publicationState: 'published',
-    isPubliclyListable: true,
-    itemCount: args.itemCount,
-    sizeClass: args.sizeClass,
-    authorId: args.authorId,
-    authorExternalId,
-    authorDisplayName,
-    authorImageUrl: author.image ?? null,
-    authorAvatarStorageId: author.avatarStorageId ?? null,
-    coverMedia: null,
-    coverFraming: null,
-    coverItems: [],
-    itemAspectRatio: null,
-    defaultItemImageFit: null,
-    defaultItemImagePadding: null,
-    featuredRank: null,
-    forkCount: 0,
-    viewCount: 0,
-    rankingCount: 0,
-    weeklyForkCount: 0,
-    weeklyViewCount: 0,
-    trendingScore: 0,
-    trendingComputedAt: null,
-    creditLine: null,
-    searchText: buildSearchText({
-      title: args.title,
-      description: null,
-      category,
-      tags,
-      authorDisplayName,
-    }),
-    createdAt: now,
-    updatedAt: now,
-  })
+  const template = await ctx.db.get(templateId)
+  if (!template) throw new Error('template missing after insert')
+  await writeTemplateCard(ctx, template, { forkCount: 0, viewCount: 0 })
   return templateId
 }
 

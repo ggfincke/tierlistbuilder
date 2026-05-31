@@ -15,8 +15,7 @@ import {
   useRemoveAvatarMutation,
   useSetAvatarAction,
 } from '~/features/platform/auth/model/useAccountMutations'
-import { formatError } from '~/shared/lib/errors'
-import { toast } from '~/shared/notifications/useToastStore'
+import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 import { Avatar } from '~/shared/ui/Avatar'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
@@ -73,7 +72,7 @@ export const ProfilePreviewCard = ({
   const inputRef = useRef<HTMLInputElement>(null)
   const setAvatar = useSetAvatarAction()
   const removeAvatar = useRemoveAvatarMutation()
-  const [pending, setPending] = useState(false)
+  const { pending, run } = useAsyncAction()
   const [context, setContext] = useState<PreviewContext>('profile')
 
   const handlePick = () =>
@@ -84,41 +83,29 @@ export const ProfilePreviewCard = ({
   const handleFile = async (file: File | null) =>
   {
     if (!file || pending) return
-    setPending(true)
-    try
-    {
-      const upload = await uploadAvatarFile(file)
-      await setAvatar(upload)
-      toast('Avatar updated', 'success')
-    }
-    catch (error)
-    {
-      toast(formatError(error, 'Failed to update avatar'), 'error')
-    }
-    finally
-    {
-      setPending(false)
-      if (inputRef.current) inputRef.current.value = ''
-    }
+    await run({
+      action: async () =>
+      {
+        const upload = await uploadAvatarFile(file)
+        await setAvatar(upload)
+      },
+      successMessage: 'Avatar updated',
+      errorMessage: 'Failed to update avatar',
+      onFinally: () =>
+      {
+        if (inputRef.current) inputRef.current.value = ''
+      },
+    })
   }
 
   const handleRemove = async () =>
   {
     if (pending) return
-    setPending(true)
-    try
-    {
-      await removeAvatar()
-      toast('Avatar removed', 'success')
-    }
-    catch (error)
-    {
-      toast(formatError(error, 'Failed to remove avatar'), 'error')
-    }
-    finally
-    {
-      setPending(false)
-    }
+    await run({
+      action: removeAvatar,
+      successMessage: 'Avatar removed',
+      errorMessage: 'Failed to remove avatar',
+    })
   }
 
   const name = draft.displayName.trim() || 'Your name'

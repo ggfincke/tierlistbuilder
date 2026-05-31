@@ -13,7 +13,7 @@ import {
   seedPublishedTemplate,
   seedUser,
   type ConvexTestHandle,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 interface SeedShowcaseRankingResult
 {

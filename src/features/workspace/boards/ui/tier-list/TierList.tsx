@@ -15,7 +15,7 @@ import { usePreferencesStore } from '~/features/platform/preferences/model/usePr
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useEffectiveTiers } from '~/features/workspace/boards/model/useEffectiveBoard'
 import { THEMES } from '~/shared/theme/tokens'
-import { announce } from '~/shared/a11y/announce'
+import { announceDragCancelled } from '~/features/workspace/boards/lib/containerLabel'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/preferences'
 import { isVerticalPosition } from '~/shared/overlay/toolbarPosition'
 import { TIER_LIST_BOARD_TEST_ID } from '~/shared/board-ui/boardTestIds'
@@ -125,7 +125,7 @@ export const TierList = ({ toolbar, toolbarPosition, pool }: TierListProps) =>
         if (state.keyboardMode === 'dragging')
         {
           state.cancelKeyboardDrag()
-          announce('Drag cancelled')
+          announceDragCancelled()
           return
         }
 
