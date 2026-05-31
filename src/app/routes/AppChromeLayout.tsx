@@ -6,7 +6,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
 import { getWorkspacePath } from '~/shared/routes/pathname'
-import { AppTopNav } from '~/app/shells/AppTopNav'
+import { AppTopNav } from '~/app/shells/topNav/AppTopNav'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 
 const WorkspaceSkipLink = () =>

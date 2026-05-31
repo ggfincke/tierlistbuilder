@@ -1,6 +1,9 @@
 // src/app/shells/topNav/TopNavModalLayer.tsx
 // lazy preferences modal slot for global chrome
 
+import { useCallback } from 'react'
+
+import type { ModalStack } from '~/app/shells/useModalStack'
 import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 
@@ -9,19 +12,30 @@ const PreferencesModal = lazyNamed(
   'PreferencesModal'
 )
 
-interface TopNavModalLayerProps
-{
-  preferencesOpen: boolean
-  onClosePreferences: () => void
+export type TopNavModalPayloads = {
+  preferences: undefined
 }
 
-export const TopNavModalLayer = ({
-  preferencesOpen,
-  onClosePreferences,
-}: TopNavModalLayerProps) => (
-  <>
-    <LazyModalSlot when={preferencesOpen} section="preferences">
-      {() => <PreferencesModal open onClose={onClosePreferences} />}
-    </LazyModalSlot>
-  </>
-)
+export type TopNavModalKey = keyof TopNavModalPayloads
+
+interface TopNavModalLayerProps
+{
+  modalStack: ModalStack<TopNavModalPayloads>
+}
+
+export const TopNavModalLayer = ({ modalStack }: TopNavModalLayerProps) =>
+{
+  const { state: modalState, close: closeModal } = modalStack
+  const handleClosePreferences = useCallback(
+    () => closeModal('preferences'),
+    [closeModal]
+  )
+
+  return (
+    <>
+      <LazyModalSlot when={modalState.preferences} section="preferences">
+        {() => <PreferencesModal open onClose={handleClosePreferences} />}
+      </LazyModalSlot>
+    </>
+  )
+}

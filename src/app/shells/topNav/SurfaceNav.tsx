@@ -1,6 +1,5 @@
 // src/app/shells/topNav/SurfaceNav.tsx
-// Scoreboard segmented nav — Workspace · My Boards · Templates pills in a
-// capsule. Active pill lifts to bg-page; account avatar lives in AppTopNav.
+// Scoreboard segmented nav for local workspace surfaces
 
 import { NavLink } from 'react-router-dom'
 
