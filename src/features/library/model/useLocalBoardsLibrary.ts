@@ -170,6 +170,8 @@ export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
     tierCount: tiers.length,
     tierColors,
     tierBreakdown,
+    // local boards have no live public ranking -> no mini cover
+    mini: null,
     pinned: false,
   }
 }

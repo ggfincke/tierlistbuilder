@@ -36,6 +36,7 @@ import { useRenameLibraryBoard } from '~/features/library/model/useRenameLibrary
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { LivePulse } from '~/shared/ui/LivePulse'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
+import { PAGE_SHELL } from '~/shared/ui/pageContainer'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { foldForSearch } from '~/shared/lib/text'
 
@@ -143,7 +144,7 @@ export const MyBoardsPage = () =>
   }
 
   return (
-    <section className="relative z-10 mx-auto w-full max-w-[1320px] px-6 pt-20 pb-24 sm:px-10 sm:pt-24">
+    <section className={`${PAGE_SHELL} pt-20 pb-24 sm:pt-24`}>
       {/* editorial hero — eyebrow + wordmark left, search + mono stats right */}
       <div className="flex flex-wrap items-end justify-between gap-8 border-b border-[var(--t-border)] pb-6">
         <DisplayHeadline
@@ -163,8 +164,7 @@ export const MyBoardsPage = () =>
               )}
             </span>
           }
-          primary="My"
-          accent="boards"
+          accent="My boards"
           subtitle="Drafts, rankings in flight, and finished boards — everything you've made, organized like a record collection."
           size="display"
           maxWidthClassName="max-w-2xl"

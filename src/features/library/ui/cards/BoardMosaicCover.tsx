@@ -11,12 +11,14 @@ import type {
   TemplateCoverFraming,
   TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { ShowcaseMiniSnapshot } from '@tierlistbuilder/contracts/platform/showcase'
 
 import { externalIdToCode } from '~/shared/lib/initials'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import { FramedCoverImage } from '~/shared/board-ui/FramedCoverImage'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
 import { MosaicGrid } from '~/shared/board-ui/MosaicGrid'
+import { ShowcaseMiniTierRows } from '~/shared/board-ui/ShowcaseTileContent'
 import { resolveCoverTileRender } from '~/shared/board-ui/coverTileRender'
 
 type CoverDensity = 'dense' | 'default' | 'loose'
@@ -33,6 +35,8 @@ interface CoverRenderContext
 interface BoardMosaicCoverProps extends CoverRenderContext
 {
   items: readonly LibraryBoardCoverItem[]
+  // live mini tier-list render; non-null only on live boards, takes the cover
+  mini?: ShowcaseMiniSnapshot | null
   density: CoverDensity
   // board slot aspect (w/h); steers the grid so cells render near it
   itemAspectRatio?: number | null
@@ -159,6 +163,7 @@ const CoverTile = ({
 
 export const BoardMosaicCover = ({
   items,
+  mini,
   density,
   itemAspectRatio,
   sourceCoverMedia,
@@ -169,6 +174,18 @@ export const BoardMosaicCover = ({
   defaultItemImagePadding,
 }: BoardMosaicCoverProps) =>
 {
+  // live boards render the same labeled mini tier-list the tlotl cropped tile
+  // uses (full tier names in the gutter), filling the cover edge-to-edge &
+  // clipped, w/o a caption — the board title lives in the card body below
+  if (mini && mini.tiers.length > 0)
+  {
+    return (
+      <div className="absolute inset-0 flex overflow-hidden">
+        <ShowcaseMiniTierRows mini={mini} labelMode="name" />
+      </div>
+    )
+  }
+
   if (sourceCoverMedia)
   {
     return (
