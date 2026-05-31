@@ -14,7 +14,7 @@ import subprocess
 import sys
 from tempfile import TemporaryDirectory
 
-from .convex_client import load_dotenv
+from .convex_client import CONVEX_SEED_SECRET_ENV, load_dotenv, resolve_seed_secret
 from .manifest import find_repo_root
 
 REPO_ROOT = find_repo_root(Path(__file__))
@@ -23,7 +23,7 @@ LOCAL_STATE_DIR = REPO_ROOT / ".convex" / "local" / "default"
 LOCAL_CONVEX_PORTS = (3210, 3211)
 CONFIG_FILENAME = "config.json"
 LOCAL_DEPLOYMENT_PREFIX = "local:"
-SEED_SECRET_ENV = "CONVEX_SEED_SECRET"
+SEED_SECRET_ENV = CONVEX_SEED_SECRET_ENV
 LOCAL_SEED_ENV_VALUES = {
 	"CONVEX_SEED_ENABLED": "true",
 	"CONVEX_DEV_RESET_ALLOWED": "true",
@@ -91,10 +91,6 @@ def dotenv_quote(value: str) -> str:
 		return value
 	escaped = value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 	return f'"{escaped}"'
-
-
-def resolve_seed_secret(env: dict[str, str]) -> str | None:
-	return os.environ.get(SEED_SECRET_ENV) or env.get(SEED_SECRET_ENV)
 
 
 def write_seed_env_file(path: Path, seed_secret: str) -> None:

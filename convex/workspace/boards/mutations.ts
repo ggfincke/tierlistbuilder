@@ -7,6 +7,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { internal } from '../../_generated/api'
 import { requireCurrentUserId } from '../../lib/auth'
 import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
+import { retractBoardPublications } from '../../marketplace/rankings/public/mutations'
 
 // soft-delete an owned board. idempotent: a second call on an already-deleted
 // row no-ops instead of refreshing the deletedAt stamp, so the retention
@@ -28,17 +29,23 @@ export const deleteBoard = mutation({
       return null
     }
 
+    const now = Date.now()
     await ctx.db.patch(board._id, {
-      deletedAt: Date.now(),
-      updatedAt: Date.now(),
+      deletedAt: now,
+      updatedAt: now,
     })
+    // a board that leaves the workspace must not keep a live public ranking or
+    // template on the marketplace — retract both so nothing orphans for the
+    // full retention window before the hard-delete cron runs
+    await retractBoardPublications(ctx, board, now)
 
     return null
   },
 })
 
-// restore a previously soft-deleted board. clears deletedAt & bumps updatedAt
-// so the row sorts back to the top of getMyBoards. no-op for already-active rows
+// restore a soft-deleted board: clears deletedAt & bumps updatedAt so it sorts
+// back to the top of getMyBoards. publications are intentionally NOT re-published
+// (deleteBoard retracted them) — a restored board is private until re-published
 export const restoreBoard = mutation({
   args: { boardExternalId: v.string() },
   returns: v.null(),

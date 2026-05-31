@@ -18,6 +18,39 @@ export interface CompareJoinedRow
   absDelta: number
 }
 
+export type DivergenceSort =
+  | 'absDelta'
+  | 'leftFirst'
+  | 'rightFirst'
+  | 'mostSamples'
+
+export const DIVERGENCE_SORT_LABELS: Record<DivergenceSort, string> = {
+  absDelta: 'Biggest gap',
+  leftFirst: 'Higher in left',
+  rightFirst: 'Higher in right',
+  mostSamples: 'Most samples',
+}
+
+export const compareJoinedRowsByDivergence = (
+  sort: DivergenceSort
+): ((a: CompareJoinedRow, b: CompareJoinedRow) => number) =>
+{
+  switch (sort)
+  {
+    case 'absDelta':
+      return (a, b) => b.absDelta - a.absDelta
+    case 'leftFirst':
+      return (a, b) => a.delta - b.delta
+    case 'rightFirst':
+      return (a, b) => b.delta - a.delta
+    case 'mostSamples':
+      return (a, b) =>
+        b.left.sampleCount +
+        b.right.sampleCount -
+        (a.left.sampleCount + a.right.sampleCount)
+  }
+}
+
 // joins two lanes' aggregate items by templateItemExternalId; drops
 // half-pairs so viz code can trust both sides exist. returns rows in
 // stable template order to keep side-by-side aligned w/ the detail page
@@ -163,18 +196,38 @@ export const computeCompareInsights = (
   }
 }
 
+export const classifyCorrelation = (
+  correlation: number | null
+): { copy: string; tone: string } =>
+{
+  if (correlation === null)
+  {
+    return { copy: 'Not enough overlap', tone: 'var(--t-text-muted)' }
+  }
+  if (correlation >= 0.75)
+  {
+    return { copy: 'Lanes agree closely', tone: 'var(--t-success)' }
+  }
+  if (correlation >= 0.4)
+  {
+    return { copy: 'Loose alignment', tone: 'var(--t-success)' }
+  }
+  if (correlation >= 0.05)
+  {
+    return { copy: 'Mostly independent', tone: 'var(--t-warning, #facc15)' }
+  }
+  if (correlation >= -0.4)
+  {
+    return { copy: 'Different stories', tone: 'var(--t-text-muted)' }
+  }
+  return { copy: 'Inverted - opposite picks', tone: 'var(--t-destructive)' }
+}
+
 // short copy describing a Pearson value in plain English. shared between
 // the gauge insight card & the lane header so the two surfaces don't
 // drift out of sync
 export const correlationCopy = (correlation: number | null): string =>
-{
-  if (correlation === null) return 'Not enough overlap'
-  if (correlation >= 0.75) return 'Lanes agree closely'
-  if (correlation >= 0.4) return 'Loose alignment'
-  if (correlation >= 0.05) return 'Mostly independent'
-  if (correlation >= -0.4) return 'Different stories'
-  return 'Inverted — opposite picks'
-}
+  classifyCorrelation(correlation).copy
 
 // short copy describing whether a delta favors the left or right lane.
 // returns null when delta === 0 so callers can collapse the row without

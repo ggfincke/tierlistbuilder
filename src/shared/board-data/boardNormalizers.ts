@@ -9,6 +9,7 @@ import type {
   ItemAspectRatioMode,
   ItemLabelOptions,
   ItemRotation,
+  TierItem,
   ItemTransform,
   LabelPlacement,
   LabelScrim,
@@ -20,11 +21,13 @@ import {
   ITEM_TRANSFORM_LIMITS,
   LABEL_SCRIMS,
   LABEL_TEXT_COLORS,
+  MEDIA_PLATES,
+  normalizeImagePadding,
   normalizeLabelFontSizePx,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { TEXT_STYLE_IDS } from '@tierlistbuilder/contracts/lib/theme'
 import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
-import { isRecord } from '~/shared/lib/typeGuards'
+import { asNonEmptyString, isRecord } from '~/shared/lib/typeGuards'
 
 export const ASPECT_RATIO_MODES: readonly ItemAspectRatioMode[] = [
   'auto',
@@ -73,13 +76,14 @@ const normalizeLabelPlacement = (raw: unknown): LabelPlacement | undefined =>
   return undefined
 }
 
-export const normalizeItemLabelOptions = (
-  raw: unknown
-): ItemLabelOptions | undefined =>
+type LabelOptionResult = BoardLabelSettings | ItemLabelOptions
+
+const assignNormalizedLabelFields = (
+  result: LabelOptionResult,
+  raw: Record<string, unknown>,
+  options: { allowAutoTextColor: boolean }
+): void =>
 {
-  if (!isRecord(raw)) return undefined
-  const result: ItemLabelOptions = {}
-  if (typeof raw.visible === 'boolean') result.visible = raw.visible
   const placement = normalizeLabelPlacement(raw.placement)
   if (placement) result.placement = placement
   const scrim = normalizeEnum<LabelScrim>(raw.scrim, LABEL_SCRIMS)
@@ -92,7 +96,20 @@ export const normalizeItemLabelOptions = (
     raw.textColor,
     LABEL_TEXT_COLORS
   )
-  if (textColor) result.textColor = textColor
+  if (textColor && (options.allowAutoTextColor || textColor !== 'auto'))
+  {
+    result.textColor = textColor
+  }
+}
+
+const normalizeItemLabelOptions = (
+  raw: unknown
+): ItemLabelOptions | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  const result: ItemLabelOptions = {}
+  if (typeof raw.visible === 'boolean') result.visible = raw.visible
+  assignNormalizedLabelFields(result, raw, { allowAutoTextColor: true })
   return Object.keys(result).length > 0 ? result : undefined
 }
 
@@ -103,19 +120,7 @@ export const normalizeBoardLabelSettings = (
   if (!isRecord(raw)) return undefined
   const result: BoardLabelSettings = {}
   if (typeof raw.show === 'boolean') result.show = raw.show
-  const placement = normalizeLabelPlacement(raw.placement)
-  if (placement) result.placement = placement
-  const scrim = normalizeEnum<LabelScrim>(raw.scrim, LABEL_SCRIMS)
-  if (scrim) result.scrim = scrim
-  const fontSizePx = normalizeLabelFontSizePx(raw.fontSizePx)
-  if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
-  const textStyleId = normalizeEnum(raw.textStyleId, TEXT_STYLE_IDS)
-  if (textStyleId) result.textStyleId = textStyleId
-  const textColor = normalizeEnum<LabelTextColor>(
-    raw.textColor,
-    LABEL_TEXT_COLORS
-  )
-  if (textColor && textColor !== 'auto') result.textColor = textColor
+  assignNormalizedLabelFields(result, raw, { allowAutoTextColor: false })
   return Object.keys(result).length > 0 ? result : undefined
 }
 
@@ -141,9 +146,7 @@ export const normalizeBoardAutoPlate = (
 // validate & clamp untrusted transform input. returns undefined for missing
 // or malformed payloads so a "no manual edit" item roundtrips w/o a phantom
 // transform that defeats the imageFit path
-export const normalizeItemTransform = (
-  raw: unknown
-): ItemTransform | undefined =>
+const normalizeItemTransform = (raw: unknown): ItemTransform | undefined =>
 {
   if (!isRecord(raw)) return undefined
   const rotation = raw.rotation
@@ -184,4 +187,50 @@ export const normalizeItemTransform = (
     normalized.offsetY === ITEM_TRANSFORM_IDENTITY.offsetY
     ? undefined
     : normalized
+}
+
+interface AssignNormalizedItemScalarsOptions
+{
+  aspectRatioFallback?: number
+}
+
+export const assignNormalizedItemScalars = (
+  item: TierItem,
+  raw: unknown,
+  options: AssignNormalizedItemScalarsOptions = {}
+): void =>
+{
+  if (!isRecord(raw)) return
+
+  const aspectRatio =
+    normalizePositiveFinite(raw.aspectRatio) ?? options.aspectRatioFallback
+  const imageFit = normalizeEnum(raw.imageFit, IMAGE_FITS)
+  const mediaPlate = normalizeEnum(raw.mediaPlate, MEDIA_PLATES)
+  const transform = normalizeItemTransform(raw.transform)
+  const imagePadding = normalizeImagePadding(raw.imagePadding)
+  const labelOptions = normalizeItemLabelOptions(raw.labelOptions)
+
+  if (typeof raw.label === 'string') item.label = raw.label
+  if (
+    typeof raw.backgroundColor === 'string' &&
+    isHexColor(raw.backgroundColor)
+  )
+  {
+    item.backgroundColor = raw.backgroundColor
+  }
+  if (mediaPlate !== undefined) item.mediaPlate = mediaPlate
+  if (typeof raw.altText === 'string') item.altText = raw.altText
+  if (typeof raw.notes === 'string') item.notes = raw.notes
+  if (aspectRatio !== undefined) item.aspectRatio = aspectRatio
+  if (imageFit !== undefined) item.imageFit = imageFit
+  if (transform !== undefined) item.transform = transform
+  if (imagePadding !== undefined) item.imagePadding = imagePadding
+  if (labelOptions !== undefined) item.labelOptions = labelOptions
+  const sourceTemplateItemExternalId = asNonEmptyString(
+    raw.sourceTemplateItemExternalId
+  )
+  if (sourceTemplateItemExternalId !== undefined)
+  {
+    item.sourceTemplateItemExternalId = sourceTemplateItemExternalId
+  }
 }

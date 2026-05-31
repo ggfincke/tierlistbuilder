@@ -12,6 +12,8 @@ import type {
   MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { itemLabelOptionsEqual } from '@tierlistbuilder/contracts/workspace/board'
+import { isSameItemTransform } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { tierColorSpecEqual } from '@tierlistbuilder/contracts/lib/theme'
 
 export interface TierDiff
 {
@@ -69,47 +71,6 @@ export interface ItemDiff
 
 const isNonEmptyObject = (obj: object): boolean => Object.keys(obj).length > 0
 
-// shallow structural compare — transforms are flat 4-field POJOs so a manual
-// compare is cheaper & clearer than JSON.stringify
-const transformsEqual = (
-  a: ItemTransform | undefined,
-  b: ItemTransform | undefined
-): boolean =>
-{
-  if (a === b) return true
-  if (!a || !b) return false
-  return (
-    a.rotation === b.rotation &&
-    a.zoom === b.zoom &&
-    a.offsetX === b.offsetX &&
-    a.offsetY === b.offsetY
-  )
-}
-
-// tagged-union compare for tier color specs. JSON.stringify worked but was
-// fragile to property ordering; explicit shape match matches the rest of the
-// equality helpers in this file
-type TierColorSpec = Doc<'boardTiers'>['colorSpec']
-
-const colorSpecEqual = (
-  a: TierColorSpec | undefined,
-  b: TierColorSpec | undefined
-): boolean =>
-{
-  if (a === b) return true
-  if (!a || !b) return false
-  if (a.kind !== b.kind) return false
-  if (a.kind === 'palette' && b.kind === 'palette')
-  {
-    return a.index === b.index
-  }
-  if (a.kind === 'custom' && b.kind === 'custom')
-  {
-    return a.hex === b.hex
-  }
-  return false
-}
-
 interface ResolvedMediaField
 {
   has: boolean
@@ -160,7 +121,7 @@ const buildItemPatchFields = (
     fields.aspectRatio = wire.aspectRatio
   }
   if (server.imageFit !== wire.imageFit) fields.imageFit = wire.imageFit
-  if (!transformsEqual(server.transform, wire.transform))
+  if (!isSameItemTransform(server.transform, wire.transform))
   {
     fields.transform = wire.transform
   }
@@ -222,12 +183,12 @@ export const diffTiers = (
       (wire.description ?? undefined) !== (server.description ?? undefined)
     if (descChanged) fields.description = wire.description
 
-    if (!colorSpecEqual(server.colorSpec, wire.colorSpec))
+    if (!tierColorSpecEqual(server.colorSpec, wire.colorSpec))
     {
       fields.colorSpec = wire.colorSpec
     }
 
-    if (!colorSpecEqual(server.rowColorSpec, wire.rowColorSpec))
+    if (!tierColorSpecEqual(server.rowColorSpec, wire.rowColorSpec))
     {
       fields.rowColorSpec = wire.rowColorSpec
     }

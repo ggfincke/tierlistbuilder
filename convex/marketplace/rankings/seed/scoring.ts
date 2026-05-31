@@ -6,7 +6,7 @@
 
 import type { Doc } from '../../../_generated/dataModel'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import { DEFAULT_TEMPLATE_TIERS } from '../../templates/lib/normalize'
+import { templateTiersOrDefault } from '../../templates/lib/normalize'
 import type { SeedRankingLane, SeedRankingProfile } from './validators'
 
 export interface RankedSeedItem
@@ -195,10 +195,7 @@ export const rankTemplateItemsWithScore = (
 
 export const resolveTemplateTiers = (
   template: Doc<'templates'>
-): readonly TierPresetTier[] =>
-  template.suggestedTiers.length > 0
-    ? template.suggestedTiers
-    : DEFAULT_TEMPLATE_TIERS
+): readonly TierPresetTier[] => templateTiersOrDefault(template)
 
 export const featuredForProfile = (
   lane: SeedRankingLane,

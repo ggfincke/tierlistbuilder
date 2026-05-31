@@ -2,6 +2,7 @@
 // validation primitives shared across Convex input validators
 
 import { failInput } from './text'
+import { MAX_EXTERNAL_ID_LENGTH } from '@tierlistbuilder/contracts/lib/ids'
 
 export const assertNonemptyString = (name: string, value: string): void =>
 {
@@ -87,8 +88,8 @@ export const assertExternalIdShape = (
 
 export const assertExternalIdLength = (name: string, value: string): void =>
 {
-  if (value.length < 1 || value.length > 128)
+  if (value.length < 1 || value.length > MAX_EXTERNAL_ID_LENGTH)
   {
-    failInput(`invalid ${name}: length must be 1..128`)
+    failInput(`invalid ${name}: length must be 1..${MAX_EXTERNAL_ID_LENGTH}`)
   }
 }

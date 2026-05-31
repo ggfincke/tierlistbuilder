@@ -13,10 +13,10 @@ import {
 import type { Doc, Id } from '../../_generated/dataModel'
 import { internal } from '../../_generated/api'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { assertCountRange, assertNonemptyString } from '../../lib/assertions'
+import { assertCountRange } from '../../lib/assertions'
 import { SEED_LIMITS } from '../../lib/limits'
 import { cleanupStorageIds } from './media'
-import { loadSeedRunOrThrow } from './runs'
+import { assertSeedRunArgs, loadSeedRunOrThrow } from './runs'
 import type { SeedCleanupResult, SeedRegisterUploadsResult } from './types'
 
 type StorageUploadDoc = Doc<'seedRunStorageUploads'>
@@ -74,13 +74,6 @@ const isOwnedByRun = (
   return true
 }
 
-const assertRunScope = (scope: RunScope): void =>
-{
-  assertNonemptyString('datasetKey', scope.datasetKey)
-  assertNonemptyString('releaseId', scope.releaseId)
-  assertNonemptyString('runId', scope.runId)
-}
-
 export const registerSeedUploadedStorageIds = internalMutation({
   args: {
     datasetKey: v.string(),
@@ -91,7 +84,7 @@ export const registerSeedUploadedStorageIds = internalMutation({
   returns: seedRegisterUploadsOutputValidator,
   handler: async (ctx, args): Promise<SeedRegisterUploadsResult> =>
   {
-    assertRunScope(args)
+    assertSeedRunArgs(args)
     assertCountRange(
       'storageIds',
       args.storageIds.length,
@@ -253,7 +246,7 @@ export const cleanupAbandonedSeedRun = internalAction({
   returns: seedCleanupOutputValidator,
   handler: async (ctx, args): Promise<SeedCleanupResult> =>
   {
-    assertRunScope(args)
+    assertSeedRunArgs(args)
     assertCountRange(
       'storageIds',
       args.storageIds.length,

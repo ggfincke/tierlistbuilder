@@ -8,7 +8,10 @@ import { lazyNamed } from '~/shared/lib/lazyNamed'
 import {
   BOARDS_ROUTE_PATH,
   EMBED_ROUTE_PATH,
+  PROFILE_ROUTE_PATH,
   RANKINGS_ROUTE_PATH,
+  SETTINGS_ROUTE_PATH,
+  SHOWCASE_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
 } from '~/shared/routes/pathname'
@@ -16,6 +19,7 @@ import { AppChromeLayout } from '~/app/routes/AppChromeLayout'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import { NotFoundRoute } from '~/app/routes/NotFoundRoute'
 import { WorkspaceRoute } from '~/app/routes/WorkspaceRoute'
+import { AMBIENT_PAGE_CLASS } from '~/shared/ui/pageContainer'
 
 // embed bundle ships shared/board-ui + EmbedView which workspace users never
 // hit — lazy load keeps it out of the primary chunk
@@ -24,6 +28,18 @@ const EmbedRoute = lazyNamed(() => import('./EmbedRoute'), 'EmbedRoute')
 const MyBoardsRoute = lazyNamed(
   () => import('./MyBoardsRoute'),
   'MyBoardsRoute'
+)
+
+const SettingsRoute = lazyNamed(
+  () => import('./SettingsRoute'),
+  'SettingsRoute'
+)
+
+const ProfileRoute = lazyNamed(() => import('./ProfileRoute'), 'ProfileRoute')
+
+const ShowcaseRoute = lazyNamed(
+  () => import('./ShowcaseRoute'),
+  'ShowcaseRoute'
 )
 
 const MarketplaceLayout = lazyNamed(
@@ -58,9 +74,7 @@ const RankingsIndexPage = lazyNamed(
 
 // matches the page-color shell each lazy chunk applies once mounted, so users
 // don't see a white flash while the JS arrives
-const RouteFallback = () => (
-  <main className="min-h-screen bg-[var(--t-bg-page)]" />
-)
+const RouteFallback = () => <main className={AMBIENT_PAGE_CLASS} />
 
 const routerBasename = normalizeBasePath() || '/'
 
@@ -85,6 +99,36 @@ export const AppRouter = () => (
             <ErrorBoundary section="my boards">
               <Suspense fallback={<RouteFallback />}>
                 <MyBoardsRoute />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path={`${SETTINGS_ROUTE_PATH}/*`}
+          element={
+            <ErrorBoundary section="settings">
+              <Suspense fallback={<RouteFallback />}>
+                <SettingsRoute />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path={`${PROFILE_ROUTE_PATH}/:handle`}
+          element={
+            <ErrorBoundary section="profile">
+              <Suspense fallback={<RouteFallback />}>
+                <ProfileRoute />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path={SHOWCASE_ROUTE_PATH}
+          element={
+            <ErrorBoundary section="tier list">
+              <Suspense fallback={<RouteFallback />}>
+                <ShowcaseRoute />
               </Suspense>
             </ErrorBoundary>
           }

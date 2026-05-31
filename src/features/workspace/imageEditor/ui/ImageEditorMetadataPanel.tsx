@@ -2,7 +2,7 @@
 // single-item metadata: alt text, notes, & background color. mounted only in
 // the editor's single-item mode so multi-item auditing stays uncluttered
 
-import { useEffect, useId, useImperativeHandle, useRef, useState } from 'react'
+import { useEffect, useId, useImperativeHandle } from 'react'
 import type { Ref } from 'react'
 
 import {
@@ -14,6 +14,7 @@ import { ColorInput } from '~/shared/ui/ColorInput'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextArea } from '~/shared/ui/TextArea'
 import { TextInput } from '~/shared/ui/TextInput'
+import { useFlushableTextDraft } from '~/shared/hooks/useFlushableTextDraft'
 
 export interface ImageEditorMetadataPanelHandle
 {
@@ -71,42 +72,24 @@ export const ImageEditorMetadataPanel = ({
   const notesInputId = useId()
   const colorInputId = useId()
 
-  const [altDraft, setAltDraft] = useState(altText ?? '')
-  const [notesDraft, setNotesDraft] = useState(notes ?? '')
-
-  // reset drafts only on item swap; upstream altText/notes intentionally
-  // excluded so a store update mid-keystroke doesn't clobber in-flight typing
-  useEffect(() =>
-  {
-    setAltDraft(altText ?? '')
-    setNotesDraft(notes ?? '')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemId])
-
-  const altDraftRef = useRef(altDraft)
-  const notesDraftRef = useRef(notesDraft)
-  useEffect(() =>
-  {
-    altDraftRef.current = altDraft
-  }, [altDraft])
-  useEffect(() =>
-  {
-    notesDraftRef.current = notesDraft
-  }, [notesDraft])
-
-  const flushAlt = () =>
-  {
-    const committed = altText ?? ''
-    if (altDraftRef.current === committed) return
-    onAltTextChange(altDraftRef.current)
-  }
-
-  const flushNotes = () =>
-  {
-    const committed = notes ?? ''
-    if (notesDraftRef.current === committed) return
-    onNotesChange(notesDraftRef.current)
-  }
+  const {
+    value: altDraft,
+    setValue: setAltDraft,
+    flush: flushAlt,
+  } = useFlushableTextDraft({
+    value: altText,
+    resetKey: itemId,
+    onCommit: onAltTextChange,
+  })
+  const {
+    value: notesDraft,
+    setValue: setNotesDraft,
+    flush: flushNotes,
+  } = useFlushableTextDraft({
+    value: notes,
+    resetKey: itemId,
+    onCommit: onNotesChange,
+  })
 
   useImperativeHandle(
     ref,
@@ -117,9 +100,7 @@ export const ImageEditorMetadataPanel = ({
         flushNotes()
       },
     }),
-    // flushAlt/flushNotes close over latest drafts via refs, so deps stay empty
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [flushAlt, flushNotes]
   )
 
   // commit pending edits when the panel unmounts (modal close, item swap)
@@ -129,8 +110,7 @@ export const ImageEditorMetadataPanel = ({
       flushAlt()
       flushNotes()
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [flushAlt, flushNotes]
   )
 
   const backgroundValue = backgroundColor ?? DEFAULT_BACKGROUND_PICKER_COLOR
@@ -169,7 +149,7 @@ export const ImageEditorMetadataPanel = ({
               onBlur={flushAlt}
               placeholder={
                 hasImage
-                  ? 'Describe this image for screen readers…'
+                  ? 'Describe this image for screen readers...'
                   : 'Optional description'
               }
               maxLength={200}
@@ -194,7 +174,7 @@ export const ImageEditorMetadataPanel = ({
               value={notesDraft}
               onChange={(e) => setNotesDraft(e.target.value)}
               onBlur={flushNotes}
-              placeholder="Private — only you see this. Why did you rank this here?"
+              placeholder="Private - only you see this. Why did you rank this here?"
               maxLength={2000}
               rows={3}
               size="sm"
@@ -246,7 +226,7 @@ export const ImageEditorMetadataPanel = ({
           )}
           <p className="text-[11px] leading-snug text-[var(--t-text-muted)]">
             {hasImage
-              ? 'Sits behind the image — fills transparent areas & letterbox edges.'
+              ? 'Sits behind the image - fills transparent areas & letterbox edges.'
               : 'Tile background for text-only items.'}
           </p>
         </div>

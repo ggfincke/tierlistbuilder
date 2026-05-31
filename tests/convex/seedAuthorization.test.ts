@@ -9,7 +9,7 @@ import {
   enableSeedApi,
   makeRateLimitedTest as makeTest,
   restoreSeedEnv,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const SEED_SECRET = 'test-seed-secret'
 const USER_STATUS_ROUTE = '/api/seed/user-status'

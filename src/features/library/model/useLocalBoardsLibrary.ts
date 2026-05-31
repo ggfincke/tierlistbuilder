@@ -91,6 +91,12 @@ const toCoverItem = (item: TierItem): LibraryBoardCoverItem =>
     label: item.label ?? null,
     externalId: item.id,
     mediaUrl: media ? getCachedImageUrl(media.ref.hash) : null,
+    imageFit: item.imageFit,
+    imagePadding: item.imagePadding,
+    backgroundColor: item.backgroundColor,
+    mediaPlate: item.mediaPlate,
+    transform: item.transform,
+    aspectRatio: item.aspectRatio,
     ...(media
       ? {
           mediaHash: media.ref.hash,
@@ -147,7 +153,7 @@ export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
     rankedItemCount,
     publishState: deriveLibraryPublishState({
       rankedItemCount,
-      hasPublishedTemplate: false,
+      hasPublishedOutput: false,
     }),
     syncState: 'localOnly',
     visibility: 'private',
@@ -156,10 +162,16 @@ export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
     sourceTemplateCoverMedia: snapshot?.sourceTemplateCoverMedia ?? null,
     sourceTemplateCoverFraming: snapshot?.sourceTemplateCoverFraming ?? null,
     coverItems: buildCoverItems(snapshot),
+    autoPlate: snapshot?.autoPlate ?? null,
+    defaultItemImageFit: snapshot?.defaultItemImageFit ?? null,
+    defaultItemImagePadding: snapshot?.defaultItemImagePadding ?? null,
+    itemAspectRatio: snapshot?.itemAspectRatio ?? null,
     paletteId: snapshot?.paletteId ?? DEFAULT_LOCAL_PALETTE_ID,
     tierCount: tiers.length,
     tierColors,
     tierBreakdown,
+    // local boards have no live public ranking -> no mini cover
+    mini: null,
     pinned: false,
   }
 }

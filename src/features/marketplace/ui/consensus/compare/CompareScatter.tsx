@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react'
 
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import { resolveBucketColor } from '../lib/utils'
+import { projectBucketToSvg, resolveBucketColor } from '../lib/utils'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { clamp } from '~/shared/lib/math'
 
@@ -43,7 +43,6 @@ export const CompareScatter = ({
 {
   const paletteId = usePreferencesStore((state) => state.paletteId)
   const bucketCount = buckets.length
-  const bucketDenom = Math.max(1, bucketCount - 1)
 
   // pre-project every row into pixel coords; rows w/o averageBucket on
   // either side drop out so empty lanes don't pile up at (0, 0)
@@ -58,8 +57,8 @@ export const CompareScatter = ({
         {
           const xValue = row.left.averageBucket as number
           const yValue = row.right.averageBucket as number
-          const x = PADDING + (xValue / bucketDenom) * (CHART_W - 2 * PADDING)
-          const y = PADDING + (yValue / bucketDenom) * (CHART_H - 2 * PADDING)
+          const x = projectBucketToSvg(xValue, bucketCount, CHART_W, PADDING)
+          const y = projectBucketToSvg(yValue, bucketCount, CHART_H, PADDING)
           // color the dot by the average of both lanes' buckets so the
           // visual identity reads as "where the item lands overall"
           const avgIndex = Math.round((xValue + yValue) / 2)
@@ -76,7 +75,7 @@ export const CompareScatter = ({
             altText: row.left.altText ?? row.right.altText ?? null,
           }
         }),
-    [bucketCount, bucketDenom, buckets, paletteId, rows]
+    [bucketCount, buckets, paletteId, rows]
   )
 
   // draw least-divergent first so high-Δ thumbs win the z-fight in dense
@@ -145,8 +144,8 @@ export const CompareScatter = ({
           />
           {buckets.map((bucket, i) =>
           {
-            const x = PADDING + (i / bucketDenom) * (CHART_W - 2 * PADDING)
-            const y = PADDING + (i / bucketDenom) * (CHART_H - 2 * PADDING)
+            const x = projectBucketToSvg(i, bucketCount, CHART_W, PADDING)
+            const y = projectBucketToSvg(i, bucketCount, CHART_H, PADDING)
             const color = resolveBucketColor(bucket, paletteId)
             return (
               <g key={i}>

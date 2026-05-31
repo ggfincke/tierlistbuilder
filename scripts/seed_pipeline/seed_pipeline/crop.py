@@ -14,7 +14,7 @@ from PIL import Image, ImageMath
 from .manifest import JsonObject
 from .settings import MIXED_TEMPLATE_ITEM_ASPECT_RATIO
 
-# mirror SEED_RATIO_SOURCES in packages/contracts/marketplace/seedPipeline.ts
+# keep aligned w/ compiled-manifest.schema.json ratioSource enum
 RatioSource = Literal["consistent", "mixed-dominant", "mixed-square"]
 
 # mirror MediaPlate in packages/contracts/workspace/board.ts — a transparent

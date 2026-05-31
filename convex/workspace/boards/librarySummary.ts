@@ -5,11 +5,13 @@ import type { Id } from '../../_generated/dataModel'
 import {
   LIBRARY_BOARD_COVER_ITEM_LIMIT,
   LIBRARY_BOARD_TIER_LIMIT,
+  pickCoverRenderFields,
+  type LibraryBoardCoverRenderFields,
   type LibraryBoardTierBreakdown,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierColorSpec } from '@tierlistbuilder/contracts/lib/theme'
 
-export interface BoardLibrarySummaryCoverItem
+export interface BoardLibrarySummaryCoverItem extends LibraryBoardCoverRenderFields
 {
   label: string | null
   externalId: string
@@ -31,7 +33,7 @@ export interface BoardLibrarySummaryTier
   colorSpec: TierColorSpec
 }
 
-export interface BoardLibrarySummaryItem
+export interface BoardLibrarySummaryItem extends LibraryBoardCoverRenderFields
 {
   tierKey: string | null
   externalId: string
@@ -116,6 +118,7 @@ export const buildBoardLibrarySummary = (params: {
         label: item.label ?? null,
         externalId: item.externalId,
         storageId: item.storageId,
+        ...pickCoverRenderFields(item),
       })),
     tierCount: tiers.length,
     tierColors: tiers

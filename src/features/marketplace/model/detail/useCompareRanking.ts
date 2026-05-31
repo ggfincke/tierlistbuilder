@@ -6,9 +6,11 @@ import { useMemo } from 'react'
 import {
   buildRankingBucketPlacements,
   type MarketplaceRankingDetail,
-  type MarketplaceRankingTier,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
-import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import {
+  buildAggregateBucketsFromTiers,
+  type MarketplaceTemplateRankingAggregateBucket,
+} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { useRankingBySlug } from '~/features/marketplace/data/rankingsRepository'
 import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 
@@ -33,18 +35,6 @@ interface CompareRankingProjection
 const MAX_COMPARE_RANKING_PROJECTION_CACHE_ENTRIES = 32
 const projectionCache = new Map<string, CompareRankingProjection>()
 
-const rankingBuckets = (
-  tiers: readonly MarketplaceRankingTier[]
-): MarketplaceTemplateRankingAggregateBucket[] =>
-  tiers
-    .slice()
-    .sort((a, b) => a.order - b.order)
-    .map((tier, index) => ({
-      index,
-      label: tier.name,
-      colorSpec: tier.colorSpec,
-    }))
-
 export const useCompareRanking = ({
   slug,
 }: UseCompareRankingArgs): CompareRankingResult =>
@@ -65,7 +55,8 @@ export const useCompareRanking = ({
       touchMapEntry(projectionCache, key)
       return cached
     }
-    const buckets = rankingBuckets(detail.tiers)
+    const orderedTiers = detail.tiers.slice().sort((a, b) => a.order - b.order)
+    const buckets = buildAggregateBucketsFromTiers(orderedTiers)
     const placements = buildRankingBucketPlacements(
       detail.tiers,
       detail.items,

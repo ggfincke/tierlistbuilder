@@ -3,6 +3,7 @@
 // keyboard navigation, aria-label plumbing, & active-ring chrome
 
 import { useMemo, type ReactNode } from 'react'
+import { Check } from 'lucide-react'
 
 import { joinClassNames } from '~/shared/lib/className'
 import { useRovingSelection } from '~/shared/selection/useRovingSelection'
@@ -30,7 +31,7 @@ interface PickerGridProps<K extends string, M extends PickerItem<K>>
 }
 
 const BASE_BUTTON =
-  'focus-custom flex flex-col items-center rounded-lg transition ' +
+  'focus-custom relative flex flex-col items-center rounded-lg transition hover:-translate-y-0.5 ' +
   'focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ' +
   'focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--t-bg-overlay)]'
 
@@ -97,6 +98,11 @@ export const PickerGrid = <K extends string, M extends PickerItem<K>>({
               itemIsActive ? ACTIVE_RING : HOVER_BG
             )}
           >
+            {itemIsActive && (
+              <span className="absolute right-1 top-1 z-10 grid h-4 w-4 place-items-center rounded-full bg-[var(--t-accent)] text-[var(--t-accent-foreground)] shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+                <Check className="h-2.5 w-2.5" strokeWidth={3} />
+              </span>
+            )}
             {renderPreview(item)}
             <span className={LABEL_CLASS}>{item.label}</span>
           </button>

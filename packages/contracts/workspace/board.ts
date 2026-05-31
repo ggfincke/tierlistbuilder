@@ -22,9 +22,19 @@ export const MAX_TIER_DESCRIPTION_LEN = 500
 // document size, but these field-level limits keep malformed local JSON from
 // persisting megabyte strings into browser storage first
 export const MAX_BOARD_ITEM_LABEL_LEN = 200
-export const MAX_BOARD_ITEM_ALT_TEXT_LEN = 500
-export const MAX_BOARD_ITEM_NOTES_LEN = 2000
-export const MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN = 32
+const MAX_BOARD_ITEM_ALT_TEXT_LEN = 500
+const MAX_BOARD_ITEM_NOTES_LEN = 2000
+const MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN = 32
+
+export const BOARD_ITEM_TEXT_FIELD_LIMITS = [
+  { field: 'label', maxLength: MAX_BOARD_ITEM_LABEL_LEN },
+  { field: 'altText', maxLength: MAX_BOARD_ITEM_ALT_TEXT_LEN },
+  { field: 'notes', maxLength: MAX_BOARD_ITEM_NOTES_LEN },
+  {
+    field: 'backgroundColor',
+    maxLength: MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN,
+  },
+] as const
 
 // soft-delete retention window before the daily hard-delete cron purges a board.
 // exposed in contracts (not just Convex-internal) so the "Recently deleted" UI
@@ -150,6 +160,56 @@ export const ITEM_TRANSFORM_LIMITS = {
   offsetMin: -2,
   offsetMax: 2,
 } as const
+
+export type ItemTransformBoundsViolation =
+  | {
+      field: 'zoom'
+      bound: 'min' | 'max'
+      min: number
+      max: number
+    }
+  | {
+      field: 'offsetX' | 'offsetY'
+      bound: 'range'
+      min: number
+      max: number
+    }
+
+export const getItemTransformBoundsViolation = (
+  transform: Pick<ItemTransform, 'zoom' | 'offsetX' | 'offsetY'>
+): ItemTransformBoundsViolation | null =>
+{
+  const { zoomMin, zoomMax, offsetMin, offsetMax } = ITEM_TRANSFORM_LIMITS
+  if (!Number.isFinite(transform.zoom) || transform.zoom < zoomMin)
+  {
+    return { field: 'zoom', bound: 'min', min: zoomMin, max: zoomMax }
+  }
+  if (transform.zoom > zoomMax)
+  {
+    return { field: 'zoom', bound: 'max', min: zoomMin, max: zoomMax }
+  }
+  if (
+    !Number.isFinite(transform.offsetX) ||
+    transform.offsetX < offsetMin ||
+    transform.offsetX > offsetMax
+  )
+  {
+    return { field: 'offsetX', bound: 'range', min: offsetMin, max: offsetMax }
+  }
+  if (
+    !Number.isFinite(transform.offsetY) ||
+    transform.offsetY < offsetMin ||
+    transform.offsetY > offsetMax
+  )
+  {
+    return { field: 'offsetY', bound: 'range', min: offsetMin, max: offsetMax }
+  }
+  return null
+}
+
+export const isItemTransformInRange = (
+  transform: Pick<ItemTransform, 'zoom' | 'offsetX' | 'offsetY'>
+): boolean => getItemTransformBoundsViolation(transform) === null
 
 // caption placement modes — overlay sits inside the image frame;
 // captionAbove/captionBelow render a full-width strip outside the image
@@ -385,6 +445,16 @@ export interface TierItemImageRef
   cloudMediaOwnership?: CloudMediaOwnership
 }
 
+// identity of a board's live ranking shown as a tile in the profile showcase
+// (tlotl). primitives only — the cover/mini render payload resolves separately
+// & reaches ItemContent via ShowcaseRenderContext keyed by boardExternalId
+export interface ShowcaseItemRef
+{
+  boardExternalId: string
+  rankingSlug: string
+  title: string
+}
+
 // single item placed in a tier or the unranked pool. imageRef is the small
 // preview thumb; tile refs target board rendering; source refs keep editor bytes
 export interface TierItem
@@ -418,6 +488,9 @@ export interface TierItem
   // locally. first cloud sync resolves it to boardItems.templateItemId so the
   // board can publish rankings against its source template.
   sourceTemplateItemExternalId?: string
+  // set only on profile-showcase items — marks this tile as a published-ranking
+  // lane. absent on every normal board item. see ShowcaseItemRef
+  showcaseRanking?: ShowcaseItemRef
 }
 
 // a single tier row w/ ordered item references
@@ -552,8 +625,8 @@ export interface DeletedBoardListItem extends BoardListItem
 }
 
 // content-derived publish state — Draft (items exist but none placed in a
-// tier), WIP (>=1 placed, not published), Live (published as a public
-// template/ranking). Never user-toggled; see deriveLibraryPublishState
+// tier), WIP (>=1 placed, not published), Live (public output exists).
+// Never user-toggled; see deriveLibraryPublishState
 export const PUBLISH_STATES = ['draft', 'wip', 'live'] as const
 export type PublishState = (typeof PUBLISH_STATES)[number]
 
@@ -569,8 +642,8 @@ export const SYNC_STATES = [
 ] as const
 export type SyncState = (typeof SYNC_STATES)[number]
 
-// share-state — 'public' iff a live public template sourced from this board
-// exists; unlisted templates fold into 'private' here (not-discoverable)
+// share-state — 'public' iff a live public template/ranking sourced from
+// this board exists; unlisted output folds into 'private' here
 export const LIBRARY_BOARD_VISIBILITIES = ['private', 'public'] as const
 export type LibraryBoardVisibility = (typeof LIBRARY_BOARD_VISIBILITIES)[number]
 
@@ -631,10 +704,72 @@ export const LIBRARY_BOARD_COVER_ITEM_LIMIT = 18
 // max tier colorSpecs per row — matches the canonical 5-tier preset cap
 export const LIBRARY_BOARD_TIER_LIMIT = 5
 
+// per-item render settings copied onto cover items so a board's mosaic renders
+// each tile the way the board itself does (plate / fit / crop) instead of a
+// blind cover-crop. all optional — absent fields fall back to a plain cover
+export interface LibraryBoardCoverRenderFields
+{
+  imageFit?: ImageFit
+  imagePadding?: number
+  backgroundColor?: string
+  mediaPlate?: MediaPlate
+  transform?: ItemTransform
+  aspectRatio?: number
+}
+
+export const COVER_RENDER_FIELD_KEYS = [
+  'imageFit',
+  'imagePadding',
+  'backgroundColor',
+  'mediaPlate',
+  'transform',
+  'aspectRatio',
+] as const satisfies readonly (keyof LibraryBoardCoverRenderFields)[]
+
+export type CoverRenderFieldSource = {
+  imageFit?: ImageFit | null
+  imagePadding?: number | null
+  backgroundColor?: string | null
+  mediaPlate?: MediaPlate | null
+  transform?: ItemTransform | null
+  aspectRatio?: number | null
+}
+
+export type NullableCoverRenderFields = {
+  [K in keyof LibraryBoardCoverRenderFields]-?:
+    | LibraryBoardCoverRenderFields[K]
+    | null
+}
+
+export const pickNullableCoverRenderFields = (
+  item: CoverRenderFieldSource
+): NullableCoverRenderFields => ({
+  imageFit: item.imageFit ?? null,
+  imagePadding: item.imagePadding ?? null,
+  backgroundColor: item.backgroundColor ?? null,
+  mediaPlate: item.mediaPlate ?? null,
+  transform: item.transform ?? null,
+  aspectRatio: item.aspectRatio ?? null,
+})
+
+// copy the per-item render fields off any item-like source onto a cover/summary
+// item, normalizing null -> undefined so every summary & projection builder
+// mirrors them identically (one place to add a field, no per-builder drift)
+export const pickCoverRenderFields = (
+  item: CoverRenderFieldSource
+): LibraryBoardCoverRenderFields => ({
+  imageFit: item.imageFit ?? undefined,
+  imagePadding: item.imagePadding ?? undefined,
+  backgroundColor: item.backgroundColor ?? undefined,
+  mediaPlate: item.mediaPlate ?? undefined,
+  transform: item.transform ?? undefined,
+  aspectRatio: item.aspectRatio ?? undefined,
+})
+
 // single cover-item entry. label is null when the item has no caption;
 // mediaUrl is null when the item has no image bound (drafts, missing media)
 // — the renderer falls back to label or an externalId-derived code
-export interface LibraryBoardCoverItem
+export interface LibraryBoardCoverItem extends LibraryBoardCoverRenderFields
 {
   label: string | null
   externalId: string
@@ -675,22 +810,31 @@ export interface LibraryBoardListItem extends BoardListItem
     | import('../marketplace/template').TemplateCoverFraming
     | null
   coverItems: LibraryBoardCoverItem[]
+  // board-level render context for the cover mosaic — mirrors the board's own
+  // item-render settings so tiles resolve plates / fit the way the board does
+  autoPlate?: BoardAutoPlateSettings | null
+  defaultItemImageFit?: ImageFit | null
+  defaultItemImagePadding?: number | null
+  itemAspectRatio?: number | null
   paletteId: import('../lib/theme').PaletteId
   // total tier count; tierColors/tierBreakdown are capped at
   // LIBRARY_BOARD_TIER_LIMIT, so this is the source of truth for the count
   tierCount: number
   tierColors: import('../lib/theme').TierColorSpec[]
   tierBreakdown: LibraryBoardTierBreakdown[]
+  // live mini tier-list render for the cover — non-null only on boards w/ a
+  // reachable live public ranking; drafts/WIP fall back to the mosaic cover
+  mini: import('../platform/showcase').ShowcaseMiniSnapshot | null
   // forward-compat slot for a "pin to top" feature; always false today
   pinned: boolean
 }
 
 export const deriveLibraryPublishState = (params: {
   rankedItemCount: number
-  hasPublishedTemplate: boolean
+  hasPublishedOutput: boolean
 }): PublishState =>
 {
-  if (params.hasPublishedTemplate) return 'live'
+  if (params.hasPublishedOutput) return 'live'
   return params.rankedItemCount > 0 ? 'wip' : 'draft'
 }
 

@@ -15,7 +15,10 @@ import { LibrarySignedOutState } from '~/features/library/ui/chrome/LibrarySigne
 import { LibrarySkeleton } from '~/features/library/ui/chrome/LibrarySkeleton'
 import { NewBoardTile } from '~/features/library/ui/cards/NewBoardTile'
 import { getLibraryFilterStatusLabel } from '~/features/library/lib/statusMeta'
-import { LIBRARY_GRID_COLUMNS_BY_DENSITY } from '~/features/library/lib/densityLayout'
+import {
+  LIBRARY_GRID_CLASS_BY_DENSITY,
+  LIBRARY_GRID_COLUMNS_BY_DENSITY,
+} from '~/features/library/lib/densityLayout'
 import {
   countLibraryPublishStates,
   filterLibraryBoards,
@@ -33,6 +36,7 @@ import { useRenameLibraryBoard } from '~/features/library/model/useRenameLibrary
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { LivePulse } from '~/shared/ui/LivePulse'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
+import { PAGE_TOP_LEVEL } from '~/shared/ui/pageContainer'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { foldForSearch } from '~/shared/lib/text'
 
@@ -120,13 +124,6 @@ export const MyBoardsPage = () =>
     foldedTitleByExternalId,
   ])
 
-  const gridStyle = useMemo(
-    () => ({
-      gridTemplateColumns: `repeat(${LIBRARY_GRID_COLUMNS_BY_DENSITY[filters.density]}, minmax(0, 1fr))`,
-    }),
-    [filters.density]
-  )
-
   const showSignedOutBanner = !isAuthLoading && !isSignedIn
   const filtersActive =
     deferredFilter !== 'all' || deferredSearch.trim().length > 0
@@ -147,7 +144,7 @@ export const MyBoardsPage = () =>
   }
 
   return (
-    <section className="relative z-10 mx-auto w-full max-w-[1320px] px-6 pt-20 pb-24 sm:px-10 sm:pt-24">
+    <section className={PAGE_TOP_LEVEL}>
       {/* editorial hero — eyebrow + wordmark left, search + mono stats right */}
       <div className="flex flex-wrap items-end justify-between gap-8 border-b border-[var(--t-border)] pb-6">
         <DisplayHeadline
@@ -167,8 +164,7 @@ export const MyBoardsPage = () =>
               )}
             </span>
           }
-          primary="My"
-          accent="boards"
+          accent="My boards"
           subtitle="Drafts, rankings in flight, and finished boards — everything you've made, organized like a record collection."
           size="display"
           maxWidthClassName="max-w-2xl"
@@ -267,7 +263,9 @@ export const MyBoardsPage = () =>
             pendingActionExternalId={pendingActionExternalId}
           />
         ) : (
-          <div className="grid gap-3.5" style={gridStyle}>
+          <div
+            className={`grid gap-5 ${LIBRARY_GRID_CLASS_BY_DENSITY[filters.density]}`}
+          >
             {!filtersActive && (
               <NewBoardTile
                 onCreate={createBoard.start}

@@ -19,6 +19,7 @@ import {
   loadBoardState,
   saveActiveBoardSnapshot,
 } from '~/features/workspace/boards/model/session/boardSessionPersistence'
+import { createBoardMeta } from '~/features/workspace/boards/model/session/boardSessionRegistry'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
 
 type CloudBoardActivationErrorKind = 'cloud-missing' | 'persist-failed'
@@ -72,19 +73,9 @@ const materializeCloudBoardSnapshot = async (
     )
   }
 
-  const registry = useWorkspaceBoardRegistryStore.getState()
-  const existing = registry.boards.find((b) => b.id === boardId)
-  if (!existing)
-  {
-    registry.addBoardMeta(
-      { id: boardId, title: snapshot.title, createdAt: Date.now() },
-      false
-    )
-  }
-  else if (existing.title !== snapshot.title)
-  {
-    registry.renameBoardMeta(boardId, snapshot.title)
-  }
+  useWorkspaceBoardRegistryStore
+    .getState()
+    .upsertBoardMeta(createBoardMeta(boardId, snapshot.title), false)
 
   return { boardId, snapshot, syncState }
 }
@@ -157,9 +148,7 @@ export const activateCloudBoardAsActive = async (
 {
   const boardId = asBoardId(boardExternalId)
   const registry = useWorkspaceBoardRegistryStore.getState()
-  const existing = registry.boards.find((b) => b.id === boardId)
-
-  if (!existing)
+  if (!registry.isBoardInRegistry(boardId))
   {
     return await importCloudBoardAsActive(boardExternalId)
   }

@@ -14,8 +14,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useEffectiveTiers } from '~/features/workspace/boards/model/useEffectiveBoard'
-import { THEMES } from '~/shared/theme/tokens'
-import { announce } from '~/shared/a11y/announce'
+import { resolveExportBackground } from '~/shared/theme/tokens'
+import { announceDragCancelled } from '~/features/workspace/boards/lib/containerLabel'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/preferences'
 import { isVerticalPosition } from '~/shared/overlay/toolbarPosition'
 import { TIER_LIST_BOARD_TEST_ID } from '~/shared/board-ui/boardTestIds'
@@ -55,9 +55,11 @@ interface TierListProps
 {
   toolbar: ReactNode
   toolbarPosition: ToolbarPosition
+  // override the default workspace pool (e.g. showcase has no image import)
+  pool?: ReactNode
 }
 
-export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
+export const TierList = ({ toolbar, toolbarPosition, pool }: TierListProps) =>
 {
   const isVertical = isVerticalPosition(toolbarPosition)
   const { exportBackgroundOverride, themeId, compactMode } =
@@ -68,8 +70,10 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
         compactMode: state.compactMode,
       }))
     )
-  const exportBackgroundColor =
-    exportBackgroundOverride ?? THEMES[themeId]['export-bg']
+  const exportBackgroundColor = resolveExportBackground(
+    exportBackgroundOverride,
+    themeId
+  )
   const { dragGroupCount, keyboardMode } = useActiveBoardStore(
     useShallow((state) => ({
       dragGroupCount: state.dragGroupIds.length,
@@ -123,7 +127,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
         if (state.keyboardMode === 'dragging')
         {
           state.cancelKeyboardDrag()
-          announce('Drag cancelled')
+          announceDragCancelled()
           return
         }
 
@@ -203,7 +207,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
           <div className={isVertical ? 'sticky top-4' : ''}>{toolbar}</div>
         </div>
 
-        <UnrankedPool />
+        {pool ?? <UnrankedPool />}
 
         <TrashZone />
       </div>

@@ -17,7 +17,7 @@ import {
   type TierItem,
   type TierItemImageRef,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import { DEFAULT_SE_TIERS } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
   ImageFit,
   ItemTransform,
@@ -50,18 +50,6 @@ import { logger } from '~/shared/lib/logger'
 import { cacheFreshBlob, warmFromBoard } from '~/shared/images/imageBlobCache'
 import { createBlobRecord } from '~/shared/images/imagePersistence'
 import { putBlob } from '~/shared/images/imageStore'
-
-// share-mode fallback tier presets when neither a template nor a ranking
-// supplied any. mirrors `DEFAULT_TEMPLATE_TIERS` from convex/marketplace/templates/lib
-// but stays client-side so signed-out forks don't reach the server for shapes
-const DEFAULT_FORK_TIERS: ReadonlyArray<TierPresetTier> = [
-  { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-  { name: 'A', colorSpec: { kind: 'palette', index: 1 } },
-  { name: 'B', colorSpec: { kind: 'palette', index: 2 } },
-  { name: 'C', colorSpec: { kind: 'palette', index: 3 } },
-  { name: 'D', colorSpec: { kind: 'palette', index: 4 } },
-  { name: 'E', colorSpec: { kind: 'palette', index: 5 } },
-]
 
 const SOURCE_MEDIA_FETCH_CONCURRENCY = 4
 
@@ -261,7 +249,7 @@ const buildItemsFromTemplateItems = (
 }
 
 // derive board tiers from the template's suggested set, falling back to the
-// canonical S–E preset when the template author left tiers unset
+// canonical S-E preset when the template author left tiers unset
 const buildTiersFromTemplate = (
   template: MarketplaceTemplateDetail
 ): Tier[] =>
@@ -269,7 +257,7 @@ const buildTiersFromTemplate = (
   const sourceTiers =
     template.suggestedTiers.length > 0
       ? template.suggestedTiers
-      : DEFAULT_FORK_TIERS
+      : DEFAULT_SE_TIERS
 
   return sourceTiers.map(
     (tier): Tier => ({

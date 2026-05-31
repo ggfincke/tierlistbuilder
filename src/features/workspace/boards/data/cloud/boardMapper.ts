@@ -14,11 +14,15 @@ import {
 } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   CloudBoardItemWire,
+  CloudBoardItemScalarField,
   CloudBoardPayload,
   CloudBoardState,
   CloudBoardTierWire,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import { CLOUD_BOARD_ITEM_SCALAR_FIELDS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type { BoardImageUploadResult } from '~/features/platform/media/imageUploader'
+import { assignNormalizedItemScalars } from '~/shared/board-data/boardNormalizers'
+import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 import { getRenditionEntries, type RenditionKey } from '~/shared/lib/imageRefs'
 
 const DELETED_ITEM_ORDER = -1
@@ -81,6 +85,19 @@ const resolveItemMediaExternalIds = (
   return { mediaExternalId: null }
 }
 
+const pickCloudItemScalars = (
+  item: TierItem
+): Pick<CloudBoardItemWire, CloudBoardItemScalarField> =>
+{
+  const fields: Partial<Record<CloudBoardItemScalarField, unknown>> = {}
+  for (const field of CLOUD_BOARD_ITEM_SCALAR_FIELDS)
+  {
+    const value = item[field]
+    if (value !== undefined) fields[field] = value
+  }
+  return fields as Pick<CloudBoardItemWire, CloudBoardItemScalarField>
+}
+
 const toCloudItemWire = (
   item: TierItem,
   tierId: string | null,
@@ -92,19 +109,9 @@ const toCloudItemWire = (
   return {
     externalId: item.id,
     tierId,
-    label: item.label,
-    backgroundColor: item.backgroundColor,
-    mediaPlate: item.mediaPlate,
-    altText: item.altText,
-    notes: item.notes,
+    ...pickCloudItemScalars(item),
     ...media,
     order,
-    aspectRatio: item.aspectRatio,
-    imageFit: item.imageFit,
-    transform: item.transform,
-    imagePadding: item.imagePadding,
-    labelOptions: item.labelOptions,
-    sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
   }
 }
 
@@ -170,8 +177,8 @@ export const snapshotToCloudPayload = (
     pageBackground: snapshot.pageBackground,
     labels: snapshot.labels,
     autoPlate: snapshot.autoPlate,
-    // source-fork identity travels on every push — server consults it only on
-    // first INSERT (subsequent syncs ignore the wire fields)
+    // source-fork identity travels on every push; server uses it only on insert
+    // source cover fields stay local-only; library rows rehydrate from source data
     sourceTemplateId: snapshot.sourceTemplateId,
     sourceRankingId: snapshot.sourceRankingId,
     sourceTemplateTitle: snapshot.sourceTemplateTitle,
@@ -197,7 +204,7 @@ const cloudItemToSnapshotItem = (
 {
   const id = asItemId(item.externalId)
   const mediaExternalId = item.mediaExternalId ?? undefined
-  return {
+  const snapshotItem: TierItem = {
     id,
     imageRef: toCloudImageRef(item.previewMediaContentHash, mediaExternalId),
     tileImageRef: toCloudImageRef(item.mediaContentHash, mediaExternalId),
@@ -205,18 +212,9 @@ const cloudItemToSnapshotItem = (
       item.sourceMediaContentHash,
       mediaExternalId
     ),
-    label: item.label,
-    backgroundColor: item.backgroundColor,
-    mediaPlate: item.mediaPlate,
-    altText: item.altText,
-    notes: item.notes,
-    aspectRatio: item.aspectRatio,
-    imageFit: item.imageFit,
-    transform: item.transform,
-    imagePadding: item.imagePadding,
-    labelOptions: item.labelOptions,
-    sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
   }
+  assignNormalizedItemScalars(snapshotItem, item)
+  return snapshotItem
 }
 
 // convert cloud server state to a local BoardSnapshot. images are wired
@@ -264,7 +262,7 @@ export const serverStateToSnapshot = (
     .sort((a, b) => a.order - b.order)
     .map((i) => asItemId(i.externalId))
 
-  return {
+  const rawSnapshot: BoardSnapshot = {
     title: serverState.title,
     tiers,
     unrankedItemIds,
@@ -291,4 +289,10 @@ export const serverStateToSnapshot = (
     preferredCriterionExternalId:
       serverState.preferredCriterionExternalId ?? undefined,
   }
+
+  return normalizeBoardSnapshot(
+    rawSnapshot,
+    serverState.paletteId ?? 'classic',
+    serverState.title
+  )
 }

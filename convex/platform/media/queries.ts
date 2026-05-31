@@ -17,6 +17,7 @@ import { selectMediaVariantSummary } from '../../lib/mediaVariants'
 import { BOARD_ITEM_TAKE_LIMIT } from '../../lib/limits'
 import { loadBoundedBoardRows } from '../../workspace/sync/loadBoundedBoardRows'
 import { memoizePromise } from '../../lib/cache'
+import { isPublicRankingRow } from '../../marketplace/rankings/lib'
 
 // hard cap per batch — protects the query's document read budget. clients
 // chunk their pending batches to fit. 50 covers the common "warm a board"
@@ -271,6 +272,26 @@ const isMediaReferencedByTemplate = async (
   return coverResult === 'matched'
 }
 
+const isMediaReferencedByPublishedRanking = async (
+  ctx: QueryCtx,
+  assetId: Id<'mediaAssets'>,
+  budget: ReachabilityBudget
+): Promise<boolean> =>
+{
+  const result = await scanReferencesWithBudget({
+    budget,
+    loadPage: async (cursor, numItems) =>
+      await ctx.db
+        .query('publishedRankingItems')
+        .withIndex('byMedia', (q) => q.eq('mediaAssetId', assetId))
+        .paginate({ cursor, numItems }),
+    parentIds: (items) => items.map((item) => item.rankingId),
+    loadParent: async (rankingId) => await ctx.db.get(rankingId),
+    parentMatches: (ranking) => ranking !== null && isPublicRankingRow(ranking),
+  })
+  return result === 'matched'
+}
+
 // returns true when the requesting user is allowed to read this asset.
 // "false" is the safe fallback — a budget-exhausted scan returns not-readable
 // rather than guessing, so the client just sees a null URL for that asset
@@ -283,6 +304,8 @@ const canReadMediaAsset = async (
 {
   if (asset.ownerId === userId) return true
   if (await isMediaReferencedByTemplate(ctx, asset._id, budget)) return true
+  if (await isMediaReferencedByPublishedRanking(ctx, asset._id, budget))
+    return true
   return await isMediaReferencedByUserBoard(ctx, asset._id, userId, budget)
 }
 

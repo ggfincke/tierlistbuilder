@@ -7,7 +7,6 @@ import {
   mutation,
   type MutationCtx,
 } from '../../../_generated/server'
-import { internal } from '../../../_generated/api'
 import type { Doc, Id } from '../../../_generated/dataModel'
 import {
   generateBoardId,
@@ -15,7 +14,10 @@ import {
   generateTierId,
 } from '@tierlistbuilder/contracts/lib/ids'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  normalizeBoardTitle,
+  pickCoverRenderFields,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   isRankingSlug,
   type MarketplaceRankingPublishResult,
@@ -34,21 +36,15 @@ import {
   findRankingBySlug,
   findTemplateBySlug,
 } from '../../../lib/marketplaceLookups'
-import { loadPreviewOrTileStorageId } from '../../../lib/mediaVariants'
+import { loadTileStorageId } from '../../../lib/mediaVariants'
 import { loadBoundedBoardRows } from '../../../workspace/sync/loadBoundedBoardRows'
-import { buildFreshBoardCloudFields } from '../../../workspace/boards/cloudFields'
+import { buildForkedBoardInsert } from '../../../workspace/boards/cloudFields'
 import {
   buildBoardLibrarySummary,
-  EMPTY_BOARD_LIBRARY_SUMMARY,
   type BoardLibrarySummaryItem,
   type BoardLibrarySummaryTier,
 } from '../../../workspace/boards/librarySummary'
-import {
-  EMPTY_BOARD_SOURCE_RANKING,
-  boardSourceTemplateFromTemplate,
-  getBoardSourceTemplateId,
-} from '../../../workspace/boards/sourceFields'
-import { resolveTemplateProgressState } from '../../../lib/templateProgress'
+import { getBoardSourceTemplateId } from '../../../workspace/boards/sourceFields'
 import {
   marketplaceRankingPublishResultValidator,
   marketplaceRankingRemixResultValidator,
@@ -61,11 +57,15 @@ import {
   isPublishedRankingRow,
   normalizeRankingDescription,
   normalizeRankingTitle,
+  pickRankingRenderFieldsForWrite,
   rankingTopScore,
 } from '../lib'
-import { DEFAULT_TEMPLATE_TIERS } from '../../templates/lib/normalize'
+import { templateTiersOrDefault } from '../../templates/lib/normalize'
 import { loadTemplateItems } from '../../templates/lib/projections'
-import { incrementTemplateForkStats } from '../../templates/lib/writes'
+import {
+  incrementTemplateForkStats,
+  markTemplateUnpublished,
+} from '../../templates/lib/writes'
 import { isPublishedTemplateRow } from '../../templates/lib/state'
 import { templateTitleToBoardTitle } from '../../templates/lib/board'
 import {
@@ -76,8 +76,6 @@ import {
   findTemplateRankingAggregate,
   queueTemplateRankingAggregateRecompute,
 } from '../aggregate/lib'
-
-const SUPERSEDE_PUBLIC_RANKINGS_PAGE_SIZE = 256
 
 const requireTemplate = async (
   ctx: MutationCtx,
@@ -240,102 +238,248 @@ const buildOrderedRankingItems = async (
   return rows
 }
 
-const supersedePublicRankingsInLane = async (
+// retire a board's current live public ranking: unlist it (superseded by the
+// given replacement, or null on delete) & repoint the board to nextLiveRankingId.
+// board-unique — touches only THIS board's own ranking, never another's. idempotent
+const retireBoardLiveRanking = async (
   ctx: MutationCtx,
-  ownerId: Id<'users'>,
-  templateId: Id<'templates'>,
-  criterionExternalId: string,
-  replacementRankingId: Id<'publishedRankings'>,
+  board: Doc<'boards'>,
+  options: {
+    supersededByRankingId: Id<'publishedRankings'> | null
+    nextLiveRankingId: Id<'publishedRankings'> | null
+    queueAggregate?: boolean
+  },
   now: number
 ): Promise<void> =>
-  await supersedePublicRankingsInLanePage(ctx, {
-    ownerId,
-    templateId,
-    criterionExternalId,
-    replacementRankingId,
-    now,
-    cursor: null,
-  })
-
-interface SupersedePublicRankingsInLaneArgs
 {
-  ownerId: Id<'users'>
-  templateId: Id<'templates'>
-  criterionExternalId: string
-  replacementRankingId: Id<'publishedRankings'>
-  now: number
-  cursor: string | null
-}
-
-const supersedePublicRankingsInLanePage = async (
-  ctx: MutationCtx,
-  args: SupersedePublicRankingsInLaneArgs
-): Promise<void> =>
-{
-  const patchBatch: Promise<void>[] = []
-  const flushPatchBatch = async () =>
+  const priorRankingId = board.livePublicRankingId ?? null
+  if (priorRankingId !== null)
   {
-    await Promise.all(patchBatch)
-    patchBatch.length = 0
-  }
-  const page = await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
-      q
-        .eq('sourceTemplateId', args.templateId)
-        .eq('sourceCriterionExternalId', args.criterionExternalId)
-        .eq('ownerId', args.ownerId)
-        .eq('isPubliclyListable', true)
-    )
-    .paginate({
-      numItems: SUPERSEDE_PUBLIC_RANKINGS_PAGE_SIZE,
-      cursor: args.cursor,
-    })
-  for (const ranking of page.page)
-  {
-    if (ranking._id === args.replacementRankingId) continue
-    if (!isPublicRankingRow(ranking)) continue
-    patchBatch.push(
-      ctx.db.patch(ranking._id, {
-        isPubliclyListable: false,
-        supersededAt: args.now,
-        supersededByRankingId: args.replacementRankingId,
-        updatedAt: args.now,
-      })
-    )
-    if (patchBatch.length >= 16)
+    const prior = await ctx.db.get(priorRankingId)
+    if (prior && isPublicRankingRow(prior))
     {
-      await flushPatchBatch()
+      await ctx.db.patch(prior._id, {
+        isPubliclyListable: false,
+        supersededAt: now,
+        supersededByRankingId: options.supersededByRankingId,
+        updatedAt: now,
+      })
+      if (options.queueAggregate ?? true)
+      {
+        await queueTemplateRankingAggregateRecompute(
+          ctx,
+          prior.sourceTemplateId,
+          prior.sourceCriterionExternalId,
+          now
+        )
+      }
     }
   }
-  await flushPatchBatch()
-  if (!page.isDone)
+  if (priorRankingId !== options.nextLiveRankingId)
   {
-    await ctx.scheduler.runAfter(
-      0,
-      internal.marketplace.rankings.public.mutations
-        .supersedePublicRankingsInLaneBatch,
-      { ...args, cursor: page.continueCursor }
-    )
+    await ctx.db.patch(board._id, {
+      livePublicRankingId: options.nextLiveRankingId,
+      updatedAt: now,
+    })
   }
 }
 
-export const supersedePublicRankingsInLaneBatch = internalMutation({
-  args: {
-    ownerId: v.id('users'),
-    templateId: v.id('templates'),
-    criterionExternalId: v.string(),
-    replacementRankingId: v.id('publishedRankings'),
-    now: v.number(),
-    cursor: v.union(v.string(), v.null()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> =>
+// retract a board's live public ranking on delete: retire it w/ no replacement
+// & clear the board pointer so no orphan lingers on the marketplace
+const retractBoardLivePublicRanking = async (
+  ctx: MutationCtx,
+  board: Doc<'boards'>,
+  now: number
+): Promise<void> =>
+  await retireBoardLiveRanking(
+    ctx,
+    board,
+    { supersededByRankingId: null, nextLiveRankingId: null },
+    now
+  )
+
+// unpublish a board's live public template on delete; markTemplateUnpublished
+// also clears board.livePublicTemplateId via clearSourceBoardLivePublicTemplate
+const retractBoardLivePublicTemplate = async (
+  ctx: MutationCtx,
+  board: Doc<'boards'>,
+  now: number
+): Promise<void> =>
+{
+  const templateId = board.livePublicTemplateId
+  if (templateId === null) return
+  const template = await ctx.db.get(templateId)
+  if (template)
   {
-    await supersedePublicRankingsInLanePage(ctx, args)
-    return null
-  },
-})
+    await markTemplateUnpublished(ctx, template, now)
+    return
+  }
+  await ctx.db.patch(board._id, {
+    livePublicTemplateId: null,
+    updatedAt: now,
+  })
+}
+
+// clear a board's public footprint on delete: unlist its live ranking & unpublish
+// its live template so neither survives the board. called from soft-delete & the
+// cascade's first pass (cron/legacy safety net); idempotent on re-call
+export const retractBoardPublications = async (
+  ctx: MutationCtx,
+  board: Doc<'boards'>,
+  now: number
+): Promise<void> =>
+{
+  await retractBoardLivePublicRanking(ctx, board, now)
+  await retractBoardLivePublicTemplate(ctx, board, now)
+}
+
+interface PublishRankingCoreOptions
+{
+  title?: string
+  description?: string | null
+  visibility: Doc<'publishedRankings'>['visibility']
+  criterionExternalId?: string
+  // queue the per-lane aggregate recompute (default true for the user publish
+  // path); the dev seed passes false to avoid one scheduler fan-out per sample
+  queueAggregate?: boolean
+}
+
+// board -> ranking publish mechanics, keyed only on an already-resolved owned
+// board. the public mutation runs the auth/throttle prelude then calls this; the
+// dev tlotl seed materializes a board & calls it directly to mint a live ranking
+export const publishRankingCore = async (
+  ctx: MutationCtx,
+  board: Doc<'boards'>,
+  options: PublishRankingCoreOptions
+): Promise<{ slug: string; rankingId: Id<'publishedRankings'> }> =>
+{
+  const sourceTemplateId = requireCompletedTemplateBoard(board)
+  const template = await requireTemplate(ctx, sourceTemplateId)
+  if (!isPublishedTemplateRow(template))
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'source template must still be published',
+    })
+  }
+  assertRankingFitsSingleTransaction(board.activeItemCount, 'publish')
+
+  const { serverTiers, serverItems } = await loadBoundedBoardRows(
+    ctx,
+    board._id
+  )
+  const rankingItems = await buildOrderedRankingItems(
+    ctx,
+    serverTiers,
+    serverItems
+  )
+  if (rankingItems.length !== board.activeItemCount)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'ranking item count does not match the board',
+    })
+  }
+
+  const now = Date.now()
+  const slug = await allocateRankingSlug(ctx)
+  const title = normalizeRankingTitle(options.title ?? board.title)
+  const description = normalizeRankingDescription(options.description)
+  const criterion = resolveActiveTemplateCriterion(
+    template,
+    options.criterionExternalId
+  )
+  const criterionSnapshot = toTemplateCriterionSnapshot(criterion)
+  const rankingId = await ctx.db.insert('publishedRankings', {
+    slug,
+    ownerId: board.ownerId,
+    sourceTemplateId: template._id,
+    sourceBoardId: board._id,
+    sourceTemplateSlug: template.slug,
+    sourceTemplateTitle: template.title,
+    sourceTemplateCategory: template.category,
+    sourceCriterionExternalId: criterionSnapshot.externalId,
+    sourceCriterionNameSnapshot: criterionSnapshot.name,
+    sourceCriterionPromptSnapshot: criterionSnapshot.prompt,
+    title,
+    description,
+    visibility: options.visibility,
+    publicationState: 'published',
+    isPubliclyListable: options.visibility === 'public',
+    supersededAt: null,
+    supersededByRankingId: null,
+    itemCount: rankingItems.length,
+    tierCount: serverTiers.length,
+    remixCount: 0,
+    viewCount: 0,
+    topScore: 0,
+    isFeatured: false,
+    featuredRank: null,
+    featuredBadge: null,
+    seedDatasetKey: null,
+    seedReleaseId: null,
+    seedExternalId: null,
+    seedKind: null,
+    seedTemplateExternalId: null,
+    seedCriterionExternalId: null,
+    seedAuthorKey: null,
+    seedProfileKey: null,
+    seedCuratedExternalId: null,
+    seedReleaseStatus: null,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  await Promise.all([
+    ...serverTiers.map((tier) =>
+      ctx.db.insert('publishedRankingTiers', {
+        rankingId,
+        externalId: tier.externalId,
+        name: tier.name,
+        description: tier.description ?? null,
+        colorSpec: tier.colorSpec,
+        rowColorSpec: tier.rowColorSpec ?? null,
+        order: tier.order,
+      })
+    ),
+    ...rankingItems.map(({ boardItem, templateItem, tierExternalId, order }) =>
+      ctx.db.insert('publishedRankingItems', {
+        rankingId,
+        templateItemId: templateItem._id,
+        templateItemExternalId: templateItem.externalId,
+        externalId: boardItem.externalId,
+        tierExternalId,
+        ...pickRankingRenderFieldsForWrite({ ...boardItem, order }),
+      })
+    ),
+  ])
+  // board-unique: retire only THIS board's own prior live ranking (superseded by
+  // the new one) & repoint it to the new ranking on a public publish or null on
+  // an unlisted one. never touches another board's ranking
+  const desiredLiveRankingId =
+    options.visibility === 'public' ? rankingId : null
+  await retireBoardLiveRanking(
+    ctx,
+    board,
+    {
+      supersededByRankingId: rankingId,
+      nextLiveRankingId: desiredLiveRankingId,
+      queueAggregate: options.queueAggregate ?? true,
+    },
+    now
+  )
+  if (options.queueAggregate ?? true)
+  {
+    await queueTemplateRankingAggregateRecompute(
+      ctx,
+      template._id,
+      criterion.externalId,
+      now
+    )
+  }
+
+  return { slug, rankingId }
+}
 
 export const publishRankingFromBoard = mutation({
   args: {
@@ -349,142 +493,20 @@ export const publishRankingFromBoard = mutation({
   handler: async (ctx, args): Promise<MarketplaceRankingPublishResult> =>
   {
     const userId = await requireCurrentUserId(ctx)
-    // every public publish below queues an aggregate recompute, so the
-    // bucket bounds downstream cost as well as the surface mutation itself
+    // every publish below queues an aggregate recompute, so the bucket bounds
+    // downstream cost as well as the surface mutation itself
     await enforceRateLimit(ctx, 'userRankingPublish', userId)
     const board = await requireBoardOwnershipByExternalId(
       ctx,
       args.boardExternalId,
       userId
     )
-    const sourceTemplateId = requireCompletedTemplateBoard(board)
-    const template = await requireTemplate(ctx, sourceTemplateId)
-    if (!isPublishedTemplateRow(template))
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: 'source template must still be published',
-      })
-    }
-    assertRankingFitsSingleTransaction(board.activeItemCount, 'publish')
-
-    const { serverTiers, serverItems } = await loadBoundedBoardRows(
-      ctx,
-      board._id
-    )
-    const rankingItems = await buildOrderedRankingItems(
-      ctx,
-      serverTiers,
-      serverItems
-    )
-    if (rankingItems.length !== board.activeItemCount)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: 'ranking item count does not match the board',
-      })
-    }
-
-    const now = Date.now()
-    const slug = await allocateRankingSlug(ctx)
-    const title = normalizeRankingTitle(args.title ?? board.title)
-    const description = normalizeRankingDescription(args.description)
-    const criterion = resolveActiveTemplateCriterion(
-      template,
-      args.criterionExternalId
-    )
-    const criterionSnapshot = toTemplateCriterionSnapshot(criterion)
-    const rankingId = await ctx.db.insert('publishedRankings', {
-      slug,
-      ownerId: userId,
-      sourceTemplateId: template._id,
-      sourceBoardId: board._id,
-      sourceTemplateSlug: template.slug,
-      sourceTemplateTitle: template.title,
-      sourceTemplateCategory: template.category,
-      sourceCriterionExternalId: criterionSnapshot.externalId,
-      sourceCriterionNameSnapshot: criterionSnapshot.name,
-      sourceCriterionPromptSnapshot: criterionSnapshot.prompt,
-      title,
-      description,
+    const { slug } = await publishRankingCore(ctx, board, {
+      title: args.title,
+      description: args.description,
       visibility: args.visibility,
-      publicationState: 'published',
-      isPubliclyListable: args.visibility === 'public',
-      supersededAt: null,
-      supersededByRankingId: null,
-      itemCount: rankingItems.length,
-      tierCount: serverTiers.length,
-      remixCount: 0,
-      viewCount: 0,
-      topScore: 0,
-      isFeatured: false,
-      featuredRank: null,
-      featuredBadge: null,
-      seedDatasetKey: null,
-      seedReleaseId: null,
-      seedExternalId: null,
-      seedKind: null,
-      seedTemplateExternalId: null,
-      seedCriterionExternalId: null,
-      seedAuthorKey: null,
-      seedProfileKey: null,
-      seedCuratedExternalId: null,
-      seedReleaseStatus: null,
-      createdAt: now,
-      updatedAt: now,
+      criterionExternalId: args.criterionExternalId,
     })
-
-    await Promise.all([
-      ...serverTiers.map((tier) =>
-        ctx.db.insert('publishedRankingTiers', {
-          rankingId,
-          externalId: tier.externalId,
-          name: tier.name,
-          description: tier.description ?? null,
-          colorSpec: tier.colorSpec,
-          rowColorSpec: tier.rowColorSpec ?? null,
-          order: tier.order,
-        })
-      ),
-      ...rankingItems.map(
-        ({ boardItem, templateItem, tierExternalId, order }) =>
-          ctx.db.insert('publishedRankingItems', {
-            rankingId,
-            templateItemId: templateItem._id,
-            templateItemExternalId: templateItem.externalId,
-            externalId: boardItem.externalId,
-            tierExternalId,
-            label: boardItem.label ?? null,
-            backgroundColor: boardItem.backgroundColor ?? null,
-            mediaPlate: boardItem.mediaPlate ?? null,
-            altText: boardItem.altText ?? null,
-            mediaAssetId: boardItem.mediaAssetId,
-            order,
-            aspectRatio: boardItem.aspectRatio ?? null,
-            imageFit: boardItem.imageFit ?? null,
-            transform: boardItem.transform ?? null,
-            imagePadding: boardItem.imagePadding ?? null,
-          })
-      ),
-    ])
-    if (args.visibility === 'public')
-    {
-      await supersedePublicRankingsInLane(
-        ctx,
-        userId,
-        template._id,
-        criterion.externalId,
-        rankingId,
-        now
-      )
-      await queueTemplateRankingAggregateRecompute(
-        ctx,
-        template._id,
-        criterion.externalId,
-        now
-      )
-    }
-
     return { slug }
   },
 })
@@ -584,10 +606,7 @@ export const remixTemplateConsensus = mutation({
       itemCount: templateItems.length,
     })
 
-    const tierTemplate =
-      template.suggestedTiers.length > 0
-        ? template.suggestedTiers
-        : DEFAULT_TEMPLATE_TIERS
+    const tierTemplate = templateTiersOrDefault(template)
     const boardTitle = normalizeBoardTitle(
       args.title ?? templateTitleToBoardTitle(template.title)
     )
@@ -616,40 +635,14 @@ export const remixTemplateConsensus = mutation({
     const boardId = await ctx.db.insert('boards', {
       externalId: boardExternalId,
       ownerId: userId,
-      title: boardTitle,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-      revision: 0,
-      sourceTemplate: boardSourceTemplateFromTemplate(template),
-      // consensus remix is sourced from the aggregate, not a single ranking
-      sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
-      forkCounted: true,
       preferredCriterionExternalId: criterion.externalId,
-      ...buildFreshBoardCloudFields(now),
-      materializationState: 'ready',
-      itemAspectRatio: template.itemAspectRatio ?? null,
-      itemAspectRatioMode: template.itemAspectRatioMode ?? null,
-      aspectRatioPromptDismissed: false,
-      defaultItemImageFit: template.defaultItemImageFit ?? null,
-      defaultItemImagePadding: template.defaultItemImagePadding ?? null,
-      paletteId: null,
-      textStyleId: null,
-      pageBackground: null,
-      labels: template.labels ?? null,
-      autoPlate: template.autoPlate,
-      ...progressCounts,
-      templateProgressState: resolveTemplateProgressState(
-        template._id,
-        progressCounts
-      ),
-      librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-      seedDatasetKey: null,
-      seedReleaseId: null,
-      seedExternalId: null,
-      seedContentHash: null,
-      seedKind: null,
-      seedReleaseStatus: null,
+      ...buildForkedBoardInsert(template, {
+        title: boardTitle,
+        forkCounted: true,
+        now,
+        itemCount: templateItems.length,
+        progressCounts,
+      }),
     })
 
     interface InsertedTier
@@ -689,7 +682,7 @@ export const remixTemplateConsensus = mutation({
           tierIndex === null ? null : (insertedTiers[tierIndex] ?? null)
         const externalId = generateItemId()
         const storageId = item.mediaAssetId
-          ? await loadPreviewOrTileStorageId(ctx, item.mediaAssetId)
+          ? await loadTileStorageId(ctx, item.mediaAssetId)
           : null
         await ctx.db.insert('boardItems', {
           boardId,
@@ -715,6 +708,7 @@ export const remixTemplateConsensus = mutation({
           storageId,
           order: item.order,
           deletedAt: null,
+          ...pickCoverRenderFields(item),
         }
       })
     )

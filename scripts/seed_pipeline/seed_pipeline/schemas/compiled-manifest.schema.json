@@ -332,8 +332,7 @@
               "const": "custom"
             },
             "hex": {
-              "type": "string",
-              "pattern": "^#[0-9a-fA-F]{6}$"
+              "$ref": "#/$defs/hexColor"
             }
           }
         }
@@ -857,12 +856,15 @@
         "variants": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["tile", "preview"],
+          "required": ["tile", "preview", "editor"],
           "properties": {
             "tile": {
               "$ref": "#/$defs/variant"
             },
             "preview": {
+              "$ref": "#/$defs/variant"
+            },
+            "editor": {
               "$ref": "#/$defs/variant"
             }
           }
@@ -936,7 +938,7 @@
       ],
       "properties": {
         "kind": {
-          "enum": ["tile", "preview"]
+          "enum": ["tile", "preview", "editor"]
         },
         "path": {
           "type": "string",

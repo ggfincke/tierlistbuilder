@@ -17,7 +17,7 @@ import {
   makeBoardListItem,
   makeBoardMeta,
   makeBoardSnapshot,
-} from '../fixtures'
+} from '@tests/fixtures'
 
 const TEST_USER_ID = 'user-1'
 const LOCAL_BOARD_ID = 'board-local' as BoardId

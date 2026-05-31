@@ -17,7 +17,7 @@ import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
-import { avatarColor } from '../lib/utils'
+import { RankingAuthorSwatch } from './RankingAuthorSwatch'
 
 export type ConsensusRailTab = 'featured' | 'recent' | 'top' | 'all'
 
@@ -183,21 +183,7 @@ const RankingRow = ({
           active ? 'bg-[var(--t-bg-active)]' : 'hover:bg-[var(--t-bg-hover)]'
         }`}
       >
-        <span
-          aria-hidden="true"
-          className="relative h-7 w-7 shrink-0 rounded-full"
-          style={{ background: avatarColor(ranking.slug) }}
-        >
-          {isFeatured && (
-            <span
-              aria-hidden="true"
-              className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--t-bg-surface)] text-[var(--t-warning,#facc15)] ring-1 ring-[var(--t-border)]"
-              title="Featured ranking"
-            >
-              <Crown className="h-2 w-2" strokeWidth={2.2} />
-            </span>
-          )}
-        </span>
+        <RankingAuthorSwatch slug={ranking.slug} featured={isFeatured} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium text-[var(--t-text)]">
             {ranking.title}

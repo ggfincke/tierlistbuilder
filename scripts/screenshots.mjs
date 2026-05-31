@@ -11,6 +11,7 @@ import { chromium } from 'playwright'
 import { existsSync, mkdirSync, readFileSync, statSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { formatBytes } from './lib/formatBytes.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const BASE_URL = 'http://localhost:5173'
@@ -81,14 +82,6 @@ function readPreferencesStorageVersion()
 }
 
 const PREFERENCES_STORAGE_VERSION = readPreferencesStorageVersion()
-
-function formatSize(bytes)
-{
-  if (bytes < 1024) return `${bytes} B`
-  const kb = bytes / 1024
-  if (kb < 1024) return `${kb.toFixed(1)} KB`
-  return `${(kb / 1024).toFixed(2)} MB`
-}
 
 async function checkServer()
 {
@@ -207,10 +200,10 @@ async function captureShot(
     dpr: `${vp.dpr}x`,
     position: position ?? '-',
     file: join(sectionName, filename),
-    size: formatSize(size),
+    size: formatBytes(size),
   })
 
-  console.log(`  ${sectionName}/${filename} (${formatSize(size)})`)
+  console.log(`  ${sectionName}/${filename} (${formatBytes(size)})`)
 }
 
 // capture selected sections for one viewport while reusing the same browser

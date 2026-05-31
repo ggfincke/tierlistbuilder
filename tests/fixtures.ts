@@ -6,7 +6,12 @@ import type {
   Tier,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  DEFAULT_USER_PRIVACY_SETTINGS,
+  type PublicUserMe,
+} from '@tierlistbuilder/contracts/platform/user'
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
+import type { AuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import {
   asBoardId,
@@ -121,6 +126,7 @@ export const makeLibraryBoardListItem = (
       colorSpec: createPaletteTierColorSpec(0),
     },
   ],
+  mini: null,
   pinned: false,
   ...overrides,
 })
@@ -146,3 +152,34 @@ export const makeRect = (overrides?: Partial<DOMRect>): DOMRect =>
     toJSON: () => ({}),
   } as DOMRect
 }
+
+export const makePublicUserMe = (
+  overrides: Partial<PublicUserMe> = {}
+): PublicUserMe => ({
+  _id: 'user-1',
+  email: 'alice@example.test',
+  name: 'Alice',
+  displayName: null,
+  image: null,
+  hasAvatar: false,
+  externalId: null,
+  plan: 'free',
+  createdAt: 1,
+  updatedAt: null,
+  handle: 'alice',
+  bio: null,
+  location: null,
+  pronouns: null,
+  ...overrides,
+  privacy: {
+    ...DEFAULT_USER_PRIVACY_SETTINGS,
+    ...overrides.privacy,
+  },
+})
+
+export const makeSignedInSession = (
+  user: Partial<PublicUserMe> = {}
+): AuthSession => ({
+  status: 'signed-in',
+  user: makePublicUserMe(user),
+})

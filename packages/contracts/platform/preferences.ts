@@ -6,8 +6,8 @@ import type { LabelPlacementMode } from '../workspace/board'
 import { clamp } from '../lib/math'
 import { isFiniteNumber } from '../lib/typeGuards'
 
-// item display size presets
-export const ITEM_SIZES = ['small', 'medium', 'large'] as const
+// item display size presets — 'xl' is an extra size, not shown in the settings picker
+export const ITEM_SIZES = ['small', 'medium', 'large', 'xl'] as const
 export type ItemSize = (typeof ITEM_SIZES)[number]
 
 // item crop shape presets

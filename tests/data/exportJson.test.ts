@@ -17,6 +17,8 @@ import {
 } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  isItemTransformInRange,
+  ITEM_TRANSFORM_LIMITS,
   MAX_BOARD_ITEM_LABEL_LEN,
   MAX_BOARD_TITLE_LENGTH,
   MAX_TIER_NAME_LEN,
@@ -33,6 +35,8 @@ import * as imagePersistence from '~/shared/images/imagePersistence'
 import * as imageStore from '~/shared/images/imageStore'
 import * as downloadBlobModule from '~/shared/lib/downloadBlob'
 import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
+import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
+import type { BoardImageUploadResult } from '~/features/platform/media/imageUploader'
 
 // minimal valid board data — satisfies parseBoardJson validation
 const makeValidBoard = (overrides?: Partial<BoardSnapshot>): BoardSnapshot =>
@@ -92,6 +96,11 @@ const makeWireItem = (
   ...overrides,
 })
 
+const emptyUploadResult = (): BoardImageUploadResult => ({
+  mediaExternalIdByHash: new Map(),
+  mediaExternalIdByItemId: new Map(),
+})
+
 afterEach(() =>
 {
   vi.restoreAllMocks()
@@ -135,7 +144,7 @@ describe('parseBoardJson', () =>
     expect(result.title).toBe('Test Board')
     expect(result.tiers).toHaveLength(2)
     expect(result.tiers[0].name).toBe('S')
-    expect(result.items['item-1'].label).toBe('First')
+    expect(result.items[asItemId('item-1')].label).toBe('First')
   })
 
   it('throws on invalid JSON', async () =>
@@ -360,6 +369,78 @@ describe('parseBoardJson', () =>
     )
   })
 
+  it('normalizes imported transforms before cloud sync', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0, { itemIds: ['item-1'] })],
+        items: {
+          'item-1': makeWireItem(1, {
+            transform: {
+              rotation: 0,
+              zoom: 50,
+              offsetX: -10,
+              offsetY: 10,
+            },
+          }),
+        },
+      },
+    }
+
+    const imported = await parseBoardJson(JSON.stringify(payload))
+    const cloudPayload = snapshotToCloudPayload(imported, emptyUploadResult())
+    const transform = cloudPayload.items[0].transform
+
+    expect(transform).toEqual({
+      rotation: 0,
+      zoom: ITEM_TRANSFORM_LIMITS.zoomMax,
+      offsetX: ITEM_TRANSFORM_LIMITS.offsetMin,
+      offsetY: ITEM_TRANSFORM_LIMITS.offsetMax,
+    })
+    expect(transform && isItemTransformInRange(transform)).toBe(true)
+  })
+
+  it('drops invalid item background colors at the import finalizer', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0, { itemIds: ['item-1'] })],
+        items: {
+          'item-1': makeWireItem(1, {
+            backgroundColor: 'not-a-hex-color',
+          }),
+        },
+      },
+    }
+
+    const imported = await parseBoardJson(JSON.stringify(payload))
+
+    expect(imported.items[asItemId('item-1')].label).toBe('Item 1')
+    expect(imported.items[asItemId('item-1')].backgroundColor).toBeUndefined()
+  })
+
+  it('does not count invalid item background colors as visible content', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0)],
+        items: {
+          'item-1': {
+            id: 'item-1',
+            backgroundColor: 'not-a-hex-color',
+          },
+        },
+      },
+    }
+
+    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+      'Item "item-1" has no image, label, or backgroundColor'
+    )
+  })
+
   it.each([
     [
       'missing a valid "id"',
@@ -516,7 +597,7 @@ describe('parseBoardJson', () =>
 
     const result = await parseBoardJson(JSON.stringify(payload))
 
-    expect(result.items['item-1']).toMatchObject({
+    expect(result.items[asItemId('item-1')]).toMatchObject({
       notes: 'Private note',
       sourceTemplateItemExternalId: 'template-item-1',
     })
@@ -542,21 +623,25 @@ describe('parseBoardJson', () =>
   {
     const board = makeValidBoard({
       items: {
-        'item-1': makeItem({
+        [asItemId('item-1')]: makeItem({
           id: asItemId('item-1'),
           imageRef: { hash: 'abc' },
           tileImageRef: { hash: 'tile-abc' },
         }),
-        'item-2': makeItem({ id: asItemId('item-2'), label: 'Second' }),
+        [asItemId('item-2')]: makeItem({
+          id: asItemId('item-2'),
+          label: 'Second',
+        }),
       },
     })
 
     const shared = stripImagesForShare(board)
     expect(
-      (shared.items['item-1'] as { imageRef?: unknown }).imageRef
+      (shared.items[asItemId('item-1')] as { imageRef?: unknown }).imageRef
     ).toBeUndefined()
     expect(
-      (shared.items['item-1'] as { tileImageRef?: unknown }).tileImageRef
+      (shared.items[asItemId('item-1')] as { tileImageRef?: unknown })
+        .tileImageRef
     ).toBeUndefined()
     expect(shared.deletedItems).toHaveLength(0)
   })
@@ -751,7 +836,7 @@ describe('parseBoardJson', () =>
     const payload = JSON.parse(await downloadSpy.mock.calls[0][0].text()) as {
       data: BoardSnapshot
     }
-    expect(payload.data.items['item-1']).toMatchObject({
+    expect(payload.data.items[asItemId('item-1')]).toMatchObject({
       notes: 'Private note',
       sourceTemplateItemExternalId: 'template-item-1',
     })
@@ -893,6 +978,6 @@ describe('parseBoardSnapshotJson', () =>
       'Shared Board'
     )
     expect(result.title).toBe('Shared Board')
-    expect(result.items['item-1'].label).toBe('First')
+    expect(result.items[asItemId('item-1')].label).toBe('First')
   })
 })

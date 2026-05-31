@@ -4,6 +4,7 @@
 import { useEffect, type RefObject } from 'react'
 
 import { useFocusTrap } from '~/shared/overlay/focusTrap'
+import { createLayerStack } from '~/shared/overlay/layerStack'
 import { useModalBackgroundInert } from '~/shared/overlay/modalLayer'
 
 interface UseModalDialogOptions
@@ -19,10 +20,10 @@ interface UseModalDialogOptions
   stopEscapePropagation?: boolean
 }
 
-const ACTIVE_MODAL_DIALOGS: symbol[] = []
+const ACTIVE_MODAL_DIALOGS = createLayerStack<symbol>()
 
 const getTopmostModalDialog = (): symbol | undefined =>
-  ACTIVE_MODAL_DIALOGS[ACTIVE_MODAL_DIALOGS.length - 1]
+  ACTIVE_MODAL_DIALOGS.top()
 
 export const useModalDialog = ({
   open,
@@ -102,12 +103,7 @@ export const useModalDialog = ({
         escapePhase === 'capture'
       )
 
-      const dialogIndex = ACTIVE_MODAL_DIALOGS.indexOf(token)
-
-      if (dialogIndex >= 0)
-      {
-        ACTIVE_MODAL_DIALOGS.splice(dialogIndex, 1)
-      }
+      ACTIVE_MODAL_DIALOGS.remove((entry) => entry === token)
     }
   }, [
     open,

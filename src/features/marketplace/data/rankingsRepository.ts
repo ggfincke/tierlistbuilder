@@ -16,7 +16,6 @@ import { DEFAULT_RANKING_LIST_LIMIT } from '@tierlistbuilder/contracts/marketpla
 import type {
   MarketplaceMyRankingForTemplateResult,
   MarketplaceRankingDetail,
-  MarketplaceRankingListResult,
   MarketplaceRankingPublishAvailability,
   MarketplaceRankingPublishResult,
   MarketplaceRankingRemixResult,
@@ -30,6 +29,10 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
+import {
+  optionalStringArg,
+  shouldRunSlugQuery,
+} from '~/features/marketplace/data/queryArgs'
 
 // reactive ranking detail. read-only viewers don't need a snapshot since the
 // page is the canonical surface & remix counts move live
@@ -38,7 +41,7 @@ export const useRankingBySlug = (
 ): MarketplaceRankingDetail | null | undefined =>
   useQuery(
     api.marketplace.rankings.public.queries.getRankingBySlug,
-    typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip'
+    shouldRunSlugQuery(slug) ? { slug } : 'skip'
   )
 
 // imperative variant used by the local-remix flow when the caller doesn't
@@ -104,11 +107,11 @@ export const usePaginatedRankingsForTemplate = ({
     typeof api.marketplace.rankings.public.queries.listRankingsForTemplate
   const args = useMemo<PaginatedQueryArgs<Query> | 'skip'>(
     () =>
-      enabled && typeof templateSlug === 'string' && templateSlug.length > 0
+      shouldRunSlugQuery(templateSlug, enabled)
         ? {
             templateSlug,
             sort,
-            ...(criterionExternalId ? { criterionExternalId } : {}),
+            ...optionalStringArg('criterionExternalId', criterionExternalId),
           }
         : 'skip',
     [criterionExternalId, enabled, sort, templateSlug]
@@ -130,10 +133,10 @@ export const useTemplateRankingAggregate = (
 ): MarketplaceTemplateRankingAggregate | null | undefined =>
   useQuery(
     api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
-    enabled && typeof templateSlug === 'string' && templateSlug.length > 0
+    shouldRunSlugQuery(templateSlug, enabled)
       ? {
           templateSlug,
-          ...(criterionExternalId ? { criterionExternalId } : {}),
+          ...optionalStringArg('criterionExternalId', criterionExternalId),
         }
       : 'skip'
   )
@@ -173,17 +176,15 @@ export const useTemplateRankingAggregateItems = ({
     typeof api.marketplace.rankings.public.queries.listTemplateRankingAggregateItems
   const args = useMemo<PaginatedQueryArgs<Query> | 'skip'>(
     () =>
-      enabled &&
-      typeof templateSlug === 'string' &&
-      templateSlug.length > 0 &&
+      shouldRunSlugQuery(templateSlug, enabled) &&
       typeof generation === 'number'
         ? {
             templateSlug,
             generation,
-            ...(criterionExternalId ? { criterionExternalId } : {}),
+            ...optionalStringArg('criterionExternalId', criterionExternalId),
             ...(sort ? { sort } : {}),
             ...(band ? { band } : {}),
-            ...(search ? { search } : {}),
+            ...optionalStringArg('search', search),
           }
         : 'skip',
     [band, criterionExternalId, enabled, generation, search, sort, templateSlug]
@@ -206,21 +207,12 @@ export const useMyRankingForTemplate = (
 ): MarketplaceMyRankingForTemplateResult | undefined =>
   useQuery(
     api.marketplace.rankings.public.queries.getMyRankingForTemplate,
-    enabled && typeof templateSlug === 'string' && templateSlug.length > 0
+    shouldRunSlugQuery(templateSlug, enabled)
       ? {
           templateSlug,
-          ...(criterionExternalId ? { criterionExternalId } : {}),
+          ...optionalStringArg('criterionExternalId', criterionExternalId),
         }
       : 'skip'
-  )
-
-export const useMyRankings = (
-  enabled: boolean,
-  limit?: number
-): MarketplaceRankingListResult | undefined =>
-  useQuery(
-    api.marketplace.rankings.public.queries.getMyRankings,
-    enabled ? (limit === undefined ? {} : { limit }) : 'skip'
   )
 
 // reactive publish gate; pass criterionExternalId to surface lane-scoped
@@ -232,10 +224,10 @@ export const useRankingPublishAvailability = (
 ): MarketplaceRankingPublishAvailability | undefined =>
   useQuery(
     api.marketplace.rankings.public.queries.getBoardRankingPublishAvailability,
-    enabled && boardExternalId
+    shouldRunSlugQuery(boardExternalId, enabled)
       ? {
           boardExternalId,
-          ...(criterionExternalId ? { criterionExternalId } : {}),
+          ...optionalStringArg('criterionExternalId', criterionExternalId),
         }
       : 'skip'
   )

@@ -29,6 +29,7 @@ import {
   allocateRankingSlug,
   normalizeRankingDescription,
   normalizeRankingTitle,
+  pickRankingRenderFieldsForWrite,
   rankingTopScore,
 } from '../lib'
 import {
@@ -58,6 +59,7 @@ import type { SeedDiagnosticRow } from '../../seedPipeline/types'
 import {
   seedErrorDiagnostic,
   seedWarningDiagnostic,
+  pushCountMismatchDiagnostic,
 } from '../../seedPipeline/diagnostics'
 import {
   companionBoardSeedId,
@@ -739,16 +741,10 @@ const insertSeedRanking = async (
         templateItemExternalId: ranked.item.externalId,
         externalId: ranked.item.externalId,
         tierExternalId: tier.externalId,
-        label: ranked.item.label,
-        backgroundColor: ranked.item.backgroundColor,
-        mediaPlate: ranked.item.mediaPlate ?? null,
-        altText: ranked.item.altText,
-        mediaAssetId: ranked.item.mediaAssetId,
-        aspectRatio: ranked.item.aspectRatio,
-        imageFit: ranked.item.imageFit,
-        transform: ranked.item.transform,
-        imagePadding: ranked.item.imagePadding,
-        order: ranked.globalOrder,
+        ...pickRankingRenderFieldsForWrite({
+          ...ranked.item,
+          order: ranked.globalOrder,
+        }),
       })
     }),
   ])
@@ -1271,12 +1267,13 @@ const buildPreflight = async (
       plan.sampleRankingsPlanned + plan.curatedRankingsPlanned
   )
   {
-    diagnostics.push(
-      seedErrorDiagnostic(
-        'seedRankingCountMismatch',
-        '$.rankingSeeds',
-        `expected ${plan.sampleRankingsPlanned + plan.curatedRankingsPlanned} seed rankings, found ${existingSeedRankings}`
-      )
+    pushCountMismatchDiagnostic(
+      diagnostics,
+      'seedRankingCountMismatch',
+      '$.rankingSeeds',
+      plan.sampleRankingsPlanned + plan.curatedRankingsPlanned,
+      existingSeedRankings,
+      'seed rankings'
     )
   }
   if (args.verifyAppliedRows)

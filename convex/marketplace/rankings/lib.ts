@@ -23,6 +23,7 @@ import type {
 import type { MarketplaceItemRenderFields } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { failInput, normalizeNullableText } from '../../lib/text'
+import { findRankingBySlug } from '../../lib/marketplaceLookups'
 import { createTemplateProjectionCache } from '../templates/lib/trending'
 import { failState } from '../templates/lib/normalize'
 import {
@@ -67,10 +68,7 @@ export const allocateRankingSlug = async (ctx: DbCtx): Promise<string> =>
   for (let i = 0; i < MAX_SLUG_ATTEMPTS; i++)
   {
     const slug = generateRankingSlug()
-    const existing = await ctx.db
-      .query('publishedRankings')
-      .withIndex('bySlug', (q) => q.eq('slug', slug))
-      .unique()
+    const existing = await findRankingBySlug(ctx, slug)
     if (!existing) return slug
   }
 
@@ -189,6 +187,48 @@ type RankingItemRenderSource = Pick<
   | 'transform'
   | 'imagePadding'
 >
+
+type RankingItemRenderWriteFields = Pick<
+  Doc<'publishedRankingItems'>,
+  | 'label'
+  | 'backgroundColor'
+  | 'mediaPlate'
+  | 'altText'
+  | 'mediaAssetId'
+  | 'order'
+  | 'aspectRatio'
+  | 'imageFit'
+  | 'transform'
+  | 'imagePadding'
+>
+
+type RankingItemRenderWriteSource = {
+  label?: RankingItemRenderWriteFields['label']
+  backgroundColor?: RankingItemRenderWriteFields['backgroundColor']
+  mediaPlate?: RankingItemRenderWriteFields['mediaPlate']
+  altText?: RankingItemRenderWriteFields['altText']
+  mediaAssetId: RankingItemRenderWriteFields['mediaAssetId']
+  order: RankingItemRenderWriteFields['order']
+  aspectRatio?: RankingItemRenderWriteFields['aspectRatio']
+  imageFit?: RankingItemRenderWriteFields['imageFit']
+  transform?: RankingItemRenderWriteFields['transform']
+  imagePadding?: RankingItemRenderWriteFields['imagePadding']
+}
+
+export const pickRankingRenderFieldsForWrite = (
+  item: RankingItemRenderWriteSource
+): RankingItemRenderWriteFields => ({
+  label: item.label ?? null,
+  backgroundColor: item.backgroundColor ?? null,
+  mediaPlate: item.mediaPlate ?? null,
+  altText: item.altText ?? null,
+  mediaAssetId: item.mediaAssetId,
+  order: item.order,
+  aspectRatio: item.aspectRatio ?? null,
+  imageFit: item.imageFit ?? null,
+  transform: item.transform ?? null,
+  imagePadding: item.imagePadding ?? null,
+})
 
 export const toRankingItemRenderFields = async (
   ctx: DbCtx,

@@ -3,59 +3,33 @@
 
 import type { Doc, Id } from '../../_generated/dataModel'
 import type {
-  MediaVariantKind,
-  SupportedImageMimeType,
-} from '@tierlistbuilder/contracts/platform/media'
-import type {
+  SeedCleanupOutput,
   SeedCriterionUpsert,
+  SeedDiagnostic,
+  SeedFinalizedMedia,
   SeedItemUpsert,
-  SeedResolvedCriterion,
-  SeedResolvedItem,
-  SeedResolvedMedia,
-  SeedTemplateReleaseStatus,
+  SeedResolvedTemplate,
+  SeedRegisterUploadedStorageIdsOutput,
+  SeedResolveStateOutput,
   SeedTemplateUpsert,
+  SeedUploadedMediaAsset,
+  SeedUploadedVariant,
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 
-export type SeedResolvedTemplateRow = {
-  externalId: string
-  releaseId: string | null
-  title: string
-  description: string | null
-  category: Doc<'templates'>['category']
-  tags: string[]
-  visibility: Doc<'templates'>['visibility']
-  status: SeedTemplateReleaseStatus | null
-  itemAspectRatio: number | null
-  metadataContentHash: string | null
-  itemsContentHash: string | null
-  criteriaContentHash: string | null
-}
+export type SeedResolvedTemplateRow = SeedResolvedTemplate
 
-export type SeedResolveStateResult = {
-  activeReleaseId: string | null
-  templates: SeedResolvedTemplateRow[]
-  items: SeedResolvedItem[]
-  criteria: SeedResolvedCriterion[]
-  media: SeedResolvedMedia[]
-}
+export type SeedResolveStateResult = SeedResolveStateOutput
 
-export type SeedUploadVariantKind = Extract<
-  MediaVariantKind,
-  'tile' | 'preview'
->
+export type SeedUploadVariantKind = SeedUploadedVariant['kind']
 
-export type SeedUploadedVariantArg = {
-  contentHash: string
+export type SeedUploadedVariantArg = Omit<SeedUploadedVariant, 'storageId'> & {
   storageId: Id<'_storage'>
-  kind: SeedUploadVariantKind
-  expectedMimeType: SupportedImageMimeType
-  expectedByteSize: number
-  expectedWidth: number
-  expectedHeight: number
 }
 
-export type SeedUploadedMediaAssetArg = {
-  assetKey: string
+export type SeedUploadedMediaAssetArg = Omit<
+  SeedUploadedMediaAsset,
+  'variants'
+> & {
   variants: SeedUploadedVariantArg[]
 }
 
@@ -63,37 +37,22 @@ export type VerifiedSeedVariant = {
   kind: SeedUploadVariantKind
   storageId: Id<'_storage'>
   contentHash: string
-  mimeType: SupportedImageMimeType
+  mimeType: SeedUploadedVariant['expectedMimeType']
   width: number
   height: number
   byteSize: number
 }
 
-export type SeedUploadUrlRow = {
-  contentHash: string
-  uploadUrl: string
-  expiresAt: number
-}
+export type SeedStorageCleanupCounts = Pick<
+  SeedCleanupOutput,
+  'cleanedStorageIds' | 'missingStorageIds'
+>
 
-export type SeedStorageCleanupCounts = {
-  cleanedStorageIds: string[]
-  missingStorageIds: string[]
-}
+export type SeedCleanupResult = SeedCleanupOutput
 
-export type SeedCleanupResult = SeedStorageCleanupCounts & {
-  skippedStorageIds: string[]
-}
+export type SeedRegisterUploadsResult = SeedRegisterUploadedStorageIdsOutput
 
-export type SeedRegisterUploadsResult = {
-  registeredStorageIds: string[]
-}
-
-export type SeedFinalizedMediaRow = {
-  assetKey: string
-  contentHashes: string[]
-  mediaAssetId: string
-  reused: boolean
-}
+export type SeedFinalizedMediaRow = SeedFinalizedMedia
 
 export type SeedTemplateUpsertArg = SeedTemplateUpsert & {
   suggestedTiers: Doc<'templates'>['suggestedTiers']
@@ -132,9 +91,4 @@ export type SeedTemplateApplyPatch = Pick<
   | 'seedMetadataContentHash'
 >
 
-export type SeedDiagnosticRow = {
-  code: string
-  message: string
-  path: string
-  severity: 'warning' | 'error'
-}
+export type SeedDiagnosticRow = SeedDiagnostic

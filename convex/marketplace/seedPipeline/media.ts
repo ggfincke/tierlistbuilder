@@ -18,7 +18,10 @@ import {
 } from '../../lib/mediaVariants'
 import { parseUploadedImageMetadata } from '../../lib/imageValidation'
 import { sha256Hex } from '../../lib/sha256'
-import { deleteStorageSilently } from '../../lib/storage'
+import {
+  deleteStorageSilently,
+  storageSizeExceedsLimit,
+} from '../../lib/storage'
 import type {
   SeedFinalizedMediaRow,
   SeedStorageCleanupCounts,
@@ -107,7 +110,7 @@ const loadVerifiedSeedVariant = async (
       },
     }
   }
-  if (metadata.size > MAX_IMAGE_BYTE_SIZE)
+  if (storageSizeExceedsLimit(metadata, MAX_IMAGE_BYTE_SIZE))
   {
     return {
       kind: 'rejected',

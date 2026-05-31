@@ -77,10 +77,14 @@ export const assertCanCloudSyncBoard = async (
   })
 }
 
-export const assertCanPublishTemplate = async (
+const assertCanUseLargeTemplateFeature = async (
   ctx: DbCtx,
   userId: Id<'users'>,
-  itemCount: number
+  itemCount: number,
+  copy: {
+    plusMessage: string
+    notReadyMessage: string
+  }
 ): Promise<void> =>
 {
   if (itemCount > MAX_LARGE_CLOUD_BOARD_ITEMS)
@@ -100,7 +104,7 @@ export const assertCanPublishTemplate = async (
   {
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.largeTemplateRequiresPlus,
-      message: 'large template publishing requires Plus',
+      message: copy.plusMessage,
       itemCount,
     })
   }
@@ -110,50 +114,31 @@ export const assertCanPublishTemplate = async (
 
   throw new ConvexError({
     code: CONVEX_ERROR_CODES.largeTemplateFeatureNotReady,
-    message: 'large template publish jobs are not ready',
+    message: copy.notReadyMessage,
     itemCount,
     featureState,
   })
 }
+
+export const assertCanPublishTemplate = async (
+  ctx: DbCtx,
+  userId: Id<'users'>,
+  itemCount: number
+): Promise<void> =>
+  await assertCanUseLargeTemplateFeature(ctx, userId, itemCount, {
+    plusMessage: 'large template publishing requires Plus',
+    notReadyMessage: 'large template publish jobs are not ready',
+  })
 
 export const assertCanUseTemplate = async (
   ctx: DbCtx,
   userId: Id<'users'>,
   template: Pick<Doc<'templates'>, 'itemCount'>
 ): Promise<void> =>
-{
-  if (template.itemCount > MAX_LARGE_CLOUD_BOARD_ITEMS)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.cloudItemLimitExceeded,
-      message: `templates cannot exceed ${MAX_LARGE_CLOUD_BOARD_ITEMS} items`,
-      maxItems: MAX_LARGE_CLOUD_BOARD_ITEMS,
-      itemCount: template.itemCount,
-    })
-  }
-
-  if (classifyItemCount(template.itemCount) === 'standard') return
-
-  const entitlements = await getPlanEntitlements(ctx, userId)
-  if (entitlements.plan !== 'plus')
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.largeTemplateRequiresPlus,
-      message: 'large template use requires Plus',
-      itemCount: template.itemCount,
-    })
-  }
-
-  const featureState = getLargeTemplateFeatureState()
-  if (featureState === 'public') return
-
-  throw new ConvexError({
-    code: CONVEX_ERROR_CODES.largeTemplateFeatureNotReady,
-    message: 'large template clone jobs are not ready',
-    itemCount: template.itemCount,
-    featureState,
+  await assertCanUseLargeTemplateFeature(ctx, userId, template.itemCount, {
+    plusMessage: 'large template use requires Plus',
+    notReadyMessage: 'large template clone jobs are not ready',
   })
-}
 
 export const assertRankingFitsSingleTransaction = (
   itemCount: number,

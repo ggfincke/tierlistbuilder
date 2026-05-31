@@ -3,41 +3,39 @@
 // & a Remix CTA that clones the snapshot into a fresh local board
 
 import { Eye, Loader2, Sparkles, TrendingUp } from 'lucide-react'
-import { useMemo, type ComponentType, type SVGProps } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
 
 import {
-  isRankingSlug,
   type MarketplaceRankingDetail,
   type MarketplaceRankingItem,
   type MarketplaceRankingTier,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardAutoPlateSettings } from '@tierlistbuilder/contracts/workspace/board'
+import { majorityAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { getTextColor } from '~/shared/lib/color'
-import { useRankingBySlug } from '~/features/marketplace/model/detail/useRankingDetail'
+import { useRankingDetailRoute } from '~/features/marketplace/model/detail/useMarketplaceDetailRoute'
 import { useRecordRankingView } from '~/features/marketplace/model/analytics/useRecordRankingView'
 import { useRemixRanking } from '~/features/marketplace/model/remix/useRemixRanking'
-import { useValidatedSlug } from '~/features/marketplace/model/detail/useValidatedSlug'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
-import { InitialAvatar } from '~/shared/ui/InitialAvatar'
+import { ButtonLink } from '~/shared/ui/Button'
+import { Avatar } from '~/shared/ui/Avatar'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
-import {
-  RANKINGS_ROUTE_PATH,
-  TEMPLATES_ROUTE_PATH,
-} from '~/shared/routes/pathname'
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { CriterionBadge } from '~/features/marketplace/ui/consensus/criterion/CriterionBadge'
-import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/MarketplaceNotFound'
+import { NotFoundSurface } from '~/shared/ui/NotFoundSurface'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
 import { MetaPill } from '~/features/marketplace/ui/meta/MetaPill'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
+import { PAGE_DETAIL_TOP_LEVEL } from '~/shared/ui/pageContainer'
+import { DetailStatTile } from '~/features/marketplace/ui/cards/cardPrimitives'
 
 // neutral palette for ranking surfaces; viewers don't carry workspace prefs
 const RANKING_PALETTE_ID = 'classic' as const
@@ -170,38 +168,17 @@ const TierRow = ({
   )
 }
 
-interface StatTileProps
-{
-  label: string
-  value: string
-  icon: ComponentType<SVGProps<SVGSVGElement>>
-}
-
-const StatTile = ({ label, value, icon: Icon }: StatTileProps) => (
-  <div className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2.5">
-    <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-      <Icon className="h-3 w-3" strokeWidth={1.8} />
-      {label}
-    </span>
-    <p className="mt-1 text-lg font-semibold text-[var(--t-text)]">{value}</p>
-  </div>
-)
-
 const NotFound = () => (
-  <MarketplaceNotFound
+  <NotFoundSurface
     title="Ranking not found"
     body="It may have been unpublished or the link might be wrong."
     actionLabel="Browse templates"
     to={TEMPLATES_ROUTE_PATH}
-    maxWidthClassName="max-w-[1240px]"
   />
 )
 
 const DetailSkeleton = () => (
-  <section
-    aria-hidden="true"
-    className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
-  >
+  <section aria-hidden="true" className={PAGE_DETAIL_TOP_LEVEL}>
     <SkeletonText className="w-48" tone="soft" />
     <SkeletonBlock className="mt-5 h-9 w-2/3 rounded" tone="strong" />
     <SkeletonText className="mt-2 w-1/3" tone="soft" />
@@ -247,8 +224,6 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
     [detail.tiers]
   )
 
-  // ranking items can carry per-item aspect ratio; pick the most common one
-  // for the frame so tier rows render w/ a consistent slot size
   const frameAspectRatio = useMemo(() =>
   {
     const ratios = detail.items
@@ -256,23 +231,7 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
       .filter(
         (ratio): ratio is number => typeof ratio === 'number' && ratio > 0
       )
-    if (ratios.length === 0) return ITEM_FRAME_RATIO_FALLBACK
-    const counts = new Map<number, number>()
-    for (const ratio of ratios)
-    {
-      counts.set(ratio, (counts.get(ratio) ?? 0) + 1)
-    }
-    let best = ratios[0]
-    let bestCount = 0
-    for (const [ratio, count] of counts)
-    {
-      if (count > bestCount)
-      {
-        best = ratio
-        bestCount = count
-      }
-    }
-    return best
+    return majorityAspectRatio(ratios) ?? ITEM_FRAME_RATIO_FALLBACK
   }, [detail.items])
 
   return (
@@ -294,16 +253,18 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
 
 export const RankingDetailPage = () =>
 {
-  const validSlug = useValidatedSlug(isRankingSlug)
-  const detail = useRankingBySlug(validSlug)
-  useRecordRankingView(detail ? detail.slug : null)
-  useDocumentTitle(detail ? `${detail.title} · TierListBuilder` : null)
+  const route = useRankingDetailRoute()
+  const readyDetail = route.status === 'ready' ? route.detail : null
+  useRecordRankingView(readyDetail ? readyDetail.slug : null)
+  useDocumentTitle(
+    readyDetail ? `${readyDetail.title} · TierListBuilder` : null
+  )
   const remix = useRemixRanking()
 
-  if (validSlug === null) return <NotFound />
-  if (detail === undefined) return <DetailSkeleton />
-  if (detail === null) return <NotFound />
+  if (route.status === 'missing') return <NotFound />
+  if (route.status === 'loading') return <DetailSkeleton />
 
+  const detail = route.detail
   const categoryLabel = CATEGORY_META[detail.template.category].label
   const handleRemix = () =>
   {
@@ -311,7 +272,7 @@ export const RankingDetailPage = () =>
   }
 
   return (
-    <article className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
+    <article className={PAGE_DETAIL_TOP_LEVEL}>
       <MarketplaceBreadcrumb
         items={[
           { label: 'Templates', to: TEMPLATES_ROUTE_PATH },
@@ -345,7 +306,11 @@ export const RankingDetailPage = () =>
 
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[var(--t-text-muted)]">
           <div className="flex items-center gap-2">
-            <InitialAvatar name={detail.author.displayName} size="sm" />
+            <Avatar
+              name={detail.author.displayName}
+              src={detail.author.avatarUrl}
+              size="sm"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-[var(--t-text)]">
                 {detail.author.displayName}
@@ -358,17 +323,17 @@ export const RankingDetailPage = () =>
         </div>
 
         <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-md">
-          <StatTile
+          <DetailStatTile
             label="Remixes"
             value={formatCount(detail.remixCount)}
             icon={Sparkles}
           />
-          <StatTile
+          <DetailStatTile
             label="Views"
             value={formatCount(detail.viewCount)}
             icon={Eye}
           />
-          <StatTile
+          <DetailStatTile
             label="Tiers"
             value={String(detail.tierCount)}
             icon={TrendingUp}
@@ -392,12 +357,14 @@ export const RankingDetailPage = () =>
               'Remix this ranking'
             )}
           </PrimaryButton>
-          <Link
+          <ButtonLink
             to={`${TEMPLATES_ROUTE_PATH}/${detail.template.slug}`}
-            className="focus-custom inline-flex h-10 items-center gap-1.5 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-4 text-sm font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+            surface="filled"
+            size="md"
+            className="h-10 px-4"
           >
             View source template
-          </Link>
+          </ButtonLink>
         </div>
       </header>
 
@@ -413,6 +380,3 @@ export const RankingDetailPage = () =>
     </article>
   )
 }
-
-// keep route paths colocated w/ the page to mirror the templates folder
-export { RANKINGS_ROUTE_PATH }

@@ -3,11 +3,12 @@
 
 import { normalizeHexColor } from '~/shared/lib/color'
 import { PALETTES } from '~/shared/theme/palettes'
-import type {
-  PaletteId,
-  TierColorSpec,
-  TierCustomColorSpec,
-  TierPaletteColorSpec,
+import {
+  tierColorSpecEqual,
+  type PaletteId,
+  type TierColorSpec,
+  type TierCustomColorSpec,
+  type TierPaletteColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
 
 export const FALLBACK_COLOR = '#888888'
@@ -68,33 +69,7 @@ export const normalizeCanonicalTierColorSpec = (
   return null
 }
 
-export const areTierColorSpecsEqual = (
-  left: TierColorSpec | null | undefined,
-  right: TierColorSpec | null | undefined
-): boolean =>
-{
-  if (!left && !right)
-  {
-    return true
-  }
-
-  if (!left || !right || left.kind !== right.kind)
-  {
-    return false
-  }
-
-  if (left.kind === 'palette' && right.kind === 'palette')
-  {
-    return left.index === right.index
-  }
-
-  if (left.kind === 'custom' && right.kind === 'custom')
-  {
-    return left.hex === right.hex
-  }
-
-  return false
-}
+export const areTierColorSpecsEqual = tierColorSpecEqual
 
 export const getPaletteColors = (paletteId: PaletteId): string[] =>
   (PALETTES[paletteId] ?? PALETTES.classic).colors

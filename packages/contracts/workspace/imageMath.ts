@@ -313,6 +313,11 @@ export interface AutoCropBBox
   bottom: number
 }
 
+export interface PadBBoxOptions
+{
+  clamp?: boolean
+}
+
 interface AutoCropPixelData
 {
   data: Uint8Array | Uint8ClampedArray
@@ -712,9 +717,22 @@ export const bboxToItemTransform = (
   })
 }
 
-const padBBox = (bbox: AutoCropBBox, padding: number): AutoCropBBox =>
+export const padBBox = (
+  bbox: AutoCropBBox,
+  padding: number,
+  options: PadBBoxOptions = {}
+): AutoCropBBox =>
 {
   if (padding <= 0) return bbox
+  if (options.clamp === false)
+  {
+    return {
+      left: bbox.left - padding,
+      top: bbox.top - padding,
+      right: bbox.right + padding,
+      bottom: bbox.bottom + padding,
+    }
+  }
   return {
     left: clamp(bbox.left - padding, 0, 1),
     top: clamp(bbox.top - padding, 0, 1),

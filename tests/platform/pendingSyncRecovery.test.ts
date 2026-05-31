@@ -14,7 +14,7 @@ import {
 } from '~/features/workspace/boards/model/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { resumePendingSyncs } from '~/features/workspace/sync/pendingSyncRecovery'
-import { makeBoardMeta, makeBoardSnapshot } from '../fixtures'
+import { makeBoardMeta, makeBoardSnapshot } from '@tests/fixtures'
 import type { PendingBoardSync } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 
 const BOARD_A = asBoardId('board-pending-a')

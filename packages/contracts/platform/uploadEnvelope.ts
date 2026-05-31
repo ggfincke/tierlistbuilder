@@ -33,7 +33,7 @@ export const getUploadEnvelopeHeader = (
   kind: UploadEnvelopeKind,
   userId: string,
   token: string
-): Uint8Array =>
+): Uint8Array<ArrayBuffer> =>
 {
   if (!isUploadToken(token))
   {

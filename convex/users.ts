@@ -1,10 +1,16 @@
 // convex/users.ts
 // user query & account-management mutations
 
-import { getAuthSessionId } from '@convex-dev/auth/server'
-import { v, type Infer } from 'convex/values'
 import {
+  getAuthSessionId,
+  modifyAccountCredentials,
+  retrieveAccount,
+} from '@convex-dev/auth/server'
+import { ConvexError, v, type Infer } from 'convex/values'
+import {
+  action,
   internalMutation,
+  internalQuery,
   mutation,
   query,
   type MutationCtx,
@@ -12,19 +18,29 @@ import {
 import { internal } from './_generated/api'
 import type { Doc, Id, TableNames } from './_generated/dataModel'
 import {
+  DEFAULT_USER_PRIVACY_SETTINGS,
   HANDLE_REGEX,
   MAX_BIO_LENGTH,
   MAX_DISPLAY_NAME_LENGTH,
   MAX_HANDLE_LENGTH,
   MAX_LOCATION_LENGTH,
+  MIN_PASSWORD_LENGTH,
   MIN_HANDLE_LENGTH,
   PRONOUN_OPTION_SET,
+  type PublicUserSession,
   RESERVED_HANDLES,
   type PublicUserMe,
+  type UserPrivacySettings,
 } from '@tierlistbuilder/contracts/platform/user'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { getCurrentUser, requireCurrentUserId } from './lib/auth'
+import { resolveUserAvatarUrl } from './lib/avatar'
 import { BATCH_LIMITS } from './lib/limits'
 import { literalUnion } from './lib/validators/common'
+import {
+  rankingVisibilityValidator,
+  templateVisibilityValidator,
+} from './lib/validators/marketplace'
 import {
   failInput,
   normalizeNullableText,
@@ -36,14 +52,28 @@ import {
   type PublicCategoryDelta,
 } from './marketplace/templates/lib/writes'
 import { isPublicTemplateRow } from './marketplace/templates/lib/state'
-import { queueTemplateRankingAggregateRecompute } from './marketplace/rankings/aggregate/lib'
+import { queueTemplateRankingAggregateRecomputesForRankings } from './marketplace/rankings/aggregate/lib'
 import {
   deleteMediaAssetWithVariants,
   hasMediaAssetReferences,
 } from './platform/media/internal'
+import { deleteShowcaseWithChildren } from './platform/showcase'
+import { deleteStorageSilently } from './lib/storage'
+import { loadVerifiedEnvelopeImage } from './lib/uploadedImage'
 
 const RESERVED_HANDLE_SET = new Set<string>(RESERVED_HANDLES)
 const CASCADE_PAGE_SIZE = BATCH_LIMITS.cascadeDelete
+// upper bound on sessions shown in the account UI — generous vs the handful of
+// devices a real user keeps, but bounded so the list query stays cheap
+const SESSION_LIST_LIMIT = 50
+
+const userPrivacySettingsValidator = v.object({
+  defaultTemplateVisibility: templateVisibilityValidator,
+  defaultRankingVisibility: rankingVisibilityValidator,
+  showInMembersDirectory: v.boolean(),
+  hideProfileFromSearch: v.boolean(),
+  allowAiTraining: v.boolean(),
+})
 
 // validator for getMe — public projection excluding operator diagnostics &
 // auth internals. _id is a plain string (contracts can't depend on Convex's
@@ -54,6 +84,7 @@ const publicUserMeValidator = v.object({
   name: v.union(v.string(), v.null()),
   displayName: v.union(v.string(), v.null()),
   image: v.union(v.string(), v.null()),
+  hasAvatar: v.boolean(),
   externalId: v.union(v.string(), v.null()),
   plan: v.union(v.literal('free'), v.literal('plus')),
   createdAt: v.number(),
@@ -62,6 +93,18 @@ const publicUserMeValidator = v.object({
   bio: v.union(v.string(), v.null()),
   location: v.union(v.string(), v.null()),
   pronouns: v.union(v.string(), v.null()),
+  privacy: userPrivacySettingsValidator,
+})
+
+const publicUserSessionValidator = v.object({
+  _id: v.string(),
+  createdAt: v.number(),
+  expiresAt: v.number(),
+  isCurrent: v.boolean(),
+})
+
+const revokeSessionResultValidator = v.object({
+  revokedCurrent: v.boolean(),
 })
 
 // drift guard: PublicUserMe (TS contract) & the runtime validator above must
@@ -76,6 +119,41 @@ type _PublicUserMeMatchesValidator =
 const _publicUserMeContractCheck: _PublicUserMeMatchesValidator = true
 void _publicUserMeContractCheck
 
+type _PublicUserSessionMatchesValidator =
+  PublicUserSession extends Infer<typeof publicUserSessionValidator>
+    ? Infer<typeof publicUserSessionValidator> extends PublicUserSession
+      ? true
+      : false
+    : false
+const _publicUserSessionContractCheck: _PublicUserSessionMatchesValidator = true
+void _publicUserSessionContractCheck
+
+const resolveUserPrivacySettings = (
+  user: Pick<
+    Doc<'users'>,
+    | 'defaultTemplateVisibility'
+    | 'defaultRankingVisibility'
+    | 'showInMembersDirectory'
+    | 'hideProfileFromSearch'
+    | 'allowAiTraining'
+  >
+): UserPrivacySettings => ({
+  defaultTemplateVisibility:
+    user.defaultTemplateVisibility ??
+    DEFAULT_USER_PRIVACY_SETTINGS.defaultTemplateVisibility,
+  defaultRankingVisibility:
+    user.defaultRankingVisibility ??
+    DEFAULT_USER_PRIVACY_SETTINGS.defaultRankingVisibility,
+  showInMembersDirectory:
+    user.showInMembersDirectory ??
+    DEFAULT_USER_PRIVACY_SETTINGS.showInMembersDirectory,
+  hideProfileFromSearch:
+    user.hideProfileFromSearch ??
+    DEFAULT_USER_PRIVACY_SETTINGS.hideProfileFromSearch,
+  allowAiTraining:
+    user.allowAiTraining ?? DEFAULT_USER_PRIVACY_SETTINGS.allowAiTraining,
+})
+
 // return the caller's public profile, or null if unauthenticated.
 // narrower than Doc<'users'> to keep internal bookkeeping off the wire
 export const getMe = query({
@@ -88,12 +166,14 @@ export const getMe = query({
     {
       return null
     }
+    const avatarUrl = await resolveUserAvatarUrl(ctx, user)
     return {
       _id: user._id,
       email: user.email ?? null,
       name: user.name ?? null,
       displayName: user.displayName ?? null,
-      image: user.image ?? null,
+      image: avatarUrl,
+      hasAvatar: user.avatarStorageId !== undefined,
       externalId: user.externalId ?? null,
       plan: user.plan ?? 'free',
       createdAt: user.createdAt ?? user._creationTime,
@@ -102,6 +182,7 @@ export const getMe = query({
       bio: user.bio ?? null,
       location: user.location ?? null,
       pronouns: user.pronouns ?? null,
+      privacy: resolveUserPrivacySettings(user),
     }
   },
 })
@@ -226,6 +307,254 @@ export const updateProfile = mutation({
   },
 })
 
+export const updatePrivacySettings = mutation({
+  args: {
+    defaultTemplateVisibility: v.optional(templateVisibilityValidator),
+    defaultRankingVisibility: v.optional(rankingVisibilityValidator),
+    showInMembersDirectory: v.optional(v.boolean()),
+    hideProfileFromSearch: v.optional(v.boolean()),
+    allowAiTraining: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const patch: Partial<UserPrivacySettings> & { updatedAt?: number } = {}
+
+    if (args.defaultTemplateVisibility !== undefined)
+    {
+      patch.defaultTemplateVisibility = args.defaultTemplateVisibility
+    }
+    if (args.defaultRankingVisibility !== undefined)
+    {
+      patch.defaultRankingVisibility = args.defaultRankingVisibility
+    }
+    if (args.showInMembersDirectory !== undefined)
+    {
+      patch.showInMembersDirectory = args.showInMembersDirectory
+    }
+    if (args.hideProfileFromSearch !== undefined)
+    {
+      patch.hideProfileFromSearch = args.hideProfileFromSearch
+    }
+    if (args.allowAiTraining !== undefined)
+    {
+      patch.allowAiTraining = args.allowAiTraining
+    }
+
+    if (Object.keys(patch).length === 0)
+    {
+      return null
+    }
+
+    patch.updatedAt = Date.now()
+    await ctx.db.patch(userId, patch)
+    return null
+  },
+})
+
+export const listSessions = query({
+  args: {},
+  returns: v.array(publicUserSessionValidator),
+  handler: async (ctx): Promise<PublicUserSession[]> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const currentSessionId = await getAuthSessionId(ctx)
+    const now = Date.now()
+    const sessions = await ctx.db
+      .query('authSessions')
+      .withIndex('userId', (q) => q.eq('userId', userId))
+      .order('desc')
+      .filter((q) => q.gt(q.field('expirationTime'), now))
+      .take(SESSION_LIST_LIMIT)
+
+    return sessions.map((session) => ({
+      _id: session._id,
+      createdAt: session._creationTime,
+      expiresAt: session.expirationTime,
+      isCurrent: session._id === currentSessionId,
+    }))
+  },
+})
+
+export const revokeSession = mutation({
+  args: { sessionId: v.id('authSessions') },
+  returns: revokeSessionResultValidator,
+  handler: async (
+    ctx,
+    args
+  ): Promise<Infer<typeof revokeSessionResultValidator>> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const session = await ctx.db.get(args.sessionId)
+    if (!session || session.userId !== userId)
+    {
+      return { revokedCurrent: false }
+    }
+    const currentSessionId = await getAuthSessionId(ctx)
+    // delete the session row inline so revocation takes effect immediately &
+    // listSessions reflects it on the next tick; if the scheduled child sweep
+    // were the only deletion, a failed/delayed job would leave it valid
+    await ctx.db.delete(args.sessionId)
+    await ctx.scheduler.runAfter(
+      0,
+      internal.users.cleanupRevokedSessionTokens,
+      { sessionId: args.sessionId, cursor: null }
+    )
+    return { revokedCurrent: args.sessionId === currentSessionId }
+  },
+})
+
+export const removeAvatar = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const user = await ctx.db.get(userId)
+    if (!user || !user.avatarStorageId)
+    {
+      return null
+    }
+    await ctx.db.patch(userId, {
+      avatarStorageId: undefined,
+      updatedAt: Date.now(),
+    })
+    await scheduleAuthorCardSync(ctx, userId)
+    return null
+  },
+})
+
+export const setAvatar = action({
+  args: {
+    storageId: v.id('_storage'),
+    uploadToken: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const { storageId: cleanStorageId } = await loadVerifiedEnvelopeImage(ctx, {
+      storageId: args.storageId,
+      userId,
+      uploadToken: args.uploadToken,
+      label: 'avatar',
+    })
+    try
+    {
+      await ctx.runMutation(internal.users.commitAvatar, {
+        userId,
+        avatarStorageId: cleanStorageId,
+      })
+    }
+    catch (error)
+    {
+      // commit is the only fallible step; on failure delete the orphaned clean
+      // blob so a rejected upload never leaves a dangling, unreferenced blob
+      await deleteStorageSilently(ctx, cleanStorageId)
+      throw error
+    }
+    // client picks up the new avatar via the reactive getMe subscription
+    return null
+  },
+})
+
+export const changePassword = action({
+  args: {
+    currentPassword: v.string(),
+    newPassword: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const account = await ctx.runQuery(internal.users.getPasswordAccount, {
+      userId,
+    })
+    if (!account)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: 'password account not found',
+      })
+    }
+    if (args.newPassword.length < MIN_PASSWORD_LENGTH)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `new password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      })
+    }
+    if (args.currentPassword === args.newPassword)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: 'new password must be different from the current password',
+      })
+    }
+
+    // changing the password invalidates every *other* session, so a missing
+    // session id must abort before touching credentials (else we'd nuke this one)
+    const currentSessionId = await getAuthSessionId(ctx)
+    if (!currentSessionId)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: 'no active session for password change',
+      })
+    }
+
+    try
+    {
+      const verified = await retrieveAccount(ctx, {
+        provider: 'password',
+        account: {
+          id: account.providerAccountId,
+          secret: args.currentPassword,
+        },
+      })
+      if (verified.user._id !== userId || verified.account.userId !== userId)
+      {
+        throw new Error('InvalidAccountId')
+      }
+    }
+    catch (error)
+    {
+      // retrieveAccount throws Error(reason) & shares the sign-in rate limiter;
+      // surface the limit distinctly & rethrow the unexpected vs masking it
+      const reason = error instanceof Error ? error.message : ''
+      if (reason === 'TooManyFailedAttempts')
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.rateLimited,
+          message: 'too many failed attempts; try again later',
+        })
+      }
+      if (reason === 'InvalidSecret' || reason === 'InvalidAccountId')
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.invalidInput,
+          message: 'current password is incorrect',
+        })
+      }
+      throw error
+    }
+
+    await modifyAccountCredentials(ctx, {
+      provider: 'password',
+      account: { id: account.providerAccountId, secret: args.newPassword },
+    })
+
+    await scheduleAuthSessionCleanup(
+      ctx,
+      userId,
+      { cursor: null, exceptSessionId: currentSessionId },
+      'signOutOnly'
+    )
+    return null
+  },
+})
+
 // schedule caller auth-session cleanup; the client clears its local token
 export const signOutEverywhere = mutation({
   args: {},
@@ -267,6 +596,7 @@ const CASCADE_PHASES = [
   'boards',
   'templates',
   'rankings',
+  'profileShowcases',
   'bookmarks',
   'tierPresets',
   'shortLinks',
@@ -280,6 +610,80 @@ type CascadePhase = (typeof CASCADE_PHASES)[number]
 const AUTH_SESSION_CLEANUP_MODES = ['signOutOnly', 'startCascade'] as const
 const authSessionCleanupModeValidator = literalUnion(AUTH_SESSION_CLEANUP_MODES)
 type AuthSessionCleanupMode = (typeof AUTH_SESSION_CLEANUP_MODES)[number]
+type SchedulerCtx = Pick<MutationCtx, 'scheduler'>
+
+export const getPasswordAccount = internalQuery({
+  args: { userId: v.id('users') },
+  returns: v.union(
+    v.null(),
+    v.object({
+      providerAccountId: v.string(),
+    })
+  ),
+  handler: async (ctx, args): Promise<{ providerAccountId: string } | null> =>
+  {
+    const account = await ctx.db
+      .query('authAccounts')
+      .withIndex('userIdAndProvider', (q) =>
+        q.eq('userId', args.userId).eq('provider', 'password')
+      )
+      .unique()
+    return account ? { providerAccountId: account.providerAccountId } : null
+  },
+})
+
+export const commitAvatar = internalMutation({
+  args: {
+    userId: v.id('users'),
+    avatarStorageId: v.id('_storage'),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const user = await ctx.db.get(args.userId)
+    if (!user)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: 'user not found',
+      })
+    }
+    await ctx.db.patch(args.userId, {
+      avatarStorageId: args.avatarStorageId,
+      updatedAt: Date.now(),
+    })
+    await scheduleAuthorCardSync(ctx, args.userId)
+    return null
+  },
+})
+
+// drain a revoked session's refresh tokens in bounded pages. revokeSession
+// already deleted the session row, so this only sweeps the orphaned children
+export const cleanupRevokedSessionTokens = internalMutation({
+  args: {
+    sessionId: v.id('authSessions'),
+    cursor: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const tokenPage = await deleteOwnedAuthChildPage(
+      ctx,
+      args.sessionId,
+      args.cursor,
+      AUTH_SESSION_CASCADE_CONFIG
+    )
+    if (!tokenPage.isDone)
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.users.cleanupRevokedSessionTokens,
+        { sessionId: args.sessionId, cursor: tokenPage.continueCursor }
+      )
+    }
+    return null
+  },
+})
 
 const nextCascadePhase = (currentPhase: CascadePhase): CascadePhase | null =>
 {
@@ -292,6 +696,7 @@ interface AuthSessionCleanupState
   cursor: string | null
   targetSessionId?: Id<'authSessions'>
   tokenCursor?: string | null
+  exceptSessionId?: Id<'authSessions'>
 }
 
 interface AuthAccountCleanupState
@@ -327,6 +732,7 @@ interface OwnedAuthParentCascadeState<
   cursor: string | null
   targetParentId?: Id<TParentTable>
   childCursor?: string | null
+  excludedParentId?: Id<TParentTable>
 }
 
 type AuthSessionCascadeConfig = {
@@ -401,6 +807,7 @@ export const cleanupAuthSessions = internalMutation({
     cursor: v.union(v.string(), v.null()),
     targetSessionId: v.optional(v.id('authSessions')),
     tokenCursor: v.optional(v.union(v.string(), v.null())),
+    exceptSessionId: v.optional(v.id('authSessions')),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
@@ -414,6 +821,8 @@ const CASCADE_PHASE_HANDLERS: Record<CascadePhase, CascadePhaseHandler> = {
   boards: async (ctx, args) => await handleBoardsPhase(ctx, args),
   templates: async (ctx, args) => await handleTemplatesPhase(ctx, args),
   rankings: async (ctx, args) => await handleRankingsPhase(ctx, args),
+  profileShowcases: async (ctx, args) =>
+    await handleProfileShowcasesPhase(ctx, args),
   bookmarks: async (ctx, args) => await handleBookmarksPhase(ctx, args),
   tierPresets: async (ctx, args) => await handleTierPresetsPhase(ctx, args),
   shortLinks: async (ctx, args) => await handleShortLinksPhase(ctx, args),
@@ -453,6 +862,7 @@ const runAuthSessionCleanup = async (
     cursor: state.cursor,
     targetSessionId: state.targetSessionId,
     tokenCursor: state.tokenCursor,
+    exceptSessionId: state.exceptSessionId,
   })
   if (!result.isDone)
   {
@@ -557,26 +967,10 @@ const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
     .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
 
   const now = Date.now()
-  const affectedLanes = new Map<Id<'templates'>, Set<string>>()
-  for (const ranking of page.page)
-  {
-    if (!ranking.isPubliclyListable) continue
-    const lanes =
-      affectedLanes.get(ranking.sourceTemplateId) ?? new Set<string>()
-    lanes.add(ranking.sourceCriterionExternalId)
-    affectedLanes.set(ranking.sourceTemplateId, lanes)
-  }
-  await Promise.all(
-    [...affectedLanes.entries()].flatMap(([templateId, criterionIds]) =>
-      [...criterionIds].map((criterionExternalId) =>
-        queueTemplateRankingAggregateRecompute(
-          ctx,
-          templateId,
-          criterionExternalId,
-          now
-        )
-      )
-    )
+  await queueTemplateRankingAggregateRecomputesForRankings(
+    ctx,
+    page.page.filter((ranking) => ranking.isPubliclyListable),
+    now
   )
 
   await Promise.all(
@@ -592,15 +986,25 @@ const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
   return await advanceCascade(ctx, args.userId, page, 'rankings')
 }
 
+const handleProfileShowcasesPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const page = await ctx.db
+    .query('profileShowcases')
+    .withIndex('byOwner', (q) => q.eq('ownerId', args.userId))
+    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
+  await Promise.all(
+    page.page.map((row) => deleteShowcaseWithChildren(ctx, row._id))
+  )
+  return await advanceCascade(ctx, args.userId, page, 'profileShowcases')
+}
+
 const handleBookmarksPhase: CascadePhaseHandler = async (ctx, args) =>
 {
   const page = await ctx.db
     .query('userTemplateBookmarks')
     .withIndex('byUserCreatedAt', (q) => q.eq('userId', args.userId))
     .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
-
-  await Promise.all(page.page.map((bookmark) => ctx.db.delete(bookmark._id)))
-  return await advanceCascade(ctx, args.userId, page, 'bookmarks')
+  return await deletePageRowsAndAdvance(ctx, args.userId, page, 'bookmarks')
 }
 
 const handleTierPresetsPhase: CascadePhaseHandler = async (ctx, args) =>
@@ -726,7 +1130,7 @@ const getInitialAuthSessionState = async (
 }
 
 const scheduleAuthSessionCleanup = async (
-  ctx: MutationCtx,
+  ctx: SchedulerCtx,
   userId: Id<'users'>,
   state: AuthSessionCleanupState,
   mode: AuthSessionCleanupMode
@@ -741,6 +1145,7 @@ const scheduleAuthSessionCleanup = async (
       cursor: state.cursor,
       targetSessionId: state.targetSessionId,
       tokenCursor: state.tokenCursor,
+      exceptSessionId: state.exceptSessionId,
     })
   )
 }
@@ -761,6 +1166,18 @@ const scheduleCascadeAuthAccounts = async (
       targetAccountId: state.targetAccountId,
       codeCursor: state.codeCursor,
     })
+  )
+}
+
+const scheduleAuthorCardSync = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>
+): Promise<void> =>
+{
+  await ctx.scheduler.runAfter(
+    0,
+    internal.marketplace.templates.internal.syncTemplateCardsForAuthor,
+    { authorId: userId, cursor: null }
   )
 }
 
@@ -839,6 +1256,15 @@ const deleteOwnedParentCascadeStep = async <
     return { isDone: false, cursor }
   }
 
+  if (parent && parent._id === state.excludedParentId)
+  {
+    return {
+      isDone: false,
+      cursor,
+      excludedParentId: state.excludedParentId,
+    }
+  }
+
   const targetParentId = state.targetParentId
   if (!parent && targetParentId)
   {
@@ -856,9 +1282,14 @@ const deleteOwnedParentCascadeStep = async <
         cursor,
         targetParentId,
         childCursor: childPage.continueCursor,
+        excludedParentId: state.excludedParentId,
       }
     }
-    return { isDone: false, cursor }
+    return {
+      isDone: false,
+      cursor,
+      excludedParentId: state.excludedParentId,
+    }
   }
 
   if (!parent)
@@ -868,10 +1299,23 @@ const deleteOwnedParentCascadeStep = async <
     {
       return { isDone: true }
     }
+    if (page.page[0]._id === state.excludedParentId)
+    {
+      if (page.isDone)
+      {
+        return { isDone: true }
+      }
+      return {
+        isDone: false,
+        cursor: page.continueCursor,
+        excludedParentId: state.excludedParentId,
+      }
+    }
     return {
       isDone: false,
       cursor: page.continueCursor,
       targetParentId: page.page[0]._id as Id<TParentTable>,
+      excludedParentId: state.excludedParentId,
       childCursor: null,
     }
   }
@@ -889,11 +1333,16 @@ const deleteOwnedParentCascadeStep = async <
       cursor,
       targetParentId: parent._id,
       childCursor: childPage.continueCursor,
+      excludedParentId: state.excludedParentId,
     }
   }
 
   await ctx.db.delete(parent._id)
-  return { isDone: false, cursor }
+  return {
+    isDone: false,
+    cursor,
+    excludedParentId: state.excludedParentId,
+  }
 }
 
 const deleteAuthSessionCleanupStep = async (
@@ -910,6 +1359,7 @@ const deleteAuthSessionCleanupStep = async (
       cursor: state.cursor,
       targetParentId: state.targetSessionId,
       childCursor: state.tokenCursor,
+      excludedParentId: state.exceptSessionId,
     }
   )
 
@@ -922,6 +1372,7 @@ const deleteAuthSessionCleanupStep = async (
     cursor: result.cursor,
     targetSessionId: result.targetParentId,
     tokenCursor: result.childCursor,
+    exceptSessionId: result.excludedParentId,
   }) as CleanupStep<AuthSessionCleanupState>
 }
 

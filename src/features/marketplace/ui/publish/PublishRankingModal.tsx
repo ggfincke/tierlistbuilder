@@ -2,7 +2,7 @@
 // modal that publishes the active board: title + description + visibility +
 // criterion (when the template has multiple curated criteria)
 
-import { Clock, Tag } from 'lucide-react'
+import { Clock, Loader2, Tag } from 'lucide-react'
 import { useId, useMemo, useState, type FormEvent } from 'react'
 
 import {
@@ -18,6 +18,8 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { usePublishRanking } from '~/features/marketplace/model/publish/usePublishRanking'
 import { useRankingPublishAvailability } from '~/features/marketplace/model/publish/useRankingPublishAvailability'
 import { pickInitialCriterionExternalId } from '~/features/marketplace/model/detail/criterionSelection'
+import { getDefaultRankingPublishVisibility } from '~/features/marketplace/model/publish/publishVisibilityDefaults'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import {
   LabeledSelect,
   LabeledTextArea,
@@ -44,6 +46,8 @@ interface PublishRankingFormProps
   onClose: () => void
   boardExternalId: string
   defaultTitle: string
+  // resolved once the session is known so the visibility select can't flip
+  defaultVisibility: RankingVisibility
 }
 
 interface CriterionPickerProps
@@ -161,6 +165,7 @@ const PublishRankingForm = ({
   onClose,
   boardExternalId,
   defaultTitle,
+  defaultVisibility,
 }: PublishRankingFormProps) =>
 {
   const titleFieldId = useId()
@@ -187,7 +192,8 @@ const PublishRankingForm = ({
   )
   const [title, setTitle] = useState(defaultTitle)
   const [description, setDescription] = useState('')
-  const [visibility, setVisibility] = useState<RankingVisibility>('public')
+  const [visibility, setVisibility] =
+    useState<RankingVisibility>(defaultVisibility)
 
   const fallbackCriterionExternalId = pickInitialCriterionExternalId(
     sourceCriteria,
@@ -341,6 +347,18 @@ const PublishRankingForm = ({
   )
 }
 
+// shown while the session resolves so the visibility default is derived from
+// the signed-in user, never from a loading-state fallback that then flips
+const RankingFormLoading = () => (
+  <div className="mt-5 flex justify-center py-12">
+    <Loader2
+      className="h-5 w-5 animate-spin text-[var(--t-text-faint)]"
+      aria-hidden
+    />
+    <span className="sr-only">Loading…</span>
+  </div>
+)
+
 export const PublishRankingModal = ({
   open,
   onClose,
@@ -349,6 +367,7 @@ export const PublishRankingModal = ({
 }: PublishRankingModalProps) =>
 {
   const titleId = useId()
+  const authSession = useAuthSession()
 
   return (
     <BaseModal
@@ -363,11 +382,18 @@ export const PublishRankingModal = ({
         be published.
       </p>
 
-      <PublishRankingForm
-        onClose={onClose}
-        boardExternalId={boardExternalId}
-        defaultTitle={defaultTitle}
-      />
+      {authSession.status === 'signed-in' ? (
+        <PublishRankingForm
+          onClose={onClose}
+          boardExternalId={boardExternalId}
+          defaultTitle={defaultTitle}
+          defaultVisibility={getDefaultRankingPublishVisibility(
+            authSession.user
+          )}
+        />
+      ) : (
+        <RankingFormLoading />
+      )}
     </BaseModal>
   )
 }

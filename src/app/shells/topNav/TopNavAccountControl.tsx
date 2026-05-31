@@ -2,14 +2,13 @@
 // avatar trigger & account menu state for global chrome
 
 import { useCallback, useId, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import {
-  getDisplayName,
-  getUserInitial,
-} from '~/features/platform/auth/model/userIdentity'
+import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
+import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
 import { logger } from '~/shared/lib/logger'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { TopNavAccountMenu } from '~/app/shells/topNav/TopNavAccountMenu'
@@ -26,6 +25,7 @@ export const TopNavAccountControl = ({
 }: TopNavAccountControlProps) =>
 {
   const session = useAuthSession()
+  const navigate = useNavigate()
   const { signOut } = useAuthActions()
   const showSignIn = useSignInPromptStore((state) => state.show)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -57,11 +57,8 @@ export const TopNavAccountControl = ({
         label={accountLabel}
         menuOpen={menuOpen}
         menuId={menuId}
-        initial={
-          session.status === 'signed-in'
-            ? getUserInitial(session.user, 'U')
-            : undefined
-        }
+        name={accountName ?? undefined}
+        src={session.status === 'signed-in' ? session.user.image : undefined}
         onToggle={() => setMenuOpen((open) => !open)}
       />
       {menuOpen && (
@@ -69,7 +66,7 @@ export const TopNavAccountControl = ({
           session={session}
           onClose={closeMenu}
           menuId={menuId}
-          onOpenAccount={() => onOpenModal('account')}
+          onOpenSettings={() => navigate(settingsTabPath('account'))}
           onOpenPreferences={() => onOpenModal('preferences')}
           onOpenSignIn={showSignIn}
           onSignOut={() =>

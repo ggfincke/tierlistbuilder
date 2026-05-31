@@ -48,7 +48,7 @@ Convex backend for tierlistbuilder. Schema, validators, auth, & function namespa
    This runs `convex dev --local` and Vite together. Leave it running — it
    watches `convex/` for changes & regenerates `convex/_generated/`.
 
-   Open the app, click the Settings button (top-right), scroll to the Account section, click **Sign in** → switch to the **Create account** tab, enter an email & a password (≥8 chars), submit. You should see your account in the AccountSection w/ a sign-out button. Sign out, then sign back in via the **Sign in** tab w/ the same credentials.
+   Open the app, click the Settings button (top-right), scroll to the Account section, click **Sign in** -> switch to the **Create account** tab, enter an email & a password that meets the app minimum, submit. You should see your account in the AccountSection w/ a sign-out button. Sign out, then sign back in via the **Sign in** tab w/ the same credentials.
 
 ## Cloud dev deployment
 

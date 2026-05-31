@@ -3,6 +3,8 @@
 
 import { isAbsolute, relative } from 'node:path'
 
+import { getCwd, getFilename, getSourceCode } from './ruleContext.js'
+
 const DEFAULT_PREFIXES = ['src/', 'convex/', 'packages/contracts/', 'scripts/']
 
 const normalizePath = (value) => value.replace(/\\/g, '/')
@@ -50,9 +52,9 @@ const rule = {
 
   create(context)
   {
-    const sourceCode = context.sourceCode ?? context.getSourceCode()
-    const filename = context.filename ?? context.getFilename()
-    const cwd = context.cwd ?? process.cwd()
+    const sourceCode = getSourceCode(context)
+    const filename = getFilename(context)
+    const cwd = getCwd(context)
     const prefixes = context.options[0]?.prefixes ?? DEFAULT_PREFIXES
 
     return {

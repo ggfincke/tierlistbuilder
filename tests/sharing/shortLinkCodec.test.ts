@@ -14,7 +14,7 @@ import {
 import { inflateSnapshotBytes } from '~/shared/sharing/hashShare'
 import * as imagePersistence from '~/shared/images/imagePersistence'
 import * as imageStore from '~/shared/images/imageStore'
-import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
 
 afterEach(() =>
 {
@@ -67,7 +67,7 @@ describe('short-link snapshot codec', () =>
     const decoded = await inflateSnapshotBytes(compressed)
 
     expect(getBlobsSpy).toHaveBeenCalledWith(['img-live'])
-    expect(decoded.items['item-1'].imageRef).toBeDefined()
+    expect(decoded.items[asItemId('item-1')].imageRef).toBeDefined()
     expect(decoded.deletedItems).toEqual([])
   })
 

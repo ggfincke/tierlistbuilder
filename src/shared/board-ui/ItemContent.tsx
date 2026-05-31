@@ -1,12 +1,14 @@
 // src/shared/board-ui/ItemContent.tsx
 // shared image-vs-text item rendering primitive
 
+import { useContext } from 'react'
 import { useImageUrlChain } from '~/shared/hooks/useImageUrl'
 import type {
   BoardAutoPlateSettings,
   ImageFit,
   ItemTransform,
   MediaPlate,
+  ShowcaseItemRef,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   getRenderImageRefs,
@@ -21,6 +23,8 @@ import { resolveItemBackdrop } from '~/shared/board-ui/mediaPlate'
 import { OverlayLabelBlock } from '~/shared/board-ui/labelBlocks'
 import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { TileLayoutShell } from '~/shared/board-ui/TileLayoutShell'
+import { ShowcaseRenderContext } from '~/shared/board-ui/ShowcaseRenderContext'
+import { ShowcaseTileContent } from '~/shared/board-ui/ShowcaseTileContent'
 
 interface ItemContentProps
 {
@@ -33,6 +37,7 @@ interface ItemContentProps
     aspectRatio?: number
     transform?: ItemTransform
     imagePadding?: number
+    showcaseRanking?: ShowcaseItemRef
   }
   // board-level auto-plate setting; absent -> On+Auto. a per-item
   // backgroundColor on the item still wins over whatever this resolves to
@@ -63,6 +68,7 @@ export const ItemContent = ({
   imageLoading = 'lazy',
 }: ItemContentProps) =>
 {
+  const showcaseState = useContext(ShowcaseRenderContext)
   const bgColor = item.backgroundColor
   const transform = item.transform
   // skip the IDB lookup when the caller already has a direct URL (eg blob:
@@ -85,6 +91,25 @@ export const ItemContent = ({
     },
   ])
   const imageUrl = item.imageUrl ?? cachedUrl
+
+  // showcase tile: draw the ranking's cropped mini / cover fallback from context,
+  // keyed by board externalId. every hook above runs unconditionally so this stays hook-safe
+  if (item.showcaseRanking)
+  {
+    const ranking = item.showcaseRanking
+    const tile = showcaseState?.tiles.get(ranking.boardExternalId) ?? null
+    const content = (
+      <ShowcaseTileContent
+        tile={tile}
+        title={ranking.title}
+        frameAspectRatio={frameAspectRatio}
+        imageLoading={imageLoading}
+      />
+    )
+    return showcaseState?.linkTile
+      ? showcaseState.linkTile(ranking.rankingSlug, content)
+      : content
+  }
 
   if (imageUrl)
   {

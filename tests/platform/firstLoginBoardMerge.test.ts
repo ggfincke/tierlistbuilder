@@ -10,7 +10,7 @@ import {
 } from '~/features/workspace/boards/data/cloud/firstLoginBoardMerge'
 import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { makeBoardMeta, makeBoardSnapshot } from '../fixtures'
+import { makeBoardMeta, makeBoardSnapshot } from '@tests/fixtures'
 
 const resetRegistry = (): void =>
 {

@@ -17,7 +17,7 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import { createFailingStorage } from '@tests/shared-lib/memoryStorage'
-import { resetBoardStores } from '../shared-lib/boardStores'
+import { resetBoardStores } from '@tests/shared-lib/boardStores'
 
 const TEST_BOARD_ID = 'board-local-session-test' as BoardId
 const OTHER_BOARD_ID = 'board-local-session-other' as BoardId

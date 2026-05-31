@@ -2,7 +2,7 @@
 // drag preview helpers — keep the transient snapshot aligned to pointer movement
 
 import type { MutableRefObject } from 'react'
-import type { DragMoveEvent, DragOverEvent } from '@dnd-kit/core'
+import type { ClientRect, DragMoveEvent, DragOverEvent } from '@dnd-kit/core'
 
 import {
   toItemId,
@@ -27,7 +27,10 @@ export const syncDraggedItemPosition = (
   event: DragPositionEvent,
   preview: ContainerSnapshot,
   movedToNewContainerRef: MutableRefObject<boolean>,
-  updateDragPreview: (preview: ContainerSnapshot) => void
+  updateDragPreview: (preview: ContainerSnapshot) => void,
+  // frozen slot box for the over target; stabilizes the insertion midpoint
+  // against the live re-measured rect. falls back to the live over rect
+  frozenOverRect: ClientRect | null = null
 ): boolean =>
 {
   if (!event.over)
@@ -57,7 +60,7 @@ export const syncDraggedItemPosition = (
       initialRect: event.active.rect.current.initial,
       delta: event.delta,
     }),
-    overRect: event.over.rect,
+    overRect: frozenOverRect ?? event.over.rect,
   })
 
   if (nextPreview === preview)

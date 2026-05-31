@@ -5,22 +5,18 @@ import { describe, expect, it, vi } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
-import {
-  EMPTY_BOARD_SOURCE_RANKING,
-  EMPTY_BOARD_SOURCE_TEMPLATE,
-} from '../../convex/workspace/boards/sourceFields'
 import {
   asUser,
   type ConvexTestHandle,
   expectConvexCode,
   makeTest,
   seedCloudBoard,
+  seedPublishedRanking,
   seedPublishedTemplate,
   seedTileMediaAsset,
   seedUser,
   withFakeTimers,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const storeImageBlob = async (
   t: ConvexTestHandle,
@@ -177,6 +173,85 @@ describe('media variants', () =>
     )
     const published = await queryMedia()
     expect(published[0]).toMatchObject({
+      externalId: asset.externalId,
+      mimeType: 'image/png',
+    })
+  })
+
+  it('exposes media referenced by public published rankings', async () =>
+  {
+    const t = makeTest()
+    const ownerId = await seedUser(t)
+    const viewerId = await seedUser(
+      t,
+      'Ranking Media Viewer',
+      'ranking-media-viewer@example.com'
+    )
+    const asset = await finalizeTileAsset(
+      t,
+      ownerId,
+      'public-ranking-media',
+      [7, 8, 9]
+    )
+    await t.run(async (ctx) =>
+    {
+      const templateId = await seedPublishedTemplate(ctx, {
+        slug: 'MediaRankingTpl',
+        authorId: ownerId,
+        title: 'Media Ranking Template',
+        sourceBoardId: null,
+        sizeClass: 'standard',
+        itemCount: 1,
+      })
+      const rankingId = await seedPublishedRanking(ctx, {
+        ownerId,
+        slug: 'MediaRanking1',
+        sourceTemplateId: templateId,
+        sourceBoardId: null,
+        sourceTemplateSlug: 'MediaRankingTpl',
+        sourceTemplateTitle: 'Media Ranking Template',
+        title: 'Media Ranking',
+        itemCount: 1,
+      })
+      const templateItemId = await ctx.db.insert('templateItems', {
+        templateId,
+        externalId: 'media-ranking-item',
+        label: 'Media Ranking Item',
+        backgroundColor: null,
+        altText: null,
+        mediaAssetId: null,
+        order: 0,
+        aspectRatio: null,
+        imageFit: null,
+        transform: null,
+        imagePadding: null,
+      })
+      await ctx.db.insert('publishedRankingItems', {
+        rankingId,
+        templateItemId,
+        templateItemExternalId: 'media-ranking-item',
+        externalId: 'media-ranking-item',
+        tierExternalId: null,
+        label: 'Media Ranking Item',
+        backgroundColor: null,
+        altText: null,
+        mediaAssetId: asset.mediaAssetId,
+        order: 0,
+        aspectRatio: null,
+        imageFit: null,
+        transform: null,
+        imagePadding: null,
+      })
+    })
+
+    const result = await asUser(t, viewerId).query(
+      api.platform.media.queries.getMediaAssetsByExternalIds,
+      {
+        media: [{ externalId: asset.externalId, variant: 'tile' }],
+      }
+    )
+
+    expect(result[0]).toMatchObject({
       externalId: asset.externalId,
       mimeType: 'image/png',
     })
@@ -369,7 +444,10 @@ describe('media variants', () =>
         api.platform.media.uploads.finalizeUploadVariants,
         {
           variants: storageIds.map((storageId, i) => ({
-            kind: i === 0 ? 'tile' : i === 1 ? 'preview' : 'editor',
+            kind: (i === 0 ? 'tile' : i === 1 ? 'preview' : 'editor') as
+              | 'tile'
+              | 'preview'
+              | 'editor',
             storageId,
             uploadToken: 'not-a-real-token',
           })),
@@ -404,43 +482,19 @@ describe('media variants', () =>
         byteSize: 1,
         createdAt: 0,
       })
-      const boardId = await ctx.db.insert('boards', {
+      const boardId = await seedCloudBoard(ctx, {
         externalId: 'board-shared',
         ownerId: userId,
         title: 'Shared Board',
-        createdAt: 0,
-        updatedAt: 0,
-        deletedAt: null,
-        revision: 1,
-        itemAspectRatio: null,
-        itemAspectRatioMode: null,
-        aspectRatioPromptDismissed: false,
-        defaultItemImageFit: null,
-        sourceTemplate: EMPTY_BOARD_SOURCE_TEMPLATE,
-        sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
-        forkCounted: false,
-        preferredCriterionExternalId: null,
-        ...buildFreshBoardCloudFields(0),
-        materializationState: 'ready',
+        now: 0,
         activeItemCount: 1,
         unrankedItemCount: 1,
-        templateProgressState: 'none',
         librarySummary: {
           coverItems: [],
           tierCount: 0,
           tierColors: [],
           tierBreakdown: [],
         },
-        paletteId: null,
-        textStyleId: null,
-        pageBackground: null,
-        labels: null,
-        seedDatasetKey: null,
-        seedReleaseId: null,
-        seedExternalId: null,
-        seedContentHash: null,
-        seedKind: null,
-        seedReleaseStatus: null,
       })
       const boardItemId = await ctx.db.insert('boardItems', {
         boardId,

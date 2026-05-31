@@ -1,36 +1,57 @@
 // src/features/library/ui/cards/BoardMosaicCover.tsx
-// cover artwork for board cards & list-row thumbs — an initials/image mosaic
-// over the media matte, or a giant ghost-letter for empty boards
+// cover artwork for board cards & list-row thumbs — a media mosaic that fills
+// edge-to-edge (plated items float, art fills), or a ghost-letter for empties
 
-import type { LibraryBoardCoverItem } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardAutoPlateSettings,
+  ImageFit,
+  LibraryBoardCoverItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 import type {
   TemplateCoverFraming,
   TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { ShowcaseMiniSnapshot } from '@tierlistbuilder/contracts/platform/showcase'
 
 import { externalIdToCode } from '~/shared/lib/initials'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import { FramedCoverImage } from '~/shared/board-ui/FramedCoverImage'
+import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
+import { MosaicGrid } from '~/shared/board-ui/MosaicGrid'
+import { ShowcaseMiniTierRows } from '~/shared/board-ui/ShowcaseTileContent'
+import { resolveCoverTileRender } from '~/shared/board-ui/coverTileRender'
 
 type CoverDensity = 'dense' | 'default' | 'loose'
 
-interface BoardMosaicCoverProps
+// board-level render context — mirrors the board's own item-render settings so
+// cover tiles resolve plates / fit the same way the board does
+interface CoverRenderContext
+{
+  autoPlate?: BoardAutoPlateSettings | null
+  defaultItemImageFit?: ImageFit | null
+  defaultItemImagePadding?: number | null
+}
+
+interface BoardMosaicCoverProps extends CoverRenderContext
 {
   items: readonly LibraryBoardCoverItem[]
+  // live mini tier-list render; non-null only on live boards, takes the cover
+  mini?: ShowcaseMiniSnapshot | null
   density: CoverDensity
+  // board slot aspect (w/h); steers the grid so cells render near it
+  itemAspectRatio?: number | null
   sourceCoverMedia?: TemplateMediaRef | null
   sourceCoverFraming?: TemplateCoverFraming | null
   // board title — drives the ghost-letter initial on draft/empty covers
   title: string
 }
 
-const GRID_CONFIG: Record<
-  CoverDensity,
-  { cols: number; rows: number; gap: number; padPx: number }
-> = {
-  dense: { cols: 6, rows: 4, gap: 2, padPx: 4 },
-  default: { cols: 5, rows: 3, gap: 3, padPx: 6 },
-  loose: { cols: 4, rows: 2, gap: 4, padPx: 8 },
+// per-density tile cap; the grid downsamples larger rosters to fit. `default`
+// matches the marketplace card's `default` density so the covers render alike
+const MAX_SLOTS: Record<CoverDensity, number> = {
+  dense: 24,
+  default: 18,
+  loose: 12,
 }
 
 const resolveTileText = (item: LibraryBoardCoverItem): string =>
@@ -62,64 +83,109 @@ const GhostLetterCover = ({ title }: { title: string }) => (
   </div>
 )
 
-const CoverTileFrame = ({
-  item,
-  mediaUrl,
-}: {
-  item: LibraryBoardCoverItem
-  mediaUrl: string | null
-}) => (
-  <div className="relative flex items-center justify-center overflow-hidden rounded-[3px] bg-black/25 ring-1 ring-inset ring-white/10">
-    {mediaUrl ? (
-      <img
-        src={mediaUrl}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        draggable={false}
-        className="h-full w-full object-cover"
-      />
-    ) : (
-      <span className="truncate px-1 text-[10px] font-semibold leading-tight text-white/90 drop-shadow-sm">
-        {resolveTileText(item)}
-      </span>
-    )}
+// label/code fallback for items w/o bound media (drafts, missing assets)
+const TextTile = ({ item }: { item: LibraryBoardCoverItem }) => (
+  <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[var(--t-media-matte)]">
+    <span className="truncate px-1 text-[10px] font-semibold leading-tight text-white/90 drop-shadow-sm">
+      {resolveTileText(item)}
+    </span>
   </div>
 )
 
+// image tile mirroring the board's per-item render: a plate floats the image
+// (logos -> contain, never cropped), everything else fills (cover)
+const ImageTile = ({
+  item,
+  url,
+  ctx,
+}: {
+  item: LibraryBoardCoverItem
+  url: string
+  ctx: CoverRenderContext
+}) =>
+{
+  const { fit, padding, backgroundColor } = resolveCoverTileRender(item, {
+    autoPlate: ctx.autoPlate,
+    defaultImageFit: ctx.defaultItemImageFit,
+    defaultImagePadding: ctx.defaultItemImagePadding,
+  })
+  return (
+    <FramedItemMedia
+      className="bg-[var(--t-media-matte)]"
+      imageUrl={url}
+      alt=""
+      fit={fit}
+      transform={item.transform ?? null}
+      aspectRatio={item.aspectRatio}
+      padding={padding}
+      backgroundColor={backgroundColor}
+    />
+  )
+}
+
 // only mounted when we need to wait on the blob cache — cloud-resolved rows
 // (item.mediaUrl already set) & rows w/o media skip the subscription
-const CachedCoverTile = ({ item }: { item: LibraryBoardCoverItem }) =>
+const CachedImageTile = ({
+  item,
+  ctx,
+}: {
+  item: LibraryBoardCoverItem
+  ctx: CoverRenderContext
+}) =>
 {
   const cachedUrl = useImageUrl(
     item.mediaHash,
     item.mediaCloudExternalId,
     item.mediaVariant
   )
-  return <CoverTileFrame item={item} mediaUrl={cachedUrl} />
+  if (!cachedUrl) return <TextTile item={item} />
+  return <ImageTile item={item} url={cachedUrl} ctx={ctx} />
 }
 
-const CoverTile = ({ item }: { item: LibraryBoardCoverItem }) =>
+const CoverTile = ({
+  item,
+  ctx,
+}: {
+  item: LibraryBoardCoverItem
+  ctx: CoverRenderContext
+}) =>
 {
   if (item.mediaUrl)
   {
-    return <CoverTileFrame item={item} mediaUrl={item.mediaUrl} />
+    return <ImageTile item={item} url={item.mediaUrl} ctx={ctx} />
   }
   if (item.mediaHash)
   {
-    return <CachedCoverTile item={item} />
+    return <CachedImageTile item={item} ctx={ctx} />
   }
-  return <CoverTileFrame item={item} mediaUrl={null} />
+  return <TextTile item={item} />
 }
 
 export const BoardMosaicCover = ({
   items,
+  mini,
   density,
+  itemAspectRatio,
   sourceCoverMedia,
   sourceCoverFraming,
   title,
+  autoPlate,
+  defaultItemImageFit,
+  defaultItemImagePadding,
 }: BoardMosaicCoverProps) =>
 {
+  // live boards render the same labeled mini tier-list the tlotl cropped tile
+  // uses (full tier names in the gutter), filling the cover edge-to-edge &
+  // clipped, w/o a caption — the board title lives in the card body below
+  if (mini && mini.tiers.length > 0)
+  {
+    return (
+      <div className="absolute inset-0 flex overflow-hidden">
+        <ShowcaseMiniTierRows mini={mini} labelMode="name" />
+      </div>
+    )
+  }
+
   if (sourceCoverMedia)
   {
     return (
@@ -138,24 +204,19 @@ export const BoardMosaicCover = ({
     return <GhostLetterCover title={title} />
   }
 
-  const cfg = GRID_CONFIG[density]
-  const slotCount = cfg.cols * cfg.rows
-  const tiles = items.slice(0, slotCount)
-
+  const ctx: CoverRenderContext = {
+    autoPlate,
+    defaultItemImageFit,
+    defaultItemImagePadding,
+  }
   return (
-    <div
-      className="absolute inset-0 grid bg-[var(--t-media-matte)]"
-      style={{
-        gridTemplateColumns: `repeat(${cfg.cols}, 1fr)`,
-        gridTemplateRows: `repeat(${cfg.rows}, 1fr)`,
-        gap: `${cfg.gap}px`,
-        padding: `${cfg.padPx}px`,
-      }}
-      aria-hidden="true"
-    >
-      {tiles.map((item, i) => (
-        <CoverTile key={`${item.externalId}-${i}`} item={item} />
-      ))}
-    </div>
+    <MosaicGrid
+      items={items}
+      maxSlots={MAX_SLOTS[density]}
+      cellAspect={itemAspectRatio ?? 1}
+      renderTile={(item, i) => (
+        <CoverTile key={`${item.externalId}-${i}`} item={item} ctx={ctx} />
+      )}
+    />
   )
 }

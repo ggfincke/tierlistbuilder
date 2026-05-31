@@ -205,17 +205,11 @@ export const templateCoverItemValidator = v.object({
   ...templateCoverItemBaseFields,
 })
 
-const marketplaceItemRenderFields = {
-  label: v.union(v.string(), v.null()),
-  backgroundColor: v.union(v.string(), v.null()),
-  mediaPlate: mediaPlateNullableValidator,
+export const marketplaceItemRenderFields = {
+  ...templateCoverItemBaseFields,
   altText: v.union(v.string(), v.null()),
   media: v.union(templateMediaRefValidator, v.null()),
   order: v.number(),
-  aspectRatio: v.union(v.number(), v.null()),
-  imageFit: imageFitNullableValidator,
-  transform: v.union(itemTransformValidator, v.null()),
-  imagePadding: v.union(v.number(), v.null()),
 }
 
 export const templateCriterionValidator = v.object({

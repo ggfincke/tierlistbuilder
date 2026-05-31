@@ -2,7 +2,7 @@
 // modal that drives publish-from-board OR edit-existing flows — board picker,
 // metadata fields, optional cover image, & rate-limit-aware submit
 
-import { LayoutGrid } from 'lucide-react'
+import { LayoutGrid, Loader2 } from 'lucide-react'
 import { useId, useState, type FormEvent } from 'react'
 
 import {
@@ -20,6 +20,8 @@ import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { CATEGORY_LIST } from '~/features/marketplace/model/categories'
 import { usePublishTemplate } from '~/features/marketplace/model/publish/usePublishTemplate'
 import { useUpdateTemplate } from '~/features/marketplace/model/publish/useUpdateTemplate'
+import { getDefaultTemplatePublishVisibility } from '~/features/marketplace/model/publish/publishVisibilityDefaults'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import {
   usePublishableBoards,
   type PublishableBoard,
@@ -85,6 +87,8 @@ interface PublishFormProps
   onPublished?: () => void
   edit?: PublishModalEditInitialValues
   initialBoardExternalId?: string | null
+  // resolved once the session is known so the visibility select can't flip
+  defaultVisibility: TemplateVisibility
 }
 
 // holds all form state; mounted only while the modal is open so reopening
@@ -94,6 +98,7 @@ const PublishForm = ({
   onPublished,
   edit,
   initialBoardExternalId,
+  defaultVisibility,
 }: PublishFormProps) =>
 {
   const titleFieldId = useId()
@@ -123,7 +128,7 @@ const PublishForm = ({
   )
   const [tags, setTags] = useState<string[]>(edit?.tags ?? [])
   const [visibility, setVisibility] = useState<TemplateVisibility>(
-    edit?.visibility ?? 'public'
+    edit?.visibility ?? defaultVisibility
   )
   const [creditLine, setCreditLine] = useState(edit?.creditLine ?? '')
   const [coverValue, setCoverValue] = useState<CoverImageInputValue | null>(
@@ -388,6 +393,18 @@ const PublishForm = ({
   )
 }
 
+// shown while the session resolves so the visibility default is derived from
+// the signed-in user, never from a loading-state fallback that then flips
+const PublishFormLoading = () => (
+  <div className="flex flex-1 items-center justify-center px-5 py-16">
+    <Loader2
+      className="h-5 w-5 animate-spin text-[var(--t-text-faint)]"
+      aria-hidden
+    />
+    <span className="sr-only">Loading…</span>
+  </div>
+)
+
 export const PublishModal = ({
   open,
   onClose,
@@ -398,6 +415,7 @@ export const PublishModal = ({
 {
   const titleId = useId()
   const isEdit = !!edit
+  const authSession = useAuthSession()
 
   return (
     <BaseModal
@@ -421,12 +439,19 @@ export const PublishModal = ({
         </p>
       </div>
 
-      <PublishForm
-        onClose={onClose}
-        onPublished={onPublished}
-        edit={edit}
-        initialBoardExternalId={initialBoardExternalId}
-      />
+      {authSession.status === 'signed-in' ? (
+        <PublishForm
+          onClose={onClose}
+          onPublished={onPublished}
+          edit={edit}
+          initialBoardExternalId={initialBoardExternalId}
+          defaultVisibility={getDefaultTemplatePublishVisibility(
+            authSession.user
+          )}
+        />
+      ) : (
+        <PublishFormLoading />
+      )}
     </BaseModal>
   )
 }

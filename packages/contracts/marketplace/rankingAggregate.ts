@@ -76,6 +76,26 @@ export interface MarketplaceTemplateRankingAggregateBucket
   colorSpec: TierColorSpec | null
 }
 
+export interface TemplateRankingAggregateBucketTierSource
+{
+  name: string
+  colorSpec: TierColorSpec | null
+}
+
+export const buildAggregateBucketsFromTiers = (
+  tiers: readonly TemplateRankingAggregateBucketTierSource[],
+  bucketCount: number = tiers.length
+): MarketplaceTemplateRankingAggregateBucket[] =>
+  Array.from({ length: Math.max(0, bucketCount) }, (_, index) =>
+  {
+    const tier = tiers[index]
+    return {
+      index,
+      label: tier?.name.trim() || `Tier ${index + 1}`,
+      colorSpec: tier?.colorSpec ?? null,
+    }
+  })
+
 export interface MarketplaceTemplateRankingAggregateHighlight
 {
   templateItemExternalId: string

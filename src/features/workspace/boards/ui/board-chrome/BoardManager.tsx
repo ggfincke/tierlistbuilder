@@ -37,8 +37,7 @@ import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPi
 import { TextInput } from '~/shared/ui/TextInput'
 import { BoardSyncBadge } from '~/features/workspace/boards/ui/board-chrome/BoardSyncBadge'
 import { lazyNamed } from '~/shared/lib/lazyNamed'
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
+import { useSyncOwnerUserId } from '~/features/platform/auth/model/useSyncOwnerUserId'
 
 const RecentlyDeletedModal = lazyNamed(
   () => import('~/features/workspace/boards/ui/modals/RecentlyDeletedModal'),
@@ -63,9 +62,7 @@ export const BoardManager = ({
   onSwitchBoard,
 }: BoardManagerProps) =>
 {
-  const session = useAuthSession()
-  const pendingSyncOwnerUserId =
-    session.status === 'signed-in' ? getUserStableId(session.user) : null
+  const pendingSyncOwnerUserId = useSyncOwnerUserId()
   const { boards, activeBoardId } = useWorkspaceBoardRegistryStore(
     useShallow((s) => ({
       boards: s.boards,
@@ -286,9 +283,9 @@ export const BoardManager = ({
                   setOpen(false)
                   setShowRecentlyDeleted(true)
                 }}
-                className="focus-custom flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
+                className="focus-custom flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
               >
-                <History className="h-3 w-3" />
+                <History className="h-3.5 w-3.5" />
                 Recently deleted
               </button>
               <button
@@ -298,9 +295,9 @@ export const BoardManager = ({
                   setOpen(false)
                   setShowRecentShares(true)
                 }}
-                className="focus-custom mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
+                className="focus-custom mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
               >
-                <LinkIcon className="h-3 w-3" />
+                <LinkIcon className="h-3.5 w-3.5" />
                 Recent shares
               </button>
             </div>

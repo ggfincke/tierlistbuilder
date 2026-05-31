@@ -44,6 +44,7 @@ import { SearchInput } from '~/features/marketplace/ui/discovery/SearchInput'
 import { Button } from '~/shared/ui/Button'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
+import { PAGE_SHELL } from '~/shared/ui/pageContainer'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useGalleryFilters } from '~/features/marketplace/model/gallery/useGalleryFilters'
 import { useOpenTemplateDraft } from '~/features/marketplace/model/gallery/useOpenTemplateDraft'
@@ -174,9 +175,7 @@ const GalleryRailSection = ({
 }: GalleryRailSectionProps) => (
   <section
     ref={sectionRef}
-    className={`relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10 ${
-      scrollMargin ? 'scroll-mt-24' : ''
-    }`}
+    className={`${PAGE_SHELL} mt-10 ${scrollMargin ? 'scroll-mt-24' : ''}`}
   >
     <RailHeader title={title} subtitle={subtitle} icon={icon} meta={meta} />
     <Rail items={items} size="small" />
@@ -324,7 +323,7 @@ export const TemplatesGalleryPage = () =>
 
   return (
     <>
-      <section className="relative z-10 mx-auto w-full max-w-[1200px] px-6 pt-20 sm:px-10 sm:pt-24">
+      <section className={`${PAGE_SHELL} pt-20 sm:pt-24`}>
         <DisplayHeadline
           eyebrow={templateCountLabel}
           accent="community templates"
@@ -359,7 +358,7 @@ export const TemplatesGalleryPage = () =>
       </section>
 
       {showJumpBackRail && (
-        <section className="relative z-10 mx-auto mt-8 w-full max-w-[1200px] px-6 sm:px-10">
+        <section className={`${PAGE_SHELL} mt-8`}>
           <RailHeader
             title="Jump back in"
             subtitle="In-progress rankings from templates"
@@ -374,7 +373,7 @@ export const TemplatesGalleryPage = () =>
       )}
 
       {showRails && heroFeatured.length > 0 && (
-        <section className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] px-6 sm:px-10">
+        <section className={`${PAGE_SHELL} mt-12`}>
           <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <Hero template={heroFeatured[0].template} />
             <div className="flex flex-col gap-5">
@@ -430,7 +429,7 @@ export const TemplatesGalleryPage = () =>
 
       <section
         ref={browseSectionRef}
-        className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] border-t border-[var(--t-border)] px-6 pt-10 sm:px-10"
+        className={`${PAGE_SHELL} mt-12 border-t border-[var(--t-border)] pt-10`}
       >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -558,7 +557,7 @@ export const TemplatesGalleryPage = () =>
         )}
       </section>
 
-      <section className="relative z-10 mx-auto mt-16 mb-16 w-full max-w-[1200px] px-6 sm:px-10">
+      <section className={`${PAGE_SHELL} mt-16 mb-16`}>
         <div className="rounded-2xl border border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.04)] px-8 py-12 sm:px-14 sm:py-16">
           <DisplayHeadline
             primary="Start a"

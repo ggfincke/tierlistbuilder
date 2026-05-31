@@ -12,7 +12,7 @@ import {
   makeRateLimitedTest as makeTest,
   seedCloudBoard,
   seedUser,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 describe('template tier validation', () =>
 {

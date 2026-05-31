@@ -2,11 +2,18 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "includeEntryExports": true,
   "ignoreBinaries": ["uv"],
-  "ignoreDependencies": ["tailwindcss"],
+  "ignoreDependencies": [
+    "@fontsource-variable/inter",
+    "@fontsource-variable/jetbrains-mono",
+    "@fontsource-variable/nunito",
+    "@fontsource-variable/outfit",
+    "@fontsource-variable/source-serif-4",
+    "@fontsource/bungee",
+    "tailwindcss"
+  ],
   "ignoreIssues": {
     "convex/auth.ts": ["exports"],
-    "convex/_generated/**": ["exports", "types", "files"],
-    "packages/contracts/marketplace/seedPipeline.ts": ["exports", "types"]
+    "convex/_generated/**": ["exports", "types", "files"]
   },
   "workspaces": {
     ".": {

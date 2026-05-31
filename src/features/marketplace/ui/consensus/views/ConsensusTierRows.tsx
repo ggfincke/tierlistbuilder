@@ -2,7 +2,6 @@
 // modal-tier-grouped viz built on shared board primitives, w/ hover distribution overlay
 
 import { useMemo } from 'react'
-import { useShallow } from 'zustand/react/shallow'
 
 import type {
   MarketplaceTemplateRankingAggregateBucket,
@@ -10,7 +9,6 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
-import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   BoardItemsGrid,
   BoardLabelCellFrame,
@@ -32,6 +30,7 @@ import {
   getTopBucket,
   resolveBucketColor,
 } from '../lib/utils'
+import { useTierLabelPreferences } from '../lib/useTierLabelPreferences'
 
 // pin marketplace tile size — large crowds the section, small reads dense
 const CONSENSUS_ITEM_SIZE = 'medium' as const
@@ -176,16 +175,7 @@ export const ConsensusTierRows = ({
     tierLabelItalic,
     tierLabelFontSize,
     compactMode,
-  } = usePreferencesStore(
-    useShallow((state) => ({
-      paletteId: state.paletteId,
-      labelWidth: state.labelWidth,
-      tierLabelBold: state.tierLabelBold,
-      tierLabelItalic: state.tierLabelItalic,
-      tierLabelFontSize: state.tierLabelFontSize,
-      compactMode: state.compactMode,
-    }))
-  )
+  } = useTierLabelPreferences()
 
   const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
     CONSENSUS_ITEM_SIZE,

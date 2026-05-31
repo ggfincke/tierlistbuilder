@@ -12,12 +12,8 @@ import {
 } from '~/shared/images/imageEncode'
 import { formatError } from '~/shared/lib/errors'
 import { validateImageFile } from '~/features/platform/media/imageFileValidation'
-import {
-  finalizeUploadVariantsImperative,
-  generateUploadUrlsImperative,
-  uploadEnvelopedBlob,
-  type UploadedVariant,
-} from '~/features/platform/media/uploadsRepository'
+import { uploadEnvelopedVariants } from '~/features/platform/media/uploadsRepository'
+import { withImageBitmap } from '~/shared/images/imageBitmap'
 
 const COVER_TILE_MAX_SIZE = 120
 // preview is the master image that runtime CSS-crops per-surface from. higher
@@ -102,9 +98,7 @@ const resizeImageToPreviewBlob = async (source: ImageBitmap): Promise<Blob> =>
 const prepareCoverVariants = async (
   file: File
 ): Promise<Array<{ kind: MediaVariantKind; blob: Blob }>> =>
-{
-  const bitmap = await createImageBitmap(file)
-  try
+  withImageBitmap(file, async (bitmap) =>
   {
     const [tileBlob, previewBlob] = await Promise.all([
       resizeImageToPngBlob(bitmap, COVER_TILE_MAX_SIZE),
@@ -114,12 +108,7 @@ const prepareCoverVariants = async (
       { kind: 'tile', blob: tileBlob },
       { kind: 'preview', blob: previewBlob },
     ]
-  }
-  finally
-  {
-    bitmap.close()
-  }
-}
+  })
 
 export const uploadCoverImage = async (
   file: File
@@ -134,23 +123,7 @@ export const uploadCoverImage = async (
   try
   {
     const variantInputs = await prepareCoverVariants(file)
-    const { envelopeUserId, urls } = await generateUploadUrlsImperative(
-      variantInputs.length
-    )
-    const variants: UploadedVariant[] = await Promise.all(
-      variantInputs.map(async (input, i) =>
-      {
-        const { uploadUrl, uploadToken } = urls[i]
-        const storageId = await uploadEnvelopedBlob({
-          uploadUrl,
-          uploadToken,
-          envelopeUserId,
-          blob: input.blob,
-        })
-        return { kind: input.kind, storageId, uploadToken }
-      })
-    )
-    const { externalId } = await finalizeUploadVariantsImperative({ variants })
+    const { externalId } = await uploadEnvelopedVariants(variantInputs)
     return { externalId }
   }
   catch (error)

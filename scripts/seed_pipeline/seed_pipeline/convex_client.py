@@ -23,6 +23,8 @@ HTTP_ATTEMPTS = 4
 HTTP_RETRY_BASE_SECONDS = 0.5
 HTTP_TIMEOUT_SECONDS = 600
 CONVEX_CLIENT_HEADER = "python-1.0.0"
+CONVEX_SEED_SECRET_ENV = "CONVEX_SEED_SECRET"
+CONVEX_SEED_AUTHOR_PASSWORD_ENV = "CONVEX_SEED_AUTHOR_PASSWORD"
 CONVEX_SITE_URL_ENV_NAMES = (
 	"CONVEX_SITE_URL",
 	"VITE_CONVEX_SITE_URL",
@@ -281,12 +283,8 @@ def read_seed_settings(
 	# resolve explicit CLI args first, then shell env, then repo-local dotenv
 	env = load_dotenv(repo_root / ".env.local")
 	resolved_url = resolve_convex_site_url(repo_root, convex_url, env)
-	resolved_secret = (
-		seed_secret or os.environ.get("CONVEX_SEED_SECRET") or env.get("CONVEX_SEED_SECRET")
-	)
-	resolved_author_password = os.environ.get("CONVEX_SEED_AUTHOR_PASSWORD") or env.get(
-		"CONVEX_SEED_AUTHOR_PASSWORD"
-	)
+	resolved_secret = resolve_seed_secret(env, seed_secret)
+	resolved_author_password = resolve_seed_author_password(env)
 	if not resolved_url:
 		raise ConvexClientError(
 			"CONVEX_SITE_URL / VITE_CONVEX_SITE_URL / CONVEX_URL / VITE_CONVEX_URL is not set"
@@ -300,6 +298,20 @@ def read_seed_settings(
 		seed_secret=resolved_secret,
 		author_password=resolved_author_password,
 		env_name=env_name,
+	)
+
+
+def resolve_seed_secret(env: Mapping[str, str], explicit: str | None = None) -> str | None:
+	return (
+		explicit
+		or os.environ.get(CONVEX_SEED_SECRET_ENV)
+		or env.get(CONVEX_SEED_SECRET_ENV)
+	)
+
+
+def resolve_seed_author_password(env: Mapping[str, str]) -> str | None:
+	return os.environ.get(CONVEX_SEED_AUTHOR_PASSWORD_ENV) or env.get(
+		CONVEX_SEED_AUTHOR_PASSWORD_ENV
 	)
 
 

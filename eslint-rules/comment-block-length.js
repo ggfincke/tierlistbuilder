@@ -1,5 +1,7 @@
-// rules/comment-block-length.js
+// eslint-rules/comment-block-length.js
 // enforces max 3 consecutive single-line `//` comments per CLAUDE.md cap
+
+import { getSourceCode } from './ruleContext.js'
 
 const MAX_CONSECUTIVE = 3
 
@@ -20,7 +22,7 @@ const rule = {
 
   create(context)
   {
-    const sourceCode = context.sourceCode ?? context.getSourceCode()
+    const sourceCode = getSourceCode(context)
 
     return {
       Program()

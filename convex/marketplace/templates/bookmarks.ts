@@ -21,8 +21,8 @@ import {
   MAX_TEMPLATE_LIST_LIMIT,
   isTemplateSlug,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { clamp } from '@tierlistbuilder/contracts/lib/math'
 import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
+import { clampPageSize, emptyPaginatedResult } from '../../lib/pagination'
 import {
   marketplaceTemplateBookmarkListResultValidator,
   marketplaceTemplateBookmarkStateValidator,
@@ -39,17 +39,13 @@ type DbCtx = QueryCtx | MutationCtx
 
 const emptyBookmarkListResult = (
   cursor: string | null
-): MarketplaceTemplateBookmarkListResult => ({
-  page: [],
-  isDone: true,
-  continueCursor: cursor ?? '',
-})
+): MarketplaceTemplateBookmarkListResult =>
+  emptyPaginatedResult<MarketplaceTemplateBookmarkListResult['page'][number]>(
+    cursor
+  )
 
 const normalizeBookmarkPageSize = (raw: number): number =>
-{
-  if (!Number.isFinite(raw)) return DEFAULT_TEMPLATE_LIST_LIMIT
-  return clamp(Math.floor(raw), 1, MAX_TEMPLATE_LIST_LIMIT)
-}
+  clampPageSize(raw, DEFAULT_TEMPLATE_LIST_LIMIT, MAX_TEMPLATE_LIST_LIMIT)
 
 const findBookmark = async (
   ctx: DbCtx,

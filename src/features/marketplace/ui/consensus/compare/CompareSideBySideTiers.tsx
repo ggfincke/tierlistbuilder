@@ -3,7 +3,6 @@
 // spans both lanes; the divergence table below carries the Δ-tier signal
 
 import { useMemo } from 'react'
-import { useShallow } from 'zustand/react/shallow'
 
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardItemDisplaySettings } from '@tierlistbuilder/contracts/workspace/board'
@@ -16,9 +15,9 @@ import {
   TierDescriptionSubtitle,
 } from '~/shared/board-ui/BoardPrimitives'
 import { itemSlotDimensions, LABEL_WIDTH_PX } from '~/shared/board-ui/constants'
-import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
+import { useTierLabelPreferences } from '../lib/useTierLabelPreferences'
 
 import {
   AggregateItemThumb,
@@ -127,16 +126,7 @@ export const CompareSideBySideTiers = ({
     tierLabelItalic,
     tierLabelFontSize,
     compactMode,
-  } = usePreferencesStore(
-    useShallow((state) => ({
-      paletteId: state.paletteId,
-      labelWidth: state.labelWidth,
-      tierLabelBold: state.tierLabelBold,
-      tierLabelItalic: state.tierLabelItalic,
-      tierLabelFontSize: state.tierLabelFontSize,
-      compactMode: state.compactMode,
-    }))
-  )
+  } = useTierLabelPreferences()
 
   const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
     itemSize,

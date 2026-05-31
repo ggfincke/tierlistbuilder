@@ -2,7 +2,6 @@
 // display-name & sync-id helpers for public user identity projections
 
 import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
-import { extractInitial } from '~/shared/lib/initials'
 
 type DisplayUser = Pick<PublicUserMe, 'displayName' | 'name' | 'email'>
 type StableUser = Pick<PublicUserMe, '_id'>
@@ -40,8 +39,5 @@ export const getDisplayName = (
     fallback
   )
 }
-
-export const getUserInitial = (user: DisplayUser, fallback = 'U'): string =>
-  extractInitial(getDisplayName(user, fallback), fallback)
 
 export const getUserStableId = (user: StableUser): string => user._id

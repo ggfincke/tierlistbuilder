@@ -16,6 +16,7 @@ import {
   formatPercent,
   getAggregateItemLabel,
   getTopBucket,
+  projectBucketToSvg,
   resolveBucketColor,
 } from '../lib/utils'
 
@@ -48,15 +49,18 @@ const computePoints = (
   paletteId: PaletteId
 ): ScatterPoint[] =>
 {
-  const lastBucket = Math.max(1, buckets.length - 1)
   const points: ScatterPoint[] = []
   for (const row of rows)
   {
     if (row.sampleCount === 0) continue
     if (row.averageBucket === null) continue
     if (row.topBucketIndex === null) continue
-    const fracX = row.averageBucket / lastBucket
-    const x = PAD + fracX * (VIEWBOX_W - 2 * PAD)
+    const x = projectBucketToSvg(
+      row.averageBucket,
+      buckets.length,
+      VIEWBOX_W,
+      PAD
+    )
     const agreement = row.topBucketShare
     const y = VIEWBOX_H - PAD - agreement * (VIEWBOX_H - 2 * PAD)
     const bucket = getTopBucket(row, buckets)
@@ -82,7 +86,6 @@ export const ConsensusScatter = ({
     () => computePoints(rows, buckets, paletteId),
     [rows, buckets, paletteId]
   )
-  const lastBucket = Math.max(1, buckets.length - 1)
   const yLines = [0.25, 0.5, 0.75, 1]
 
   return (
@@ -110,8 +113,7 @@ export const ConsensusScatter = ({
         >
           {buckets.map((bucket, index) =>
           {
-            const fracX = lastBucket === 0 ? 0 : index / lastBucket
-            const x = PAD + fracX * (VIEWBOX_W - 2 * PAD)
+            const x = projectBucketToSvg(index, buckets.length, VIEWBOX_W, PAD)
             return (
               <g key={bucket.index}>
                 <line

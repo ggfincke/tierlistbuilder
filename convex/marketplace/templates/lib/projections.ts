@@ -9,6 +9,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import { selectMediaVariantSummary } from '../../../lib/mediaVariants'
 import { memoizePromise } from '../../../lib/cache'
+import { resolveUserAvatarUrl } from '../../../lib/avatar'
 import { findTemplateBySlug } from '../../../lib/marketplaceLookups'
 import type {
   MarketplaceTemplateDraftTemplate,
@@ -21,7 +22,10 @@ import type {
   TemplateCoverItem,
   TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { MAX_TEMPLATE_COVER_ITEMS } from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  MAX_TEMPLATE_COVER_ITEMS,
+  pickTemplateCoverItemPresentationFields,
+} from '@tierlistbuilder/contracts/marketplace/template'
 import type { UserPlan } from '@tierlistbuilder/contracts/platform/user'
 import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import {
@@ -71,28 +75,11 @@ export type TemplateCardSource = Pick<
 >
 
 type TemplateCardMedia = NonNullable<Doc<'templateCards'>['coverMedia']>
+type TemplateCoverItemSource = Doc<'templates'>['coverItems'][number]
+type TemplateCoverItemFields = Omit<TemplateCoverItem, 'media'>
 
-type CoverItemPresentationSource = {
-  label?: TemplateCoverItem['label']
-  backgroundColor?: TemplateCoverItem['backgroundColor']
-  mediaPlate?: TemplateCoverItem['mediaPlate']
-  aspectRatio?: TemplateCoverItem['aspectRatio']
-  imageFit?: TemplateCoverItem['imageFit']
-  transform?: TemplateCoverItem['transform']
-  imagePadding?: TemplateCoverItem['imagePadding']
-}
-
-export const pickCoverItemPresentationFields = (
-  item: CoverItemPresentationSource
-): Omit<TemplateCoverItem, 'media'> => ({
-  label: item.label ?? null,
-  backgroundColor: item.backgroundColor ?? null,
-  mediaPlate: item.mediaPlate ?? null,
-  aspectRatio: item.aspectRatio ?? null,
-  imageFit: item.imageFit ?? null,
-  transform: item.transform ?? null,
-  imagePadding: item.imagePadding ?? null,
-})
+export const pickCoverItemPresentationFields =
+  pickTemplateCoverItemPresentationFields
 
 export interface PublicTemplateStats
 {
@@ -211,18 +198,27 @@ const buildMediaRefFromVariant = (
   mimeType: variant.mimeType,
 })
 
-const buildMediaRef = async (
+const loadAssetAndPickVariant = async (
   ctx: DbCtx,
-  asset: Doc<'mediaAssets'>,
-  kind: MediaVariantKind,
+  mediaAssetId: Id<'mediaAssets'> | null,
+  kinds: readonly MediaVariantKind[],
   cache?: TemplateProjectionCache
-): Promise<TemplateMediaRef | null> =>
+): Promise<{
+  asset: Doc<'mediaAssets'>
+  variant: NonNullable<ReturnType<typeof selectMediaVariantSummary>>
+} | null> =>
 {
-  const variant = selectMediaVariantSummary(asset, kind)
+  if (!mediaAssetId) return null
+  const asset = await loadAsset(ctx, mediaAssetId, cache)
+  if (!asset)
+  {
+    return failState(`dangling template media reference: ${mediaAssetId}`)
+  }
+  const variant = kinds
+    .map((kind) => selectMediaVariantSummary(asset, kind))
+    .find((candidate) => candidate !== undefined)
   if (!variant) return null
-  const url = await loadAssetUrl(ctx, variant.storageId, cache)
-  if (!url) return null
-  return buildMediaRefFromVariant(asset.externalId, variant, url)
+  return { asset, variant }
 }
 
 export const toTemplateMediaRef = async (
@@ -240,20 +236,34 @@ export const toTemplateMediaRefWithFallback = async (
   cache?: TemplateProjectionCache
 ): Promise<TemplateMediaRef | null> =>
 {
-  if (!mediaAssetId) return null
-  const asset = await loadAsset(ctx, mediaAssetId, cache)
-  if (!asset)
-  {
-    return failState(`dangling template media reference: ${mediaAssetId}`)
-  }
-  for (const kind of kinds)
-  {
-    const ref = await buildMediaRef(ctx, asset, kind, cache)
-    if (ref) return ref
-  }
-  return null
+  const picked = await loadAssetAndPickVariant(ctx, mediaAssetId, kinds, cache)
+  if (!picked) return null
+  const url = await loadAssetUrl(ctx, picked.variant.storageId, cache)
+  if (!url) return null
+  return buildMediaRefFromVariant(picked.asset.externalId, picked.variant, url)
 }
 
+const buildCoverItems = async <TMedia>(
+  rows: readonly TemplateCoverItemSource[],
+  resolveMedia: (item: TemplateCoverItemSource) => Promise<TMedia | null>
+): Promise<Array<TemplateCoverItemFields & { media: TMedia }>> =>
+{
+  const refs: Array<(TemplateCoverItemFields & { media: TMedia }) | null> =
+    await Promise.all(
+      rows.map(async (item) =>
+      {
+        const media = await resolveMedia(item)
+        if (media === null) return null
+        return {
+          media,
+          ...pickCoverItemPresentationFields(item),
+        }
+      })
+    )
+  return refs.filter(
+    (item): item is TemplateCoverItemFields & { media: TMedia } => item !== null
+  )
+}
 // load denormalized cover items in template order. publish stores only
 // media-backed item ids + labels, so summary reads avoid a templateItems scan
 export const loadCoverItems = async (
@@ -270,25 +280,14 @@ export const loadCoverItems = async (
     0,
     options.limit ?? MAX_TEMPLATE_COVER_ITEMS
   )
-  const refs = await Promise.all(
-    rows.map(async (item): Promise<TemplateCoverItem | null> =>
-    {
-      const media = await toTemplateMediaRef(
-        ctx,
-        item.mediaAssetId,
-        options.kind ?? 'tile',
-        options.cache
-      )
-      return media
-        ? {
-            media,
-            ...pickCoverItemPresentationFields(item),
-          }
-        : null
-    })
+  return await buildCoverItems(rows, (item) =>
+    toTemplateMediaRef(
+      ctx,
+      item.mediaAssetId,
+      options.kind ?? 'tile',
+      options.cache
+    )
   )
-
-  return refs.filter((item): item is TemplateCoverItem => item !== null)
 }
 
 const loadTemplateAuthor = async (
@@ -296,18 +295,11 @@ const loadTemplateAuthor = async (
   authorId: Id<'users'>
 ): Promise<TemplateAuthor> =>
 {
-  const author = await ctx.db.get(authorId)
-  if (!author)
-  {
-    return failState(`template author missing: ${authorId}`)
-  }
-
+  const author = await requireTemplateAuthorRow(ctx, authorId)
   const displayName = toAuthorDisplayName(author)
-  const avatarUrl =
-    author.image ??
-    (author.avatarStorageId
-      ? await ctx.storage.getUrl(author.avatarStorageId)
-      : null)
+  const avatarUrl = isPublicTemplateAuthor(author)
+    ? await resolveUserAvatarUrl(ctx, author)
+    : null
 
   return {
     id: toPublicAuthorId(author),
@@ -333,14 +325,33 @@ export const toTemplateAuthor = async (
 }
 
 const toAuthorDisplayName = (
-  author: Pick<Doc<'users'>, 'handle' | 'displayName'>
+  author: Pick<Doc<'users'>, 'externalId' | 'handle' | 'displayName'>
 ): string =>
-  author.handle
-    ? `@${author.handle}`
-    : (author.displayName ?? FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME)
+{
+  if (author.handle) return `@${author.handle}`
+  if (!author.externalId) return FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME
+  return author.displayName ?? FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME
+}
 
 const toPublicAuthorId = (author: Pick<Doc<'users'>, 'externalId'>): string =>
   author.externalId ?? FALLBACK_TEMPLATE_AUTHOR_ID
+
+const isPublicTemplateAuthor = (
+  author: Pick<Doc<'users'>, 'externalId' | 'handle'>
+): boolean => !!author.externalId || !!author.handle
+
+const requireTemplateAuthorRow = async (
+  ctx: DbCtx,
+  authorId: Id<'users'>
+): Promise<Doc<'users'>> =>
+{
+  const author = await ctx.db.get(authorId)
+  if (!author)
+  {
+    return failState(`template author missing: ${authorId}`)
+  }
+  return author
+}
 
 const toTemplateCardMedia = async (
   ctx: DbCtx,
@@ -349,24 +360,16 @@ const toTemplateCardMedia = async (
   cache?: TemplateProjectionCache
 ): Promise<TemplateCardMedia | null> =>
 {
-  if (!mediaAssetId) return null
-  const asset = await loadAsset(ctx, mediaAssetId, cache)
-  if (!asset)
-  {
-    return failState(`dangling template media reference: ${mediaAssetId}`)
-  }
-  const variant = kinds
-    .map((kind) => selectMediaVariantSummary(asset, kind))
-    .find((candidate) => candidate !== undefined)
-  if (!variant) return null
+  const picked = await loadAssetAndPickVariant(ctx, mediaAssetId, kinds, cache)
+  if (!picked) return null
   return {
-    externalId: asset.externalId,
-    storageId: variant.storageId,
-    width: variant.width,
-    height: variant.height,
-    byteSize: variant.byteSize,
-    mimeType: variant.mimeType,
-    contentHash: variant.contentHash,
+    externalId: picked.asset.externalId,
+    storageId: picked.variant.storageId,
+    width: picked.variant.width,
+    height: picked.variant.height,
+    byteSize: picked.variant.byteSize,
+    mimeType: picked.variant.mimeType,
+    contentHash: picked.variant.contentHash,
   }
 }
 
@@ -377,24 +380,9 @@ const toTemplateCardCoverItems = async (
 ): Promise<Doc<'templateCards'>['coverItems']> =>
 {
   const rows = template.coverItems.slice(0, MAX_TEMPLATE_COVER_ITEMS)
-  const items = await Promise.all(
-    rows.map(async (item) =>
-    {
-      const media = await toTemplateCardMedia(
-        ctx,
-        item.mediaAssetId,
-        ['tile'],
-        cache
-      )
-      return media
-        ? {
-            media,
-            ...pickCoverItemPresentationFields(item),
-          }
-        : null
-    })
+  return await buildCoverItems(rows, (item) =>
+    toTemplateCardMedia(ctx, item.mediaAssetId, ['tile'], cache)
   )
-  return items.filter((item): item is TemplateCoverItemForCard => item !== null)
 }
 
 type TemplateCoverItemForCard = Doc<'templateCards'>['coverItems'][number]
@@ -412,17 +400,15 @@ const toTemplateCardAuthorFields = async (
   >
 > =>
 {
-  const author = await ctx.db.get(authorId)
-  if (!author)
-  {
-    return failState(`template author missing: ${authorId}`)
-  }
+  const author = await requireTemplateAuthorRow(ctx, authorId)
+  const isPublic = isPublicTemplateAuthor(author)
 
   return {
     authorExternalId: toPublicAuthorId(author),
     authorDisplayName: toAuthorDisplayName(author),
-    authorImageUrl: author.image ?? null,
-    authorAvatarStorageId: author.avatarStorageId ?? null,
+    authorImageUrl:
+      isPublic && !author.avatarStorageId ? (author.image ?? null) : null,
+    authorAvatarStorageId: isPublic ? (author.avatarStorageId ?? null) : null,
   }
 }
 

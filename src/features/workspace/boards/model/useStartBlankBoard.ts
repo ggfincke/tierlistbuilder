@@ -39,25 +39,27 @@ export const useStartBlankBoard = (
   }, [navigate, withToast])
 
   const onError = useCallback(
-    (error: unknown) =>
+    (message: string, error: unknown) =>
     {
       logger.error('boards', 'create blank board failed', error)
       if (withToast)
       {
-        toast('Could not create a new board. Please try again.', 'error')
+        toast(message, 'error')
       }
     },
     [withToast]
   )
 
-  const { run: runStart, isPending } = useAsyncAction<[], void>(startBoard, {
-    onError,
-  })
+  const { run, pending } = useAsyncAction()
 
   const start = useCallback(() =>
   {
-    void runStart()
-  }, [runStart])
+    void run({
+      action: startBoard,
+      errorMessage: 'Could not create a new board. Please try again.',
+      onError,
+    })
+  }, [onError, run, startBoard])
 
-  return { start, isPending }
+  return { start, isPending: pending }
 }

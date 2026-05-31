@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { makeBoardClickHandler } from '~/features/library/lib/boardClickHandler'
-import { makeLibraryBoardListItem } from '../fixtures'
+import { makeLibraryBoardListItem } from '@tests/fixtures'
 
 const board = makeLibraryBoardListItem({
   title: 'Click handler test',

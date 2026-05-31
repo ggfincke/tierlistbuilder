@@ -1,16 +1,12 @@
 // src/app/shells/topNav/TopNavModalLayer.tsx
-// lazy account, auth, & preferences modal slots for global chrome
+// lazy preferences & auth modal slots for global chrome. account settings live
+// on the full-page /settings route reached from the avatar dropdown.
 
 import { useCallback } from 'react'
 
 import type { ModalStack } from '~/app/shells/useModalStack'
 import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
-
-const AccountModal = lazyNamed(
-  () => import('~/app/shells/topNav/AccountModal'),
-  'AccountModal'
-)
 
 const PreferencesModal = lazyNamed(
   () => import('~/features/platform/preferences/ui/PreferencesModal'),
@@ -23,7 +19,6 @@ const SignInModal = lazyNamed(
 )
 
 export type TopNavModalPayloads = {
-  account: undefined
   preferences: undefined
 }
 
@@ -43,10 +38,6 @@ export const TopNavModalLayer = ({
 }: TopNavModalLayerProps) =>
 {
   const { state: modalState, close: closeModal } = modalStack
-  const handleCloseAccount = useCallback(
-    () => closeModal('account'),
-    [closeModal]
-  )
   const handleClosePreferences = useCallback(
     () => closeModal('preferences'),
     [closeModal]
@@ -56,9 +47,6 @@ export const TopNavModalLayer = ({
     <>
       <LazyModalSlot when={signInOpen} section="sign in">
         {() => <SignInModal open onClose={onCloseSignIn} />}
-      </LazyModalSlot>
-      <LazyModalSlot when={modalState.account} section="account">
-        {() => <AccountModal open onClose={handleCloseAccount} />}
       </LazyModalSlot>
       <LazyModalSlot when={modalState.preferences} section="preferences">
         {() => <PreferencesModal open onClose={handleClosePreferences} />}

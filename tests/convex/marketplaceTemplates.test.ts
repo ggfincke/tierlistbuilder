@@ -51,7 +51,7 @@ import {
   toCriterionSnapshot,
   withSeedEnv,
   withFakeTimers,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 // seed maintenance fns are internal-only; auth lives on /api/seed/* routes.
 // most tests call impls directly; route regressions use HTTP when dispatch matters
@@ -877,16 +877,14 @@ describe('marketplace template Convex functions', () =>
   it('does not expose private author identifiers on public template reads', async () =>
   {
     const t = makeTest()
-    const { authorId, slug } = await t.run(async (ctx) =>
+    const now = Date.now()
+    const authorId = await seedUser(t, 'private-author-email@example.com', {
+      name: 'private-author-name@example.com',
+      email: 'private-author-email@example.com',
+      image: 'https://private-author-email.example/avatar.png',
+    })
+    const slug = await t.run(async (ctx) =>
     {
-      const now = Date.now()
-      const authorId = await ctx.db.insert('users', {
-        name: 'private-author-name@example.com',
-        email: 'private-author-email@example.com',
-        createdAt: now,
-        updatedAt: now,
-        plan: 'free',
-      })
       const slug = 'PrivAuth01'
       await seedPublishedTemplate(ctx, {
         authorId,
@@ -896,7 +894,7 @@ describe('marketplace template Convex functions', () =>
         sizeClass: 'standard',
         now,
       })
-      return { authorId, slug }
+      return slug
     })
 
     const detail = await t.query(
@@ -926,6 +924,9 @@ describe('marketplace template Convex functions', () =>
     )
     expect(serializedPublicPayload).not.toContain(
       'private-author-email@example.com'
+    )
+    expect(serializedPublicPayload).not.toContain(
+      'private-author-email.example'
     )
     expect(serializedPublicPayload).not.toContain(authorId)
 
@@ -2187,6 +2188,17 @@ describe('marketplace template Convex functions', () =>
       sourceTemplateTitle: 'Ranking Template',
     })
 
+    const beforePublishRows = await ranker.query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(
+      beforePublishRows.find((row) => row.externalId === boardExternalId)
+    ).toMatchObject({
+      publishState: 'wip',
+      visibility: 'private',
+    })
+
     const published = await ranker.mutation(
       api.marketplace.rankings.public.mutations.publishRankingFromBoard,
       {
@@ -2195,6 +2207,31 @@ describe('marketplace template Convex functions', () =>
         visibility: 'public',
       }
     )
+    const storedLiveRankingSlug = await t.run(async (ctx) =>
+    {
+      const board = await ctx.db
+        .query('boards')
+        .withIndex('byOwnerAndExternalId', (q) =>
+          q.eq('ownerId', rankerId).eq('externalId', boardExternalId)
+        )
+        .unique()
+      if (!board?.livePublicRankingId) return null
+      const ranking = await ctx.db.get(board.livePublicRankingId)
+      return ranking?.slug ?? null
+    })
+    expect(storedLiveRankingSlug).toBe(published.slug)
+
+    const afterPublishRows = await ranker.query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(
+      afterPublishRows.find((row) => row.externalId === boardExternalId)
+    ).toMatchObject({
+      publishState: 'live',
+      visibility: 'public',
+    })
+
     const detail = await t.query(
       api.marketplace.rankings.public.queries.getRankingBySlug,
       { slug: published.slug }
@@ -2266,6 +2303,139 @@ describe('marketplace template Convex functions', () =>
     expect(new Set(Object.values(myRanking.placements))).toEqual(new Set([0]))
   })
 
+  it('keeps each board live ranking independent when different boards publish the same lane', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(
+      t,
+      'Supersede Author',
+      'supersede-author@example.com'
+    )
+    const rankerId = await seedUser(
+      t,
+      'Supersede Ranker',
+      'supersede-ranker@example.com'
+    )
+    await seedSourceBoard(t, authorId)
+
+    const { slug: templateSlug } = await asUser(t, authorId).mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Supersede Ranking Template',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+
+    const { ranker, boardExternalId: oldBoardExternalId } =
+      await completeTemplateRankingBoard(
+        t,
+        rankerId,
+        templateSlug,
+        'Older Finished Ranking'
+      )
+    const { boardExternalId: replacementBoardExternalId } =
+      await completeTemplateRankingBoard(
+        t,
+        rankerId,
+        templateSlug,
+        'Replacement Finished Ranking'
+      )
+
+    const oldRanking = await ranker.mutation(
+      api.marketplace.rankings.public.mutations.publishRankingFromBoard,
+      {
+        boardExternalId: oldBoardExternalId,
+        title: 'Older Public Ranking',
+        visibility: 'public',
+      }
+    )
+    const replacementRanking = await ranker.mutation(
+      api.marketplace.rankings.public.mutations.publishRankingFromBoard,
+      {
+        boardExternalId: replacementBoardExternalId,
+        title: 'Replacement Public Ranking',
+        visibility: 'public',
+      }
+    )
+
+    const stored = await t.run(async (ctx) =>
+    {
+      const [oldBoard, replacementBoard, oldRankingRow, replacementRankingRow] =
+        await Promise.all([
+          ctx.db
+            .query('boards')
+            .withIndex('byOwnerAndExternalId', (q) =>
+              q.eq('ownerId', rankerId).eq('externalId', oldBoardExternalId)
+            )
+            .unique(),
+          ctx.db
+            .query('boards')
+            .withIndex('byOwnerAndExternalId', (q) =>
+              q
+                .eq('ownerId', rankerId)
+                .eq('externalId', replacementBoardExternalId)
+            )
+            .unique(),
+          ctx.db
+            .query('publishedRankings')
+            .withIndex('bySlug', (q) => q.eq('slug', oldRanking.slug))
+            .unique(),
+          ctx.db
+            .query('publishedRankings')
+            .withIndex('bySlug', (q) => q.eq('slug', replacementRanking.slug))
+            .unique(),
+        ])
+
+      return {
+        oldBoardLivePublicRankingId: oldBoard?.livePublicRankingId ?? null,
+        replacementBoardLivePublicRankingId:
+          replacementBoard?.livePublicRankingId ?? null,
+        oldRanking: oldRankingRow,
+        replacementRanking: replacementRankingRow,
+      }
+    })
+
+    // board-unique: publishing replacementBoard never touches oldBoard — both
+    // rankings coexist (the 2025-vs-2026 case)
+    expect(stored.oldBoardLivePublicRankingId).toBe(stored.oldRanking?._id)
+    expect(stored.replacementBoardLivePublicRankingId).toBe(
+      stored.replacementRanking?._id
+    )
+    expect(stored.oldRanking).toMatchObject({
+      isPubliclyListable: true,
+      supersededAt: null,
+      supersededByRankingId: null,
+    })
+
+    const publicRankings = await t.query(
+      api.marketplace.rankings.public.queries.getRankingsForTemplate,
+      { templateSlug }
+    )
+    expect(publicRankings.items.map((item) => item.slug).sort()).toEqual(
+      [oldRanking.slug, replacementRanking.slug].sort()
+    )
+
+    const libraryRows = await ranker.query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(
+      libraryRows.find((row) => row.externalId === oldBoardExternalId)
+    ).toMatchObject({
+      publishState: 'live',
+      visibility: 'public',
+    })
+    expect(
+      libraryRows.find((row) => row.externalId === replacementBoardExternalId)
+    ).toMatchObject({
+      publishState: 'live',
+      visibility: 'public',
+    })
+  })
+
   it('hides rankings when their source template is unpublished', async () =>
   {
     const t = makeTest()
@@ -2296,7 +2466,7 @@ describe('marketplace template Convex functions', () =>
       label: `Aggregate Item ${index}`,
       order: index,
     }))
-    await seedAggregateRanking(t, {
+    const rankingId = await seedAggregateRanking(t, {
       ownerId: rankerId,
       templateId,
       templateSlug,
@@ -2306,6 +2476,28 @@ describe('marketplace template Convex functions', () =>
       now: 1_000,
       tiers,
       items,
+    })
+    await t.run(async (ctx) =>
+    {
+      const ranking = await ctx.db.get(rankingId)
+      if (!ranking?.sourceBoardId)
+      {
+        throw new Error('Expected ranking source board')
+      }
+      await ctx.db.patch(ranking.sourceBoardId, {
+        livePublicRankingId: rankingId,
+      })
+    })
+
+    const beforeLibraryRows = await asUser(t, rankerId).query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(
+      beforeLibraryRows.find((row) => row.externalId === 'UnpubRank1-board')
+    ).toMatchObject({
+      publishState: 'live',
+      visibility: 'public',
     })
 
     await asUser(t, authorId).mutation(
@@ -2330,6 +2522,17 @@ describe('marketplace template Convex functions', () =>
         sort: 'recent',
       })
     ).resolves.toMatchObject({ page: [] })
+
+    const afterLibraryRows = await asUser(t, rankerId).query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(
+      afterLibraryRows.find((row) => row.externalId === 'UnpubRank1-board')
+    ).toMatchObject({
+      publishState: 'wip',
+      visibility: 'private',
+    })
   })
 
   it('publishes rankings from locally-synced standard template forks', async () =>
@@ -2610,22 +2813,9 @@ describe('marketplace template Convex functions', () =>
       api.marketplace.rankings.public.queries.getRankingsForTemplate,
       { templateSlug }
     )
-    expect(publicRankings.items.map((item) => item.slug).sort()).toEqual(
-      [favorites.slug, replacementCompetitive.slug].sort()
-    )
-    const publicBySlug = Object.fromEntries(
-      publicRankings.items.map((item) => [item.slug, item])
-    )
-    expect(publicBySlug[favorites.slug]?.criterion).toMatchObject({
-      externalId: 'favorites',
-      name: 'Favorites',
-      prompt: 'Rank by personal preference.',
-    })
-    expect(publicBySlug[replacementCompetitive.slug]?.criterion).toMatchObject({
-      externalId: 'competitive',
-      name: 'Competitive',
-      prompt: 'Rank by competitive viability.',
-    })
+    // board-unique: every publish retires the board's single prior live ranking,
+    // so after the unlisted final publish nothing is publicly listed
+    expect(publicRankings.items.map((item) => item.slug)).toEqual([])
 
     const favoritesPage = await t.query(
       api.marketplace.rankings.public.queries.listRankingsForTemplate,
@@ -2635,9 +2825,7 @@ describe('marketplace template Convex functions', () =>
         paginationOpts: { cursor: null, numItems: 10 },
       }
     )
-    expect(favoritesPage.page.map((item) => item.slug)).toEqual([
-      favorites.slug,
-    ])
+    expect(favoritesPage.page.map((item) => item.slug)).toEqual([])
     const competitiveTopPage = await t.query(
       api.marketplace.rankings.public.queries.listRankingsForTemplate,
       {
@@ -2647,9 +2835,7 @@ describe('marketplace template Convex functions', () =>
         paginationOpts: { cursor: null, numItems: 10 },
       }
     )
-    expect(competitiveTopPage.page.map((item) => item.slug)).toEqual([
-      replacementCompetitive.slug,
-    ])
+    expect(competitiveTopPage.page.map((item) => item.slug)).toEqual([])
     const favoritesFeaturedPage = await t.query(
       api.marketplace.rankings.public.queries.listRankingsForTemplate,
       {
@@ -2659,9 +2845,7 @@ describe('marketplace template Convex functions', () =>
         paginationOpts: { cursor: null, numItems: 10 },
       }
     )
-    expect(favoritesFeaturedPage.page.map((item) => item.slug)).toEqual([
-      favorites.slug,
-    ])
+    expect(favoritesFeaturedPage.page.map((item) => item.slug)).toEqual([])
     const missingPage = await t.query(
       api.marketplace.rankings.public.queries.listRankingsForTemplate,
       {
@@ -2727,6 +2911,15 @@ describe('marketplace template Convex functions', () =>
         .filter((job) => job.templateId === template._id)
         .map((job) => job.criterionExternalId)
         .sort()
+      const board = await ctx.db
+        .query('boards')
+        .withIndex('byOwnerAndExternalId', (q) =>
+          q.eq('ownerId', rankerId).eq('externalId', boardExternalId)
+        )
+        .unique()
+      const liveRanking = board?.livePublicRankingId
+        ? await ctx.db.get(board.livePublicRankingId)
+        : null
 
       return {
         rankings: Object.fromEntries(
@@ -2744,29 +2937,33 @@ describe('marketplace template Convex functions', () =>
         ),
         aggregates,
         jobs,
+        liveRankingSlug: liveRanking?.slug ?? null,
       }
     })
 
+    // board-unique chain: each publish retires the board's single prior live
+    // ranking, so default <- favorites <- replacement <- unlisted (regardless
+    // of criterion), rather than the old per-lane competitive-only chain
     expect(stored.rankings[defaultCompetitive.slug]).toMatchObject({
       criterionExternalId: 'competitive',
       visibility: 'public',
       isPubliclyListable: false,
       supersededAt: expect.any(Number),
-      supersededByRankingId: stored.rankings[replacementCompetitive.slug]?.id,
+      supersededByRankingId: stored.rankings[favorites.slug]?.id,
     })
     expect(stored.rankings[favorites.slug]).toMatchObject({
       criterionExternalId: 'favorites',
       visibility: 'public',
-      isPubliclyListable: true,
-      supersededAt: null,
-      supersededByRankingId: null,
+      isPubliclyListable: false,
+      supersededAt: expect.any(Number),
+      supersededByRankingId: stored.rankings[replacementCompetitive.slug]?.id,
     })
     expect(stored.rankings[replacementCompetitive.slug]).toMatchObject({
       criterionExternalId: 'competitive',
       visibility: 'public',
-      isPubliclyListable: true,
-      supersededAt: null,
-      supersededByRankingId: null,
+      isPubliclyListable: false,
+      supersededAt: expect.any(Number),
+      supersededByRankingId: stored.rankings[unlistedCompetitive.slug]?.id,
     })
     expect(stored.rankings[unlistedCompetitive.slug]).toMatchObject({
       criterionExternalId: 'competitive',
@@ -2777,104 +2974,10 @@ describe('marketplace template Convex functions', () =>
     })
     expect(stored.aggregates).toEqual(['competitive', 'favorites'])
     expect(stored.jobs).toEqual(['competitive', 'favorites'])
+    // the unlisted final publish retired the board's prior live ranking & set
+    // the live pointer to null
+    expect(stored.liveRankingSlug).toBeNull()
   })
-
-  it('continues public ranking supersession after the first bounded page', async () =>
-    await withFakeTimers(async () =>
-    {
-      const t = makeTest()
-      const ownerId = await seedUser(
-        t,
-        'Ranking Owner',
-        'ranking-owner@example.com'
-      )
-      const templateId = await t.run(
-        async (ctx) =>
-          await seedPublishedTemplate(ctx, {
-            authorId: ownerId,
-            slug: 'paged-supersede-template',
-            title: 'Paged Supersede Template',
-            itemCount: 1,
-            sizeClass: 'standard',
-            now: 1_000,
-          })
-      )
-      const replacementRankingId = await t.run(
-        async (ctx) =>
-          await seedPublishedRanking(ctx, {
-            ownerId,
-            slug: 'paged-supersede-replacement',
-            sourceTemplateId: templateId,
-            sourceBoardId: null,
-            sourceTemplateSlug: 'paged-supersede-template',
-            sourceTemplateTitle: 'Paged Supersede Template',
-            title: 'Replacement',
-            itemCount: 1,
-            now: 2_000,
-          })
-      )
-      await t.run(async (ctx) =>
-      {
-        await Promise.all(
-          Array.from(
-            { length: 260 },
-            async (_, index) =>
-              await seedPublishedRanking(ctx, {
-                ownerId,
-                slug: `paged-supersede-old-${index}`,
-                sourceTemplateId: templateId,
-                sourceBoardId: null,
-                sourceTemplateSlug: 'paged-supersede-template',
-                sourceTemplateTitle: 'Paged Supersede Template',
-                title: `Old ${index}`,
-                itemCount: 1,
-                now: 1_100 + index,
-              })
-          )
-        )
-      })
-
-      await t.mutation(
-        internal.marketplace.rankings.public.mutations
-          .supersedePublicRankingsInLaneBatch,
-        {
-          ownerId,
-          templateId,
-          criterionExternalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
-          replacementRankingId,
-          now: 3_000,
-          cursor: null,
-        }
-      )
-      await runScheduled(t)
-
-      const rankings = await t.run(
-        async (ctx) =>
-          await ctx.db
-            .query('publishedRankings')
-            .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
-              q
-                .eq('sourceTemplateId', templateId)
-                .eq(
-                  'sourceCriterionExternalId',
-                  DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID
-                )
-                .eq('ownerId', ownerId)
-                .eq('isPubliclyListable', false)
-            )
-            .collect()
-      )
-      expect(rankings).toHaveLength(260)
-
-      const replacement = await t.run(
-        async (ctx) => await ctx.db.get(replacementRankingId)
-      )
-      expect(replacement).toMatchObject({
-        isPubliclyListable: true,
-        supersededAt: null,
-        supersededByRankingId: null,
-      })
-    }))
 
   it('admits aggregate recompute jobs through bounded running slots', async () =>
   {

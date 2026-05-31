@@ -26,7 +26,8 @@ import {
 
 export const seedUploadVariantKindValidator = v.union(
   v.literal('tile'),
-  v.literal('preview')
+  v.literal('preview'),
+  v.literal('editor')
 )
 
 export const seedRunSummaryValidator = v.object({
@@ -192,16 +193,6 @@ export const seedRejectedUploadValidator = v.object({
   storageId: v.string(),
   reason: v.string(),
   cleaned: v.boolean(),
-})
-
-export const seedCleanupOutputValidator = v.object({
-  cleanedStorageIds: v.array(v.string()),
-  missingStorageIds: v.array(v.string()),
-  skippedStorageIds: v.array(v.string()),
-})
-
-export const seedRegisterUploadsOutputValidator = v.object({
-  registeredStorageIds: v.array(v.string()),
 })
 
 export const seedCompiledTotalsValidator = v.object({

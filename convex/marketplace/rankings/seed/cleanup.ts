@@ -7,7 +7,8 @@ import { internalMutation, type MutationCtx } from '../../../_generated/server'
 import { internal } from '../../../_generated/api'
 import type { Doc } from '../../../_generated/dataModel'
 import {
-  CASCADE_DELETE_PAGE_SIZE,
+  buildBoardChildCascadePhases,
+  type BoardChildCascadePhase,
   runCascadePhaseMachine,
 } from '../../../lib/cascadeDelete'
 import { isDevResetActive } from '../../../dev/resetLock'
@@ -41,11 +42,6 @@ export const deleteSeedBoardWithChildren = async (
   await ctx.db.delete(board._id)
 }
 
-// items + tiers cleanup for an already-deleted seed board row.
-// mirrors workspace/boards/internal.ts:cascadeDeleteBoard, minus the final
-// board-row delete (the seed pipeline already removed it inline).
-type CascadePhase = 'items' | 'tiers'
-
 export const cascadeSeedBoardChildren = internalMutation({
   args: {
     boardId: v.id('boards'),
@@ -56,7 +52,7 @@ export const cascadeSeedBoardChildren = internalMutation({
   handler: async (ctx, args): Promise<null> =>
   {
     if (await isDevResetActive(ctx)) return null
-    const phase: CascadePhase = args.phase ?? 'items'
+    const phase: BoardChildCascadePhase = args.phase ?? 'items'
     await runCascadePhaseMachine({
       ctx,
       schedule: async (nextArgs) =>
@@ -69,30 +65,7 @@ export const cascadeSeedBoardChildren = internalMutation({
       parentId: args.boardId,
       phase,
       cursor: args.cursor,
-      phases: [
-        {
-          phase: 'items',
-          page: async (cursor) =>
-            await ctx.db
-              .query('boardItems')
-              .withIndex('byBoardAndTier', (q) => q.eq('boardId', args.boardId))
-              .paginate({
-                numItems: CASCADE_DELETE_PAGE_SIZE,
-                cursor,
-              }),
-        },
-        {
-          phase: 'tiers',
-          page: async (cursor) =>
-            await ctx.db
-              .query('boardTiers')
-              .withIndex('byBoard', (q) => q.eq('boardId', args.boardId))
-              .paginate({
-                numItems: CASCADE_DELETE_PAGE_SIZE,
-                cursor,
-              }),
-        },
-      ],
+      phases: buildBoardChildCascadePhases(ctx, args.boardId),
     })
 
     return null

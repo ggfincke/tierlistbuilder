@@ -271,6 +271,26 @@ describe('normalizeBoardSnapshot', () =>
     })
   })
 
+  it('drops invalid item background colors during normalization', () =>
+  {
+    const id = asItemId('bad-color')
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        items: {
+          [id]: makeItem({
+            id,
+            label: 'Still visible',
+            backgroundColor: 'rebeccapurple',
+          }),
+        },
+      }),
+      'classic'
+    )
+
+    expect(result.items[id]).toMatchObject({ label: 'Still visible' })
+    expect(result.items[id].backgroundColor).toBeUndefined()
+  })
+
   it('clamps board slot ratios but preserves natural image ratios', () =>
   {
     const id = asItemId('panoramic')
@@ -330,7 +350,9 @@ describe('normalizeBoardSnapshot', () =>
       hex: '#112233',
     })
 
-    const invalid: Partial<BoardSnapshot> & { tiers: unknown[] } = {
+    const invalid: Omit<Partial<BoardSnapshot>, 'tiers'> & {
+      tiers: unknown[]
+    } = {
       tiers: [
         {
           id: 'tier-s',

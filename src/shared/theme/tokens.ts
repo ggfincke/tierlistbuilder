@@ -264,6 +264,14 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
   },
 }
 
+// single source for export-canvas backdrop: explicit per-board override wins,
+// else the theme's export-bg. shared by the export controller, the settings
+// preview, & the live board render so the three can't drift
+export const resolveExportBackground = (
+  override: string | null | undefined,
+  themeId: ThemeId
+): string => override ?? THEMES[themeId]['export-bg']
+
 // theme metadata — collocated w/ definitions to prevent label/category drift
 interface ThemeMeta
 {

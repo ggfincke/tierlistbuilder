@@ -6,7 +6,7 @@ import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useState } from 'react'
-import { Check, Copy, RefreshCw, Trash2 } from 'lucide-react'
+import { RefreshCw, Trash2 } from 'lucide-react'
 
 import {
   revokeShortLinkImperative,
@@ -14,6 +14,7 @@ import {
 } from '~/features/platform/share/shortLinkRepository'
 import { getShareUrlFromSlug } from '~/features/platform/share/shortLinkShare'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { CopyButton } from '~/shared/ui/CopyButton'
 import { useKeyedClipboardCopy } from '~/shared/hooks/useClipboardCopy'
 import { toast } from '~/shared/notifications/useToastStore'
 import { formatAbsoluteDate } from '~/shared/lib/dateFormatting'
@@ -147,23 +148,16 @@ export const RecentSharesModal = ({
                   <span>{expiresLabel}</span>
                 </div>
               </div>
-              <SecondaryButton
+              <CopyButton
                 size="sm"
-                variant="surface"
+                copied={copied}
                 disabled={revoking}
                 onClick={() =>
                 {
                   void handleCopy(share.slug)
                 }}
-                aria-label={`Copy share link for ${label}`}
-              >
-                {copied ? (
-                  <Check className="h-3.5 w-3.5 text-[var(--t-accent)]" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-                {copied ? 'Copied' : 'Copy'}
-              </SecondaryButton>
+                ariaLabel={`Copy share link for ${label}`}
+              />
               <SecondaryButton
                 size="sm"
                 variant="surface"

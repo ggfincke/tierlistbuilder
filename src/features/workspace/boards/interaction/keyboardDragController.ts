@@ -3,7 +3,9 @@
 
 import { announce } from '~/shared/a11y/announce'
 import {
+  announceDragCancelled,
   announceItemsDropped,
+  announceItemsPickedUp,
   getContainerLabel,
 } from '~/features/workspace/boards/lib/containerLabel'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -215,15 +217,9 @@ const handleKeyboardPickupDropKey = (itemId: ItemId) =>
   state.setKeyboardMode('dragging')
   scheduleKeyboardFocusRestore(focusedItemId)
   const groupCount = useActiveBoardStore.getState().dragGroupIds.length
-  const label = state.items[focusedItemId]?.label ?? 'item'
-  announce(
-    groupCount > 1
-      ? `Picked up ${formatCountedWord(
-          groupCount,
-          'item'
-        )}. Arrow keys to move, space or Enter to drop.`
-      : `Picked up ${label}. Arrow keys to move, space or Enter to drop.`
-  )
+  announceItemsPickedUp(state, focusedItemId, groupCount, {
+    includeKeyboardInstructions: true,
+  })
 }
 
 // safely reset keyboard drag state to idle — called when an exception leaves
@@ -295,7 +291,7 @@ export const handleKeyboardEscapeKey = (itemId: ItemId) =>
     state.setKeyboardMode('browse')
     state.setKeyboardFocusItemId(focusedItemId)
     scheduleKeyboardFocusRestore(focusedItemId)
-    announce('Drag cancelled')
+    announceDragCancelled()
     return
   }
 

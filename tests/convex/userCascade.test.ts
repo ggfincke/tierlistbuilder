@@ -2,13 +2,22 @@
 // Convex account-deletion & template-cascade cleanup paths
 
 import { describe, expect, it } from 'vitest'
+import { Scrypt } from 'lucia'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
+import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import {
+  DEFAULT_USER_PRIVACY_SETTINGS,
+  MIN_PASSWORD_LENGTH,
+} from '@tierlistbuilder/contracts/platform/user'
 import { classifyItemCount } from '../../convex/lib/entitlements'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
 import {
   asUser,
+  buildPngHeader,
   type ConvexTestHandle,
+  expectConvexCode,
   makeRateLimitedTest as makeTest,
   runScheduled,
   seedCloudBoard,
@@ -16,9 +25,11 @@ import {
   seedPublishedTemplate,
   seedUser,
   withFakeTimers,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const TEMPLATE_SLUG = 'Cascade001'
+const AVATAR_UPLOAD_TOKEN = 'a'.repeat(64)
+const EXPIRED_SESSION_REGRESSION_COUNT = 55
 
 const seedAuthRows = async (
   t: ConvexTestHandle,
@@ -82,6 +93,47 @@ const seedAuthSessionWithTokens = async (
     }
     return sessionId
   })
+
+const storeAvatarUpload = async (
+  t: ConvexTestHandle,
+  userId: Id<'users'>
+): Promise<Id<'_storage'>> =>
+  await t.run(
+    async (ctx) =>
+      await ctx.storage.store(
+        new Blob(
+          [
+            getUploadEnvelopeHeader('media', userId, AVATAR_UPLOAD_TOKEN),
+            buildPngHeader(64, 64),
+          ],
+          { type: 'application/octet-stream' }
+        )
+      )
+  )
+
+const seedPasswordAccount = async (
+  t: ConvexTestHandle,
+  email: string,
+  password: string
+): Promise<{ userId: Id<'users'>; sessionId: Id<'authSessions'> }> =>
+{
+  const userId = await seedUser(t, 'Password User', email)
+  const secret = await new Scrypt().hash(password)
+  const sessionId = await t.run(async (ctx) =>
+  {
+    await ctx.db.insert('authAccounts', {
+      userId,
+      provider: 'password',
+      providerAccountId: email,
+      secret,
+    })
+    return await ctx.db.insert('authSessions', {
+      userId,
+      expirationTime: Date.now() + 60_000,
+    })
+  })
+  return { userId, sessionId }
+}
 
 const seedAuthAccountWithCodes = async (
   t: ConvexTestHandle,
@@ -148,6 +200,70 @@ const readTemplateCascade = async (
     items: await ctx.db
       .query('templateItems')
       .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
+      .collect(),
+  }))
+
+const readTemplateCard = async (
+  t: ConvexTestHandle,
+  templateId: Id<'templates'>
+) =>
+  await t.run(
+    async (ctx) =>
+      await ctx.db
+        .query('templateCards')
+        .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+        .unique()
+  )
+
+const seedProfileShowcase = async (
+  t: ConvexTestHandle,
+  ownerId: Id<'users'>,
+  templateId: Id<'templates'>
+): Promise<Id<'profileShowcases'>> =>
+  await t.run(async (ctx) =>
+  {
+    const now = Date.now()
+    const showcaseId = await ctx.db.insert('profileShowcases', {
+      ownerId,
+      createdAt: now,
+      updatedAt: now,
+    })
+    await ctx.db.insert('profileShowcaseTiers', {
+      showcaseId,
+      externalId: 'tier-s',
+      name: 'S',
+      colorSpec: { kind: 'palette', index: 0 },
+      order: 0,
+    })
+    const boardId = await seedCloudBoard(ctx, {
+      ownerId,
+      externalId: 'cascade-showcase-board',
+      title: 'Cascade Showcase Board',
+      sourceTemplateId: templateId,
+      now,
+    })
+    await ctx.db.insert('profileShowcaseItems', {
+      showcaseId,
+      tierExternalId: 'tier-s',
+      boardId,
+      order: 0,
+    })
+    return showcaseId
+  })
+
+const readProfileShowcaseCascade = async (
+  t: ConvexTestHandle,
+  showcaseId: Id<'profileShowcases'>
+) =>
+  await t.run(async (ctx) => ({
+    showcase: await ctx.db.get(showcaseId),
+    tiers: await ctx.db
+      .query('profileShowcaseTiers')
+      .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
+      .collect(),
+    items: await ctx.db
+      .query('profileShowcaseItems')
+      .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
       .collect(),
   }))
 
@@ -372,6 +488,7 @@ describe('user cascade cleanup', () =>
       const userId = await seedUser(t)
       const templateId = await seedTemplate(t, userId, 260)
       const rankingId = await seedRanking(t, userId, templateId, 260)
+      const showcaseId = await seedProfileShowcase(t, userId, templateId)
 
       await t.mutation(internal.users.cascadeDeleteUserData, {
         userId,
@@ -382,6 +499,7 @@ describe('user cascade cleanup', () =>
       await runScheduled(t)
 
       const templateCascade = await readTemplateCascade(t, templateId)
+      const showcaseCascade = await readProfileShowcaseCascade(t, showcaseId)
       const remaining = await t.run(async (ctx) => ({
         user: await ctx.db.get(userId),
         rankings: await ctx.db
@@ -401,6 +519,9 @@ describe('user cascade cleanup', () =>
       expect(templateCascade.template).toBeNull()
       expect(templateCascade.stats).toBeNull()
       expect(templateCascade.items).toHaveLength(0)
+      expect(showcaseCascade.showcase).toBeNull()
+      expect(showcaseCascade.tiers).toHaveLength(0)
+      expect(showcaseCascade.items).toHaveLength(0)
       expect(remaining.rankings).toHaveLength(0)
       expect(remaining.rankingTiers).toHaveLength(0)
       expect(remaining.rankingItems).toHaveLength(0)
@@ -425,6 +546,303 @@ describe('user cascade cleanup', () =>
       expect(after.accounts).toHaveLength(2)
       expect(after.refreshTokens).toHaveLength(0)
       expect(after.codes).toHaveLength(4)
+    }))
+
+  it('lists sessions and marks the current session', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+      const sessionId = await seedAuthRows(t, userId)
+
+      const sessions = await asUser(t, userId, sessionId).query(
+        api.users.listSessions,
+        {}
+      )
+
+      expect(sessions).toHaveLength(3)
+      expect(sessions.filter((session) => session.isCurrent)).toHaveLength(1)
+      expect(
+        sessions.find((session) => session._id === sessionId)?.isCurrent
+      ).toBe(true)
+      expect(sessions[0]).toMatchObject({
+        createdAt: expect.any(Number),
+        expiresAt: expect.any(Number),
+      })
+    }))
+
+  it('omits expired sessions before applying the active-session cap', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+      const activeSessionIds = await t.run(async (ctx) =>
+      {
+        const now = Date.now()
+        const first = await ctx.db.insert('authSessions', {
+          userId,
+          expirationTime: now + 60_000,
+        })
+        const second = await ctx.db.insert('authSessions', {
+          userId,
+          expirationTime: now + 60_000,
+        })
+
+        for (let i = 0; i < EXPIRED_SESSION_REGRESSION_COUNT; i++)
+        {
+          await ctx.db.insert('authSessions', {
+            userId,
+            expirationTime: now - 60_000,
+          })
+        }
+        return [first, second]
+      })
+
+      const sessions = await asUser(t, userId, activeSessionIds[0]).query(
+        api.users.listSessions,
+        {}
+      )
+
+      expect(sessions).toHaveLength(activeSessionIds.length)
+      expect(sessions.map((session) => session._id).sort()).toEqual(
+        [...activeSessionIds].sort()
+      )
+      expect(sessions.every((session) => session.expiresAt > Date.now())).toBe(
+        true
+      )
+      expect(
+        sessions.find((session) => session._id === activeSessionIds[0])
+          ?.isCurrent
+      ).toBe(true)
+    }))
+
+  it('revokes one session without clearing sibling sessions', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+      const sessionId = await seedAuthRows(t, userId)
+      const otherSessionId = await seedAuthSessionWithTokens(t, userId, 2)
+
+      const result = await asUser(t, userId, sessionId).mutation(
+        api.users.revokeSession,
+        { sessionId: otherSessionId }
+      )
+      await runScheduled(t)
+
+      const after = await readAuthState(t, userId)
+      expect(result).toEqual({ revokedCurrent: false })
+      expect(after.sessions.map((session) => session._id)).not.toContain(
+        otherSessionId
+      )
+      expect(after.sessions.map((session) => session._id)).toContain(sessionId)
+      expect(
+        after.refreshTokens.some((token) => token.sessionId === otherSessionId)
+      ).toBe(false)
+    }))
+
+  it('reports when revoking the current session', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+      const sessionId = await seedAuthRows(t, userId)
+
+      const result = await asUser(t, userId, sessionId).mutation(
+        api.users.revokeSession,
+        { sessionId }
+      )
+      await runScheduled(t)
+
+      const after = await readAuthState(t, userId)
+      expect(result).toEqual({ revokedCurrent: true })
+      expect(after.sessions.map((session) => session._id)).not.toContain(
+        sessionId
+      )
+    }))
+
+  it('projects and updates caller privacy settings', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+
+      const initial = await asUser(t, userId).query(api.users.getMe, {})
+      expect(initial?.privacy).toEqual(DEFAULT_USER_PRIVACY_SETTINGS)
+
+      await asUser(t, userId).mutation(api.users.updatePrivacySettings, {
+        defaultTemplateVisibility: 'unlisted',
+        defaultRankingVisibility: 'unlisted',
+        showInMembersDirectory: false,
+        hideProfileFromSearch: true,
+        allowAiTraining: true,
+      })
+
+      const after = await asUser(t, userId).query(api.users.getMe, {})
+      const stored = await t.run(async (ctx) => await ctx.db.get(userId))
+
+      expect(after?.privacy).toEqual({
+        defaultTemplateVisibility: 'unlisted',
+        defaultRankingVisibility: 'unlisted',
+        showInMembersDirectory: false,
+        hideProfileFromSearch: true,
+        allowAiTraining: true,
+      })
+      expect(stored).toMatchObject({
+        defaultTemplateVisibility: 'unlisted',
+        defaultRankingVisibility: 'unlisted',
+        showInMembersDirectory: false,
+        hideProfileFromSearch: true,
+        allowAiTraining: true,
+      })
+    }))
+
+  it('sets and removes the caller avatar through a verified upload envelope', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+      const storageId = await storeAvatarUpload(t, userId)
+
+      await asUser(t, userId).action(api.users.setAvatar, {
+        storageId,
+        uploadToken: AVATAR_UPLOAD_TOKEN,
+      })
+      const afterSet = await asUser(t, userId).query(api.users.getMe, {})
+
+      expect(afterSet).toMatchObject({
+        hasAvatar: true,
+        image: expect.any(String),
+      })
+
+      await asUser(t, userId).mutation(api.users.removeAvatar, {})
+      const afterRemove = await asUser(t, userId).query(api.users.getMe, {})
+      expect(afterRemove).toMatchObject({
+        hasAvatar: false,
+        image: null,
+      })
+    }))
+
+  it('propagates avatar changes to the author template cards', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const userId = await seedUser(t, 'avatar-author@example.com', {
+        externalId: 'avatar-author-public',
+      })
+      const templateId = await seedTemplate(t, userId, 4)
+      const storageId = await storeAvatarUpload(t, userId)
+
+      await asUser(t, userId).action(api.users.setAvatar, {
+        storageId,
+        uploadToken: AVATAR_UPLOAD_TOKEN,
+      })
+      await runScheduled(t)
+
+      const user = await t.run(async (ctx) => await ctx.db.get(userId))
+      const afterSet = await readTemplateCard(t, templateId)
+      expect(user?.avatarStorageId).toBeDefined()
+      expect(afterSet?.authorAvatarStorageId).toEqual(user?.avatarStorageId)
+      expect(afterSet?.authorImageUrl).toBeNull()
+
+      await asUser(t, userId).mutation(api.users.removeAvatar, {})
+      await runScheduled(t)
+
+      const afterRemove = await readTemplateCard(t, templateId)
+      expect(afterRemove?.authorAvatarStorageId).toBeNull()
+    }))
+
+  it('rejects avatar uploads with a mismatched envelope token', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+      const storageId = await storeAvatarUpload(t, userId)
+
+      await expectConvexCode(
+        asUser(t, userId).action(api.users.setAvatar, {
+          storageId,
+          uploadToken: 'b'.repeat(64),
+        }),
+        CONVEX_ERROR_CODES.forbidden
+      )
+    }))
+
+  it('changes password, verifies the credential & force-signs-out siblings', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const { userId, sessionId } = await seedPasswordAccount(
+        t,
+        'password-change@example.com',
+        'old-password'
+      )
+      const otherSessionId = await seedAuthSessionWithTokens(
+        t,
+        userId,
+        BATCH_LIMITS.cascadeDelete + 1
+      )
+      const caller = asUser(t, userId, sessionId)
+
+      await expectConvexCode(
+        caller.action(api.users.changePassword, {
+          currentPassword: 'wrong-password',
+          newPassword: 'new-password',
+        }),
+        CONVEX_ERROR_CODES.invalidInput
+      )
+
+      // a failed verification must not revoke any session
+      const afterFailure = await readAuthState(t, userId)
+      expect(
+        afterFailure.sessions.map((session) => session._id).sort()
+      ).toEqual([sessionId, otherSessionId].sort())
+
+      await caller.action(api.users.changePassword, {
+        currentPassword: 'old-password',
+        newPassword: 'new-password',
+      })
+      await runScheduled(t)
+
+      const after = await readAuthState(t, userId)
+      expect(after.sessions.map((session) => session._id)).toEqual([sessionId])
+      expect(
+        after.refreshTokens.some((token) => token.sessionId === otherSessionId)
+      ).toBe(false)
+
+      await expectConvexCode(
+        caller.action(api.users.changePassword, {
+          currentPassword: 'old-password',
+          newPassword: 'next-password',
+        }),
+        CONVEX_ERROR_CODES.invalidInput
+      )
+
+      await caller.action(api.users.changePassword, {
+        currentPassword: 'new-password',
+        newPassword: 'next-password',
+      })
+    }))
+
+  it('rejects a new password shorter than the minimum', async () =>
+    await withFakeTimers(async () =>
+    {
+      const t = makeTest()
+      const { userId, sessionId } = await seedPasswordAccount(
+        t,
+        'password-too-short@example.com',
+        'old-password'
+      )
+      const caller = asUser(t, userId, sessionId)
+
+      // correct current password isolates the length branch as the only reason
+      await expectConvexCode(
+        caller.action(api.users.changePassword, {
+          currentPassword: 'old-password',
+          newPassword: 'a'.repeat(MIN_PASSWORD_LENGTH - 1),
+        }),
+        CONVEX_ERROR_CODES.invalidInput
+      )
     }))
 
   it('cleanupAuthSessions keeps the parent session until refresh-token pages finish', async () =>

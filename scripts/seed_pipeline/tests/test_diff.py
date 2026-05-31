@@ -19,6 +19,7 @@ from seed_pipeline.diff import (
 from pathlib import Path
 
 from seed_pipeline.manifest import read_json
+from seed_pipeline.template_payloads import build_template_upserts
 
 
 class SeedDiffTests(unittest.TestCase):
@@ -194,6 +195,41 @@ class SeedDiffTests(unittest.TestCase):
 		self.assertEqual(len(diff["items"]["create"]), 2)
 		self.assertEqual(len(diff["criteria"]["create"]), 3)
 		self.assertEqual(len(diff["media"]["missing"]), 3)
+
+	def test_template_diff_uses_metadata_content_hash(self) -> None:
+		template = self.compiled["templates"][0]
+		state = {
+			"activeReleaseId": None,
+			"templates": [
+				{
+					"externalId": template["externalId"],
+					"releaseId": self.compiled["releaseId"],
+					"title": template["title"],
+					"description": template.get("description"),
+					"category": template["category"],
+					"tags": template.get("tags", []),
+					"visibility": template["visibility"],
+					"itemAspectRatio": template["itemAspectRatio"],
+					"metadataContentHash": build_template_upserts(self.compiled)[0][
+						"metadataContentHash"
+					],
+				}
+			],
+			"items": [],
+			"criteria": [],
+			"media": [],
+		}
+		compiled = read_json(
+			Path(__file__).resolve().parent / "fixtures" / "compiled-manifest.example.json"
+		)
+		compiled["templates"][0]["coverZoom"] = 1.25
+
+		diff = build_seed_diff(compiled, state)
+
+		self.assertEqual(
+			diff["templates"]["update"],
+			[{"externalId": template["externalId"], "reasons": ["metadataContentHash"]}],
+		)
 
 	def test_media_diff_requires_full_asset_identity(self) -> None:
 		asset = self.compiled["templates"][0]["items"][0]["asset"]

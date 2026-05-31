@@ -24,6 +24,7 @@ import {
 } from './trending'
 import { failState } from './normalize'
 import { isPublicTemplateRow } from './state'
+import { findTemplateBySlug } from '../../../lib/marketplaceLookups'
 import {
   buildTemplateCardFields,
   findTemplateCardByTemplateId,
@@ -38,6 +39,14 @@ type DbCtx = QueryCtx | MutationCtx
 
 const MAX_SLUG_ATTEMPTS = 8
 type TemplatePatch = Partial<Omit<Doc<'templates'>, '_id' | '_creationTime'>>
+type TemplateInsertFields = Omit<Doc<'templates'>, '_id' | '_creationTime'>
+
+interface InsertTemplateWithStatsAndCardResult
+{
+  templateId: Id<'templates'>
+  template: TemplateCardSource
+  stats: TemplateStatsCounters
+}
 
 const normalizeTemplatePatchForWrite = (
   patch: TemplatePatch
@@ -52,10 +61,7 @@ export const allocateTemplateSlug = async (ctx: DbCtx): Promise<string> =>
   for (let i = 0; i < MAX_SLUG_ATTEMPTS; i++)
   {
     const slug = generateTemplateSlug()
-    const existing = await ctx.db
-      .query('templates')
-      .withIndex('bySlug', (q) => q.eq('slug', slug))
-      .unique()
+    const existing = await findTemplateBySlug(ctx, slug)
 
     if (!existing)
     {
@@ -266,6 +272,25 @@ export const createTemplateStats = async (
     updatedAt: now,
   })
   return stats
+}
+
+export const insertTemplateWithStatsAndCard = async (
+  ctx: MutationCtx,
+  templateFields: TemplateInsertFields,
+  now: number,
+  beforeCard?: (
+    templateId: Id<'templates'>,
+    template: TemplateCardSource,
+    stats: TemplateStatsCounters
+  ) => Promise<void>
+): Promise<InsertTemplateWithStatsAndCardResult> =>
+{
+  const templateId = await ctx.db.insert('templates', templateFields)
+  const template = { _id: templateId, ...templateFields }
+  const stats = await createTemplateStats(ctx, templateId, now)
+  await beforeCard?.(templateId, template, stats)
+  await writeTemplateCard(ctx, template, stats)
+  return { templateId, template, stats }
 }
 
 const deleteTemplateStatsIfExists = async (

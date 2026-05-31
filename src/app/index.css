@@ -368,6 +368,12 @@
     text-shadow: 0.08em 0.08em 0 var(--t-accent);
   }
 
+  /* mono editorial label utility — eyebrows & meta labels (--ts-mono) */
+  .mono
+  {
+    font-family: var(--ts-mono);
+  }
+
   /* Scoreboard "LIVE NOW" pulse — paired with the accent dot animation. */
   @keyframes scoreboardPulse
   {

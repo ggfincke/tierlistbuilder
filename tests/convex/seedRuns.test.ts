@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import { sha256Hex } from '../../convex/lib/sha256'
 import { computeVariantDedupeHash } from '../../convex/lib/mediaVariants'
 import {
@@ -18,7 +19,7 @@ import {
   seedTileMediaAsset,
   seedUser,
   TEST_CRITERIA,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const SEED_SECRET = 'test-seed-secret'
 const DATASET = 'marketplace-core'
@@ -84,9 +85,9 @@ interface SeedItemInput
   itemExternalId: string
   order: number
   label: string
-  mediaDedupeHash: string | null
+  mediaDedupeHash: string
   aspectRatio: number
-  transform: null
+  transform: ItemTransform | null
   mediaPlate: null
   imagePadding: number | null
   backgroundColor: string | null
@@ -131,7 +132,7 @@ const seedItem = (
   itemExternalId,
   order,
   label: itemExternalId,
-  mediaDedupeHash: null,
+  mediaDedupeHash: `tile:hash-${itemExternalId}`,
   aspectRatio: 1,
   transform: null,
   mediaPlate: null,
@@ -362,7 +363,7 @@ const seedRunRow = async (
 
 const storeImageBytes = async (
   t: ConvexTestHandle,
-  bytes: Uint8Array
+  bytes: Uint8Array<ArrayBuffer>
 ): Promise<Id<'_storage'>> =>
   await t.run(
     async (ctx) =>
@@ -611,6 +612,42 @@ describe('seed run precheck API', () =>
     expect(template?.seedMetadataContentHash).toBe('meta-labels-visible')
   })
 
+  it('uses seed metadata hash as the template apply gate', async () =>
+  {
+    const t = makeTest()
+    await seedUser(t, AUTHOR_EMAIL)
+
+    const templateInput = buildSeedTemplateInput({
+      runId: 'run-template-hash-gate',
+      template: {
+        externalId: 'gaming:hash-gated-template',
+        metadataContentHash: 'meta-hash-gate-v1',
+        title: 'Hash gated template',
+      },
+    })
+
+    await t.mutation(
+      internal.marketplace.seedRuns.upsertSeedTemplates,
+      templateInput
+    )
+    const unchanged = await t.mutation(
+      internal.marketplace.seedRuns.upsertSeedTemplates,
+      {
+        ...templateInput,
+        templates: [
+          {
+            ...templateInput.templates[0],
+            title: 'Ignored without a new hash',
+          },
+        ],
+      }
+    )
+    const template = await getSeedTemplate(t, 'gaming:hash-gated-template')
+
+    expect(unchanged.unchanged).toEqual(['gaming:hash-gated-template'])
+    expect(template?.title).toBe('Hash gated template')
+  })
+
   it('rejects malformed seed color values at the apply boundary', async () =>
   {
     const t = makeTest()
@@ -658,6 +695,23 @@ describe('seed run precheck API', () =>
         ],
       })
     ).rejects.toThrow(/item\.backgroundColor must be a #rrggbb hex color/)
+
+    await expect(
+      t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-colors',
+        templateExternalId: 'gaming:color-template',
+        itemsContentHash: 'items-transform-color-template',
+        items: [
+          seedItem('mario', 0, {
+            label: 'Mario',
+            mediaDedupeHash: 'tile:hash-mario',
+            transform: { rotation: 0, zoom: 50, offsetX: 0, offsetY: 0 },
+          }),
+        ],
+      })
+    ).rejects.toThrow(/item\.transform\.zoom must be <= 10/)
   })
 
   it('upserts release-scoped templates, criteria, and items idempotently', async () =>

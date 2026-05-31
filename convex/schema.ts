@@ -98,6 +98,11 @@ export default defineSchema({
     bio: v.optional(v.string()),
     location: v.optional(v.string()),
     pronouns: v.optional(v.string()),
+    defaultTemplateVisibility: v.optional(templateVisibilityValidator),
+    defaultRankingVisibility: v.optional(rankingVisibilityValidator),
+    showInMembersDirectory: v.optional(v.boolean()),
+    hideProfileFromSearch: v.optional(v.boolean()),
+    allowAiTraining: v.optional(v.boolean()),
   })
     // indexes required by @convex-dev/auth - must match authTables.users
     .index('email', ['email'])
@@ -153,6 +158,10 @@ export default defineSchema({
     // fork source criterion; publish modal uses it as the default lane
     preferredCriterionExternalId: v.union(v.string(), v.null()),
     livePublicTemplateId: v.union(v.id('templates'), v.null()),
+    // latest public ranking sourced from this board; absent/null -> none
+    livePublicRankingId: v.optional(
+      v.union(v.id('publishedRankings'), v.null())
+    ),
     cloudState: boardCloudStateValidator,
     materializationState: boardMaterializationStateValidator,
     cloudBackedAt: v.union(v.number(), v.null()),
@@ -432,6 +441,12 @@ export default defineSchema({
     .index('byTemplateId', ['templateId'])
     .index('bySlug', ['slug'])
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
+    .index('byAuthorIsPubliclyListableUpdatedAt', [
+      'authorId',
+      'isPubliclyListable',
+      'updatedAt',
+    ])
+    .index('byAuthorAvatarStorageId', ['authorAvatarStorageId'])
     .index('byIsPubliclyListableUpdatedAt', ['isPubliclyListable', 'updatedAt'])
     .index('byIsPubliclyListableForkCount', ['isPubliclyListable', 'forkCount'])
     .index('byIsPubliclyListableTrendingScore', [
@@ -978,6 +993,37 @@ export default defineSchema({
     .index('byUserTemplate', ['userId', 'templateId'])
     .index('byUserCreatedAt', ['userId', 'createdAt'])
     .index('byTemplateUser', ['templateId', 'userId']),
+
+  // "tier list of tier lists" (tlotl) — the profile showcase. one row per
+  // owner; tiers & placed ranking lanes live in child tables. the unranked
+  // pool is derived (owner's published lanes minus placed), never stored
+  profileShowcases: defineTable({
+    ownerId: v.id('users'),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('byOwner', ['ownerId']),
+
+  // tier row within a profile showcase — mirrors boardTiers so the workspace
+  // editor's tier data maps in & out w/o translation
+  profileShowcaseTiers: defineTable({
+    showcaseId: v.id('profileShowcases'),
+    externalId: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    colorSpec: tierColorSpecValidator,
+    rowColorSpec: v.optional(tierColorSpecValidator),
+    order: v.number(),
+  }).index('byShowcase', ['showcaseId', 'order']),
+
+  // a published board placed in a showcase tier. references the owner's BOARD,
+  // not a ranking instance, so it follows the board's current live ranking
+  // (board.livePublicRankingId) across re-publishes. unplaced boards are derived
+  profileShowcaseItems: defineTable({
+    showcaseId: v.id('profileShowcases'),
+    tierExternalId: v.string(),
+    boardId: v.id('boards'),
+    order: v.number(),
+  }).index('byShowcase', ['showcaseId', 'order']),
 
   // short URL indirection for shareable snapshot blobs. slug -> compressed
   // BoardSnapshot bytes in _storage

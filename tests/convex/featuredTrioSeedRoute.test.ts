@@ -12,7 +12,7 @@ import {
   restoreSeedEnv,
   seedPublishedTemplate,
   seedUser,
-} from './convexTestHelpers'
+} from '@tests/convex/convexTestHelpers'
 
 const SEED_SECRET = 'test-seed-secret'
 const DATASET = 'marketplace-core'

@@ -44,6 +44,31 @@ export const AppTopNav = () =>
     }
   }, [topNavLocked])
 
+  // ⌘, / Ctrl+, opens Preferences — the macOS-standard shortcut. Skipped while
+  // typing in a field so it doesn't hijack comma input.
+  useEffect(() =>
+  {
+    const onKeyDown = (event: KeyboardEvent) =>
+    {
+      if (event.key !== ',' || !(event.metaKey || event.ctrlKey)) return
+      const target = event.target as HTMLElement | null
+      if (
+        target &&
+        (target.isContentEditable ||
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT')
+      )
+      {
+        return
+      }
+      event.preventDefault()
+      openModal('preferences')
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [openModal])
+
   const slideClasses = topNavLocked
     ? 'translate-y-0'
     : isScrolling

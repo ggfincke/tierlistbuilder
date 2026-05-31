@@ -27,8 +27,9 @@ import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isAbortError } from '~/shared/lib/errors'
 import { getPrimaryImageRef } from '~/shared/lib/imageRefs'
 import { logger } from '~/shared/lib/logger'
-import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
-import { withAbortSignal, withTimeout } from '~/shared/lib/promise'
+import { withTimeout } from '~/shared/lib/promise'
+import { withImageBitmap } from '~/shared/images/imageBitmap'
+import { createScanCache } from '~/shared/lib/autoCrop/scanCache'
 
 const AUTO_CROP_BATCH_CONCURRENCY = 4
 const AUTO_CROP_DECODE_TIMEOUT_MS = 5_000
@@ -37,7 +38,7 @@ const MAX_SCAN_CACHE_ENTRIES = 512
 
 export { bboxToItemTransform }
 
-const scanCache = new Map<string, AutoCropScan | null>()
+const scanCache = createScanCache<string>(MAX_SCAN_CACHE_ENTRIES)
 const scanCacheListeners = new Set<() => void>()
 let scanCacheVersion = 0
 
@@ -52,16 +53,11 @@ const emitScanCacheChange = (): void =>
 
 const rememberScan = (hash: string, scan: AutoCropScan | null): void =>
 {
-  setMapEntryLru(scanCache, hash, scan, MAX_SCAN_CACHE_ENTRIES)
+  scanCache.remember(hash, scan)
 }
 
 const readCachedScan = (hash: string): AutoCropScan | null | undefined =>
-{
-  if (!scanCache.has(hash)) return undefined
-  const scan = scanCache.get(hash) ?? null
-  touchMapEntry(scanCache, hash)
-  return scan
-}
+  scanCache.read(hash)
 
 export const subscribeAutoCropCache = (listener: () => void): (() => void) =>
 {
@@ -366,53 +362,6 @@ export const collectAutoCropTransforms = async ({
   )
 }
 
-const decodeImageBitmap = async (
-  blob: Blob,
-  signal?: AbortSignal
-): Promise<ImageBitmap> =>
-{
-  signal?.throwIfAborted()
-  let shouldCloseLateBitmap = false
-  const bitmapPromise = createImageBitmap(blob)
-  void bitmapPromise
-    .then((bitmap) =>
-    {
-      if (shouldCloseLateBitmap) bitmap.close()
-    })
-    .catch(() => undefined)
-
-  try
-  {
-    const bitmap = await withTimeout(
-      withAbortSignal(bitmapPromise, signal),
-      AUTO_CROP_DECODE_TIMEOUT_MS,
-      {
-        mode: 'reject',
-        message: 'auto-crop decode timed out',
-        onTimeout: () =>
-        {
-          shouldCloseLateBitmap = true
-        },
-      }
-    )
-    try
-    {
-      signal?.throwIfAborted()
-    }
-    catch (error)
-    {
-      bitmap.close()
-      throw error
-    }
-    return bitmap
-  }
-  catch (error)
-  {
-    shouldCloseLateBitmap = true
-    throw error
-  }
-}
-
 // exposed so callers w/o a TierItem hash (cover image editor) can reuse the
 // same decode+canvas+scan pipeline w/o duplicating the ImageBitmap timeout
 export const scanBlobForAutoCrop = (blob: Blob): Promise<AutoCropScan | null> =>
@@ -424,33 +373,35 @@ const runScan = async (
 ): Promise<AutoCropScan | null> =>
 {
   signal?.throwIfAborted()
-  const bitmap = await decodeImageBitmap(blob, signal)
-  try
-  {
-    signal?.throwIfAborted()
-    const { width: targetW, height: targetH } = getAutoCropAnalysisDimensions(
-      bitmap.width,
-      bitmap.height,
-      AUTO_CROP_ANALYSIS_MAX_SIZE
-    )
-    const canvas = document.createElement('canvas')
-    canvas.width = targetW
-    canvas.height = targetH
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    if (!ctx) return null
-    ctx.drawImage(bitmap, 0, 0, targetW, targetH)
-    signal?.throwIfAborted()
-    const imageData = ctx.getImageData(0, 0, targetW, targetH)
-    signal?.throwIfAborted()
-    return scanAutoCropPixels({
-      data: imageData.data,
-      width: imageData.width,
-      height: imageData.height,
-    })
-  }
-  finally
-  {
-    // free decoded bitmap immediately; createImageBitmap retains GPU memory
-    bitmap.close()
-  }
+  return withImageBitmap(
+    blob,
+    (bitmap) =>
+    {
+      signal?.throwIfAborted()
+      const { width: targetW, height: targetH } = getAutoCropAnalysisDimensions(
+        bitmap.width,
+        bitmap.height,
+        AUTO_CROP_ANALYSIS_MAX_SIZE
+      )
+      const canvas = document.createElement('canvas')
+      canvas.width = targetW
+      canvas.height = targetH
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) return null
+      ctx.drawImage(bitmap, 0, 0, targetW, targetH)
+      signal?.throwIfAborted()
+      const imageData = ctx.getImageData(0, 0, targetW, targetH)
+      signal?.throwIfAborted()
+      return scanAutoCropPixels({
+        data: imageData.data,
+        width: imageData.width,
+        height: imageData.height,
+      })
+    },
+    {
+      signal,
+      timeoutMs: AUTO_CROP_DECODE_TIMEOUT_MS,
+      timeoutMessage: 'auto-crop decode timed out',
+    }
+  )
 }

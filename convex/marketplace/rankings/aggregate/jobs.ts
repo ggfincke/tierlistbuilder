@@ -11,7 +11,7 @@ import {
   MAX_SYNC_TIERS,
 } from '../../../lib/limits'
 import { isDevResetActive } from '../../../dev/resetLock'
-import { isPublicRankingRow } from '../lib'
+import { isPublicRankingRow, pickRankingRenderFieldsForWrite } from '../lib'
 import {
   buildAggregateItemMetrics,
   clampUnitScore,
@@ -166,16 +166,7 @@ const seedAggregateItemRows = async (
         generation: job.generation,
         templateItemId: item._id,
         templateItemExternalId: item.externalId,
-        label: item.label,
-        backgroundColor: item.backgroundColor,
-        mediaPlate: item.mediaPlate ?? null,
-        altText: item.altText,
-        mediaAssetId: item.mediaAssetId,
-        order: item.order,
-        aspectRatio: item.aspectRatio,
-        imageFit: item.imageFit,
-        transform: item.transform,
-        imagePadding: item.imagePadding ?? null,
+        ...pickRankingRenderFieldsForWrite(item),
         sampleCount: 0,
         bucketWeightSum: 0,
         bucketSquareSum: 0,
@@ -311,9 +302,6 @@ const buildPercentiles = (
   return percentiles
 }
 
-const finiteScore = (value: number): number =>
-  Number.isFinite(value) ? value : 0
-
 interface AggregateHighlights
 {
   mostAgreed: MarketplaceTemplateRankingAggregateHighlight | null
@@ -415,10 +403,10 @@ const buildRelativeMetricPatches = (
 ): RelativeMetricPatch[] =>
 {
   const controversyPercentiles = buildPercentiles(rows, (row) =>
-    finiteScore(row.controversyScore)
+    clampUnitScore(row.controversyScore)
   )
   const agreementPercentiles = buildPercentiles(rows, (row) =>
-    finiteScore(row.consensusScore)
+    clampUnitScore(row.consensusScore)
   )
   const canBadge = rankingCount >= MIN_RANKINGS_FOR_CONTROVERSY_BADGES
   return rows.map((row) =>

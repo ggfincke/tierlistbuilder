@@ -7,18 +7,13 @@ import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { brotliCompressSync, constants, gzipSync } from 'node:zlib'
 
+import { formatBytes } from './lib/formatBytes.mjs'
+
 const rootDir = dirname(
   fileURLToPath(new URL('../package.json', import.meta.url))
 )
 const assetsDir = join(rootDir, 'dist', 'assets')
 const assetPattern = /\.(css|js)$/
-
-const formatBytes = (bytes) =>
-{
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} kB`
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
-}
 
 const formatRow = (cells) => `| ${cells.join(' | ')} |`
 

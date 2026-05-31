@@ -24,12 +24,13 @@ import { usePreferencesStore } from '~/features/platform/preferences/model/usePr
 import { formatCountedWord } from '~/shared/lib/pluralize'
 
 import {
+  compareJoinedRowsByDivergence,
   compareDeltaDirectionTone,
   compareDirectionCopy,
+  DIVERGENCE_SORT_LABELS,
   type CompareJoinedRow,
+  type DivergenceSort,
 } from './laneUtils'
-
-type DivergenceSort = 'absDelta' | 'leftFirst' | 'rightFirst' | 'mostSamples'
 
 interface CompareDivergenceTableProps
 {
@@ -43,34 +44,6 @@ interface CompareDivergenceTableProps
   // the user wants to scroll past the leaderboard. defaults to 12 to match
   // the design exploration's editorial framing
   initialLimit?: number
-}
-
-const SORT_LABELS: Record<DivergenceSort, string> = {
-  absDelta: 'Biggest gap',
-  leftFirst: 'Higher in left',
-  rightFirst: 'Higher in right',
-  mostSamples: 'Most samples',
-}
-
-const compareRows = (
-  sort: DivergenceSort
-): ((a: CompareJoinedRow, b: CompareJoinedRow) => number) =>
-{
-  switch (sort)
-  {
-    case 'absDelta':
-      return (a, b) => b.absDelta - a.absDelta
-    case 'leftFirst':
-      // most negative delta first (left index lower than right = higher left)
-      return (a, b) => a.delta - b.delta
-    case 'rightFirst':
-      return (a, b) => b.delta - a.delta
-    case 'mostSamples':
-      return (a, b) =>
-        b.left.sampleCount +
-        b.right.sampleCount -
-        (a.left.sampleCount + a.right.sampleCount)
-  }
 }
 
 const matchesSearch = (row: CompareJoinedRow, needle: string): boolean =>
@@ -172,7 +145,7 @@ export const CompareDivergenceTable = ({
     const candidates = needle
       ? rows.filter((row) => matchesSearch(row, needle))
       : [...rows]
-    candidates.sort(compareRows(sort))
+    candidates.sort(compareJoinedRowsByDivergence(sort))
     return candidates
   }, [query, rows, sort])
   const visibleRows = showAll ? filtered : filtered.slice(0, initialLimit)
@@ -205,7 +178,7 @@ export const CompareDivergenceTable = ({
             onChange={(event) => setSort(event.target.value as DivergenceSort)}
             className="focus-custom h-7 cursor-pointer appearance-none bg-transparent pr-5 text-[12px] font-medium text-[var(--t-text)] focus:outline-none"
           >
-            {Object.entries(SORT_LABELS).map(([value, label]) => (
+            {Object.entries(DIVERGENCE_SORT_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>

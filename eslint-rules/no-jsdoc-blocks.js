@@ -1,5 +1,7 @@
-// rules/no-jsdoc-blocks.js
+// eslint-rules/no-jsdoc-blocks.js
 // prohibits JSDoc blocks (/** ... */) - TypeScript types provide documentation
+
+import { getSourceCode } from './ruleContext.js'
 
 const rule = {
   meta: {
@@ -19,7 +21,7 @@ const rule = {
 
   create(context)
   {
-    const sourceCode = context.sourceCode ?? context.getSourceCode()
+    const sourceCode = getSourceCode(context)
 
     return {
       Program()

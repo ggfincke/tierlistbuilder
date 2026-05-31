@@ -19,7 +19,8 @@ from .manifest import (
 	read_json,
 )
 from .progress import ProgressLogger
-from .report_layout import _append_section
+from .report_layout import append_section, compiled_report_header
+from .template_payloads import build_template_upserts
 
 
 SEED_STATE_FUNCTION = "marketplace/seedRuns:resolveSeedState"
@@ -225,20 +226,18 @@ def render_diff_report(
 	totals = compiled["totals"]
 	media = diff["media"]
 	active_release = state.get("activeReleaseId") or "none"
-	lines = [
-		"# Seed Diff Report",
-		"",
-		f"- Environment: `{env_name}`",
-		f"- Dataset: `{compiled['datasetKey']}`",
-		f"- Release: `{compiled['releaseId']}`",
-		f"- Author: `{compiled['authorEmail']}`",
-		f"- Active release: `{active_release}`",
-		f"- Templates: {totals['templateCount']}",
-		f"- Items: {totals['itemCount']}",
-		f"- Media assets present: {len(media['present'])}",
-		f"- Media assets needing upload: {len(media['missing'])}",
-		"",
-	]
+	lines = compiled_report_header(
+		compiled,
+		"Seed Diff Report",
+		before=[f"- Environment: `{env_name}`"],
+		after=[
+			f"- Active release: `{active_release}`",
+			f"- Templates: {totals['templateCount']}",
+			f"- Items: {totals['itemCount']}",
+			f"- Media assets present: {len(media['present'])}",
+			f"- Media assets needing upload: {len(media['missing'])}",
+		],
+	)
 	_append_diff_section(lines, "Templates To Create", diff["templates"]["create"])
 	_append_diff_section(lines, "Templates To Update", diff["templates"]["update"])
 	_append_diff_section(lines, "Templates Unchanged", diff["templates"]["unchanged"])
@@ -265,11 +264,14 @@ def render_diff_report(
 
 
 def _diff_templates(compiled: JsonObject, state: JsonObject) -> JsonObject:
-	# compare template fields that become public marketplace metadata
+	# compare the same metadata hash Convex uses to gate template upserts
 	existing = {
 		template["externalId"]: template
 		for template in as_list(state.get("templates"))
 		if isinstance(template, dict)
+	}
+	upserts = {
+		template["externalId"]: template for template in build_template_upserts(compiled)
 	}
 	create: list[str] = []
 	update: list[JsonObject] = []
@@ -281,13 +283,10 @@ def _diff_templates(compiled: JsonObject, state: JsonObject) -> JsonObject:
 		if current is None:
 			create.append(template["externalId"])
 			continue
-		reasons = _changed_fields(
-			template,
-			current,
-			["title", "description", "category", "tags", "visibility"],
-		)
-		if current.get("itemAspectRatio") != template.get("itemAspectRatio"):
-			reasons.append("itemAspectRatio")
+		upsert = upserts.get(template["externalId"])
+		reasons: list[str] = []
+		if upsert and current.get("metadataContentHash") != upsert["metadataContentHash"]:
+			reasons.append("metadataContentHash")
 		if current.get("releaseId") != compiled["releaseId"]:
 			reasons.append("releaseId")
 		if reasons:
@@ -441,7 +440,7 @@ def _compiled_variant_hashes(compiled: JsonObject) -> set[str]:
 
 
 def _append_diff_section(lines: list[str], title: str, entries: list[object]) -> None:
-	_append_section(lines, title, entries, lambda entry: f"- `{_format_entry(entry)}`")
+	append_section(lines, title, entries, lambda entry: f"- `{_format_entry(entry)}`")
 
 
 def _changed_fields(left: JsonObject, right: JsonObject, fields: list[str]) -> list[str]:

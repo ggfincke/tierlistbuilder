@@ -4,12 +4,9 @@
 
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 
-import {
-  isTemplateSlug,
-  type MarketplaceTemplateDetail,
-} from '@tierlistbuilder/contracts/marketplace/template'
+import { type MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import {
   isTemplateRankingAggregateReady as isAggregateReady,
@@ -28,17 +25,18 @@ import {
   findPrimaryCriterion,
   selectBusiestOtherCriterion,
 } from '~/features/marketplace/model/detail/criterionSelection'
-import { useTemplateBySlug } from '~/features/marketplace/model/detail/useTemplateDetail'
-import { useValidatedSlug } from '~/features/marketplace/model/detail/useValidatedSlug'
+import { useTemplateDetailRoute } from '~/features/marketplace/model/detail/useMarketplaceDetailRoute'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
+import { PAGE_DETAIL_TOP_LEVEL } from '~/shared/ui/pageContainer'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
+import { ButtonLink } from '~/shared/ui/Button'
 
 import { templateFrame } from '~/features/marketplace/ui/consensus/lib/utils'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
-import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/MarketplaceNotFound'
+import { NotFoundSurface } from '~/shared/ui/NotFoundSurface'
 import { LoadingBlock } from '~/features/marketplace/ui/consensus/views/LoadingBlock'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { CompareDivergenceTable } from '~/features/marketplace/ui/consensus/compare/CompareDivergenceTable'
@@ -136,7 +134,7 @@ const useFullyLoadedAggregateItems = (
 }
 
 const NotFound = () => (
-  <MarketplaceNotFound
+  <NotFoundSurface
     title="Compare unavailable"
     body="That template either doesn't exist or doesn't have multiple criteria to compare."
     actionLabel="Back to gallery"
@@ -145,10 +143,7 @@ const NotFound = () => (
 )
 
 const PageSkeleton = () => (
-  <section
-    aria-hidden="true"
-    className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
-  >
+  <section aria-hidden="true" className={PAGE_DETAIL_TOP_LEVEL}>
     <SkeletonBlock className="h-4 w-48 rounded" tone="soft" />
     <SkeletonBlock className="mt-5 h-9 w-2/3 rounded" tone="strong" />
     <SkeletonBlock className="mt-2 h-4 w-1/2 rounded" tone="soft" />
@@ -287,7 +282,7 @@ const CompareBody = ({
     })
 
   return (
-    <article className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
+    <article className={PAGE_DETAIL_TOP_LEVEL}>
       <MarketplaceBreadcrumb
         items={[
           { label: 'Templates', to: TEMPLATES_ROUTE_PATH },
@@ -313,13 +308,15 @@ const CompareBody = ({
           size="page"
           maxWidthClassName="max-w-2xl"
         />
-        <Link
+        <ButtonLink
           to={`${TEMPLATES_ROUTE_PATH}/${detail.slug}`}
-          className="focus-custom inline-flex h-8 items-center gap-1 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2.5 text-[12px] font-medium text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          surface="filled"
+          size="xs"
+          className="h-8"
         >
           <ArrowLeft className="h-3 w-3" strokeWidth={2.2} />
           Back to template
-        </Link>
+        </ButtonLink>
       </header>
 
       <section className="mt-6">
@@ -509,18 +506,18 @@ const renderLaneState = (
 
 export const TemplateComparePage = () =>
 {
-  const validSlug = useValidatedSlug(isTemplateSlug)
-  const detail = useTemplateBySlug(validSlug)
+  const route = useTemplateDetailRoute()
+  const readyDetail = route.status === 'ready' ? route.detail : null
   const [params, setParams] = useSearchParams()
 
   useDocumentTitle(
-    detail ? `Compare · ${detail.title} · TierListBuilder` : null
+    readyDetail ? `Compare · ${readyDetail.title} · TierListBuilder` : null
   )
 
-  if (validSlug === null) return <NotFound />
-  if (detail === undefined) return <PageSkeleton />
-  if (detail === null) return <NotFound />
+  if (route.status === 'missing') return <NotFound />
+  if (route.status === 'loading') return <PageSkeleton />
 
+  const detail = route.detail
   const activeCriteria = detail.criteria.filter((c) => c.status === 'active')
   if (activeCriteria.length < 2) return <NotFound />
 

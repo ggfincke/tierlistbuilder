@@ -18,6 +18,7 @@ import {
   assertPositiveFinite,
   assertPositiveInteger,
 } from '../../lib/assertions'
+import { validateBoardAutoPlateUniformColor } from '../../lib/validators/common'
 import {
   IMAGE_PADDING_MAX,
   IMAGE_PADDING_MIN,
@@ -39,8 +40,6 @@ import {
   normalizeTemplateTitle,
   validateTemplateTiers,
 } from '../templates/lib/normalize'
-import { valuesEqual } from '../../lib/equality'
-import { validateHexColor } from '../../lib/hexColor'
 import { resolveSeedMediaAssetIdByDedupeHash } from './media'
 import type { SeedTemplateApplyPatch, SeedTemplateUpsertArg } from './types'
 
@@ -184,13 +183,7 @@ export const normalizeSeedTemplateUpsert = (
   assertPositiveInteger('itemCount', template.itemCount)
   assertCountRange('suggestedTiers', template.suggestedTiers.length, 1, 16)
   validateTemplateTiers(template.suggestedTiers)
-  if (
-    template.autoPlate?.mode === 'uniform' &&
-    template.autoPlate.uniformColor !== undefined
-  )
-  {
-    validateHexColor(template.autoPlate.uniformColor, 'autoPlate.uniformColor')
-  }
+  validateBoardAutoPlateUniformColor(template.autoPlate)
   const coverMediaAssetId = template.coverMediaDedupeHash
     ? resolveSeedMediaAssetIdByDedupeHash(
         mediaAssetCache,
@@ -225,14 +218,15 @@ export const normalizeSeedTemplateUpsert = (
   }
 }
 
-export const templatePatchChanged = (
+export const seedTemplateApplyGateChanged = (
   template: Doc<'templates'>,
-  patch: Partial<Doc<'templates'>>
+  patch: SeedTemplateApplyPatch
 ): boolean =>
-  Object.entries(patch).some(
-    ([key, value]) =>
-      !valuesEqual(template[key as keyof Doc<'templates'>], value)
-  )
+  template.seedMetadataContentHash !== patch.seedMetadataContentHash ||
+  template.seedReleaseStatus !== patch.seedReleaseStatus ||
+  template.isPubliclyListable !== patch.isPubliclyListable ||
+  template.publicationState !== patch.publicationState ||
+  template.sizeClass !== patch.sizeClass
 
 export const loadSeedTemplatesForRelease = async (
   ctx: QueryCtx | MutationCtx,

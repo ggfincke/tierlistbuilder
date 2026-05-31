@@ -25,15 +25,37 @@ export const DEFAULT_TIER_IDS: TierId[] = [
 // display names for the default S–E rows
 export const DEFAULT_TIER_NAMES = ['S', 'A', 'B', 'C', 'D', 'E']
 
+interface CreateBoardTierOptions
+{
+  id: TierId
+  name: string
+  paletteId: PaletteId
+  index: number
+}
+
+export const createBoardTier = ({
+  id,
+  name,
+  paletteId,
+  index,
+}: CreateBoardTierOptions): Tier => ({
+  id,
+  name,
+  colorSpec: getAutoTierColorSpec(paletteId, index),
+  itemIds: [],
+})
+
 // build a fresh set of default tiers w/ empty item lists
 export const buildDefaultTiers = (paletteId: PaletteId = 'classic'): Tier[] =>
-  DEFAULT_TIER_NAMES.map((_, index) => ({
-    id:
-      DEFAULT_TIER_IDS[index] ??
-      asTierId(
-        `tier-${(DEFAULT_TIER_NAMES[index] ?? `${index + 1}`).toLowerCase()}`
-      ),
-    name: DEFAULT_TIER_NAMES[index] ?? `Tier ${index + 1}`,
-    colorSpec: getAutoTierColorSpec(paletteId, index),
-    itemIds: [],
-  }))
+  DEFAULT_TIER_NAMES.map((_, index) =>
+    createBoardTier({
+      id:
+        DEFAULT_TIER_IDS[index] ??
+        asTierId(
+          `tier-${(DEFAULT_TIER_NAMES[index] ?? `${index + 1}`).toLowerCase()}`
+        ),
+      name: DEFAULT_TIER_NAMES[index] ?? `Tier ${index + 1}`,
+      paletteId,
+      index,
+    })
+  )

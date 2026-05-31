@@ -1,11 +1,12 @@
 // scripts/setup-local-convex-auth.mjs
-// Configure Convex Auth env vars for the selected local deployment.
+// configure Convex Auth env vars for the selected local deployment
 
-import { execFile, execFileSync } from 'node:child_process'
 import { generateKeyPairSync } from 'node:crypto'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
+import { runConvexAsync, runConvexSync } from './lib/convexExec.mjs'
 
 const args = new Set(process.argv.slice(2))
 const shouldRotate = args.has('--rotate')
@@ -14,28 +15,6 @@ const siteUrlArg = process.argv
   .find((arg) => arg.startsWith('--site-url='))
 const siteUrl =
   siteUrlArg?.split('=').slice(1).join('=') || 'http://localhost:5173'
-
-const runConvex = (args, options = {}) =>
-  execFileSync('npx', ['convex', ...args], { encoding: 'utf8', ...options })
-
-const runConvexAsync = (args, options = {}) =>
-  new Promise((resolve, reject) =>
-  {
-    execFile(
-      'npx',
-      ['convex', ...args],
-      { encoding: 'utf8', ...options },
-      (error, stdout) =>
-      {
-        if (error)
-        {
-          reject(error)
-          return
-        }
-        resolve(stdout)
-      }
-    )
-  })
 
 const getEnv = async (name) =>
 {
@@ -58,7 +37,7 @@ const getEnv = async (name) =>
 
 const setEnv = (name, value) =>
 {
-  runConvex(['env', 'set', '--deployment', 'local', name, value], {
+  runConvexSync(['env', 'set', '--deployment', 'local', name, value], {
     stdio: 'ignore',
   })
 }
@@ -101,7 +80,7 @@ const setAuthKeys = () =>
       `JWT_PRIVATE_KEY=${quoteEnv(jwtPrivateKey)}\nJWKS=${quoteEnv(jwks)}\n`,
       { mode: 0o600 }
     )
-    runConvex(
+    runConvexSync(
       ['env', 'set', '--deployment', 'local', '--from-file', file, '--force'],
       { stdio: 'ignore' }
     )

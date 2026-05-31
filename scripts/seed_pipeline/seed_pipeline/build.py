@@ -346,7 +346,7 @@ def _try_compile_cache_hit(
 ) -> tuple[Path, JsonObject] | None:
 	# parse the manifest once locally to learn dataset/release before deciding
 	# where the cache lives; full validation only runs on a miss
-	raw_manifest = _peek_manifest(manifest_path)
+	raw_manifest = read_sidecar_json(manifest_path)
 	if raw_manifest is None:
 		return None
 	dataset_key = raw_manifest.get("datasetKey")
@@ -404,51 +404,45 @@ def _try_compile_cache_hit(
 
 
 def _compiled_variants_present(compiled: JsonObject) -> bool:
+	assets = _compiled_assets(compiled)
+	if assets is None:
+		return False
+	return all(_asset_variants_present(asset) for asset in assets)
+
+
+def _compiled_assets(compiled: JsonObject) -> list[object] | None:
 	templates = compiled.get("templates")
 	if not isinstance(templates, list):
-		return False
+		return None
+	assets: list[object] = []
 	for template in templates:
 		if not isinstance(template, dict):
-			return False
+			return None
 		cover = template.get("coverImage")
 		if cover is not None:
-			if not isinstance(cover, dict):
-				return False
-			if not _asset_variants_present(cover):
-				return False
-		for item in template.get("items") or []:
+			assets.append(cover)
+		items = template.get("items")
+		if not isinstance(items, list):
+			return None
+		for item in items:
 			if not isinstance(item, dict):
-				return False
+				return None
 			asset = item.get("asset")
-			if not isinstance(asset, dict):
-				return False
-			if not _asset_variants_present(asset):
-				return False
-	return True
+			assets.append(asset)
+	return assets
 
 
 def _asset_variants_present(asset: object) -> bool:
-	if not isinstance(asset, dict):
-		return False
 	variants = list(asset_variants(asset))
-	if len(variants) != 2:
-		return False
-	for variant in variants:
-		path_value = variant.get("path")
-		if not isinstance(path_value, str):
-			return False
-		if not Path(path_value).is_file():
-			return False
-	return True
+	# every compiled asset carries tile + preview + editor (see asset_variants)
+	return len(variants) == 3 and all(
+		_variant_path_present(variant) for variant in variants
+	)
 
 
-def _peek_manifest(manifest_path: Path) -> JsonObject | None:
-	try:
-		with manifest_path.open("r", encoding="utf-8") as file:
-			value = json.load(file)
-	except (FileNotFoundError, json.JSONDecodeError, OSError):
-		return None
-	return value if isinstance(value, dict) else None
+def _variant_path_present(variant: JsonObject) -> bool:
+	path_value = variant.get("path")
+	return isinstance(path_value, str) and Path(path_value).is_file()
 
 
 def _compute_compile_fingerprint(

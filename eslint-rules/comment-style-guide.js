@@ -1,5 +1,7 @@
-// rules/comment-style-guide.js
+// eslint-rules/comment-style-guide.js
 // enforces `&` instead of "and" & `w/` instead of "with" in comments
+
+import { getSourceCode, wrapCommentText } from './ruleContext.js'
 
 const rule = {
   meta: {
@@ -19,7 +21,7 @@ const rule = {
 
   create(context)
   {
-    const sourceCode = context.sourceCode ?? context.getSourceCode()
+    const sourceCode = getSourceCode(context)
 
     const stylePatterns = [
       {
@@ -33,9 +35,6 @@ const rule = {
         replacement: 'w/',
       },
     ]
-
-    const wrapComment = (comment, text) =>
-      comment.type === 'Line' ? `//${text}` : `/*${text}*/`
 
     return {
       Program()
@@ -58,7 +57,10 @@ const rule = {
               {
                 pattern.lastIndex = 0
                 const newText = text.replace(pattern, replacement)
-                return fixer.replaceText(comment, wrapComment(comment, newText))
+                return fixer.replaceText(
+                  comment,
+                  wrapCommentText(comment, newText)
+                )
               },
             })
           }

@@ -11,10 +11,30 @@ import {
 
 export const buildFreshBoardCloudFields = (now: number) => ({
   livePublicTemplateId: null,
+  livePublicRankingId: null,
   cloudState: 'cloudBacked' as const,
   cloudBackedAt: now,
   pausedReason: null,
 })
+
+// seed-provenance columns; null on every board created outside the seed
+// pipeline (forks, from-scratch, consensus remixes) — spread into the insert
+export const EMPTY_BOARD_SEED_FIELDS = {
+  seedDatasetKey: null,
+  seedReleaseId: null,
+  seedExternalId: null,
+  seedContentHash: null,
+  seedKind: null,
+  seedReleaseStatus: null,
+} satisfies Pick<
+  Doc<'boards'>,
+  | 'seedDatasetKey'
+  | 'seedReleaseId'
+  | 'seedExternalId'
+  | 'seedContentHash'
+  | 'seedKind'
+  | 'seedReleaseStatus'
+>
 
 type ForkedBoardInsert = Omit<
   Doc<'boards'>,
@@ -32,12 +52,16 @@ export const buildForkedBoardInsert = (
     forkCounted: boolean
     now: number
     itemCount?: number
+    progressCounts?: {
+      activeItemCount: number
+      unrankedItemCount: number
+    }
     materializationState?: Doc<'boards'>['materializationState']
   }
 ): ForkedBoardInsert =>
 {
   const itemCount = options.itemCount ?? template.itemCount
-  const progressCounts = {
+  const progressCounts = options.progressCounts ?? {
     activeItemCount: itemCount,
     unrankedItemCount: itemCount,
   }
@@ -69,11 +93,6 @@ export const buildForkedBoardInsert = (
       progressCounts
     ),
     librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-    seedDatasetKey: null,
-    seedReleaseId: null,
-    seedExternalId: null,
-    seedContentHash: null,
-    seedKind: null,
-    seedReleaseStatus: null,
+    ...EMPTY_BOARD_SEED_FIELDS,
   }
 }

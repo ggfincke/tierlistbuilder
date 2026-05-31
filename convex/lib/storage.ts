@@ -2,9 +2,10 @@
 // shared storage helpers — best-effort deletes & a pre-fetch size peek so
 // actions can reject oversized blobs before pulling bytes into memory
 
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internalQuery } from '../_generated/server'
 import type { Id } from '../_generated/dataModel'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 
 export interface StorageMetadata
 {
@@ -34,6 +35,52 @@ export const deleteStorageSilently = async (
   {
     // ignore missing blobs on cleanup paths — orphan GC converges later
   }
+}
+
+export const storageSizeExceedsLimit = (
+  metadata: Pick<StorageMetadata, 'size'>,
+  maxBytes: number,
+  slackBytes = 0
+): boolean => metadata.size > maxBytes + slackBytes
+
+export const assertStorageMetadataWithinLimit = async (
+  ctx: StorageDeleteCtx,
+  storageId: Id<'_storage'>,
+  metadata: StorageMetadata | null,
+  options: {
+    label: string
+    maxBytes: number
+    slackBytes?: number
+    requireSha256?: boolean
+  }
+): Promise<StorageMetadata> =>
+{
+  if (!metadata)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.storageMissing,
+      message: `${options.label} not found in storage`,
+    })
+  }
+  if (options.requireSha256 && !metadata.sha256)
+  {
+    await deleteStorageSilently(ctx, storageId)
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `${options.label} missing storage sha256 metadata`,
+    })
+  }
+  if (
+    storageSizeExceedsLimit(metadata, options.maxBytes, options.slackBytes ?? 0)
+  )
+  {
+    await deleteStorageSilently(ctx, storageId)
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.payloadTooLarge,
+      message: `${options.label} too large: ${metadata.size} > ${options.maxBytes}`,
+    })
+  }
+  return metadata
 }
 
 // peek storage metadata w/o fetching bytes. cheap gate for actions that

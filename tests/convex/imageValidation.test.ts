@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { MAX_IMAGE_ASPECT_RATIO } from '@tierlistbuilder/contracts/platform/media'
 import { parseUploadedImageMetadata } from '../../convex/lib/imageValidation'
-import { buildPngHeader } from './convexTestHelpers'
+import { buildPngHeader } from '@tests/convex/convexTestHelpers'
 
 const buildGifHeader = (width: number, height: number): Uint8Array =>
 {

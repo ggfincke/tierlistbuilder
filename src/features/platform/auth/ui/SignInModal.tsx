@@ -12,6 +12,10 @@ import {
   mapAuthError,
   type AuthMode,
 } from '~/features/platform/auth/model/authErrors'
+import {
+  MIN_PASSWORD_LENGTH,
+  passwordTooShortMessage,
+} from '@tierlistbuilder/contracts/platform/user'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
@@ -48,9 +52,9 @@ export const SignInModal = ({ open, onClose }: SignInModalProps) =>
       setError('Email & password are required.')
       return
     }
-    if (mode === 'sign-up' && password.length < 8)
+    if (mode === 'sign-up' && password.length < MIN_PASSWORD_LENGTH)
     {
-      setError('Password must be at least 8 characters.')
+      setError(passwordTooShortMessage())
       return
     }
 
@@ -179,7 +183,7 @@ export const SignInModal = ({ open, onClose }: SignInModalProps) =>
               mode === 'sign-up' ? 'new-password' : 'current-password'
             }
             required
-            minLength={mode === 'sign-up' ? 8 : undefined}
+            minLength={mode === 'sign-up' ? MIN_PASSWORD_LENGTH : undefined}
             disabled={pending}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -189,7 +193,7 @@ export const SignInModal = ({ open, onClose }: SignInModalProps) =>
           />
           {mode === 'sign-up' && (
             <p className="mt-1 text-xs text-[var(--t-text-faint)]">
-              At least 8 characters.
+              At least {MIN_PASSWORD_LENGTH} characters.
             </p>
           )}
         </div>

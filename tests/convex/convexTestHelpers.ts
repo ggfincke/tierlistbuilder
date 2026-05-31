@@ -2,9 +2,9 @@
 // shared Convex test harness setup
 
 import type { Id, Doc } from '@convex/_generated/dataModel'
-import type { MutationCtx } from '@convex/_generated/server'
+import type { ActionCtx, MutationCtx } from '@convex/_generated/server'
 import rateLimiter from '@convex-dev/rate-limiter/test'
-import { convexTest } from 'convex-test'
+import { convexTest, type TestConvex } from 'convex-test'
 import { ConvexError } from 'convex/values'
 import { expect, vi } from 'vitest'
 import schema from '../../convex/schema'
@@ -16,7 +16,7 @@ import {
   SEED_ENABLED_ENV,
   SEED_SECRET_ENV,
 } from '../../convex/marketplace/seedAuth'
-import { buildSearchText } from '@convex/marketplace/templates/lib/normalize'
+import { writeTemplateCard } from '@convex/marketplace/templates/lib/writes'
 import { buildFreshBoardCloudFields } from '@convex/workspace/boards/cloudFields'
 import {
   boardSourceTemplateFromTemplate,
@@ -32,7 +32,7 @@ import type {
 
 const modules = import.meta.glob('../../convex/**/*.*s')
 
-export type ConvexTestHandle = ReturnType<typeof convexTest<typeof schema>>
+export type ConvexTestHandle = TestConvex<typeof schema>
 
 export const makeTest = (): ConvexTestHandle =>
   convexTest({ schema, modules, transactionLimits: true })
@@ -183,7 +183,10 @@ export async function seedUser(
   })
 }
 
-export const buildPngHeader = (width: number, height: number): Uint8Array =>
+export const buildPngHeader = (
+  width: number,
+  height: number
+): Uint8Array<ArrayBuffer> =>
 {
   const bytes = new Uint8Array(24)
   bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
@@ -216,7 +219,7 @@ interface SeedTileMediaAssetArgs
 }
 
 export const seedTileMediaAsset = async (
-  ctx: MutationCtx,
+  ctx: MutationCtx & Pick<ActionCtx, 'storage'>,
   args: SeedTileMediaAssetArgs
 ): Promise<{
   mediaAssetId: Id<'mediaAssets'>
@@ -372,9 +375,6 @@ const defaultBoardLibrarySummary = (): Doc<'boards'>['librarySummary'] => ({
   tierBreakdown: [],
 })
 
-const TEST_FALLBACK_TEMPLATE_AUTHOR_ID = 'unknown-author'
-const TEST_FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME = 'Tier list creator'
-
 export const seedPublishedTemplate = async (
   ctx: MutationCtx,
   args: SeedPublishedTemplateArgs
@@ -383,12 +383,6 @@ export const seedPublishedTemplate = async (
   const now = args.now ?? Date.now()
   const category = args.category ?? 'gaming'
   const tags = args.tags ?? []
-  const author = await ctx.db.get(args.authorId)
-  if (!author) throw new Error('template author missing')
-  const authorDisplayName = author.handle
-    ? `@${author.handle}`
-    : (author.displayName ?? TEST_FALLBACK_TEMPLATE_AUTHOR_DISPLAY_NAME)
-  const authorExternalId = author.externalId ?? TEST_FALLBACK_TEMPLATE_AUTHOR_ID
   const templateId = await ctx.db.insert('templates', {
     slug: args.slug,
     authorId: args.authorId,
@@ -423,48 +417,9 @@ export const seedPublishedTemplate = async (
     viewCount: 0,
     updatedAt: now,
   })
-  await ctx.db.insert('templateCards', {
-    templateId,
-    slug: args.slug,
-    title: args.title,
-    description: null,
-    category,
-    tags,
-    visibility: 'public',
-    publicationState: 'published',
-    isPubliclyListable: true,
-    itemCount: args.itemCount,
-    sizeClass: args.sizeClass,
-    authorId: args.authorId,
-    authorExternalId,
-    authorDisplayName,
-    authorImageUrl: author.image ?? null,
-    authorAvatarStorageId: author.avatarStorageId ?? null,
-    coverMedia: null,
-    coverFraming: null,
-    coverItems: [],
-    itemAspectRatio: null,
-    defaultItemImageFit: null,
-    defaultItemImagePadding: null,
-    featuredRank: null,
-    forkCount: 0,
-    viewCount: 0,
-    rankingCount: 0,
-    weeklyForkCount: 0,
-    weeklyViewCount: 0,
-    trendingScore: 0,
-    trendingComputedAt: null,
-    creditLine: null,
-    searchText: buildSearchText({
-      title: args.title,
-      description: null,
-      category,
-      tags,
-      authorDisplayName,
-    }),
-    createdAt: now,
-    updatedAt: now,
-  })
+  const template = await ctx.db.get(templateId)
+  if (!template) throw new Error('template missing after insert')
+  await writeTemplateCard(ctx, template, { forkCount: 0, viewCount: 0 })
   return templateId
 }
 
@@ -490,9 +445,9 @@ export const seedCloudBoard = async (
     sourceTemplate: args.sourceTemplateId
       ? boardSourceTemplateFromTemplate({
           _id: args.sourceTemplateId,
-          category: args.sourceTemplateCategory ?? null,
-          sizeClass: args.sourceTemplateSizeClass ?? null,
-          title: args.sourceTemplateTitle ?? null,
+          category: args.sourceTemplateCategory ?? 'other',
+          sizeClass: args.sourceTemplateSizeClass ?? 'standard',
+          title: args.sourceTemplateTitle ?? '',
         })
       : EMPTY_BOARD_SOURCE_TEMPLATE,
     sourceRanking: EMPTY_BOARD_SOURCE_RANKING,

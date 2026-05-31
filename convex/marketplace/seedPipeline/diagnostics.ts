@@ -7,6 +7,7 @@ import type { Doc } from '../../_generated/dataModel'
 import type { SeedTemplateReleaseStatus } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import { SEED_LIMITS } from '../../lib/limits'
 import type { SeedDiagnosticRow } from './types'
+import { loadSeedTemplateLookupForRelease } from './templates'
 
 export type SeedReleaseDiagnosticTotals = {
   templateCount: number
@@ -33,6 +34,24 @@ export const seedWarningDiagnostic = (
   message: string
 ): SeedDiagnosticRow => seedDiagnostic('warning', code, path, message)
 
+export const pushCountMismatchDiagnostic = (
+  diagnostics: SeedDiagnosticRow[],
+  code: string,
+  path: string,
+  expected: number,
+  actual: number,
+  label: string
+): void =>
+{
+  diagnostics.push(
+    seedErrorDiagnostic(
+      code,
+      path,
+      `${label} expected ${expected} but found ${actual}`
+    )
+  )
+}
+
 export const buildSeedReleaseDiagnosticsForTemplates = async (
   ctx: MutationCtx,
   datasetKey: string,
@@ -51,12 +70,13 @@ export const buildSeedReleaseDiagnosticsForTemplates = async (
   )
   if (templates.length > SEED_LIMITS.templatesPerDiff)
   {
-    diagnostics.push({
-      code: 'templateLimitExceeded',
-      message: 'release has more templates than seed verification can inspect',
-      path: '$.templates',
-      severity: 'error',
-    })
+    diagnostics.push(
+      seedErrorDiagnostic(
+        'templateLimitExceeded',
+        '$.templates',
+        'release has more templates than seed verification can inspect'
+      )
+    )
     return {
       diagnostics,
       totals: { templateCount: 0, itemCount: 0, criterionCount: 0 },
@@ -106,42 +126,46 @@ export const buildSeedReleaseDiagnosticsForTemplates = async (
       !validTemplateStatuses.has(template.seedReleaseStatus)
     )
     {
-      diagnostics.push({
-        code: 'invalidTemplateReleaseStatus',
-        message: `template has invalid seed release status: ${template.seedExternalId}`,
-        path: `${templatePath}.seedReleaseStatus`,
-        severity: 'error',
-      })
+      diagnostics.push(
+        seedErrorDiagnostic(
+          'invalidTemplateReleaseStatus',
+          `${templatePath}.seedReleaseStatus`,
+          `template has invalid seed release status: ${template.seedExternalId}`
+        )
+      )
     }
     if (template.coverMediaAssetId !== null && !coverMedia)
     {
-      diagnostics.push({
-        code: 'missingCoverMedia',
-        message: `template cover media is missing: ${template.seedExternalId}`,
-        path: `${templatePath}.coverMediaAssetId`,
-        severity: 'error',
-      })
+      diagnostics.push(
+        seedErrorDiagnostic(
+          'missingCoverMedia',
+          `${templatePath}.coverMediaAssetId`,
+          `template cover media is missing: ${template.seedExternalId}`
+        )
+      )
     }
     if (items.length > SEED_LIMITS.itemsPerTemplate)
     {
-      diagnostics.push({
-        code: 'itemLimitExceeded',
-        message: `template item count exceeds seed verification limit: ${template.seedExternalId}`,
-        path: `${templatePath}.items`,
-        severity: 'error',
-      })
+      diagnostics.push(
+        seedErrorDiagnostic(
+          'itemLimitExceeded',
+          `${templatePath}.items`,
+          `template item count exceeds seed verification limit: ${template.seedExternalId}`
+        )
+      )
       continue
     }
     itemCount += items.length
     criterionCount += template.criteria.length
     if (template.itemCount !== items.length)
     {
-      diagnostics.push({
-        code: 'templateItemCountMismatch',
-        message: `template itemCount=${template.itemCount} but has ${items.length} item rows`,
-        path: `${templatePath}.itemCount`,
-        severity: 'error',
-      })
+      diagnostics.push(
+        seedErrorDiagnostic(
+          'templateItemCountMismatch',
+          `${templatePath}.itemCount`,
+          `template itemCount=${template.itemCount} but has ${items.length} item rows`
+        )
+      )
     }
     if (itemMedia)
     {
@@ -150,22 +174,24 @@ export const buildSeedReleaseDiagnosticsForTemplates = async (
         const item = items[index]
         if (item.mediaAssetId === null)
         {
-          diagnostics.push({
-            code: 'missingItemMedia',
-            message: `template item has no media: ${item.externalId}`,
-            path: `${templatePath}.items[${item.externalId}].mediaAssetId`,
-            severity: 'error',
-          })
+          diagnostics.push(
+            seedErrorDiagnostic(
+              'missingItemMedia',
+              `${templatePath}.items[${item.externalId}].mediaAssetId`,
+              `template item has no media: ${item.externalId}`
+            )
+          )
           continue
         }
         if (!itemMedia[index])
         {
-          diagnostics.push({
-            code: 'missingItemMediaAsset',
-            message: `template item media asset is missing: ${item.externalId}`,
-            path: `${templatePath}.items[${item.externalId}].mediaAssetId`,
-            severity: 'error',
-          })
+          diagnostics.push(
+            seedErrorDiagnostic(
+              'missingItemMediaAsset',
+              `${templatePath}.items[${item.externalId}].mediaAssetId`,
+              `template item media asset is missing: ${item.externalId}`
+            )
+          )
         }
       }
     }
@@ -192,12 +218,14 @@ export const appendExpectedTotalsDiagnostics = (
   for (const key of Object.keys(actual) as (keyof typeof actual)[])
   {
     if (actual[key] === expectedTotals[key]) continue
-    diagnostics.push({
-      code: `${key}Mismatch`,
-      message: `${key} expected ${expectedTotals[key]} but found ${actual[key]}`,
-      path: `$.totals.${key}`,
-      severity: 'error',
-    })
+    pushCountMismatchDiagnostic(
+      diagnostics,
+      `${key}Mismatch`,
+      `$.totals.${key}`,
+      expectedTotals[key],
+      actual[key],
+      key
+    )
   }
 }
 
@@ -217,21 +245,23 @@ export const appendReleaseTemplateScopeDiagnostics = async (
     .take(SEED_LIMITS.templatesPerDiff + 1)
   if (templates.length > SEED_LIMITS.templatesPerDiff)
   {
-    diagnostics.push({
-      code: 'templateLimitExceeded',
-      message: 'release has more templates than seed verification can inspect',
-      path: '$.templates',
-      severity: 'error',
-    })
+    diagnostics.push(
+      seedErrorDiagnostic(
+        'templateLimitExceeded',
+        '$.templates',
+        'release has more templates than seed verification can inspect'
+      )
+    )
     return
   }
   if (templates.length === expectedTotals.templateCount) return
-  diagnostics.push({
-    code: 'releaseTemplateCountMismatch',
-    message: `release has ${templates.length} templates but manifest expects ${expectedTotals.templateCount}`,
-    path: '$.templates',
-    severity: 'error',
-  })
+  diagnostics.push(
+    seedErrorDiagnostic(
+      'releaseTemplateCountMismatch',
+      '$.templates',
+      `release has ${templates.length} templates but manifest expects ${expectedTotals.templateCount}`
+    )
+  )
 }
 
 const loadDiagnosticsTemplates = async (
@@ -245,36 +275,27 @@ const loadDiagnosticsTemplates = async (
 }> =>
 {
   const diagnostics: SeedDiagnosticRow[] = []
-  const rows = await Promise.all(
-    templateExternalIds.map(
-      async (externalId) =>
-        await ctx.db
-          .query('templates')
-          .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-            q
-              .eq('seedDatasetKey', datasetKey)
-              .eq('seedReleaseId', releaseId)
-              .eq('seedExternalId', externalId)
-          )
-          .unique()
-    )
+  const { byExternalId } = await loadSeedTemplateLookupForRelease(
+    ctx,
+    datasetKey,
+    releaseId
   )
   const templates: Doc<'templates'>[] = []
-  for (let index = 0; index < templateExternalIds.length; index += 1)
+  for (const externalId of templateExternalIds)
   {
-    const row = rows[index]
+    const row = byExternalId.get(externalId)
     if (row)
     {
       templates.push(row)
       continue
     }
-    const externalId = templateExternalIds[index]
-    diagnostics.push({
-      code: 'missingTemplate',
-      message: `seed template is missing: ${externalId}`,
-      path: `$.templates[${externalId}]`,
-      severity: 'error',
-    })
+    diagnostics.push(
+      seedErrorDiagnostic(
+        'missingTemplate',
+        `$.templates[${externalId}]`,
+        `seed template is missing: ${externalId}`
+      )
+    )
   }
   return { templates, diagnostics }
 }

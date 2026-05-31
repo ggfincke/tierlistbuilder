@@ -34,6 +34,7 @@ import {
   itemTransformValidator,
   literalUnion,
   mediaPlateValidator,
+  optionalItemRenderFields,
   paletteIdValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
@@ -46,21 +47,20 @@ import {
   templateMediaRefValidator,
   templateSizeClassValidator,
 } from './marketplace'
+import { showcaseMiniSnapshotValidator } from '../../platform/showcase'
 
-export const boardListItemValidator = v.object({
+const boardListItemBaseFields = {
   externalId: v.string(),
   title: v.string(),
   createdAt: v.number(),
   updatedAt: v.number(),
   revision: v.number(),
-})
+}
+
+export const boardListItemValidator = v.object(boardListItemBaseFields)
 
 export const deletedBoardListItemValidator = v.object({
-  externalId: v.string(),
-  title: v.string(),
-  createdAt: v.number(),
-  updatedAt: v.number(),
-  revision: v.number(),
+  ...boardListItemBaseFields,
   deletedAt: v.number(),
 })
 
@@ -81,6 +81,7 @@ const libraryBoardCoverItemValidator = v.object({
   mediaHash: v.optional(v.string()),
   mediaCloudExternalId: v.optional(v.string()),
   mediaVariant: v.optional(mediaVariantKindValidator),
+  ...optionalItemRenderFields,
 })
 
 const libraryBoardTierBreakdownValidator = v.object({
@@ -95,6 +96,7 @@ export const boardLibrarySummaryValidator = v.object({
       label: v.union(v.string(), v.null()),
       externalId: v.string(),
       storageId: v.union(v.id('_storage'), v.null()),
+      ...optionalItemRenderFields,
     })
   ),
   tierCount: v.number(),
@@ -103,11 +105,7 @@ export const boardLibrarySummaryValidator = v.object({
 })
 
 export const libraryBoardListItemValidator = v.object({
-  externalId: v.string(),
-  title: v.string(),
-  createdAt: v.number(),
-  updatedAt: v.number(),
-  revision: v.number(),
+  ...boardListItemBaseFields,
   activeItemCount: v.number(),
   unrankedItemCount: v.number(),
   rankedItemCount: v.number(),
@@ -119,10 +117,15 @@ export const libraryBoardListItemValidator = v.object({
   sourceTemplateCoverMedia: v.union(templateMediaRefValidator, v.null()),
   sourceTemplateCoverFraming: v.union(templateCoverFramingValidator, v.null()),
   coverItems: v.array(libraryBoardCoverItemValidator),
+  autoPlate: v.optional(v.union(boardAutoPlateSettingsValidator, v.null())),
+  defaultItemImageFit: v.optional(v.union(imageFitValidator, v.null())),
+  defaultItemImagePadding: v.optional(v.union(v.number(), v.null())),
+  itemAspectRatio: v.optional(v.union(v.number(), v.null())),
   paletteId: paletteIdValidator,
   tierCount: v.number(),
   tierColors: v.array(tierColorSpecValidator),
   tierBreakdown: v.array(libraryBoardTierBreakdownValidator),
+  mini: v.union(showcaseMiniSnapshotValidator, v.null()),
   pinned: v.boolean(),
 })
 

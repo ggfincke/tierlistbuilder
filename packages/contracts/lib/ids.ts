@@ -4,6 +4,8 @@
 // generated board ID stored in the board registry & per-board storage keys
 export type BoardId = `board-${string}`
 
+export const MAX_EXTERNAL_ID_LENGTH = 128
+
 // generated tier ID used for default & newly created tiers
 export type TierId = `tier-${string}`
 

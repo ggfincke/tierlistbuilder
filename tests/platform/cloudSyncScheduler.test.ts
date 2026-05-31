@@ -10,8 +10,8 @@ import {
   type PendingBoardSync,
 } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
-import { flushPromises } from '../shared-lib/async'
-import { makeBoardSnapshot } from '../fixtures'
+import { flushPromises } from '@tests/shared-lib/async'
+import { makeBoardSnapshot } from '@tests/fixtures'
 
 const makeWork = (boardId: BoardId, title: string): PendingBoardSync =>
 {
@@ -51,7 +51,8 @@ describe('cloud sync scheduler', () =>
   it('retries failed flushes even when no newer edit arrives & queues newer edits while retrying', async () =>
   {
     const deps = noOpDeps()
-    let rejectFirst: ((err?: unknown) => void) | null = null
+    let rejectFirst: (err?: unknown) => void = () =>
+    {}
     const flush = vi
       .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
       .mockImplementationOnce(
@@ -72,7 +73,7 @@ describe('cloud sync scheduler', () =>
     await flushPromises()
 
     scheduler.queue(makeWork('board-a' as BoardId, 'Second'))
-    rejectFirst?.(new Error('upload failed'))
+    rejectFirst(new Error('upload failed'))
     await flushPromises()
     vi.advanceTimersByTime(10)
     await flushPromises()

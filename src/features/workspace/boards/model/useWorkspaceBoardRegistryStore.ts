@@ -15,6 +15,7 @@ interface WorkspaceBoardRegistryStore
   activeBoardId: BoardId | null
   replaceRegistry: (boards: BoardMeta[], activeBoardId: BoardId | null) => void
   addBoardMeta: (board: BoardMeta, active?: boolean) => void
+  upsertBoardMeta: (board: BoardMeta, active?: boolean) => void
   setActiveBoardId: (boardId: BoardId | null) => void
   isBoardInRegistry: (boardId: BoardId) => boolean
   renameBoardMeta: (boardId: BoardId, title: string) => void
@@ -39,6 +40,22 @@ export const useWorkspaceBoardRegistryStore =
             boards: [...state.boards, board],
             activeBoardId: active ? board.id : state.activeBoardId,
           })),
+
+        upsertBoardMeta: (board, active = false) =>
+          set((state) =>
+          {
+            const existing = state.boards.find((entry) => entry.id === board.id)
+            return {
+              boards: existing
+                ? state.boards.map((entry) =>
+                    entry.id === board.id
+                      ? { ...entry, ...board, createdAt: entry.createdAt }
+                      : entry
+                  )
+                : [...state.boards, board],
+              activeBoardId: active ? board.id : state.activeBoardId,
+            }
+          }),
 
         setActiveBoardId: (boardId) => set({ activeBoardId: boardId }),
 

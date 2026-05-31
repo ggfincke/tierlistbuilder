@@ -22,15 +22,14 @@ export const selectMediaVariantSummary = (
   return asset.editorVariant
 }
 
-// preview-first storage lookup for surfaces that render the asset at hero
-// scale (board card mosaics, marketplace covers). tile fallback covers
-// assets predating the preview pipeline so callers can swap in unconditionally
-export const selectPreviewOrTileStorageId = (
+// tile-variant lookup for board-card cover mosaics — transparent WebP, matching
+// the marketplace cover mosaic. preview is a white-flattened JPEG (no alpha), so
+// it bakes a white plate behind transparent logos/art & is wrong for cover tiles
+export const selectTileStorageId = (
   asset: Doc<'mediaAssets'>
-): Id<'_storage'> =>
-  asset.previewVariant?.storageId ?? asset.tileVariant.storageId
+): Id<'_storage'> => asset.tileVariant.storageId
 
-export const loadPreviewOrTileStorageId = async (
+export const loadTileStorageId = async (
   ctx: DbCtx,
   mediaAssetId: Id<'mediaAssets'> | null
 ): Promise<Id<'_storage'> | null> =>
@@ -38,7 +37,7 @@ export const loadPreviewOrTileStorageId = async (
   if (!mediaAssetId) return null
   const asset = await ctx.db.get(mediaAssetId)
   if (!asset) return null
-  return selectPreviewOrTileStorageId(asset)
+  return selectTileStorageId(asset)
 }
 
 // canonical owner-scoped fingerprint for verified-variant dedupe. used by both

@@ -26,6 +26,12 @@ export interface UploadedVariant
   uploadToken: string
 }
 
+export interface UploadVariantBlob
+{
+  kind: MediaVariantKind
+  blob: Blob
+}
+
 // request N upload URLs at once. one rate-limit token per call (not per URL),
 // so callers should batch the variants of one logical upload together
 export const generateUploadUrlsImperative = (
@@ -77,4 +83,27 @@ export const uploadEnvelopedBlob = async (args: {
   }
   const { storageId } = (await response.json()) as { storageId: Id<'_storage'> }
   return storageId
+}
+
+export const uploadEnvelopedVariants = async (
+  inputs: UploadVariantBlob[]
+): ReturnType<typeof finalizeUploadVariantsImperative> =>
+{
+  const { envelopeUserId, urls } = await generateUploadUrlsImperative(
+    inputs.length
+  )
+  const variants: UploadedVariant[] = await Promise.all(
+    inputs.map(async (input, i) =>
+    {
+      const { uploadUrl, uploadToken } = urls[i]
+      const storageId = await uploadEnvelopedBlob({
+        uploadUrl,
+        uploadToken,
+        envelopeUserId,
+        blob: input.blob,
+      })
+      return { kind: input.kind, storageId, uploadToken }
+    })
+  )
+  return finalizeUploadVariantsImperative({ variants })
 }

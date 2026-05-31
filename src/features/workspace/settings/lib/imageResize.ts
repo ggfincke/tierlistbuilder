@@ -12,6 +12,7 @@ import {
   collectRenditionRecords,
   toItemImageRefs,
 } from '~/shared/images/prepareItemRenditions'
+import { withImageBitmap } from '~/shared/images/imageBitmap'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { deriveLabelFromFilename } from '~/shared/lib/fileName'
 
@@ -68,21 +69,13 @@ export const processImageFiles = async (
   }
 }
 
-// decode the file once via createImageBitmap, run progressive downscale, &
-// release the bitmap as soon as the rendition canvases are built
+// decode the file once, run progressive downscale, & release the bitmap
+// as soon as the rendition canvases are built
 const buildFileRenditionRecords = async (file: File) =>
-{
-  const imageBitmap = await createImageBitmap(file)
-  try
-  {
-    return await buildItemRenditionRecords(
+  withImageBitmap(file, (imageBitmap) =>
+    buildItemRenditionRecords(
       imageBitmap,
       imageBitmap.width,
       imageBitmap.height
     )
-  }
-  finally
-  {
-    imageBitmap.close()
-  }
-}
+  )

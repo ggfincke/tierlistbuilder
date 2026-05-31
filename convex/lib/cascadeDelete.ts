@@ -11,7 +11,7 @@ export const CASCADE_DELETE_PAGE_SIZE = BATCH_LIMITS.cascadeDelete
 
 type CascadeRow = { _id: Id<TableNames> }
 
-interface CascadePage
+export interface CascadePage
 {
   page: CascadeRow[]
   isDone: boolean
@@ -42,11 +42,44 @@ interface DeleteCascadePageArgs<
   nextPhase?: Phase
 }
 
-interface CascadePhaseStep<Phase extends string>
+export interface CascadePhaseStep<Phase extends string>
 {
   phase: Phase
   page: (cursor: string | null) => Promise<CascadePage>
 }
+
+export type BoardChildCascadePhase = 'items' | 'tiers'
+
+export const buildBoardChildCascadePhases = (
+  ctx: MutationCtx,
+  boardId: Id<'boards'>
+): readonly [
+  CascadePhaseStep<BoardChildCascadePhase>,
+  CascadePhaseStep<BoardChildCascadePhase>,
+] => [
+  {
+    phase: 'items',
+    page: async (cursor) =>
+      await ctx.db
+        .query('boardItems')
+        .withIndex('byBoardAndTier', (q) => q.eq('boardId', boardId))
+        .paginate({
+          numItems: CASCADE_DELETE_PAGE_SIZE,
+          cursor,
+        }),
+  },
+  {
+    phase: 'tiers',
+    page: async (cursor) =>
+      await ctx.db
+        .query('boardTiers')
+        .withIndex('byBoard', (q) => q.eq('boardId', boardId))
+        .paginate({
+          numItems: CASCADE_DELETE_PAGE_SIZE,
+          cursor,
+        }),
+  },
+]
 
 interface RunCascadePhaseMachineArgs<
   Phase extends string,

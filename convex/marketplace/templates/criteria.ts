@@ -248,6 +248,42 @@ export const resolveTemplateCriterionForHistoricalRead = (
   )
 }
 
+export const resolveRequestedOrPrimaryTemplateCriterion = (
+  source: TemplateCriteriaSource,
+  externalId: string | undefined
+): MarketplaceTemplateCriterion | null =>
+{
+  if (externalId === undefined)
+  {
+    return resolvePrimaryTemplateCriterion(source)
+  }
+  return resolveTemplateCriterionForHistoricalRead(source, externalId)
+}
+
+export const resolveActiveRequestedOrPrimaryTemplateCriterion = (
+  source: TemplateCriteriaSource,
+  externalId: string | undefined
+): MarketplaceTemplateCriterion | null =>
+{
+  const criterion = resolveRequestedOrPrimaryTemplateCriterion(
+    source,
+    externalId
+  )
+  return criterion?.status === 'active' ? criterion : null
+}
+
+export const resolveHistoricalTemplateCriterionExternalId = (
+  source: TemplateCriteriaSource,
+  externalId: string | undefined
+): string | null | undefined =>
+{
+  if (externalId === undefined) return undefined
+  return (
+    resolveTemplateCriterionForHistoricalRead(source, externalId)?.externalId ??
+    null
+  )
+}
+
 export const toTemplateCriterionSnapshot = (
   criterion: MarketplaceTemplateCriterion
 ): MarketplaceTemplateCriterionSnapshot => ({

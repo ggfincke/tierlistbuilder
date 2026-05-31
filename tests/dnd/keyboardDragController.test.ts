@@ -53,17 +53,17 @@ describe('keyboard drag controller', () =>
 {
   it('Space picks up, Arrow moves across tiers, Space drops, focus restored', () =>
   {
-    handleKeyboardItemFocus('item-1')
+    handleKeyboardItemFocus(asItemId('item-1'))
     expect(useActiveBoardStore.getState().keyboardMode).toBe('browse')
 
-    handleKeyboardSpaceKey('item-1')
+    handleKeyboardSpaceKey(asItemId('item-1'))
     expect(useActiveBoardStore.getState()).toMatchObject({
       keyboardMode: 'dragging',
       activeItemId: 'item-1',
     })
 
-    handleKeyboardArrowKey('item-1', 'ArrowDown')
-    handleKeyboardSpaceKey('item-1')
+    handleKeyboardArrowKey(asItemId('item-1'), 'ArrowDown')
+    handleKeyboardSpaceKey(asItemId('item-1'))
 
     const state = useActiveBoardStore.getState()
     expect(state).toMatchObject({
@@ -78,8 +78,8 @@ describe('keyboard drag controller', () =>
 
   it('Arrow in browse mode moves spatial focus across tiers', () =>
   {
-    handleKeyboardItemFocus('item-1')
-    handleKeyboardArrowKey('item-1', 'ArrowDown')
+    handleKeyboardItemFocus(asItemId('item-1'))
+    handleKeyboardArrowKey(asItemId('item-1'), 'ArrowDown')
     expect(useActiveBoardStore.getState()).toMatchObject({
       keyboardMode: 'browse',
       keyboardFocusItemId: 'item-3',
@@ -88,7 +88,7 @@ describe('keyboard drag controller', () =>
 
   it('board-jump returns focus to the last clicked item', () =>
   {
-    useActiveBoardStore.setState({ lastClickedItemId: 'item-4' })
+    useActiveBoardStore.setState({ lastClickedItemId: asItemId('item-4') })
     handleKeyboardBoardJumpKey()
     expect(useActiveBoardStore.getState().keyboardFocusItemId).toBe('item-4')
   })
@@ -96,8 +96,8 @@ describe('keyboard drag controller', () =>
   it('Escape clears selection before leaving browse state', () =>
   {
     useActiveBoardStore.getState().selectAll()
-    handleKeyboardItemFocus('item-4')
-    handleKeyboardEscapeKey('item-4')
+    handleKeyboardItemFocus(asItemId('item-4'))
+    handleKeyboardEscapeKey(asItemId('item-4'))
 
     expect(useActiveBoardStore.getState()).toMatchObject({
       keyboardMode: 'browse',
