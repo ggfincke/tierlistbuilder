@@ -17,37 +17,28 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import { createFailingStorage } from '@tests/shared-lib/memoryStorage'
+import { resetBoardStores } from '@tests/shared-lib/boardStores'
 
 const TEST_BOARD_ID = 'board-local-session-test' as BoardId
 const OTHER_BOARD_ID = 'board-local-session-other' as BoardId
 
 const resetStores = (): void =>
 {
-  useWorkspaceBoardRegistryStore.setState({
-    boards: [
-      {
-        id: TEST_BOARD_ID,
-        title: 'Board',
-        createdAt: Date.now(),
-      },
-    ],
-    activeBoardId: TEST_BOARD_ID,
-  })
-
-  useActiveBoardStore.setState({
-    ...createInitialBoardData('classic'),
-    title: 'Board',
-    past: [],
-    future: [],
-    activeItemId: null,
-    dragPreview: null,
-    dragGroupIds: [],
-    keyboardMode: 'idle',
-    keyboardFocusItemId: null,
-    selection: { ids: [], set: new Set() },
-    lastClickedItemId: null,
-    itemsManuallyMoved: false,
-    runtimeError: null,
+  resetBoardStores({
+    registry: {
+      boards: [
+        {
+          id: TEST_BOARD_ID,
+          title: 'Board',
+          createdAt: Date.now(),
+        },
+      ],
+      activeBoardId: TEST_BOARD_ID,
+    },
+    snapshot: {
+      ...createInitialBoardData('classic'),
+      title: 'Board',
+    },
   })
 }
 

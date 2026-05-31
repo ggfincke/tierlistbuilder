@@ -77,8 +77,8 @@ describe('projectLocalRow', () =>
     saveBoardToStorage(TEST_BOARD_ID, {
       ...createInitialBoardData('classic'),
       items: {
-        item_1: { id: asItemId('item_1'), label: 'One' },
-        item_2: { id: asItemId('item_2'), label: 'Two' },
+        [asItemId('item_1')]: { id: asItemId('item_1'), label: 'One' },
+        [asItemId('item_2')]: { id: asItemId('item_2'), label: 'Two' },
       },
       tiers: [
         {

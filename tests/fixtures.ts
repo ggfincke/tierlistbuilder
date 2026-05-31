@@ -1,23 +1,23 @@
 import type {
+  BoardListItem,
+  LibraryBoardListItem,
+  BoardMeta,
   BoardSnapshot,
   Tier,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  DEFAULT_USER_PRIVACY_SETTINGS,
+  type PublicUserMe,
+} from '@tierlistbuilder/contracts/platform/user'
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
+import type { AuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
-import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
-
-export const TIER_IDS = ['tier-s', 'tier-a', 'tier-b'] as const
-export const ITEM_IDS: readonly ItemId[] = [
-  asItemId('item-1'),
-  asItemId('item-2'),
-  asItemId('item-3'),
-  asItemId('item-4'),
-  asItemId('item-5'),
-  asItemId('item-6'),
-  asItemId('item-7'),
-  asItemId('item-8'),
-] as const
+import {
+  asBoardId,
+  asItemId,
+  type ItemId,
+} from '@tierlistbuilder/contracts/lib/ids'
 
 export const makeContainerSnapshot = (
   overrides?: Partial<ContainerSnapshot>
@@ -79,6 +79,58 @@ export const makeBoardSnapshot = (
   ...overrides,
 })
 
+export const makeBoardMeta = (overrides?: Partial<BoardMeta>): BoardMeta => ({
+  id: asBoardId('board-test'),
+  title: 'Test Board',
+  createdAt: 1,
+  ...overrides,
+})
+
+export const makeBoardListItem = (
+  overrides?: Partial<BoardListItem>
+): BoardListItem => ({
+  externalId: 'cloud-board-test',
+  title: 'Cloud Board',
+  createdAt: 1,
+  updatedAt: 1,
+  revision: 1,
+  ...overrides,
+})
+
+export const makeLibraryBoardListItem = (
+  overrides?: Partial<LibraryBoardListItem>
+): LibraryBoardListItem => ({
+  externalId: 'board-library-test',
+  title: 'Library Board',
+  createdAt: 1,
+  updatedAt: 2,
+  revision: 3,
+  activeItemCount: 1,
+  unrankedItemCount: 0,
+  rankedItemCount: 1,
+  publishState: 'wip',
+  syncState: 'localOnly',
+  visibility: 'private',
+  category: 'other',
+  sourceTemplateSizeClass: null,
+  sourceTemplateCoverMedia: null,
+  sourceTemplateCoverFraming: null,
+  coverItems: [],
+  paletteId: 'classic',
+  tierCount: 1,
+  tierColors: [createPaletteTierColorSpec(0)],
+  tierBreakdown: [
+    {
+      tierIndex: 0,
+      itemCount: 1,
+      colorSpec: createPaletteTierColorSpec(0),
+    },
+  ],
+  mini: null,
+  pinned: false,
+  ...overrides,
+})
+
 // DOMRect-like for layout/popup tests. derives right/bottom from
 // left/top/width/height when not explicitly overridden so callers can pass
 // either pair without repeating math
@@ -100,3 +152,34 @@ export const makeRect = (overrides?: Partial<DOMRect>): DOMRect =>
     toJSON: () => ({}),
   } as DOMRect
 }
+
+export const makePublicUserMe = (
+  overrides: Partial<PublicUserMe> = {}
+): PublicUserMe => ({
+  _id: 'user-1',
+  email: 'alice@example.test',
+  name: 'Alice',
+  displayName: null,
+  image: null,
+  hasAvatar: false,
+  externalId: null,
+  plan: 'free',
+  createdAt: 1,
+  updatedAt: null,
+  handle: 'alice',
+  bio: null,
+  location: null,
+  pronouns: null,
+  ...overrides,
+  privacy: {
+    ...DEFAULT_USER_PRIVACY_SETTINGS,
+    ...overrides.privacy,
+  },
+})
+
+export const makeSignedInSession = (
+  user: Partial<PublicUserMe> = {}
+): AuthSession => ({
+  status: 'signed-in',
+  user: makePublicUserMe(user),
+})

@@ -4,10 +4,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { ITEM_TRANSFORM_LIMITS } from '@tierlistbuilder/contracts/workspace/board'
+import { padBBox } from '@tierlistbuilder/contracts/workspace/imageMath'
 import {
   bboxToItemTransform,
   detectContentBBoxFromImageData,
-} from '~/shared/lib/autoCrop'
+} from '~/shared/lib/autoCrop/pipeline'
 
 interface AlphaRect
 {
@@ -193,6 +194,48 @@ describe('auto-crop transform helpers', () =>
     expect(transform.zoom).toBeCloseTo(2, 6)
     expect(transform.offsetX).toBeCloseTo(-0.3, 6)
     expect(transform.offsetY).toBeCloseTo(0, 6)
+  })
+})
+
+describe('bbox padding helpers', () =>
+{
+  it('clamps padded bboxes by default', () =>
+  {
+    expect(
+      padBBox(
+        {
+          left: 0.01,
+          top: 0.02,
+          right: 0.98,
+          bottom: 0.99,
+        },
+        0.05
+      )
+    ).toEqual({
+      left: 0,
+      top: 0,
+      right: 1,
+      bottom: 1,
+    })
+  })
+
+  it('can preserve out-of-bounds cover frames', () =>
+  {
+    const padded = padBBox(
+      {
+        left: 0.01,
+        top: 0.02,
+        right: 0.98,
+        bottom: 0.99,
+      },
+      0.05,
+      { clamp: false }
+    )
+
+    expect(padded.left).toBeCloseTo(-0.04)
+    expect(padded.top).toBeCloseTo(-0.03)
+    expect(padded.right).toBeCloseTo(1.03)
+    expect(padded.bottom).toBeCloseTo(1.04)
   })
 })
 
