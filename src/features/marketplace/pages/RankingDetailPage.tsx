@@ -30,7 +30,7 @@ import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { CriterionBadge } from '~/features/marketplace/ui/consensus/criterion/CriterionBadge'
-import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/MarketplaceNotFound'
+import { NotFoundSurface } from '~/shared/ui/NotFoundSurface'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
 import { MetaPill } from '~/features/marketplace/ui/meta/MetaPill'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
@@ -169,7 +169,7 @@ const TierRow = ({
 }
 
 const NotFound = () => (
-  <MarketplaceNotFound
+  <NotFoundSurface
     title="Ranking not found"
     body="It may have been unpublished or the link might be wrong."
     actionLabel="Browse templates"

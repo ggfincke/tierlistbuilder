@@ -38,7 +38,7 @@ import { ButtonLink } from '~/shared/ui/Button'
 
 import { templateFrame } from '~/features/marketplace/ui/consensus/lib/utils'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
-import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/MarketplaceNotFound'
+import { NotFoundSurface } from '~/shared/ui/NotFoundSurface'
 import { LoadingBlock } from '~/features/marketplace/ui/consensus/views/LoadingBlock'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { CompareDivergenceTable } from '~/features/marketplace/ui/consensus/compare/CompareDivergenceTable'
@@ -136,7 +136,7 @@ const useFullyLoadedAggregateItems = (
 }
 
 const NotFound = () => (
-  <MarketplaceNotFound
+  <NotFoundSurface
     title="Compare unavailable"
     body="That template either doesn't exist or doesn't have multiple criteria to compare."
     actionLabel="Back to gallery"

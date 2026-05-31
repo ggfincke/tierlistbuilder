@@ -38,7 +38,7 @@ import {
   RESERVED_RAIL,
   TemplateHero,
 } from '~/features/marketplace/ui/template/TemplateHero'
-import { MarketplaceNotFound } from '~/features/marketplace/ui/layout/MarketplaceNotFound'
+import { NotFoundSurface } from '~/shared/ui/NotFoundSurface'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/MarketplaceBreadcrumb'
 import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
 
@@ -59,7 +59,7 @@ const readCachedHeroAggregate = (
 }
 
 const NotFound = () => (
-  <MarketplaceNotFound
+  <NotFoundSurface
     title="Template not found"
     body="It may have been unpublished or the link might be wrong."
     actionLabel="Back to gallery"

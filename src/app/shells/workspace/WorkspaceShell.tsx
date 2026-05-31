@@ -23,6 +23,7 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useWarmActiveBoardImages } from '~/features/workspace/boards/model/useWarmActiveBoardImages'
 import { getResponsiveToolbarPosition } from '~/shared/overlay/toolbarPosition'
+import { WORKSPACE_SHELL_CLASS } from '~/shared/ui/pageContainer'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/aspect-ratio/AspectRatioPromptProvider'
 import { useCurrentPageBackground } from '~/features/workspace/settings/model/useCurrentPageBackground'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
@@ -124,10 +125,7 @@ export const WorkspaceShell = () =>
   if (!appReady)
   {
     return (
-      <main
-        id="app-shell"
-        className="ambient-layer min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
-      />
+      <main id="app-shell" className={WORKSPACE_SHELL_CLASS} />
     )
   }
 
@@ -135,7 +133,7 @@ export const WorkspaceShell = () =>
     <AspectRatioPromptProvider>
       <main
         id="app-shell"
-        className="ambient-layer min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
+        className={WORKSPACE_SHELL_CLASS}
         style={pageBackground ? { backgroundColor: pageBackground } : undefined}
       >
         <div className="app-content mx-auto w-full max-w-6xl px-3 pb-4 pt-20 sm:px-6 sm:pb-6 sm:pt-24">

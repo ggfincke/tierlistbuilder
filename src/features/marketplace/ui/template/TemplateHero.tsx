@@ -41,6 +41,7 @@ import { Cover } from '../cover/Cover'
 import { MetaPill } from '../meta/MetaPill'
 import { ShareTemplateButton } from './ShareTemplateButton'
 import { UseTemplateButton } from '../cards/UseTemplateButton'
+import { IconButton } from '~/shared/ui/IconButton'
 
 // sentinel: page passes this as `rightRail` to keep the 3-col grid stable
 // when the current lane has no rail content but other lanes do. The hero
@@ -79,16 +80,15 @@ const SecondaryIconButton = ({
   onClick,
   disabled,
 }: SecondaryIconButtonProps) => (
-  <button
-    type="button"
+  <IconButton
+    size="lg"
     onClick={onClick}
     disabled={disabled}
     aria-label={ariaLabel}
     title={title ?? ariaLabel}
-    className="focus-custom inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-not-allowed disabled:opacity-50"
   >
     <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-  </button>
+  </IconButton>
 )
 
 const BOOKMARK_TITLE_BY_STATE = {
@@ -326,7 +326,7 @@ export const TemplateHero = ({
               slug={template.slug}
               templateTitle={template.title}
               ariaLabel={`Share ${template.title}`}
-              className="focus-custom inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+              size="lg"
             />
             <SecondaryIconButton
               ariaLabel="Print this template"

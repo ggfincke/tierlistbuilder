@@ -9,11 +9,13 @@ import { getTemplateDetailPath } from '~/shared/routes/pathname'
 import { isAbortError } from '~/shared/lib/errors'
 import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
 import { toast } from '~/shared/notifications/useToastStore'
+import { IconButton, type IconButtonSize } from '~/shared/ui/IconButton'
 
 interface ShareTemplateButtonProps
 {
   slug: string
   templateTitle: string
+  size?: IconButtonSize
   className?: string
   ariaLabel?: string
 }
@@ -33,6 +35,7 @@ const COPIED_FEEDBACK_MS = 1_400
 export const ShareTemplateButton = ({
   slug,
   templateTitle,
+  size = 'md',
   className,
   ariaLabel,
 }: ShareTemplateButtonProps) =>
@@ -73,21 +76,18 @@ export const ShareTemplateButton = ({
   }, [copy, slug, templateTitle])
 
   return (
-    <button
-      type="button"
+    <IconButton
+      size={size}
       onClick={handleClick}
       aria-label={ariaLabel ?? `Share ${templateTitle}`}
       title="Share template"
-      className={
-        className ??
-        'focus-custom inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
-      }
+      className={className}
     >
       {copied ? (
         <Check className="h-4 w-4" strokeWidth={2} />
       ) : (
         <Share2 className="h-4 w-4" strokeWidth={1.8} />
       )}
-    </button>
+    </IconButton>
   )
 }
