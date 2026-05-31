@@ -31,17 +31,26 @@
     --t-overlay: 255 255 255;
     --t-export-bg: #050505;
     --t-media-matte: #0a0a0c;
+    /* per-image plate for transparent logos — a dark logo sits on the light
+       plate, a white logo on the dark plate. per-theme defaults come from
+       tokens.ts via applyThemeTokens; these are the base fallbacks */
+    --t-media-plate-light: var(--t-media-plate-light-default, #f5f5f5);
+    --t-media-plate-dark: var(
+      --t-media-plate-dark-default,
+      var(--t-media-matte)
+    );
 
     /* typography tokens — Default body style (user-selectable in preferences) */
-    --ts-font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    --ts-font-family:
+      'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif;
     --ts-weight-normal: 400;
     --ts-weight-heading: 600;
     --ts-letter-spacing: -0.011em;
 
-    /* always-on editorial family — eyebrows/labels (--ts-mono). Loaded
-       statically in index.html so they survive any user text-style switch. */
+    /* always-on editorial family — eyebrows/labels (--ts-mono). */
     --ts-mono:
-      'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace;
+      'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Code', 'SF Mono',
+      ui-monospace, monospace;
 
     font-family: var(--ts-font-family);
     color: var(--t-text);
@@ -332,7 +341,7 @@
      (.mkt-hero h1 .bungee at line 377-387) */
   .display-accent
   {
-    font-family: 'Bungee', 'Inter', sans-serif;
+    font-family: 'Bungee', 'Inter Variable', 'Inter', sans-serif;
     text-transform: uppercase;
     color: var(--t-accent-2);
     font-size: 0.62em;
@@ -357,6 +366,12 @@
   .display-accent-shadow
   {
     text-shadow: 0.08em 0.08em 0 var(--t-accent);
+  }
+
+  /* mono editorial label utility — eyebrows & meta labels (--ts-mono) */
+  .mono
+  {
+    font-family: var(--ts-mono);
   }
 
   /* Scoreboard "LIVE NOW" pulse — paired with the accent dot animation. */

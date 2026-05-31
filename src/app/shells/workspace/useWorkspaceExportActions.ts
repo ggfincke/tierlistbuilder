@@ -2,12 +2,14 @@
 // workspace export commands that open preview & annotation modals. owns
 // the shared image-format state used by both the menu picker & preview
 
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import type { ModalStackState, ModalStack } from '~/app/shells/useModalStack'
 import type { WorkspaceModalPayloads } from '~/app/shells/workspace/workspaceModals'
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import { useExportController } from '~/features/workspace/export/model/useExportController'
+
+type RenderThenOpenModal = 'annotation' | 'preview'
 
 interface UseWorkspaceExportActionsOptions
 {
@@ -32,27 +34,29 @@ export const useWorkspaceExportActions = ({
     renderBoardToDataUrl,
   } = useExportController()
 
-  const handleAnnotateExport = useCallback(() =>
-  {
-    void renderBoardToDataUrl().then((image) =>
+  const makeRenderThenOpen = useCallback(
+    (key: RenderThenOpenModal) => () =>
     {
-      if (image)
+      void renderBoardToDataUrl().then((image) =>
       {
-        openModal('annotation', image)
-      }
-    })
-  }, [openModal, renderBoardToDataUrl])
+        if (image)
+        {
+          openModal(key, image)
+        }
+      })
+    },
+    [openModal, renderBoardToDataUrl]
+  )
 
-  const handlePreviewExport = useCallback(() =>
-  {
-    void renderBoardToDataUrl().then((image) =>
-    {
-      if (image)
-      {
-        openModal('preview', image)
-      }
-    })
-  }, [openModal, renderBoardToDataUrl])
+  const handleAnnotateExport = useMemo(
+    () => makeRenderThenOpen('annotation'),
+    [makeRenderThenOpen]
+  )
+
+  const handlePreviewExport = useMemo(
+    () => makeRenderThenOpen('preview'),
+    [makeRenderThenOpen]
+  )
 
   const handlePreviewDownload = useCallback(() =>
   {

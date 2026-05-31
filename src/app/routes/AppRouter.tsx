@@ -8,13 +8,21 @@ import { lazyNamed } from '~/shared/lib/lazyNamed'
 import {
   BOARDS_ROUTE_PATH,
   EMBED_ROUTE_PATH,
+  PROFILE_ROUTE_PATH,
+  RANKINGS_ROUTE_PATH,
+  SETTINGS_ROUTE_PATH,
+  SHOWCASE_ROUTE_PATH,
+  TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
 } from '~/shared/routes/pathname'
 import { AppChromeLayout } from '~/app/routes/AppChromeLayout'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import { NotFoundRoute } from '~/app/routes/NotFoundRoute'
 import { WorkspaceRoute } from '~/app/routes/WorkspaceRoute'
+import { AMBIENT_PAGE_CLASS } from '~/shared/ui/pageContainer'
 
+// embed bundle ships shared/board-ui + EmbedView which workspace users never
+// hit — lazy load keeps it out of the primary chunk
 const EmbedRoute = lazyNamed(() => import('./EmbedRoute'), 'EmbedRoute')
 
 const MyBoardsRoute = lazyNamed(
@@ -22,9 +30,51 @@ const MyBoardsRoute = lazyNamed(
   'MyBoardsRoute'
 )
 
-const RouteFallback = () => (
-  <main className="min-h-screen bg-[var(--t-bg-page)]" />
+const SettingsRoute = lazyNamed(
+  () => import('./SettingsRoute'),
+  'SettingsRoute'
 )
+
+const ProfileRoute = lazyNamed(() => import('./ProfileRoute'), 'ProfileRoute')
+
+const ShowcaseRoute = lazyNamed(
+  () => import('./ShowcaseRoute'),
+  'ShowcaseRoute'
+)
+
+const MarketplaceLayout = lazyNamed(
+  () => import('~/features/marketplace/pages/MarketplaceLayout'),
+  'MarketplaceLayout'
+)
+
+const TemplatesGalleryPage = lazyNamed(
+  () => import('~/features/marketplace/pages/TemplatesGalleryPage'),
+  'TemplatesGalleryPage'
+)
+
+const TemplateDetailPage = lazyNamed(
+  () => import('~/features/marketplace/pages/TemplateDetailPage'),
+  'TemplateDetailPage'
+)
+
+const TemplateComparePage = lazyNamed(
+  () => import('~/features/marketplace/pages/TemplateComparePage'),
+  'TemplateComparePage'
+)
+
+const RankingDetailPage = lazyNamed(
+  () => import('~/features/marketplace/pages/RankingDetailPage'),
+  'RankingDetailPage'
+)
+
+const RankingsIndexPage = lazyNamed(
+  () => import('~/features/marketplace/pages/RankingsIndexPage'),
+  'RankingsIndexPage'
+)
+
+// matches the page-color shell each lazy chunk applies once mounted, so users
+// don't see a white flash while the JS arrives
+const RouteFallback = () => <main className={AMBIENT_PAGE_CLASS} />
 
 const routerBasename = normalizeBasePath() || '/'
 
@@ -53,6 +103,63 @@ export const AppRouter = () => (
             </ErrorBoundary>
           }
         />
+        <Route
+          path={`${SETTINGS_ROUTE_PATH}/*`}
+          element={
+            <ErrorBoundary section="settings">
+              <Suspense fallback={<RouteFallback />}>
+                <SettingsRoute />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path={`${PROFILE_ROUTE_PATH}/:handle`}
+          element={
+            <ErrorBoundary section="profile">
+              <Suspense fallback={<RouteFallback />}>
+                <ProfileRoute />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path={SHOWCASE_ROUTE_PATH}
+          element={
+            <ErrorBoundary section="tier list">
+              <Suspense fallback={<RouteFallback />}>
+                <ShowcaseRoute />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path={TEMPLATES_ROUTE_PATH}
+          element={
+            <ErrorBoundary section="templates">
+              <Suspense fallback={<RouteFallback />}>
+                <MarketplaceLayout />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        >
+          <Route index element={<TemplatesGalleryPage />} />
+          <Route path=":slug" element={<TemplateDetailPage />} />
+          <Route path=":slug/compare" element={<TemplateComparePage />} />
+        </Route>
+        <Route
+          path={RANKINGS_ROUTE_PATH}
+          element={
+            <ErrorBoundary section="rankings">
+              <Suspense fallback={<RouteFallback />}>
+                <MarketplaceLayout />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        >
+          <Route index element={<RankingsIndexPage />} />
+          <Route path=":slug" element={<RankingDetailPage />} />
+        </Route>
         <Route path="*" element={<NotFoundRoute />} />
       </Route>
       <Route

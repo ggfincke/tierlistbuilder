@@ -16,6 +16,7 @@ export interface BoardActionBarProps
   onOpenStats: () => void
   onShare: () => void
   exportControls: BoardActionBarExportControls
+  publish?: BoardActionBarPublishControls
   onReset: () => void
 }
 
@@ -30,4 +31,13 @@ interface BoardActionBarExportControls
   onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
   onAnnotateExport: () => void
   onPreviewExport: () => void
+}
+
+export interface BoardActionBarPublishControls
+{
+  ranking?: () => void
+  template?: () => void
+  // signed-out: publish actions still appear but route to a sign-in prompt
+  // instead of being hidden, so the capability stays discoverable
+  signInRequired?: boolean
 }

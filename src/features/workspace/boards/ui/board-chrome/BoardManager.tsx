@@ -2,8 +2,20 @@
 // floating bottom-right panel for switching between multiple tier lists
 
 import { useCallback, useId, useRef, useState } from 'react'
-import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  Copy,
+  History,
+  Layers,
+  Library,
+  Link as LinkIcon,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
+
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
@@ -18,22 +30,39 @@ import {
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { OverlayPanelSurface } from '~/shared/overlay/OverlaySurface'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
 import { TextInput } from '~/shared/ui/TextInput'
+import { BoardSyncBadge } from '~/features/workspace/boards/ui/board-chrome/BoardSyncBadge'
+import { lazyNamed } from '~/shared/lib/lazyNamed'
+import { useSyncOwnerUserId } from '~/features/platform/auth/model/useSyncOwnerUserId'
+
+const RecentlyDeletedModal = lazyNamed(
+  () => import('~/features/workspace/boards/ui/modals/RecentlyDeletedModal'),
+  'RecentlyDeletedModal'
+)
+
+const RecentSharesModal = lazyNamed(
+  () => import('~/features/workspace/sharing/ui/RecentSharesModal'),
+  'RecentSharesModal'
+)
 
 interface BoardManagerProps
 {
   toolbarPosition: ToolbarPosition
+  cloudEnabled: boolean
   onSwitchBoard: (boardId: BoardId) => void
 }
 
 export const BoardManager = ({
   toolbarPosition,
+  cloudEnabled,
   onSwitchBoard,
 }: BoardManagerProps) =>
 {
+  const pendingSyncOwnerUserId = useSyncOwnerUserId()
   const { boards, activeBoardId } = useWorkspaceBoardRegistryStore(
     useShallow((s) => ({
       boards: s.boards,
@@ -46,6 +75,8 @@ export const BoardManager = ({
 
   const [open, setOpen] = useState(false)
   const [showPresetPicker, setShowPresetPicker] = useState(false)
+  const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
+  const [showRecentShares, setShowRecentShares] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<BoardId | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
@@ -175,6 +206,11 @@ export const BoardManager = ({
                         {board.title}
                       </button>
 
+                      <BoardSyncBadge
+                        boardId={board.id}
+                        boardTitle={board.title}
+                      />
+
                       <button
                         type="button"
                         aria-label={`Rename ${board.title}`}
@@ -189,7 +225,9 @@ export const BoardManager = ({
                         aria-label={`Duplicate ${board.title}`}
                         onClick={() =>
                           {
-                          duplicateBoardSession(board.id)
+                          duplicateBoardSession(board.id, {
+                            pendingSyncOwnerUserId,
+                          })
                           setOpen(false)
                         }}
                         className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] max-sm:p-1.5"
@@ -226,7 +264,44 @@ export const BoardManager = ({
               <Plus className="h-3.5 w-3.5" />
               New List
             </button>
+            <Link
+              to={TEMPLATES_ROUTE_PATH}
+              onClick={() => setOpen(false)}
+              className="focus-custom mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
+            >
+              <Library className="h-3.5 w-3.5" />
+              Browse templates
+            </Link>
           </div>
+
+          {cloudEnabled && (
+            <div className="border-t border-[var(--t-border)] px-3 py-2">
+              <button
+                type="button"
+                onClick={() =>
+                {
+                  setOpen(false)
+                  setShowRecentlyDeleted(true)
+                }}
+                className="focus-custom flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
+              >
+                <History className="h-3.5 w-3.5" />
+                Recently deleted
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                {
+                  setOpen(false)
+                  setShowRecentShares(true)
+                }}
+                className="focus-custom mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
+              >
+                <LinkIcon className="h-3.5 w-3.5" />
+                Recent shares
+              </button>
+            </div>
+          )}
         </OverlayPanelSurface>
       )}
 
@@ -242,7 +317,11 @@ export const BoardManager = ({
       <ConfirmDialog
         open={confirmDeleteId !== null}
         title="Delete list?"
-        description={`"${boardToDelete?.title ?? ''}" will be permanently deleted.`}
+        description={
+          cloudEnabled
+            ? `"${boardToDelete?.title ?? ''}" will be moved to Recently deleted. You can restore it for 30 days.`
+            : `"${boardToDelete?.title ?? ''}" will be permanently deleted.`
+        }
         confirmText="Delete"
         onCancel={() => setConfirmDeleteId(null)}
         onConfirm={() =>
@@ -254,6 +333,26 @@ export const BoardManager = ({
           }
         }}
       />
+
+      <LazyModalSlot when={showRecentlyDeleted} section="recently deleted">
+        {() => (
+          <RecentlyDeletedModal
+            open={showRecentlyDeleted}
+            onClose={() => setShowRecentlyDeleted(false)}
+            enabled={cloudEnabled}
+          />
+        )}
+      </LazyModalSlot>
+
+      <LazyModalSlot when={showRecentShares} section="recent shares">
+        {() => (
+          <RecentSharesModal
+            open={showRecentShares}
+            onClose={() => setShowRecentShares(false)}
+            enabled={cloudEnabled}
+          />
+        )}
+      </LazyModalSlot>
     </>
   )
 }

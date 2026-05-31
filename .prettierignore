@@ -11,6 +11,9 @@ convex/_generated
 .claude
 skills-lock.json
 
+# local design exports
+dev-docs/new_design
+
 # pre-existing unformatted docs tracked in the repo
 agents.md
 CLAUDE.md

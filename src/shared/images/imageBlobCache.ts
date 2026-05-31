@@ -41,6 +41,13 @@ let flushScheduled = false
 const MAX_BATCH_SIZE = 50
 const MAX_FAILED_CLOUD_REQUESTS = 512
 
+const scheduleFlush = (): void =>
+{
+  if (flushScheduled) return
+  flushScheduled = true
+  queueMicrotask(flushPendingCloudRequests)
+}
+
 export const registerCloudImageFetcher = (fn: CloudImageBatchFetcher): void =>
 {
   if (cloudBatchFetcher && cloudBatchFetcher !== fn)
@@ -57,11 +64,7 @@ export const registerCloudImageFetcher = (fn: CloudImageBatchFetcher): void =>
   // drain any requests that were queued before the fetcher was registered.
   // ItemContent effects fire on first render & race the useCloudSync effect
   // that wires this up, so the queue is non-empty in the common case
-  if (pendingRequests.size > 0 && !flushScheduled)
-  {
-    flushScheduled = true
-    queueMicrotask(flushPendingCloudRequests)
-  }
+  if (pendingRequests.size > 0) scheduleFlush()
 }
 
 const runBatch = (requests: ReadonlyArray<CloudImageRequest>): void =>
@@ -117,11 +120,7 @@ export const requestCloudImage = (
 
   if (!cloudBatchFetcher) return
 
-  if (!flushScheduled)
-  {
-    flushScheduled = true
-    queueMicrotask(flushPendingCloudRequests)
-  }
+  scheduleFlush()
 }
 
 const ensureCloudImageCached = async (
@@ -172,11 +171,7 @@ const retryFailedCloudRequests = (): void =>
   }
   failedCloudRequests.clear()
 
-  if (queued > 0 && !flushScheduled)
-  {
-    flushScheduled = true
-    queueMicrotask(flushPendingCloudRequests)
-  }
+  if (queued > 0) scheduleFlush()
 }
 
 interface CachedImageEntry

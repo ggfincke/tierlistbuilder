@@ -13,15 +13,15 @@ import {
 import {
   normalizeBoardTitle,
   type BoardSnapshot,
-  type CloudMediaOwnership,
   type Tier,
   type TierItem,
   type TierItemImageRef,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import { DEFAULT_SE_TIERS } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
   ImageFit,
   ItemTransform,
+  MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   MarketplaceTemplateDetail,
@@ -45,32 +45,17 @@ import {
   loadBoardState,
   saveActiveBoardSnapshot,
 } from '~/features/workspace/boards/model/session/boardSessionPersistence'
-import { reportTemplateMediaCacheWarningIfNeeded } from '~/features/workspace/boards/model/session/storageWarningReporter'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { logger } from '~/shared/lib/logger'
 import { cacheFreshBlob, warmFromBoard } from '~/shared/images/imageBlobCache'
 import { createBlobRecord } from '~/shared/images/imagePersistence'
 import { putBlob } from '~/shared/images/imageStore'
 
-// share-mode fallback tier presets when neither a template nor a ranking
-// supplied any. mirrors `DEFAULT_TEMPLATE_TIERS` from convex/marketplace/templates/lib
-// but stays client-side so signed-out forks don't reach the server for shapes
-const DEFAULT_FORK_TIERS: ReadonlyArray<TierPresetTier> = [
-  { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-  { name: 'A', colorSpec: { kind: 'palette', index: 1 } },
-  { name: 'B', colorSpec: { kind: 'palette', index: 2 } },
-  { name: 'C', colorSpec: { kind: 'palette', index: 3 } },
-  { name: 'D', colorSpec: { kind: 'palette', index: 4 } },
-  { name: 'E', colorSpec: { kind: 'palette', index: 5 } },
-]
-
 const SOURCE_MEDIA_FETCH_CONCURRENCY = 4
 
 // convert a marketplace media ref into the local image-ref shape. content
 // hash + externalId keep cloud fallback identity; public URL bytes are cached
 // before activation so signed-out forks render without auth-backed lookup.
-const SOURCE_OWNERSHIP: CloudMediaOwnership = 'source'
-
 const mediaToImageRef = (
   media: TemplateMediaRef | null
 ): TierItemImageRef | undefined =>
@@ -78,7 +63,7 @@ const mediaToImageRef = (
     ? {
         hash: media.contentHash,
         cloudMediaExternalId: media.externalId,
-        cloudMediaOwnership: SOURCE_OWNERSHIP,
+        cloudMediaOwnership: 'source',
       }
     : undefined
 
@@ -100,7 +85,6 @@ const fetchAndCachePublicTemplateMedia = async (
   }
   catch (error)
   {
-    reportTemplateMediaCacheWarningIfNeeded()
     logger.warn(
       'media',
       `Failed to cache public template media ${media.externalId}:`,
@@ -135,10 +119,32 @@ interface ForkableMarketplaceItem
   media: TemplateMediaRef | null
   label: string | null
   backgroundColor: string | null
+  mediaPlate: MediaPlate | null
   altText: string | null
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
+  imagePadding: number | null
+}
+
+type DefinedFields<T> = {
+  [K in keyof T]?: NonNullable<T[K]>
+}
+
+const definedSpread = <T extends Record<string, unknown>>(
+  fields: T
+): DefinedFields<T> =>
+{
+  const result: DefinedFields<T> = {}
+  for (const key of Object.keys(fields) as Array<keyof T>)
+  {
+    const value = fields[key]
+    if (value !== null && value !== undefined)
+    {
+      result[key] = value as NonNullable<T[typeof key]>
+    }
+  }
+  return result
 }
 
 // build a local TierItem from a marketplace template or ranking item. fields
@@ -155,24 +161,16 @@ const toTierItemFromMarketplaceItem = (
     id,
     sourceTemplateItemExternalId,
     ...(imageRef ? { imageRef, tileImageRef: imageRef } : {}),
-    ...(item.label !== null && item.label !== undefined
-      ? { label: item.label }
-      : {}),
-    ...(item.backgroundColor !== null && item.backgroundColor !== undefined
-      ? { backgroundColor: item.backgroundColor }
-      : {}),
-    ...(item.altText !== null && item.altText !== undefined
-      ? { altText: item.altText }
-      : {}),
-    ...(item.aspectRatio !== null && item.aspectRatio !== undefined
-      ? { aspectRatio: item.aspectRatio }
-      : {}),
-    ...(item.imageFit !== null && item.imageFit !== undefined
-      ? { imageFit: item.imageFit }
-      : {}),
-    ...(item.transform !== null && item.transform !== undefined
-      ? { transform: item.transform }
-      : {}),
+    ...definedSpread({
+      label: item.label,
+      backgroundColor: item.backgroundColor,
+      mediaPlate: item.mediaPlate,
+      altText: item.altText,
+      aspectRatio: item.aspectRatio,
+      imageFit: item.imageFit,
+      transform: item.transform,
+      imagePadding: item.imagePadding,
+    }),
   }
   return { id, tierItem }
 }
@@ -183,6 +181,7 @@ interface LocalForkOptions
   // subscriber picks it up. signed-out callers pass false; signed-in callers
   // pass true so the upsert (& first-sync fork-counter tick) fires promptly
   markPendingSync: boolean
+  pendingSyncOwnerUserId?: string | null
 }
 
 // shared finishing logic — persist the snapshot, register in the workspace
@@ -191,11 +190,15 @@ interface LocalForkOptions
 const finalizeLocalBoard = async (
   boardId: BoardId,
   snapshot: BoardSnapshot,
-  { markPendingSync }: LocalForkOptions
+  { markPendingSync, pendingSyncOwnerUserId = null }: LocalForkOptions
 ): Promise<void> =>
 {
   const syncState: BoardSyncState = markPendingSync
-    ? markBoardPendingSync(EMPTY_BOARD_SYNC_STATE)
+    ? markBoardPendingSync(
+        EMPTY_BOARD_SYNC_STATE,
+        Date.now(),
+        pendingSyncOwnerUserId
+      )
     : EMPTY_BOARD_SYNC_STATE
 
   const saveResult = saveBoardToStorage(boardId, snapshot, { syncState })
@@ -246,7 +249,7 @@ const buildItemsFromTemplateItems = (
 }
 
 // derive board tiers from the template's suggested set, falling back to the
-// canonical S–E preset when the template author left tiers unset
+// canonical S-E preset when the template author left tiers unset
 const buildTiersFromTemplate = (
   template: MarketplaceTemplateDetail
 ): Tier[] =>
@@ -254,7 +257,7 @@ const buildTiersFromTemplate = (
   const sourceTiers =
     template.suggestedTiers.length > 0
       ? template.suggestedTiers
-      : DEFAULT_FORK_TIERS
+      : DEFAULT_SE_TIERS
 
   return sourceTiers.map(
     (tier): Tier => ({
@@ -275,6 +278,7 @@ interface CreateLocalBoardFromTemplateArgs
   // user-overridable title; defaults to the template title when blank
   title?: string
   markPendingSync: boolean
+  pendingSyncOwnerUserId?: string | null
   preferredCriterionExternalId?: string
 }
 
@@ -289,6 +293,7 @@ export const createLocalBoardFromTemplate = async (
     template,
     templateItems,
     markPendingSync,
+    pendingSyncOwnerUserId,
     preferredCriterionExternalId,
   } = args
 
@@ -311,19 +316,24 @@ export const createLocalBoardFromTemplate = async (
     ...(template.defaultItemImageFit !== null
       ? { defaultItemImageFit: template.defaultItemImageFit }
       : {}),
+    ...(template.defaultItemImagePadding !== null
+      ? { defaultItemImagePadding: template.defaultItemImagePadding }
+      : {}),
     ...(template.labels !== null ? { labels: template.labels } : {}),
+    ...(template.autoPlate !== null ? { autoPlate: template.autoPlate } : {}),
     sourceTemplateId: template.slug,
     sourceTemplateTitle: template.title,
     ...(template.coverMedia
       ? { sourceTemplateCoverMedia: template.coverMedia }
       : {}),
-    ...(template.coverFraming
-      ? { sourceTemplateCoverFraming: template.coverFraming }
-      : {}),
+    sourceTemplateCoverFraming: template.coverFraming,
     ...(preferredCriterionExternalId ? { preferredCriterionExternalId } : {}),
   }
 
-  await finalizeLocalBoard(boardId, snapshot, { markPendingSync })
+  await finalizeLocalBoard(boardId, snapshot, {
+    markPendingSync,
+    pendingSyncOwnerUserId,
+  })
   return boardId
 }
 
@@ -416,6 +426,7 @@ interface CreateLocalBoardFromRankingArgs
   templateItems: readonly MarketplaceTemplateItem[]
   title?: string
   markPendingSync: boolean
+  pendingSyncOwnerUserId?: string | null
 }
 
 // build a local board snapshot from a ranking + its source-template items.
@@ -425,7 +436,8 @@ export const createLocalBoardFromRanking = async (
   args: CreateLocalBoardFromRankingArgs
 ): Promise<BoardId> =>
 {
-  const { ranking, templateItems, markPendingSync } = args
+  const { ranking, templateItems, markPendingSync, pendingSyncOwnerUserId } =
+    args
 
   const boardExternalId = generateBoardId()
   const boardId = asBoardId(boardExternalId)
@@ -451,9 +463,16 @@ export const createLocalBoardFromRanking = async (
     sourceRankingId: ranking.slug,
     sourceTemplateTitle: ranking.template.title,
     sourceRankingTitle: ranking.title,
+    ...(ranking.autoPlate !== null ? { autoPlate: ranking.autoPlate } : {}),
+    ...(ranking.defaultItemImagePadding !== null
+      ? { defaultItemImagePadding: ranking.defaultItemImagePadding }
+      : {}),
     preferredCriterionExternalId: ranking.criterion.externalId,
   }
 
-  await finalizeLocalBoard(boardId, snapshot, { markPendingSync })
+  await finalizeLocalBoard(boardId, snapshot, {
+    markPendingSync,
+    pendingSyncOwnerUserId,
+  })
   return boardId
 }

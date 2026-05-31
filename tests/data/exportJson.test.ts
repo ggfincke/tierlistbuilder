@@ -7,16 +7,36 @@ import {
   parseBoardJson,
   parseBoardSnapshotJson,
   parseBoardsJson,
+  readBoardImportJsonFile,
 } from '~/features/workspace/export/lib/exportJson'
 import { stripImagesForShare } from '~/shared/sharing/hashShare'
-import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
+import {
+  BOARD_DATA_VERSION,
+  MAX_BOARD_IMPORT_BOARDS,
+  MAX_BOARD_IMPORT_JSON_BYTES,
+} from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  isItemTransformInRange,
+  ITEM_TRANSFORM_LIMITS,
+  MAX_BOARD_ITEM_LABEL_LEN,
+  MAX_BOARD_TITLE_LENGTH,
+  MAX_TIER_NAME_LEN,
+} from '@tierlistbuilder/contracts/workspace/board'
+import {
+  MAX_CLOUD_BOARD_TIERS,
+  MAX_LARGE_CLOUD_BOARD_ITEMS,
+} from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
+import { MAX_TEMPLATE_TITLE_LENGTH } from '@tierlistbuilder/contracts/marketplace/template'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import * as imagePersistence from '~/shared/images/imagePersistence'
 import * as imageStore from '~/shared/images/imageStore'
 import * as downloadBlobModule from '~/shared/lib/downloadBlob'
 import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
+import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
+import type { BoardImageUploadResult } from '~/features/platform/media/imageUploader'
 
 // minimal valid board data — satisfies parseBoardJson validation
 const makeValidBoard = (overrides?: Partial<BoardSnapshot>): BoardSnapshot =>
@@ -56,9 +76,63 @@ const wrapEnvelope = (data: BoardSnapshot) =>
     data,
   })
 
+const makeWireTier = (
+  index: number,
+  overrides: Record<string, unknown> = {}
+) => ({
+  id: `tier-${index}`,
+  name: `Tier ${index}`,
+  colorSpec: { kind: 'palette', index: index % 8 },
+  itemIds: [],
+  ...overrides,
+})
+
+const makeWireItem = (
+  index: number,
+  overrides: Record<string, unknown> = {}
+) => ({
+  id: `item-${index}`,
+  label: `Item ${index}`,
+  ...overrides,
+})
+
+const emptyUploadResult = (): BoardImageUploadResult => ({
+  mediaExternalIdByHash: new Map(),
+  mediaExternalIdByItemId: new Map(),
+})
+
 afterEach(() =>
 {
   vi.restoreAllMocks()
+})
+
+describe('readBoardImportJsonFile', () =>
+{
+  it('rejects oversized files before reading the body', async () =>
+  {
+    const text = vi.fn(async () => '{}')
+
+    await expect(
+      readBoardImportJsonFile({
+        size: MAX_BOARD_IMPORT_JSON_BYTES + 1,
+        text,
+      })
+    ).rejects.toThrow('JSON import file is too large')
+    expect(text).not.toHaveBeenCalled()
+  })
+
+  it('reads files within the import byte cap', async () =>
+  {
+    const text = vi.fn(async () => '{"ok":true}')
+
+    await expect(
+      readBoardImportJsonFile({
+        size: MAX_BOARD_IMPORT_JSON_BYTES,
+        text,
+      })
+    ).resolves.toBe('{"ok":true}')
+    expect(text).toHaveBeenCalledOnce()
+  })
 })
 
 describe('parseBoardJson', () =>
@@ -70,7 +144,7 @@ describe('parseBoardJson', () =>
     expect(result.title).toBe('Test Board')
     expect(result.tiers).toHaveLength(2)
     expect(result.tiers[0].name).toBe('S')
-    expect(result.items['item-1'].label).toBe('First')
+    expect(result.items[asItemId('item-1')].label).toBe('First')
   })
 
   it('throws on invalid JSON', async () =>
@@ -139,6 +213,232 @@ describe('parseBoardJson', () =>
         })
       )
     ).rejects.toThrow('File must contain at least one tier.')
+  })
+
+  it('rejects boards above the tier import cap', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: Array.from({ length: MAX_CLOUD_BOARD_TIERS + 1 }, (_, index) =>
+          makeWireTier(index)
+        ),
+        items: {},
+      },
+    }
+
+    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+      `Tier count exceeds import limit of ${MAX_CLOUD_BOARD_TIERS}.`
+    )
+  })
+
+  it('rejects boards above the item import cap', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0)],
+        items: Object.fromEntries(
+          Array.from(
+            { length: MAX_LARGE_CLOUD_BOARD_ITEMS + 1 },
+            (_, index) => [`item-${index}`, makeWireItem(index)]
+          )
+        ),
+      },
+    }
+
+    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+      `Item count exceeds import limit of ${MAX_LARGE_CLOUD_BOARD_ITEMS}.`
+    )
+  })
+
+  it('rejects boards above the deleted-item import cap', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0)],
+        items: {},
+        deletedItems: Array.from(
+          { length: MAX_LARGE_CLOUD_BOARD_ITEMS + 1 },
+          (_, index) => makeWireItem(index)
+        ),
+      },
+    }
+
+    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+      `Deleted item count exceeds import limit of ${MAX_LARGE_CLOUD_BOARD_ITEMS}.`
+    )
+  })
+
+  it('rejects boards above the item-reference import cap', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [
+          makeWireTier(0, {
+            itemIds: Array.from(
+              { length: MAX_LARGE_CLOUD_BOARD_ITEMS + 1 },
+              (_, index) => `item-${index}`
+            ),
+          }),
+        ],
+        items: {},
+      },
+    }
+
+    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+      `Tier "Tier 0" item references exceeds import limit of ${MAX_LARGE_CLOUD_BOARD_ITEMS}.`
+    )
+  })
+
+  it.each([
+    [
+      'board title',
+      {
+        title: 'x'.repeat(MAX_BOARD_TITLE_LENGTH + 1),
+        tiers: [makeWireTier(0)],
+        items: {},
+      },
+      `Board title exceeds import limit of ${MAX_BOARD_TITLE_LENGTH} characters.`,
+    ],
+    [
+      'tier name',
+      {
+        tiers: [makeWireTier(0, { name: 'x'.repeat(MAX_TIER_NAME_LEN + 1) })],
+        items: {},
+      },
+      `Tier "tier-0" name exceeds import limit of ${MAX_TIER_NAME_LEN} characters.`,
+    ],
+    [
+      'item label',
+      {
+        tiers: [makeWireTier(0)],
+        items: {
+          'item-1': makeWireItem(1, {
+            label: 'x'.repeat(MAX_BOARD_ITEM_LABEL_LEN + 1),
+          }),
+        },
+      },
+      `Item "item-1" label exceeds import limit of ${MAX_BOARD_ITEM_LABEL_LEN} characters.`,
+    ],
+    [
+      'source template title',
+      {
+        tiers: [makeWireTier(0)],
+        items: {},
+        sourceTemplateTitle: 'x'.repeat(MAX_TEMPLATE_TITLE_LENGTH + 1),
+      },
+      `sourceTemplateTitle exceeds import limit of ${MAX_TEMPLATE_TITLE_LENGTH} characters.`,
+    ],
+  ])(
+    'rejects oversized import strings (%s)',
+    async (_label, data, expected) =>
+    {
+      await expect(
+        parseBoardJson(
+          JSON.stringify({
+            version: BOARD_DATA_VERSION,
+            data,
+          })
+        )
+      ).rejects.toThrow(expected)
+    }
+  )
+
+  it('rejects inline image payloads above the per-image import cap', async () =>
+  {
+    const oversizedImageUrl = `data:image/png;base64,${'A'.repeat(
+      Math.ceil((MAX_IMAGE_BYTE_SIZE * 4) / 3) + 129
+    )}`
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0)],
+        items: {
+          'item-1': makeWireItem(1, {
+            imageUrl: oversizedImageUrl,
+          }),
+        },
+      },
+    }
+
+    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+      'Item "item-1" imageUrl exceeds import limit'
+    )
+  })
+
+  it('normalizes imported transforms before cloud sync', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0, { itemIds: ['item-1'] })],
+        items: {
+          'item-1': makeWireItem(1, {
+            transform: {
+              rotation: 0,
+              zoom: 50,
+              offsetX: -10,
+              offsetY: 10,
+            },
+          }),
+        },
+      },
+    }
+
+    const imported = await parseBoardJson(JSON.stringify(payload))
+    const cloudPayload = snapshotToCloudPayload(imported, emptyUploadResult())
+    const transform = cloudPayload.items[0].transform
+
+    expect(transform).toEqual({
+      rotation: 0,
+      zoom: ITEM_TRANSFORM_LIMITS.zoomMax,
+      offsetX: ITEM_TRANSFORM_LIMITS.offsetMin,
+      offsetY: ITEM_TRANSFORM_LIMITS.offsetMax,
+    })
+    expect(transform && isItemTransformInRange(transform)).toBe(true)
+  })
+
+  it('drops invalid item background colors at the import finalizer', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0, { itemIds: ['item-1'] })],
+        items: {
+          'item-1': makeWireItem(1, {
+            backgroundColor: 'not-a-hex-color',
+          }),
+        },
+      },
+    }
+
+    const imported = await parseBoardJson(JSON.stringify(payload))
+
+    expect(imported.items[asItemId('item-1')].label).toBe('Item 1')
+    expect(imported.items[asItemId('item-1')].backgroundColor).toBeUndefined()
+  })
+
+  it('does not count invalid item background colors as visible content', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        tiers: [makeWireTier(0)],
+        items: {
+          'item-1': {
+            id: 'item-1',
+            backgroundColor: 'not-a-hex-color',
+          },
+        },
+      },
+    }
+
+    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+      'Item "item-1" has no image, label, or backgroundColor'
+    )
   })
 
   it.each([
@@ -297,7 +597,7 @@ describe('parseBoardJson', () =>
 
     const result = await parseBoardJson(JSON.stringify(payload))
 
-    expect(result.items['item-1']).toMatchObject({
+    expect(result.items[asItemId('item-1')]).toMatchObject({
       notes: 'Private note',
       sourceTemplateItemExternalId: 'template-item-1',
     })
@@ -323,21 +623,25 @@ describe('parseBoardJson', () =>
   {
     const board = makeValidBoard({
       items: {
-        'item-1': makeItem({
+        [asItemId('item-1')]: makeItem({
           id: asItemId('item-1'),
           imageRef: { hash: 'abc' },
           tileImageRef: { hash: 'tile-abc' },
         }),
-        'item-2': makeItem({ id: asItemId('item-2'), label: 'Second' }),
+        [asItemId('item-2')]: makeItem({
+          id: asItemId('item-2'),
+          label: 'Second',
+        }),
       },
     })
 
     const shared = stripImagesForShare(board)
     expect(
-      (shared.items['item-1'] as { imageRef?: unknown }).imageRef
+      (shared.items[asItemId('item-1')] as { imageRef?: unknown }).imageRef
     ).toBeUndefined()
     expect(
-      (shared.items['item-1'] as { tileImageRef?: unknown }).tileImageRef
+      (shared.items[asItemId('item-1')] as { tileImageRef?: unknown })
+        .tileImageRef
     ).toBeUndefined()
     expect(shared.deletedItems).toHaveLength(0)
   })
@@ -532,7 +836,7 @@ describe('parseBoardJson', () =>
     const payload = JSON.parse(await downloadSpy.mock.calls[0][0].text()) as {
       data: BoardSnapshot
     }
-    expect(payload.data.items['item-1']).toMatchObject({
+    expect(payload.data.items[asItemId('item-1')]).toMatchObject({
       notes: 'Private note',
       sourceTemplateItemExternalId: 'template-item-1',
     })
@@ -614,6 +918,21 @@ describe('parseBoardsJson', () =>
     )
   })
 
+  it('rejects multi-board exports above the board import cap', async () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      boards: Array.from({ length: MAX_BOARD_IMPORT_BOARDS + 1 }, () => ({
+        title: 'Board',
+        data: makeValidBoard(),
+      })),
+    }
+
+    await expect(parseBoardsJson(JSON.stringify(payload))).rejects.toThrow(
+      `Board count exceeds import limit of ${MAX_BOARD_IMPORT_BOARDS}.`
+    )
+  })
+
   it('wraps per-board errors w/ the board title', async () =>
   {
     const badMulti = {
@@ -659,6 +978,6 @@ describe('parseBoardSnapshotJson', () =>
       'Shared Board'
     )
     expect(result.title).toBe('Shared Board')
-    expect(result.items['item-1'].label).toBe('First')
+    expect(result.items[asItemId('item-1')].label).toBe('First')
   })
 })

@@ -3,9 +3,11 @@
 
 import type { PaletteId, TextStyleId, ThemeId } from '../lib/theme'
 import type { LabelPlacementMode } from '../workspace/board'
+import { clamp } from '../lib/math'
+import { isFiniteNumber } from '../lib/typeGuards'
 
-// item display size presets
-export const ITEM_SIZES = ['small', 'medium', 'large'] as const
+// item display size presets — 'xl' is an extra size, not shown in the settings picker
+export const ITEM_SIZES = ['small', 'medium', 'large', 'xl'] as const
 export type ItemSize = (typeof ITEM_SIZES)[number]
 
 // item crop shape presets
@@ -36,14 +38,15 @@ export const EXPORT_ITEMS_PER_ROW_DEFAULT = 10
 
 export const normalizeExportItemsPerRow = (value: unknown): number =>
 {
-  if (typeof value !== 'number' || !Number.isFinite(value))
+  if (!isFiniteNumber(value))
   {
     return EXPORT_ITEMS_PER_ROW_DEFAULT
   }
 
-  return Math.min(
-    EXPORT_ITEMS_PER_ROW_MAX,
-    Math.max(EXPORT_ITEMS_PER_ROW_MIN, Math.round(value))
+  return clamp(
+    Math.round(value),
+    EXPORT_ITEMS_PER_ROW_MIN,
+    EXPORT_ITEMS_PER_ROW_MAX
   )
 }
 
@@ -73,6 +76,9 @@ export interface AppPreferences
   tierLabelItalic: boolean
   tierLabelFontSize: TierLabelFontSize
   boardLocked: boolean
+  // when true the top navigation bar stays visible instead of auto-hiding
+  // when not hovered or focused
+  topNavLocked: boolean
   reducedMotion: boolean
   toolbarPosition: ToolbarPosition
   // gates the item-edit pencil overlay shown on each tier item

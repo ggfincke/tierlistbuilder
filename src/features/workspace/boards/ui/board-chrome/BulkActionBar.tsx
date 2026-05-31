@@ -8,11 +8,8 @@ import {
   selectIsDragging,
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { selectTiersMeta } from '~/features/workspace/boards/model/slices/selectors'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
-import { resolveTierColorSpec } from '~/shared/theme/tierColors'
-import { getTextColor } from '~/shared/lib/color'
+import { useTierMoveTargets } from '~/features/workspace/boards/ui/shared/useTierMoveTargets'
 
 export const BulkActionBar = () =>
 {
@@ -33,11 +30,8 @@ export const BulkActionBar = () =>
       clearSelection: state.clearSelection,
     }))
   )
-  // separate subscription so itemIds churn during drag preview no longer
-  // re-runs this component's useShallow comparator
-  const tiers = useActiveBoardStore(selectTiersMeta)
+  const tiers = useTierMoveTargets()
   const reducedMotion = usePreferencesStore((state) => state.reducedMotion)
-  const paletteId = useCurrentPaletteId()
 
   if (selectedCount === 0 || isDragging) return null
 
@@ -56,23 +50,18 @@ export const BulkActionBar = () =>
 
         <div className="flex items-center gap-1.5">
           <ArrowRight className="h-3.5 w-3.5 text-[var(--t-text-faint)]" />
-          {tiers.map((tier) =>
-          {
-            const bg = resolveTierColorSpec(paletteId, tier.colorSpec)
-            const fg = getTextColor(bg)
-            return (
-              <button
-                key={tier.id}
-                type="button"
-                onClick={() => moveSelectedToTier(tier.id)}
-                className="rounded-md px-2 py-0.5 text-xs font-semibold transition-opacity hover:opacity-80"
-                style={{ backgroundColor: bg, color: fg }}
-                title={`Move to ${tier.name}`}
-              >
-                {tier.name}
-              </button>
-            )
-          })}
+          {tiers.map((tier) => (
+            <button
+              key={tier.id}
+              type="button"
+              onClick={() => moveSelectedToTier(tier.id)}
+              className="rounded-md px-2 py-0.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ backgroundColor: tier.color, color: tier.textColor }}
+              title={`Move to ${tier.name}`}
+            >
+              {tier.name}
+            </button>
+          ))}
           <button
             type="button"
             onClick={moveSelectedToUnranked}

@@ -2,13 +2,19 @@
 // single-item metadata: alt text, notes, & background color. mounted only in
 // the editor's single-item mode so multi-item auditing stays uncluttered
 
-import { useEffect, useId, useImperativeHandle, useRef, useState } from 'react'
+import { useEffect, useId, useImperativeHandle } from 'react'
 import type { Ref } from 'react'
 
+import {
+  AUTO_PLATE_UNIFORM_DARK_DEFAULT,
+  AUTO_PLATE_UNIFORM_DEFAULT,
+  type MediaPlate,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { ColorInput } from '~/shared/ui/ColorInput'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextArea } from '~/shared/ui/TextArea'
 import { TextInput } from '~/shared/ui/TextInput'
+import { useFlushableTextDraft } from '~/shared/hooks/useFlushableTextDraft'
 
 export interface ImageEditorMetadataPanelHandle
 {
@@ -23,6 +29,9 @@ interface ImageEditorMetadataPanelProps
   altText: string | undefined
   notes: string | undefined
   backgroundColor: string | undefined
+  // analysis recommendation for transparent logos; drives the Recommended
+  // shortcut. absent -> the image is already readable, so no shortcut shows
+  mediaPlate: MediaPlate | undefined
   hasImage: boolean
   onAltTextChange: (value: string) => void
   onNotesChange: (value: string) => void
@@ -31,6 +40,14 @@ interface ImageEditorMetadataPanelProps
 }
 
 const DEFAULT_BACKGROUND_PICKER_COLOR = '#3b82f6'
+
+// concrete contrasting backdrops the Recommended shortcut writes as a per-item
+// backgroundColor, keyed by the analysis result. fixed hex (not theme tokens)
+// since a stored backgroundColor must be portable across themes & exports
+const RECOMMENDED_PLATE_COLOR: Record<MediaPlate, string> = {
+  light: AUTO_PLATE_UNIFORM_DEFAULT,
+  dark: AUTO_PLATE_UNIFORM_DARK_DEFAULT,
+}
 
 const Eyebrow = ({ children }: { children: React.ReactNode }) => (
   <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
@@ -43,6 +60,7 @@ export const ImageEditorMetadataPanel = ({
   altText,
   notes,
   backgroundColor,
+  mediaPlate,
   hasImage,
   onAltTextChange,
   onNotesChange,
@@ -54,42 +72,24 @@ export const ImageEditorMetadataPanel = ({
   const notesInputId = useId()
   const colorInputId = useId()
 
-  const [altDraft, setAltDraft] = useState(altText ?? '')
-  const [notesDraft, setNotesDraft] = useState(notes ?? '')
-
-  // reset drafts only on item swap; upstream altText/notes intentionally
-  // excluded so a store update mid-keystroke doesn't clobber in-flight typing
-  useEffect(() =>
-  {
-    setAltDraft(altText ?? '')
-    setNotesDraft(notes ?? '')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemId])
-
-  const altDraftRef = useRef(altDraft)
-  const notesDraftRef = useRef(notesDraft)
-  useEffect(() =>
-  {
-    altDraftRef.current = altDraft
-  }, [altDraft])
-  useEffect(() =>
-  {
-    notesDraftRef.current = notesDraft
-  }, [notesDraft])
-
-  const flushAlt = () =>
-  {
-    const committed = altText ?? ''
-    if (altDraftRef.current === committed) return
-    onAltTextChange(altDraftRef.current)
-  }
-
-  const flushNotes = () =>
-  {
-    const committed = notes ?? ''
-    if (notesDraftRef.current === committed) return
-    onNotesChange(notesDraftRef.current)
-  }
+  const {
+    value: altDraft,
+    setValue: setAltDraft,
+    flush: flushAlt,
+  } = useFlushableTextDraft({
+    value: altText,
+    resetKey: itemId,
+    onCommit: onAltTextChange,
+  })
+  const {
+    value: notesDraft,
+    setValue: setNotesDraft,
+    flush: flushNotes,
+  } = useFlushableTextDraft({
+    value: notes,
+    resetKey: itemId,
+    onCommit: onNotesChange,
+  })
 
   useImperativeHandle(
     ref,
@@ -100,9 +100,7 @@ export const ImageEditorMetadataPanel = ({
         flushNotes()
       },
     }),
-    // flushAlt/flushNotes close over latest drafts via refs, so deps stay empty
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [flushAlt, flushNotes]
   )
 
   // commit pending edits when the panel unmounts (modal close, item swap)
@@ -112,12 +110,20 @@ export const ImageEditorMetadataPanel = ({
       flushAlt()
       flushNotes()
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [flushAlt, flushNotes]
   )
 
   const backgroundValue = backgroundColor ?? DEFAULT_BACKGROUND_PICKER_COLOR
   const showClearBackground = Boolean(backgroundColor)
+  // the analysis-suggested backdrop for a transparent logo, if any
+  const suggestedColor =
+    hasImage && mediaPlate ? RECOMMENDED_PLATE_COLOR[mediaPlate] : null
+  // surface the shortcut only when the current background doesn't already match
+  const recommendedColor =
+    suggestedColor !== null &&
+    backgroundColor?.toLowerCase() !== suggestedColor.toLowerCase()
+      ? suggestedColor
+      : null
 
   return (
     <section
@@ -143,7 +149,7 @@ export const ImageEditorMetadataPanel = ({
               onBlur={flushAlt}
               placeholder={
                 hasImage
-                  ? 'Describe this image for screen readers…'
+                  ? 'Describe this image for screen readers...'
                   : 'Optional description'
               }
               maxLength={200}
@@ -168,7 +174,7 @@ export const ImageEditorMetadataPanel = ({
               value={notesDraft}
               onChange={(e) => setNotesDraft(e.target.value)}
               onBlur={flushNotes}
-              placeholder="Private — only you see this. Why did you rank this here?"
+              placeholder="Private - only you see this. Why did you rank this here?"
               maxLength={2000}
               rows={3}
               size="sm"
@@ -195,6 +201,20 @@ export const ImageEditorMetadataPanel = ({
               {backgroundColor ? backgroundColor.toUpperCase() : 'None'}
             </span>
           </div>
+          {recommendedColor && (
+            <SecondaryButton
+              size="sm"
+              variant="surface"
+              onClick={() => onBackgroundColorChange(recommendedColor)}
+            >
+              <span
+                aria-hidden="true"
+                className="mr-1.5 inline-block h-3 w-3 rounded-sm border border-[var(--t-border)] align-[-1px]"
+                style={{ backgroundColor: recommendedColor }}
+              />
+              Recommended
+            </SecondaryButton>
+          )}
           {showClearBackground && (
             <SecondaryButton
               size="sm"
@@ -206,7 +226,7 @@ export const ImageEditorMetadataPanel = ({
           )}
           <p className="text-[11px] leading-snug text-[var(--t-text-muted)]">
             {hasImage
-              ? 'Falls behind the image — visible when zoom or fit leaves edges.'
+              ? 'Sits behind the image - fills transparent areas & letterbox edges.'
               : 'Tile background for text-only items.'}
           </p>
         </div>

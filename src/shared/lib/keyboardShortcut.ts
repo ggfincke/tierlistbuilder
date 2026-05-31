@@ -2,7 +2,7 @@
 // strict keyboard-shortcut matcher — forbidden-by-default modifiers prevent
 // the cmd-K-eats-cmd-shift-K bug class by requiring every absent flag to be UP
 
-export interface KeyboardModifierEvent
+interface KeyboardModifierEvent
 {
   metaKey: boolean
   ctrlKey: boolean
@@ -11,7 +11,7 @@ export interface KeyboardModifierEvent
   key: string
 }
 
-export interface ShortcutSpec
+interface ShortcutSpec
 {
   // matched against event.key.toLowerCase()
   key: string

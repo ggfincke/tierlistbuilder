@@ -1,5 +1,7 @@
-// rules/comment-style-guide.js
+// eslint-rules/comment-style-guide.js
 // enforces `&` instead of "and" & `w/` instead of "with" in comments
+
+import { getSourceCode, wrapCommentText } from './ruleContext.js'
 
 const rule = {
   meta: {
@@ -19,11 +21,20 @@ const rule = {
 
   create(context)
   {
-    const sourceCode = context.sourceCode ?? context.getSourceCode()
+    const sourceCode = getSourceCode(context)
 
-    // regex patterns for standalone words
-    const andPattern = /\band\b/gi
-    const withPattern = /\bwith\b/gi
+    const stylePatterns = [
+      {
+        pattern: /\band\b/gi,
+        messageId: 'useAmpersand',
+        replacement: '&',
+      },
+      {
+        pattern: /\bwith\b/gi,
+        messageId: 'useWith',
+        replacement: 'w/',
+      },
+    ]
 
     return {
       Program()
@@ -34,48 +45,22 @@ const rule = {
         {
           const text = comment.value
 
-          // check for "&" violations
-          andPattern.lastIndex = 0
-          if (andPattern.test(text))
+          for (const { pattern, messageId, replacement } of stylePatterns)
           {
-            andPattern.lastIndex = 0
-            context.report({
-              loc: comment.loc,
-              messageId: 'useAmpersand',
-              fix(fixer)
-              {
-                const newText = text.replace(andPattern, '&')
-                if (comment.type === 'Line')
-                {
-                  return fixer.replaceText(comment, `//${newText}`)
-                }
-                else
-                {
-                  return fixer.replaceText(comment, `/*${newText}*/`)
-                }
-              },
-            })
-          }
+            pattern.lastIndex = 0
+            if (!pattern.test(text)) continue
 
-          // check for "w/" violations
-          withPattern.lastIndex = 0
-          if (withPattern.test(text))
-          {
-            withPattern.lastIndex = 0
             context.report({
               loc: comment.loc,
-              messageId: 'useWith',
+              messageId,
               fix(fixer)
               {
-                const newText = text.replace(withPattern, 'w/')
-                if (comment.type === 'Line')
-                {
-                  return fixer.replaceText(comment, `//${newText}`)
-                }
-                else
-                {
-                  return fixer.replaceText(comment, `/*${newText}*/`)
-                }
+                pattern.lastIndex = 0
+                const newText = text.replace(pattern, replacement)
+                return fixer.replaceText(
+                  comment,
+                  wrapCommentText(comment, newText)
+                )
               },
             })
           }

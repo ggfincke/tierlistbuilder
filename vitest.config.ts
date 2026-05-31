@@ -10,6 +10,9 @@ export default defineConfig({
   },
   test: {
     alias: moduleAliases,
+    fileParallelism: false,
+    // Convex test RPC can leave console events pending at thread teardown.
+    pool: 'vmThreads',
     exclude: [
       'node_modules',
       'dist',

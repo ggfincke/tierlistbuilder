@@ -15,6 +15,7 @@ import {
   loadImageEditorModal,
   preloadImageEditorModal,
 } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
+import { loadPublishModal } from '~/features/marketplace/ui/publish/loadPublishModal'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
 import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
@@ -41,6 +42,11 @@ const BoardSettingsModal = lazyNamed(
   () => import('~/features/workspace/settings/ui/BoardSettingsModal'),
   'BoardSettingsModal'
 )
+const PublishRankingModal = lazyNamed(
+  () => import('~/features/marketplace/ui/publish/PublishRankingModal'),
+  'PublishRankingModal'
+)
+const PublishTemplateModal = lazyNamed(loadPublishModal, 'PublishModal')
 const ShortcutsPanel = lazyNamed(
   () => import('~/features/workspace/shortcuts/ui/ShortcutsPanel'),
   'ShortcutsPanel'
@@ -103,6 +109,14 @@ export const WorkspaceModalLayer = ({
   )
   const handleCloseStats = useCallback(() => closeModal('stats'), [closeModal])
   const handleCloseShare = useCallback(() => closeModal('share'), [closeModal])
+  const handleClosePublishRanking = useCallback(
+    () => closeModal('publishRanking'),
+    [closeModal]
+  )
+  const handleClosePublishTemplate = useCallback(
+    () => closeModal('publishTemplate'),
+    [closeModal]
+  )
   const handleCloseAnnotation = useCallback(
     () => closeModal('annotation'),
     [closeModal]
@@ -156,6 +170,30 @@ export const WorkspaceModalLayer = ({
             open
             onClose={handleCloseShare}
             getSnapshot={() => extractBoardData(useActiveBoardStore.getState())}
+          />
+        )}
+      </LazyModalSlot>
+      <LazyModalSlot when={modalState.publishRanking} section="publish ranking">
+        {(publishRanking) => (
+          <PublishRankingModal
+            open
+            onClose={handleClosePublishRanking}
+            boardExternalId={publishRanking.payload.boardExternalId}
+            defaultTitle={publishRanking.payload.defaultTitle}
+          />
+        )}
+      </LazyModalSlot>
+      <LazyModalSlot
+        when={modalState.publishTemplate}
+        section="publish template"
+      >
+        {(publishTemplate) => (
+          <PublishTemplateModal
+            open
+            onClose={handleClosePublishTemplate}
+            initialBoardExternalId={
+              publishTemplate.payload.initialBoardExternalId
+            }
           />
         )}
       </LazyModalSlot>

@@ -1,0 +1,995 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tierlistbuilder.local/schemas/seed-compiled-manifest.schema.json",
+  "title": "Tierlistbuilder Seed Compiled Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "datasetKey",
+    "releaseId",
+    "authorEmail",
+    "sourceManifestPath",
+    "generatedAt",
+    "variantSpecVersion",
+    "totals",
+    "templates",
+    "warnings",
+    "errors"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "datasetKey": {
+      "$ref": "#/$defs/datasetKey"
+    },
+    "releaseId": {
+      "$ref": "#/$defs/releaseId"
+    },
+    "authorEmail": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 254,
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    },
+    "sourceManifestPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generatedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "variantSpecVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "totals": {
+      "$ref": "#/$defs/totals"
+    },
+    "templates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/template"
+      }
+    },
+    "rankingSeeds": {
+      "$ref": "#/$defs/rankingSeeds"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "datasetKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "releaseId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[0-9a-z]+(?:-[0-9a-z]+)*$"
+    },
+    "templateExternalId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 96,
+      "pattern": "^[a-z0-9]+(?::[a-z0-9]+(?:-[a-z0-9]+)*)+$"
+    },
+    "entryExternalId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "mimeType": {
+      "enum": ["image/jpeg", "image/png", "image/webp", "image/gif"]
+    },
+    "category": {
+      "enum": [
+        "gaming",
+        "movies",
+        "anime",
+        "music",
+        "sports",
+        "food",
+        "books",
+        "tech",
+        "other"
+      ]
+    },
+    "visibility": {
+      "enum": ["public", "unlisted"]
+    },
+    "labelPolicy": {
+      "enum": [
+        "explicit-required",
+        "explicit-or-filename-fallback",
+        "filename-derived",
+        "hidden"
+      ]
+    },
+    "boardLabelSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "show": {
+          "type": "boolean"
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "templateCount",
+        "itemCount",
+        "criterionCount",
+        "sourceImageCount",
+        "variantCount",
+        "estimatedUploadBytes",
+        "estimatedStorageBytes"
+      ],
+      "properties": {
+        "templateCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "itemCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "criterionCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourceImageCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "variantCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimatedUploadBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimatedStorageBytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "externalId",
+        "folder",
+        "title",
+        "category",
+        "description",
+        "tags",
+        "visibility",
+        "labelPolicy",
+        "itemAspectRatio",
+        "defaultItemImagePadding",
+        "ratioSource",
+        "criteria",
+        "items"
+      ],
+      "properties": {
+        "externalId": {
+          "$ref": "#/$defs/templateExternalId"
+        },
+        "folder": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "category": {
+          "$ref": "#/$defs/category"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "maxLength": 500
+        },
+        "tags": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          }
+        },
+        "visibility": {
+          "$ref": "#/$defs/visibility"
+        },
+        "labelPolicy": {
+          "$ref": "#/$defs/labelPolicy"
+        },
+        "labels": {
+          "$ref": "#/$defs/boardLabelSettings"
+        },
+        "autoPlate": {
+          "$ref": "#/$defs/autoPlate"
+        },
+        "itemAspectRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "defaultItemImagePadding": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 0.4
+        },
+        "ratioSource": {
+          "enum": ["consistent", "mixed-dominant", "mixed-square"]
+        },
+        "coverImage": {
+          "$ref": "#/$defs/compiledAsset"
+        },
+        "coverZoom": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 10
+        },
+        "suggestedTiers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/suggestedTier"
+          }
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/criterion"
+          }
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        }
+      }
+    },
+    "suggestedTier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "colorSpec"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "colorSpec": {
+          "$ref": "#/$defs/tierColorSpec"
+        },
+        "rowColorSpec": {
+          "$ref": "#/$defs/tierColorSpec"
+        }
+      }
+    },
+    "tierColorSpec": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "index"],
+          "properties": {
+            "kind": {
+              "const": "palette"
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "hex"],
+          "properties": {
+            "kind": {
+              "const": "custom"
+            },
+            "hex": {
+              "$ref": "#/$defs/hexColor"
+            }
+          }
+        }
+      ]
+    },
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "externalId",
+        "name",
+        "shortName",
+        "prompt",
+        "axisTop",
+        "axisBottom",
+        "order",
+        "isPrimary",
+        "status"
+      ],
+      "properties": {
+        "externalId": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "shortName": {
+          "type": ["string", "null"],
+          "maxLength": 16
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "axisTop": {
+          "type": ["string", "null"],
+          "maxLength": 40
+        },
+        "axisBottom": {
+          "type": ["string", "null"],
+          "maxLength": 40
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "isPrimary": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": ["active", "hidden", "deprecated"]
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "externalId",
+        "order",
+        "image",
+        "label",
+        "aspectRatio",
+        "transform",
+        "mediaPlate",
+        "imagePadding",
+        "asset"
+      ],
+      "properties": {
+        "externalId": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "aspectRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "transform": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/itemTransform"
+            }
+          ]
+        },
+        "mediaPlate": {
+          "enum": ["light", "dark", null]
+        },
+        "imagePadding": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 0.4
+        },
+        "backgroundColor": {
+          "$ref": "#/$defs/hexColor"
+        },
+        "asset": {
+          "$ref": "#/$defs/compiledAsset"
+        }
+      }
+    },
+    "autoPlate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "enum": ["off", "auto"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "const": "uniform" },
+            "uniformColor": { "$ref": "#/$defs/hexColor" }
+          }
+        }
+      ]
+    },
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "rankingSeeds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profileSet",
+        "defaultProfileCount",
+        "includeAllTemplates",
+        "profiles",
+        "targets"
+      ],
+      "properties": {
+        "profileSet": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "defaultProfileCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "includeAllTemplates": {
+          "type": "boolean"
+        },
+        "profiles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/rankingProfile"
+          }
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rankingTarget"
+          }
+        }
+      }
+    },
+    "rankingProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "displayName",
+        "chaos",
+        "contrarian",
+        "boostTermsByTarget",
+        "dropTermsByTarget"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "chaos": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "contrarian": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "boostTermsByTarget": {
+          "$ref": "#/$defs/rankingTermOverrides"
+        },
+        "dropTermsByTarget": {
+          "$ref": "#/$defs/rankingTermOverrides"
+        }
+      }
+    },
+    "rankingTermOverrides": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
+    },
+    "rankingTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "templateExternalId",
+        "sampleProfileCount",
+        "countAsTemplateUse",
+        "lanes",
+        "curatedRankings"
+      ],
+      "properties": {
+        "templateExternalId": {
+          "$ref": "#/$defs/templateExternalId"
+        },
+        "sampleProfileCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "countAsTemplateUse": {
+          "type": "boolean"
+        },
+        "lanes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/rankingLane"
+          }
+        },
+        "curatedRankings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/curatedRanking"
+          }
+        }
+      }
+    },
+    "rankingLane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterionExternalId",
+        "titleSuffix",
+        "description",
+        "boostTerms",
+        "dropTerms",
+        "profileBoostOverrides",
+        "profileDropOverrides",
+        "chaosMultiplier",
+        "contrarianMultiplier",
+        "featuredProfiles"
+      ],
+      "properties": {
+        "criterionExternalId": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "titleSuffix": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "boostTerms": {
+          "$ref": "#/$defs/rankingTerms"
+        },
+        "dropTerms": {
+          "$ref": "#/$defs/rankingTerms"
+        },
+        "profileBoostOverrides": {
+          "$ref": "#/$defs/rankingTermOverrides"
+        },
+        "profileDropOverrides": {
+          "$ref": "#/$defs/rankingTermOverrides"
+        },
+        "chaosMultiplier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "contrarianMultiplier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "featuredProfiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/featuredProfile"
+          }
+        }
+      }
+    },
+    "rankingTerms": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      }
+    },
+    "featuredProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileKey", "featuredRank", "featuredBadge"],
+      "properties": {
+        "profileKey": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "featuredRank": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "featuredBadge": {
+          "$ref": "#/$defs/rankingFeaturedBadge"
+        }
+      }
+    },
+    "curatedRanking": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "externalId",
+        "authorKey",
+        "authorDisplayName",
+        "criterionExternalId",
+        "title",
+        "description",
+        "featuredRank",
+        "featuredBadge",
+        "coverage",
+        "parentLabelByLabel",
+        "tiers",
+        "tierGroups"
+      ],
+      "properties": {
+        "externalId": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "authorKey": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "authorDisplayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "criterionExternalId": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "featuredRank": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "featuredBadge": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/rankingFeaturedBadge"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "coverage": {
+          "enum": ["full-template", "partial-authoritative"]
+        },
+        "parentLabelByLabel": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "tiers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/suggestedTier"
+          }
+        },
+        "tierGroups": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/curatedTierGroup"
+          }
+        }
+      }
+    },
+    "curatedTierGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tierName", "labels"],
+      "properties": {
+        "tierName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        }
+      }
+    },
+    "rankingFeaturedBadge": {
+      "enum": ["official", "editorial", "tournament", "creator"]
+    },
+    "compiledAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourcePath",
+        "sourcePathRelative",
+        "sourceSha256",
+        "sourceMimeType",
+        "sourceByteSize",
+        "sourceWidth",
+        "sourceHeight",
+        "sourceAspectRatio",
+        "crop",
+        "dedupeHash",
+        "variants"
+      ],
+      "properties": {
+        "sourcePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourcePathRelative": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceSha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "sourceMimeType": {
+          "$ref": "#/$defs/mimeType"
+        },
+        "sourceByteSize": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceWidth": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceHeight": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceAspectRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "crop": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/crop"
+            }
+          ]
+        },
+        "dedupeHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tile", "preview", "editor"],
+          "properties": {
+            "tile": {
+              "$ref": "#/$defs/variant"
+            },
+            "preview": {
+              "$ref": "#/$defs/variant"
+            },
+            "editor": {
+              "$ref": "#/$defs/variant"
+            }
+          }
+        }
+      }
+    },
+    "crop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "top", "right", "bottom"],
+      "properties": {
+        "left": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "right": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "bottom": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "itemTransform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rotation", "zoom", "offsetX", "offsetY"],
+      "properties": {
+        "rotation": {
+          "enum": [0, 90, 180, 270]
+        },
+        "zoom": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 10
+        },
+        "offsetX": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        },
+        "offsetY": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        }
+      }
+    },
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path",
+        "contentHash",
+        "mimeType",
+        "byteSize",
+        "width",
+        "height",
+        "cacheKey"
+      ],
+      "properties": {
+        "kind": {
+          "enum": ["tile", "preview", "editor"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contentHash": {
+          "$ref": "#/$defs/hash"
+        },
+        "mimeType": {
+          "$ref": "#/$defs/mimeType"
+        },
+        "byteSize": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cacheKey": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "path", "severity"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "enum": ["warning", "error"]
+        }
+      }
+    }
+  }
+}

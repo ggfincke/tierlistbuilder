@@ -1,0 +1,39 @@
+// src/features/platform/share/shortLinkRepository.ts
+// Convex adapters for the snapshot-share short link layer.
+// resolve/generate/create are imperative (pre-React); list is reactive; revoke is imperative
+
+import { useQuery } from 'convex/react'
+import { api } from '@convex/_generated/api'
+import type {
+  OwnedShortLinkListItem,
+  ShortLinkResolveResult,
+} from '@tierlistbuilder/contracts/platform/shortLink'
+import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
+
+// imperative resolve for the embed-route bootstrap & workspace inbound-share
+// path; both run before any React tree mounts so a hook isn't an option
+export const resolveShortLinkImperative = (args: {
+  slug: string
+}): Promise<ShortLinkResolveResult> =>
+  getConvexClient().query(api.platform.shortLinks.queries.resolveSlug, args)
+
+// reactive listing for the "Recent shares" modal. unauthenticated callers
+// see []. the query filters out expired-but-not-yet-reaped rows so the
+// listing matches the resolve query's expiry semantics
+export const useListMyShortLinks = (
+  enabled: boolean
+): OwnedShortLinkListItem[] | undefined =>
+  useQuery(
+    api.platform.shortLinks.queries.getMyShortLinks,
+    enabled ? {} : 'skip'
+  )
+
+// revoke an owned short link by slug. silent no-op on missing slugs (reaped by TTL or
+// revoked elsewhere) — UI optimistically removes the row w/o special-casing
+export const revokeShortLinkImperative = (args: {
+  slug: string
+}): Promise<null> =>
+  getConvexClient().mutation(
+    api.platform.shortLinks.mutations.revokeMyShortLink,
+    args
+  )

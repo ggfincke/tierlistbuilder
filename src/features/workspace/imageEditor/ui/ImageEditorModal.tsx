@@ -1,28 +1,18 @@
 // src/features/workspace/imageEditor/ui/ImageEditorModal.tsx
 // store-aware modal orchestration for per-item image editing
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import {
-  isEmptyItemLabelOptions,
-  type GlobalLabelDefaults,
-  type TierItem,
-} from '@tierlistbuilder/contracts/workspace/board'
-import {
-  resolveEffectiveShowLabels,
-  withBoardShowLabels,
-} from '~/shared/board-ui/labelSettings'
+import { isEmptyItemLabelOptions } from '@tierlistbuilder/contracts/workspace/board'
+import { resolveEffectiveShowLabels } from '~/shared/board-ui/labelSettings'
 import {
   getBoardItemAspectRatio,
   getEffectiveImageFit,
   type RatioOption,
 } from '~/shared/board-ui/aspectRatio'
-import {
-  getItemLabelBandVariant,
-  type LabelBandVariant,
-} from '~/shared/board-ui/labelBandVariant'
+import { useGlobalLabelDefaults } from '~/features/platform/preferences/model/useGlobalLabelDefaults'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/aspect-ratio/useBoardAspectRatioPicker'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
@@ -30,9 +20,10 @@ import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/auto
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { useAutoCropAfterLabelsChange } from '~/features/workspace/imageEditor/model/auto-crop/useAutoCropAfterLabelsChange'
 import { useImageEditorAutoCropAll } from '~/features/workspace/imageEditor/model/auto-crop/useImageEditorAutoCropAll'
 import { useImageEditorItems } from '~/features/workspace/imageEditor/model/useImageEditorItems'
-import { useLabelAwareEffectiveAspect } from '~/features/workspace/imageEditor/model/labels/useLabelAwareEffectiveAspect'
+import { useBulkAspectRatioForItems } from '~/features/workspace/imageEditor/model/labels/useBulkAspectRatioForItems'
 import {
   useImageEditorApplyLabelToAll,
   useImageEditorAutoCropAllConfirmation,
@@ -86,53 +77,44 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
       close: s.close,
     }))
   )
-  const { items, tiers, unrankedItemIds } = useActiveBoardStore(
-    useShallow((s) => ({
-      items: s.items,
-      tiers: s.tiers,
-      unrankedItemIds: s.unrankedItemIds,
-    }))
-  )
-  const boardAspectRatio = useActiveBoardStore(getBoardItemAspectRatio)
-  const { boardDefaultFit, boardLabels } = useActiveBoardStore(
-    useShallow((s) => ({
-      boardDefaultFit: s.defaultItemImageFit,
-      boardLabels: s.labels,
-    }))
-  )
   const {
+    items,
+    tiers,
+    unrankedItemIds,
+    boardDefaultFit,
+    boardDefaultPadding,
+    boardAutoPlate,
+    boardLabels,
     setItemTransform,
     setItemsTransform,
     setBoardLabelSettings,
     setBoardAndItemsLabelOptions,
   } = useActiveBoardStore(
     useShallow((s) => ({
+      items: s.items,
+      tiers: s.tiers,
+      unrankedItemIds: s.unrankedItemIds,
+      boardDefaultFit: s.defaultItemImageFit,
+      boardDefaultPadding: s.defaultItemImagePadding,
+      boardAutoPlate: s.autoPlate,
+      boardLabels: s.labels,
       setItemTransform: s.setItemTransform,
       setItemsTransform: s.setItemsTransform,
       setBoardLabelSettings: s.setBoardLabelSettings,
       setBoardAndItemsLabelOptions: s.setBoardAndItemsLabelOptions,
     }))
   )
-  const globalShowLabels = usePreferencesStore((s) => s.showLabels)
-  const globalLabelPlacementMode = usePreferencesStore(
-    (s) => s.defaultLabelPlacementMode
+  const boardAspectRatio = useActiveBoardStore(getBoardItemAspectRatio)
+  const globalLabelDefaults = useGlobalLabelDefaults()
+  const { globalTextStyleId, boardItemSize } = usePreferencesStore(
+    useShallow((s) => ({
+      globalTextStyleId: s.textStyleId,
+      boardItemSize: s.itemSize,
+    }))
   )
-  const globalLabelFontSizePx = usePreferencesStore(
-    (s) => s.defaultLabelFontSizePx
-  )
-  const globalLabelDefaults = useMemo<GlobalLabelDefaults>(
-    () => ({
-      showLabels: globalShowLabels,
-      placementMode: globalLabelPlacementMode,
-      fontSizePx: globalLabelFontSizePx,
-    }),
-    [globalShowLabels, globalLabelPlacementMode, globalLabelFontSizePx]
-  )
-  const globalTextStyleId = usePreferencesStore((s) => s.textStyleId)
-  const boardItemSize = usePreferencesStore((s) => s.itemSize)
   const effectiveShowLabels = resolveEffectiveShowLabels(
     boardLabels,
-    globalShowLabels
+    globalLabelDefaults.showLabels
   )
   const ratioPicker = useBoardAspectRatioPicker()
   const { trimSoftShadows, setTrimSoftShadows } = useAutoCropTrimShadows()
@@ -156,37 +138,17 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
       isSingleMode ? (singleModeItem ? [singleModeItem] : []) : filteredItems,
     [filteredItems, isSingleMode, singleModeItem]
   )
-  // bulk auto-crop measures each distinct caption-band variant once
-  const bulkLabelVariants = useMemo<readonly LabelBandVariant[]>(() =>
-  {
-    const list: LabelBandVariant[] = []
-    for (const item of labelMeasurementItems)
-    {
-      const variant = getItemLabelBandVariant({
-        item,
-        boardLabels,
-        globalLabelDefaults,
-      })
-      if (variant) list.push(variant)
-    }
-    return list
-  }, [labelMeasurementItems, boardLabels, globalLabelDefaults])
   const {
-    getEffectiveAspectRatio: getBulkEffectiveAspectRatio,
+    getBoardAspectRatioForItem,
     measurementsReady: bulkMeasurementsReady,
     measurementNodes: bulkMeasurementNodes,
-  } = useLabelAwareEffectiveAspect({
+  } = useBulkAspectRatioForItems({
+    items: labelMeasurementItems,
     boardAspectRatio,
     itemSize: boardItemSize,
-    variants: bulkLabelVariants,
+    boardLabels,
+    globalLabelDefaults,
   })
-  const getBoardAspectRatioForItem = useCallback(
-    (item: TierItem): number =>
-      getBulkEffectiveAspectRatio(
-        getItemLabelBandVariant({ item, boardLabels, globalLabelDefaults })
-      ),
-    [getBulkEffectiveAspectRatio, boardLabels, globalLabelDefaults]
-  )
   const {
     autoCropProgress,
     autoCropAllApplied,
@@ -199,35 +161,18 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
     trimSoftShadows,
     setItemsTransform,
   })
-  const rerunAutoCropAfterLabelChangeRef = useRef(false)
-  const handleShowLabelsChange = useCallback(
-    (show: boolean) =>
-    {
-      const shouldRerunAutoCrop = autoCropAllApplied || autoCropProgress.running
-      if (shouldRerunAutoCrop)
-      {
-        rerunAutoCropAfterLabelChangeRef.current = true
-        cancelAutoCropAll()
-      }
-      setBoardLabelSettings(withBoardShowLabels(boardLabels, show))
-    },
-    [
-      autoCropAllApplied,
-      autoCropProgress.running,
-      boardLabels,
-      cancelAutoCropAll,
-      setBoardLabelSettings,
-    ]
-  )
-
-  useEffect(() =>
+  const rerunAutoCropAll = useCallback(() =>
   {
-    if (!rerunAutoCropAfterLabelChangeRef.current) return
-    if (autoCropProgress.running || !bulkMeasurementsReady) return
-
-    rerunAutoCropAfterLabelChangeRef.current = false
     void handleAutoCropAll()
-  }, [autoCropProgress.running, bulkMeasurementsReady, handleAutoCropAll])
+  }, [handleAutoCropAll])
+  const handleShowLabelsChange = useAutoCropAfterLabelsChange({
+    boardLabels,
+    setBoardLabelSettings,
+    shouldRerunAutoCrop: autoCropAllApplied || autoCropProgress.running,
+    onCancelAutoCrop: cancelAutoCropAll,
+    canRunAutoCrop: !autoCropProgress.running && bulkMeasurementsReady,
+    onRunAutoCrop: rerunAutoCropAll,
+  })
 
   const getActivePendingEdit = useCallback(
     () => activePaneRef.current?.getPendingEdit() ?? null,
@@ -314,6 +259,7 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
     handleSelectedApplyLabelToAll,
     handleSelectedBackgroundColorChange,
     handleSelectedCommit,
+    handleSelectedImagePaddingChange,
     handleSelectedLabelChange,
     handleSelectedLabelOptionsChange,
     handleSelectedNotesChange,
@@ -453,6 +399,8 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
               mode={mode}
               boardAspectRatio={boardAspectRatio}
               boardDefaultFit={boardDefaultFit}
+              boardDefaultPadding={boardDefaultPadding}
+              boardAutoPlate={boardAutoPlate}
               trimSoftShadows={trimSoftShadows}
               boardLabels={boardLabels}
               globalLabelDefaults={globalLabelDefaults}
@@ -460,6 +408,7 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
               boardItemSize={boardItemSize}
               getBoardAspectRatioForItem={getBoardAspectRatioForItem}
               onCommit={handleSelectedCommit}
+              onPaddingCommit={handleSelectedImagePaddingChange}
               onLabelChange={handleSelectedLabelChange}
               onLabelOptionsChange={handleSelectedLabelOptionsChange}
               onApplyLabelToAll={onApplyLabelToAll}

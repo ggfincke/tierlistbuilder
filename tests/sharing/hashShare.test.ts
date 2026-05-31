@@ -3,12 +3,16 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  ShareFragmentDecodeError,
   compressSnapshotBytes,
   decodeBoardFromShareFragment,
   encodeBoardToShareFragment,
   inflateSnapshotBytes,
+  isShareFragmentDecodeError,
   stripImagesForShare,
 } from '~/shared/sharing/hashShare'
+import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
+import { bytesToBase64Url } from '~/shared/lib/binaryCodec'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { makeBoardSnapshot, makeTier } from '@tests/fixtures'
 
@@ -30,7 +34,7 @@ describe('snapshot codec', () =>
     expect(decoded.title).toBe('My Board')
     expect(decoded.tiers).toHaveLength(1)
     expect(decoded.tiers[0].itemIds).toEqual(['a'])
-    expect(decoded.items['a']?.label).toBe('Hello')
+    expect(decoded.items[asItemId('a')]?.label).toBe('Hello')
   })
 
   it('strips image refs & deletedItems from shared payloads', () =>
@@ -57,6 +61,30 @@ describe('snapshot codec', () =>
     expect(item).not.toHaveProperty('sourceImageRef')
     expect(item).not.toHaveProperty('notes')
     expect(stripped.deletedItems).toEqual([])
+  })
+
+  it('strips private notes from shared payloads', async () =>
+  {
+    const id = asItemId('item-private')
+    const original = makeBoardSnapshot({
+      title: 'Private Notes',
+      tiers: [makeTier({ id: 'tier-s', itemIds: [id] })],
+      items: {
+        [id]: {
+          id,
+          label: 'Visible label',
+          notes: 'Only I should see this',
+        },
+      },
+    })
+
+    const stripped = stripImagesForShare(original)
+    expect(stripped.items[id]).not.toHaveProperty('notes')
+
+    const decoded = await decodeBoardFromShareFragment(
+      await encodeBoardToShareFragment(original)
+    )
+    expect(decoded.items[id]).not.toHaveProperty('notes')
   })
 
   it('keeps image-only items renderable after stripping image refs', async () =>
@@ -99,6 +127,33 @@ describe('snapshot codec', () =>
   {
     const garbage = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
     await expect(inflateSnapshotBytes(garbage)).rejects.toThrow()
+  })
+
+  it('classifies empty, corrupt, and oversized share fragments', async () =>
+  {
+    await expect(decodeBoardFromShareFragment('')).rejects.toMatchObject({
+      kind: 'empty',
+    })
+
+    await expect(decodeBoardFromShareFragment('@@@')).rejects.toMatchObject({
+      kind: 'invalid',
+    })
+
+    const oversized = bytesToBase64Url(
+      new Uint8Array(MAX_SNAPSHOT_COMPRESSED_BYTES + 1)
+    )
+    await expect(decodeBoardFromShareFragment(oversized)).rejects.toMatchObject(
+      {
+        kind: 'too-large',
+      }
+    )
+  })
+
+  it('exposes a type guard for share-fragment decode errors', () =>
+  {
+    const error = new ShareFragmentDecodeError('invalid', 'bad share')
+    expect(isShareFragmentDecodeError(error)).toBe(true)
+    expect(isShareFragmentDecodeError(new Error('bad share'))).toBe(false)
   })
 
   it('round-trips compressSnapshotBytes -> inflateSnapshotBytes at the byte layer', async () =>

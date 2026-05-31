@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import type { Modifier } from '@dnd-kit/core'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  type ClientRect,
   type DragEndEvent,
   type DragMoveEvent,
   type DragOverEvent,
@@ -16,7 +17,11 @@ import {
 import { animateDropDistribute } from '~/features/workspace/boards/dnd/dragDropAnimation'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { announce } from '~/shared/a11y/announce'
-import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
+import {
+  announceDragCancelled,
+  announceItemsDropped,
+  announceItemsPickedUp,
+} from '~/features/workspace/boards/lib/containerLabel'
 import { resolveDragCollisions } from '~/features/workspace/boards/dnd/dragCollision'
 import { resolveDragEndDecision } from '~/features/workspace/boards/dnd/dragEndDecision'
 import {
@@ -28,12 +33,13 @@ import { syncDraggedItemPosition } from '~/features/workspace/boards/dnd/dragPre
 import { useDragSensors } from '~/features/workspace/boards/dnd/dragSensors'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { getItemElementById } from '~/features/workspace/boards/lib/dndIds'
-import {
-  findContainer,
-  getEffectiveContainerSnapshot,
-} from '~/features/workspace/boards/dnd/dragSnapshot'
+import { getEffectiveContainerSnapshot } from '~/features/workspace/boards/dnd/dragSnapshot'
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 import { captureRenderedContainerSnapshot } from '~/features/workspace/boards/dnd/dragDomCapture'
+import {
+  captureDragLayoutSession,
+  type DragLayoutSession,
+} from '~/features/workspace/boards/dnd/dragLayoutSession'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 
 type DragType = 'item' | 'tier'
@@ -100,6 +106,9 @@ export const useDragAndDrop = () =>
   const pendingPreviewRef = useRef<ContainerSnapshot | null>(null)
   const previewFrameRef = useRef<number | null>(null)
   const currentTierIdsRef = useRef<ReadonlySet<string>>(new Set())
+  const cellSessionRef = useRef<DragLayoutSession | null>(null)
+  const frozenOverRef = useRef<{ id: string; rect: ClientRect } | null>(null)
+  const multiDragFrameRef = useRef<number | null>(null)
 
   const sensors = useDragSensors()
 
@@ -142,7 +151,22 @@ export const useDragAndDrop = () =>
     {
       movedToNewContainerRef.current = false
       movedResetFrameRef.current = null
+      // cross-container reflow has committed — refresh frozen cell geometry so
+      // both grids re-engage the frozen path next frame
+      if (activeDragRef.current.kind === 'item')
+      {
+        cellSessionRef.current = captureDragLayoutSession(
+          getCurrentDragPreview()
+        )
+      }
     })
+  }
+
+  const applyPendingPreview = (pending: ContainerSnapshot) =>
+  {
+    currentPreviewRef.current = pending
+    updateDragPreview(pending)
+    scheduleMovedReset()
   }
 
   const flushPendingPreviewUpdate = () =>
@@ -150,9 +174,7 @@ export const useDragAndDrop = () =>
     const pending = consumePendingPreview()
     if (!pending) return
 
-    currentPreviewRef.current = pending
-    updateDragPreview(pending)
-    scheduleMovedReset()
+    applyPendingPreview(pending)
   }
 
   const getCurrentDragPreview = (): ContainerSnapshot =>
@@ -173,9 +195,7 @@ export const useDragAndDrop = () =>
       const pending = consumePendingPreview()
       if (!pending) return
 
-      currentPreviewRef.current = pending
-      updateDragPreview(pending)
-      scheduleMovedReset()
+      applyPendingPreview(pending)
     })
   }
 
@@ -184,6 +204,11 @@ export const useDragAndDrop = () =>
     {
       consumePendingPreview()
       cancelMovedReset()
+      if (multiDragFrameRef.current !== null)
+      {
+        cancelAnimationFrame(multiDragFrameRef.current)
+        multiDragFrameRef.current = null
+      }
     },
     []
   )
@@ -214,22 +239,30 @@ export const useDragAndDrop = () =>
       document.removeEventListener('pointerdown', handlePointerDown, true)
   }, [keyboardMode])
 
-  const collisionDetection = useCallback(
-    (args: Parameters<typeof resolveDragCollisions>[0]) =>
-      resolveDragCollisions(
-        args,
-        lastOverIdRef,
-        movedToNewContainerRef,
-        getCurrentDragPreview,
-        getCurrentTierIds
-      ),
-    []
-  )
+  // not memoized — dnd-kit reads this prop live each collision pass, so a fresh
+  // identity per render is harmless & the deps (plain helpers) aren't stable
+  const collisionDetection = (
+    args: Parameters<typeof resolveDragCollisions>[0]
+  ) =>
+    resolveDragCollisions(
+      args,
+      lastOverIdRef,
+      movedToNewContainerRef,
+      getCurrentDragPreview,
+      getCurrentTierIds,
+      cellSessionRef,
+      frozenOverRef
+    )
 
   const resetDragState = () =>
   {
     consumePendingPreview()
     cancelMovedReset()
+    if (multiDragFrameRef.current !== null)
+    {
+      cancelAnimationFrame(multiDragFrameRef.current)
+      multiDragFrameRef.current = null
+    }
     lastOverIdRef.current = null
     movedToNewContainerRef.current = false
     initialRectRef.current = null
@@ -237,6 +270,8 @@ export const useDragAndDrop = () =>
     isMultiDragRef.current = false
     currentPreviewRef.current = null
     currentTierIdsRef.current = new Set()
+    cellSessionRef.current = null
+    frozenOverRef.current = null
     setActiveDrag(IDLE_POINTER_DRAG)
     setActiveItemId(null)
   }
@@ -289,6 +324,9 @@ export const useDragAndDrop = () =>
     currentPreviewRef.current = getEffectiveContainerSnapshot(
       useActiveBoardStore.getState()
     )
+    // freeze cell geometry up-front so the very first move resolves against
+    // stable slots (single drag doesn't reflow at pickup)
+    cellSessionRef.current = captureDragLayoutSession(currentPreviewRef.current)
     lastOverIdRef.current = activeId
     setActiveItemId(activeId)
     setActiveDrag({ kind: 'item', itemId: activeId })
@@ -296,22 +334,39 @@ export const useDragAndDrop = () =>
     const state = useActiveBoardStore.getState()
     const groupCount = state.dragGroupIds.length
     isMultiDragRef.current = groupCount > 1
-    const itemLabel = state.items[activeId]?.label ?? 'item'
-    announce(
-      groupCount > 1
-        ? `Picked up ${formatCountedWord(groupCount, 'item')}`
-        : `Picked up ${itemLabel}`
-    )
+
+    // multi-drag strips secondary tiles -> recapture once that reflow commits
+    if (groupCount > 1)
+    {
+      multiDragFrameRef.current = requestAnimationFrame(() =>
+      {
+        multiDragFrameRef.current = null
+        if (activeDragRef.current.kind === 'item')
+        {
+          cellSessionRef.current = captureDragLayoutSession(
+            getCurrentDragPreview()
+          )
+        }
+      })
+    }
+    announceItemsPickedUp(state, activeId, groupCount)
   }
 
   const syncItemDrag = (event: DragMoveEvent | DragOverEvent) =>
   {
     if (activeDragRef.current.kind !== 'item') return
+    // frozen slot box for the resolved over target — keeps the insertion
+    // midpoint off the live, re-measured (reflowing) rect
+    const overId = event.over ? toStringId(event.over.id) : null
+    const stash = frozenOverRef.current
+    const frozenOverRect =
+      stash && overId && stash.id === overId ? stash.rect : null
     syncDraggedItemPosition(
       event,
       getCurrentDragPreview(),
       movedToNewContainerRef,
-      schedulePreviewUpdate
+      schedulePreviewUpdate,
+      frozenOverRect
     )
   }
 
@@ -405,15 +460,7 @@ export const useDragAndDrop = () =>
     commitDragPreview()
 
     const state = useActiveBoardStore.getState()
-    const label = state.items[decision.itemId]?.label ?? 'item'
-    const committedPreview = getEffectiveContainerSnapshot(state)
-    const containerId = findContainer(committedPreview, decision.itemId)
-    const dest = getContainerLabel(containerId, state.tiers)
-    announce(
-      groupCountBeforeCommit > 1
-        ? `Dropped ${formatCountedWord(groupCountBeforeCommit, 'item')} in ${dest}`
-        : `Dropped ${label} in ${dest}`
-    )
+    announceItemsDropped(state, decision.itemId, groupCountBeforeCommit)
 
     resetDragState()
 
@@ -435,7 +482,7 @@ export const useDragAndDrop = () =>
       discardDragPreview()
     }
     resetDragState()
-    announce('Drag cancelled')
+    announceDragCancelled()
   }
 
   const overlayModifier: Modifier = useCallback(

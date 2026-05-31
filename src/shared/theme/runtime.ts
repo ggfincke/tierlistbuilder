@@ -1,12 +1,10 @@
 // src/shared/theme/runtime.ts
-// theme runtime service — sync theme tokens & font loading to the DOM
+// theme runtime service - sync theme & text style tokens to the DOM
 
 import type { TextStyleId, ThemeId } from '@tierlistbuilder/contracts/lib/theme'
 import { getTextColor } from '~/shared/lib/color'
 import { TEXT_STYLES } from '~/shared/theme/textStyles'
 import { THEMES } from '~/shared/theme/tokens'
-
-const FONT_LINK_ID = 'theme-google-font'
 
 export const applyThemeTokens = (themeId: ThemeId): void =>
 {
@@ -38,34 +36,4 @@ export const applyTextStyle = (styleId: TextStyleId): void =>
   root.style.setProperty('--ts-weight-heading', style.weightHeading)
   root.style.setProperty('--ts-letter-spacing', style.letterSpacing)
   root.setAttribute('data-text-style', styleId)
-
-  const existing = document.getElementById(FONT_LINK_ID)
-
-  if (style.googleFontsUrl)
-  {
-    if (
-      existing instanceof HTMLLinkElement &&
-      existing.href === style.googleFontsUrl
-    )
-    {
-      return
-    }
-
-    if (existing)
-    {
-      existing.remove()
-    }
-
-    const link = document.createElement('link')
-    link.id = FONT_LINK_ID
-    link.rel = 'stylesheet'
-    link.href = style.googleFontsUrl
-    document.head.appendChild(link)
-    return
-  }
-
-  if (existing)
-  {
-    existing.remove()
-  }
 }

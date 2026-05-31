@@ -9,13 +9,12 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
-  areCachedAutoCropsApplied,
   getAutoCropImageRef,
   isCachedAutoCropApplied,
-} from '~/shared/lib/autoCrop'
+} from '~/shared/lib/autoCrop/pipeline'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
-import { useCollectAutoCropTransformsRunner } from '~/shared/lib/useCollectAutoCropTransformsRunner'
-import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
+import { useCollectAutoCropTransformsRunner } from '~/shared/lib/autoCrop/useCollectAutoCropTransformsRunner'
+import { useAutoCropCacheVersion } from '~/shared/lib/autoCrop/useAutoCropCache'
 import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 interface UseImageEditorAutoCropAllInput
@@ -39,6 +38,7 @@ export const useImageEditorAutoCropAll = ({
   useAutoCropCacheVersion()
   const {
     abort: cancelAutoCropAll,
+    areCachedTransformsApplied,
     progress: autoCropProgress,
     run: runAutoCropTransforms,
   } = useCollectAutoCropTransformsRunner()
@@ -73,13 +73,11 @@ export const useImageEditorAutoCropAll = ({
     ]
   )
 
-  const autoCropAllApplied =
-    !autoCropProgress.running &&
-    areCachedAutoCropsApplied(
-      filteredItems,
-      getBoardAspectRatioForItem,
-      trimSoftShadows
-    )
+  const autoCropAllApplied = areCachedTransformsApplied({
+    targets: filteredItems,
+    getBoardAspectRatio: getBoardAspectRatioForItem,
+    trimSoftShadows,
+  })
 
   const getPendingManualTarget = useCallback(
     (pendingEdit: PendingImageEditorPaneEdit | null): TierItem | null =>

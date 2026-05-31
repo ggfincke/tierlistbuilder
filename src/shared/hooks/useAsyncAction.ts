@@ -1,65 +1,70 @@
 // src/shared/hooks/useAsyncAction.ts
-// guarded async action state for command-style hooks
+// pending-state wrapper for async UI actions w/ shared toast error handling
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 
-interface UseAsyncActionOptions
+import { formatError } from '~/shared/lib/errors'
+import { toast } from '~/shared/notifications/useToastStore'
+
+type PendingResetMode = 'always' | 'error'
+
+interface RunAsyncActionOptions
 {
-  onError?: (error: unknown) => void
-  getErrorMessage?: (error: unknown) => string
+  action: () => Promise<unknown>
+  errorMessage: string
+  formatError?: (error: unknown, fallbackMessage: string) => string
+  successMessage?: string
+  onError?: (message: string, error: unknown) => void
+  onFinally?: () => void
+  onSuccess?: () => void
+  resetPending?: PendingResetMode
 }
 
-interface AsyncActionState<TArgs extends readonly unknown[], TResult>
+export const useAsyncAction = () =>
 {
-  run: (...args: TArgs) => Promise<TResult | null>
-  isPending: boolean
-  error: string | null
-  setError: (message: string | null) => void
-  clearError: () => void
-}
-
-export const useAsyncAction = <TArgs extends readonly unknown[], TResult>(
-  action: (...args: TArgs) => Promise<TResult>,
-  options: UseAsyncActionOptions = {}
-): AsyncActionState<TArgs, TResult> =>
-{
-  const { onError, getErrorMessage } = options
-  const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const pendingRef = useRef(false)
-
-  const clearError = useCallback(() =>
-  {
-    setError(null)
-  }, [])
+  const [pending, setPending] = useState(false)
 
   const run = useCallback(
-    async (...args: TArgs): Promise<TResult | null> =>
+    async ({
+      action,
+      errorMessage,
+      formatError: formatActionError = formatError,
+      successMessage,
+      onError,
+      onFinally,
+      onSuccess,
+      resetPending = 'always',
+    }: RunAsyncActionOptions): Promise<boolean> =>
     {
-      if (pendingRef.current) return null
-
-      pendingRef.current = true
-      setIsPending(true)
-      setError(null)
+      if (pending) return false
+      let succeeded = false
+      setPending(true)
       try
       {
-        return await action(...args)
+        await action()
+        succeeded = true
+        if (successMessage) toast(successMessage, 'success')
+        onSuccess?.()
+        return true
       }
-      catch (caught)
+      catch (error)
       {
-        onError?.(caught)
-        const message = getErrorMessage?.(caught) ?? null
-        setError(message)
-        return null
+        const message = formatActionError(error, errorMessage)
+        if (onError) onError(message, error)
+        else toast(message, 'error')
+        return false
       }
       finally
       {
-        pendingRef.current = false
-        setIsPending(false)
+        if (resetPending === 'always' || !succeeded)
+        {
+          setPending(false)
+        }
+        onFinally?.()
       }
     },
-    [action, getErrorMessage, onError]
+    [pending]
   )
 
-  return { run, isPending, error, setError, clearError }
+  return { pending, run }
 }

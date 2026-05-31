@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Convex Backend Foundation**: First-pass cloud backend — `convex/` schema, auth (Convex Auth w/ email+password), boards CRUD w/ cascade delete, marketplace template publish/clone/seed, media uploads w/ signed envelopes & three-variant pipeline, user preferences cloud sync, short-link share resolution, tier preset cloud sync, recently-deleted retention window, daily GC cron, & rate-limited mutations
+- **Auth UI**: Sign-in modal (email+password), account modal w/ profile, sessions, & danger zone, sign-in prompt store gating cloud-only actions
+- **Cloud Sync Plumbing**: Per-feature cloud merge/pull/flush runners w/ debounced scheduler, sidecar metadata, ownership filters, cross-tab sync lock, sync status store + visuals, conflict queue, recently-deleted modal, & first-login local→cloud bootstrap
+- **My Lists**: `/boards` library page wired to `getMyLibraryBoards` Convex query — projects counts, derived status (incl. `syncing` / `failed` clone-from-template states), visibility, source-template category, top-5 tier colorSpecs, per-tier counts, & top-18 cover-item labels
+- **Board Cards**: Cover artwork (initials mosaic over `--t-media-matte`, draft-pattern for empty boards), tier-color progress bar, status pill, visibility chip, hover CTA per status
+- **Sync Status Indicator**: Per-board badge & global indicator surfacing localOnly / cloudBacked / syncPausedForPlan + clone progress
+- **Marketplace (Backend)**: `marketplace/{templates,rankings}` Convex namespaces — gallery query, paginated items, draft rail, publish from board, clone-to-board w/ media re-upload, ranking publish/remix, rolling trending metrics, owner management reads, and seed script
+- **Marketplace (Frontend)**: Routed `/templates` and `/rankings/:slug` surfaces w/ gallery rails, template detail community rankings, ranking publish gating, ranking detail, remix CTA, account template management, and workspace gallery entry points
+- **Media Plates**: Transparent-logo backdrop system — per-board `autoPlate` (off / auto / uniform w/ custom color), a per-item `backgroundColor` that always wins, and a per-item/board `imagePadding` plate inset that floats logos off the plate edge. Seed pipeline auto-detects per-logo plates via WCAG ink contrast + a new `audit` command for choosing per-board policy from data; threaded through board, cover/Mosaic, consensus, and ranking surfaces, with consensus & ranking views pulling the source template's display policy live
+
 ## [0.9.0] - 2026-05-18
 
 ### Added
@@ -44,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **My Lists Page**: New `/boards` route w/ card & list views, density toggle, search, filters, status pills, stats strip, & blank-list creator tile (#30)
 - **Top Nav**: App chrome layout w/ brand capsule, surface nav, account avatar/menu, & dedicated top-nav modal layer (#30)
-- **Image Renditions**: Three-tier preview/tile/source system w/ priority-aware ref selection — crisper retina renders & no thumb→source flash on load (#30)
+- **Image Renditions**: Three-tier preview/tile/source system w/ priority-aware ref selection — crisper retina renders & no thumb->source flash on load (#30)
 - **Tabbed Settings Modal**: Reworked layout w/ dedicated theme override hooks per board (#30)
 - **Per-Tier Label & Style Overrides**: Row-level label/style override actions w/ default label placement (#30)
 - **Render to Blob**: Skips the base64 round-trip for download/PDF/ZIP flows; `renderToDataUrl` reserved for inline-image use (#30)

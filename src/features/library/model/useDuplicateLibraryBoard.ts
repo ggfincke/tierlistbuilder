@@ -1,14 +1,18 @@
 // src/features/library/model/useDuplicateLibraryBoard.ts
-// duplicate driver for library rows — copies via duplicateBoardSession
+// duplicate driver for library rows — pulls cloud-only boards into the local
+// registry first so duplicateBoardSession has a snapshot to copy from
 
 import { useCallback } from 'react'
 
 import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
 import { duplicateBoardSession } from '~/features/workspace/boards/model/boardSession'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { useSyncOwnerUserId } from '~/features/platform/auth/model/useSyncOwnerUserId'
 import { toast } from '~/shared/notifications/useToastStore'
 
-import { useLibraryBoardAction } from '~/features/library/model/useLibraryBoardAction'
+import { useLibraryBoardAction } from './useLibraryBoardAction'
 
 interface DuplicateLibraryBoardAction
 {
@@ -19,6 +23,7 @@ interface DuplicateLibraryBoardAction
 export const useDuplicateLibraryBoard = (): DuplicateLibraryBoardAction =>
 {
   const { run, pendingExternalId } = useLibraryBoardAction()
+  const pendingSyncOwnerUserId = useSyncOwnerUserId()
 
   const duplicate = useCallback(
     async (board: LibraryBoardListItem): Promise<void> =>
@@ -32,12 +37,22 @@ export const useDuplicateLibraryBoard = (): DuplicateLibraryBoardAction =>
         },
         async () =>
         {
-          await duplicateBoardSession(externalId)
+          const inRegistry = useWorkspaceBoardRegistryStore
+            .getState()
+            .isBoardInRegistry(externalId)
+
+          // duplicateBoardSession reads the snapshot via the registry & the
+          // copy ends up active anyway, so activating here is fine
+          if (!inRegistry)
+          {
+            await activateCloudBoardAsActive(board.externalId)
+          }
+          await duplicateBoardSession(externalId, { pendingSyncOwnerUserId })
           toast(`Duplicated "${board.title}".`, 'success')
         }
       )
     },
-    [run]
+    [pendingSyncOwnerUserId, run]
   )
 
   return { duplicate, pendingExternalId }

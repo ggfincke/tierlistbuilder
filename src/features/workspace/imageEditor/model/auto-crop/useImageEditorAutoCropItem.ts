@@ -23,10 +23,10 @@ import {
   getCachedBBox,
   loadAutoCropBlob,
   resolveAutoCropTransform,
-} from '~/shared/lib/autoCrop'
+} from '~/shared/lib/autoCrop/pipeline'
 import { isAbortError } from '~/shared/lib/errors'
 import { isSameItemTransform } from '~/shared/lib/imageTransform'
-import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
+import { useAutoCropCacheVersion } from '~/shared/lib/autoCrop/useAutoCropCache'
 import type { ImageEditorTransformDraftSetter } from '~/features/workspace/imageEditor/model/transform/useImageEditorTransformDraft'
 
 interface UseImageEditorAutoCropItemInput

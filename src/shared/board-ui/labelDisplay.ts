@@ -8,6 +8,7 @@ import type {
   LabelPlacement,
   LabelScrim,
   LabelTextColor,
+  TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   LABEL_FONT_SIZE_PX_DEFAULT,
@@ -100,6 +101,18 @@ export const resolveLabelDisplay = (
     text,
   }
 }
+
+export const resolveItemLabel = (
+  item: Pick<TierItem, 'label' | 'labelOptions'>,
+  boardSettings: BoardLabelSettings | undefined,
+  globalLabelDefaults: GlobalLabelDefaults
+): ResolvedLabelDisplay | null =>
+  resolveLabelDisplay({
+    itemLabel: item.label,
+    itemOptions: item.labelOptions,
+    boardSettings,
+    globalLabelDefaults,
+  })
 
 // resolved settings ignoring the item text — used by Edit Images preview &
 // the per-tile defaults reflected in modal controls

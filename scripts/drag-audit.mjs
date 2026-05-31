@@ -1,3 +1,6 @@
+// scripts/drag-audit.mjs
+// audits drag-and-drop behavior by driving the local app in Playwright
+
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { access, mkdtemp, readdir, rm } from 'node:fs/promises'
@@ -123,14 +126,14 @@ const wrappedExpectedAppendedOrder = [
   wrappedIncomingItemId,
 ]
 const wrappedExpectedAfterLeftOrder = [
-  ...wrappedTierOrder.slice(0, -1),
-  wrappedIncomingItemId,
-  wrappedTierOrder[wrappedTierOrder.length - 1],
-]
-const wrappedExpectedKeyboardAfterLeftOrder = [
   ...wrappedTierOrder.slice(0, -2),
   wrappedIncomingItemId,
   ...wrappedTierOrder.slice(-2),
+]
+const wrappedExpectedKeyboardAfterLeftOrder = [
+  ...wrappedTierOrder.slice(0, -3),
+  wrappedIncomingItemId,
+  ...wrappedTierOrder.slice(-3),
 ]
 const sampledOffsets = [
   -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
@@ -496,37 +499,6 @@ const waitForCondition = async (client, expression, timeoutMs = 10_000) =>
   throw new Error(`Timed out waiting for condition: ${expression}`)
 }
 
-const getTierOrder = async (client, tierId = 'tier-s') =>
-{
-  return client.evaluate(`(() => {
-    const container = document.querySelector('[data-testid="tier-container-${tierId}"]')
-    if (!container) {
-      return []
-    }
-
-    return Array.from(container.querySelectorAll('[data-item-id]'))
-      .map((element) => {
-        const rect = element.getBoundingClientRect()
-
-        return {
-          itemId: element.getAttribute('data-item-id'),
-          left: rect.left,
-          top: rect.top,
-        }
-      })
-      .filter((item) => item.itemId)
-      .sort((left, right) => {
-        const topDelta = left.top - right.top
-        if (Math.abs(topDelta) > 4) {
-          return topDelta
-        }
-
-        return left.left - right.left
-      })
-      .map((item) => item.itemId)
-  })()`)
-}
-
 const getContainerOrder = async (client, selector) =>
 {
   return client.evaluate(`(() => {
@@ -756,7 +728,7 @@ const moveDragToPoint = async (client, x, y) =>
 {
   await dispatchMouseMove(client, x, y, 1)
   await delay(50)
-  return getTierOrder(client)
+  return getContainerOrder(client, '[data-testid="tier-container-tier-s"]')
 }
 
 const releaseMouse = async (client, x, y) =>
@@ -1052,7 +1024,10 @@ const runWrappedTrailingSpaceAudit = async (client, baseUrl) =>
     )
 
     await releaseMouse(client, dropPoint.x, dropPoint.y)
-    const finalOrder = await getTierOrder(client)
+    const finalOrder = await getContainerOrder(
+      client,
+      '[data-testid="tier-container-tier-s"]'
+    )
 
     assert.deepEqual(
       finalOrder,
@@ -1684,7 +1659,10 @@ const runAudit = async (client, baseUrl) =>
       refreshedTarget.x + releaseOffset,
       refreshedTarget.y
     )
-    const finalOrder = await getTierOrder(client)
+    const finalOrder = await getContainerOrder(
+      client,
+      '[data-testid="tier-container-tier-s"]'
+    )
 
     parityChecks.push({
       releaseOffset,
@@ -1721,7 +1699,7 @@ const main = async () =>
 
   const server = spawnProcess('npm', [
     'run',
-    'dev',
+    'dev:app',
     '--',
     '--host',
     '127.0.0.1',

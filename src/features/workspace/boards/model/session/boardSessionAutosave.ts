@@ -7,6 +7,14 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
 let suppressNextAutosave = false
+let showcaseEditingActive = false
+
+// gate the global autosave while the showcase editor borrows the active store,
+// so showcase edits never persist to the user's real board
+export const setShowcaseEditingActive = (active: boolean): void =>
+{
+  showcaseEditingActive = active
+}
 
 export const clearPendingAutosave = (): void =>
 {
@@ -56,6 +64,10 @@ export const registerBoardAutosaveController = (
     (state) => state,
     () =>
     {
+      if (showcaseEditingActive)
+      {
+        return
+      }
       if (consumeAutosaveSuppression())
       {
         return

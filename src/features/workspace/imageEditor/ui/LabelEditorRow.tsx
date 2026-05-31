@@ -1,7 +1,7 @@
 // src/features/workspace/imageEditor/ui/LabelEditorRow.tsx
 // caption visibility, placement, styling, & apply-to-all controls
 
-import { useId } from 'react'
+import { useId, type ComponentProps } from 'react'
 import { Check, ChevronRight, Wand2 } from 'lucide-react'
 
 import {
@@ -23,8 +23,12 @@ import {
   LABEL_PLACEMENT_OVERLAY_PRESETS,
   LABEL_TEXT_COLORS,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { LABEL_FONT_LABELS } from '~/features/workspace/imageEditor/lib/labelEditorOptions'
+import {
+  LABEL_FONT_LABELS,
+  PLACEMENT_MODE_LABELS_FULL,
+} from '~/features/workspace/imageEditor/lib/labelEditorOptions'
 import { NumberStepper } from '~/shared/ui/NumberStepper'
+import { ToggleButton } from '~/shared/ui/ToggleButton'
 
 const INHERIT_TEXT_STYLE_VALUE = '__inherit'
 
@@ -38,12 +42,6 @@ const LABEL_TEXT_COLOR_NAMES: Record<LabelTextColor, string> = {
   green: 'Green',
   blue: 'Blue',
   purple: 'Purple',
-}
-
-const PLACEMENT_MODE_LABELS: Record<LabelPlacementMode, string> = {
-  overlay: 'Overlay',
-  captionAbove: 'Caption above',
-  captionBelow: 'Caption below',
 }
 
 const PLACEMENT_MODE_ORDER: readonly LabelPlacementMode[] = [
@@ -183,16 +181,18 @@ export const LabelEditorRow = ({
                   } regardless of the board default`
             }
           >
-            <SegmentedChip
+            <ToggleButton
               active={itemOptions?.visible === true}
               onClick={() => onVisibleChange(true)}
-              label="Show"
-            />
-            <SegmentedChip
+            >
+              Show
+            </ToggleButton>
+            <ToggleButton
               active={itemOptions?.visible === false}
               onClick={() => onVisibleChange(false)}
-              label="Hide"
-            />
+            >
+              Hide
+            </ToggleButton>
           </div>
           <div
             className="flex items-center gap-1 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] p-0.5"
@@ -200,18 +200,18 @@ export const LabelEditorRow = ({
             aria-label="Placement"
           >
             {PLACEMENT_MODE_ORDER.map((mode) => (
-              <SegmentedChip
+              <ToggleButton
                 key={mode}
                 active={resolvedPlacement.mode === mode}
                 onClick={() => handleModeSelect(mode)}
-                label={PLACEMENT_MODE_LABELS[mode]}
-              />
+              >
+                {PLACEMENT_MODE_LABELS_FULL[mode]}
+              </ToggleButton>
             ))}
           </div>
-          <div
-            className={`flex items-center gap-1 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] p-0.5 transition-opacity ${
-              isOverlay ? '' : 'pointer-events-none opacity-40'
-            }`}
+          <OverlayOnlyGroup
+            active={isOverlay}
+            className="flex items-center gap-1 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] p-0.5"
             role="group"
             aria-label="Caption position"
             title={
@@ -225,23 +225,22 @@ export const LabelEditorRow = ({
             {
               const preset = LABEL_PLACEMENT_OVERLAY_PRESETS[presetKey]
               return (
-                <SegmentedChip
+                <ToggleButton
                   key={presetKey}
                   active={
                     isOverlay && isOverlayPresetMatch(resolvedPlacement, preset)
                   }
                   onClick={() => onPlacementChange(preset)}
-                  label={PLACEMENT_PRESET_LABELS[presetKey]}
                   disabled={!isOverlay}
-                />
+                >
+                  {PLACEMENT_PRESET_LABELS[presetKey]}
+                </ToggleButton>
               )
             })}
-          </div>
-          <div
-            className={`flex items-center gap-2 transition-opacity ${
-              isOverlay ? '' : 'pointer-events-none opacity-40'
-            }`}
-            aria-disabled={!isOverlay}
+          </OverlayOnlyGroup>
+          <OverlayOnlyGroup
+            active={isOverlay}
+            className="flex items-center gap-2"
           >
             <label
               className="text-[var(--t-text-muted)]"
@@ -270,12 +269,10 @@ export const LabelEditorRow = ({
               <option value="light">Light</option>
               <option value="none">None</option>
             </select>
-          </div>
-          <div
-            className={`flex items-center gap-2 transition-opacity ${
-              isOverlay ? '' : 'pointer-events-none opacity-40'
-            }`}
-            aria-disabled={!isOverlay}
+          </OverlayOnlyGroup>
+          <OverlayOnlyGroup
+            active={isOverlay}
+            className="flex items-center gap-2"
           >
             <label
               className="text-[var(--t-text-muted)]"
@@ -303,7 +300,7 @@ export const LabelEditorRow = ({
                 </option>
               ))}
             </select>
-          </div>
+          </OverlayOnlyGroup>
           <div className="flex items-center gap-2">
             <label htmlFor={fontId} className="text-[var(--t-text-muted)]">
               Font
@@ -377,6 +374,28 @@ export const LabelEditorRow = ({
   )
 }
 
+interface OverlayOnlyGroupProps extends ComponentProps<'div'>
+{
+  active: boolean
+}
+
+const OverlayOnlyGroup = ({
+  active,
+  className = '',
+  children,
+  ...props
+}: OverlayOnlyGroupProps) => (
+  <div
+    {...props}
+    className={`${className} transition-opacity ${
+      active ? '' : 'pointer-events-none opacity-40'
+    }`}
+    aria-disabled={!active}
+  >
+    {children}
+  </div>
+)
+
 interface FontSizeInputProps
 {
   id: string
@@ -416,32 +435,3 @@ const FontSizeInput = ({ id, value, onChange, active }: FontSizeInputProps) =>
     </div>
   )
 }
-
-interface SegmentedChipProps
-{
-  active: boolean
-  onClick: () => void
-  label: string
-  disabled?: boolean
-}
-
-const SegmentedChip = ({
-  active,
-  onClick,
-  label,
-  disabled,
-}: SegmentedChipProps) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    aria-pressed={active}
-    className={`focus-custom rounded px-2 py-0.5 text-[11px] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-not-allowed ${
-      active
-        ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]'
-        : 'text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)]'
-    }`}
-  >
-    {label}
-  </button>
-)

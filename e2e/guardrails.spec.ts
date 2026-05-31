@@ -1,128 +1,21 @@
 // e2e/guardrails.spec.ts
 // Playwright guardrails for cross-layer board workflows
 
-import { expect, test, type Locator, type Page } from 'playwright/test'
-import { deflate } from 'pako'
-
-type E2eBoard = {
-  title: string
-  tiers: {
-    id: string
-    name: string
-    colorSpec: { kind: 'palette'; index: number }
-    itemIds: string[]
-  }[]
-  unrankedItemIds: string[]
-  items: Record<string, { id: string; label: string; backgroundColor: string }>
-  deletedItems: []
-}
-
-const multiSelectModifier: 'Meta' | 'Control' =
-  process.platform === 'darwin' ? 'Meta' : 'Control'
-
-const tierItemTestId = (itemId: string): string => `tier-item-${itemId}`
-const tierContainerTestId = (tierId: string): string =>
-  `tier-container-${tierId}`
-
-const toBase64Url = (bytes: Uint8Array): string =>
-  Buffer.from(bytes)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-
-const encodeShareFragment = (board: E2eBoard): string =>
-  toBase64Url(deflate(new TextEncoder().encode(JSON.stringify(board))))
-
-const makeBoard = (title: string): E2eBoard => ({
-  title,
-  tiers: [
-    {
-      id: 'tier-s',
-      name: 'S',
-      colorSpec: { kind: 'palette', index: 0 },
-      itemIds: ['item-alpha'],
-    },
-    {
-      id: 'tier-a',
-      name: 'A',
-      colorSpec: { kind: 'palette', index: 1 },
-      itemIds: ['item-beta'],
-    },
-  ],
-  unrankedItemIds: ['item-gamma', 'item-delta'],
-  items: {
-    'item-alpha': {
-      id: 'item-alpha',
-      label: 'Alpha',
-      backgroundColor: '#111111',
-    },
-    'item-beta': {
-      id: 'item-beta',
-      label: 'Beta',
-      backgroundColor: '#222222',
-    },
-    'item-gamma': {
-      id: 'item-gamma',
-      label: 'Gamma',
-      backgroundColor: '#333333',
-    },
-    'item-delta': {
-      id: 'item-delta',
-      label: 'Delta',
-      backgroundColor: '#444444',
-    },
-  },
-  deletedItems: [],
-})
-
-const resetBrowserStorage = async (page: Page): Promise<void> =>
-{
-  await page.addInitScript(() =>
-  {
-    window.localStorage.clear()
-    window.sessionStorage.clear()
-  })
-}
-
-const openWorkspaceWithBoard = async (
-  page: Page,
-  board = makeBoard('Phase 1 Guardrail Board')
-): Promise<E2eBoard> =>
-{
-  await page.goto(`/#share=${encodeShareFragment(board)}`)
-  await expect(page.getByTestId('tier-list-board')).toBeVisible()
-  await expect(
-    page.getByRole('button', { name: /edit board title/i })
-  ).toHaveText(board.title)
-  return board
-}
-
-const dragCenterToCenter = async (
-  page: Page,
-  source: Locator,
-  target: Locator
-): Promise<void> =>
-{
-  const sourceBox = await source.boundingBox()
-  const targetBox = await target.boundingBox()
-
-  if (!sourceBox || !targetBox)
-  {
-    throw new Error('unable to resolve drag boxes')
-  }
-
-  const sourceX = sourceBox.x + sourceBox.width / 2
-  const sourceY = sourceBox.y + sourceBox.height / 2
-  const targetX = targetBox.x + targetBox.width / 2
-  const targetY = targetBox.y + targetBox.height / 2
-
-  await page.mouse.move(sourceX, sourceY)
-  await page.mouse.down()
-  await page.mouse.move(sourceX + 12, sourceY + 12)
-  await page.mouse.move(targetX, targetY, { steps: 12 })
-  await page.mouse.up()
-}
+import { expect, test } from 'playwright/test'
+import {
+  addImageViaSettings,
+  dragCenterToCenter,
+  encodeShareFragment,
+  makeBoard,
+  multiSelectModifier,
+  openWorkspaceWithBoard,
+  resetBrowserStorage,
+  templateCategoryChip,
+  templateSearchBox,
+  templateSortSelect,
+  tierContainerTestId,
+  tierItemTestId,
+} from './helpers'
 
 test.beforeEach(async ({ page }) =>
 {
@@ -169,6 +62,84 @@ test('pointer drag moves an item across tiers & undo restores it', async ({
   await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled()
   await page.keyboard.press(`${multiSelectModifier}+Z`)
   await expect(tierS.getByTestId(tierItemTestId('item-alpha'))).toBeVisible()
+})
+
+const makeTallDragBoard = () =>
+{
+  const board = makeBoard('Tall Drag Guardrail Board')
+  board.tiers = Array.from({ length: 10 }, (_, tierIndex) => ({
+    id: `tier-${tierIndex}`,
+    name: `T${tierIndex}`,
+    colorSpec: { kind: 'palette', index: tierIndex % 6 },
+    itemIds: Array.from(
+      { length: 6 },
+      (_, itemIndex) => `item-${tierIndex * 6 + itemIndex}`
+    ),
+  }))
+  board.unrankedItemIds = Array.from(
+    { length: 20 },
+    (_, index) => `item-${60 + index}`
+  )
+  board.items = Object.fromEntries(
+    Array.from({ length: 80 }, (_, index) => [
+      `item-${index}`,
+      {
+        id: `item-${index}`,
+        label: `Item ${index}`,
+        backgroundColor: '#333333',
+      },
+    ])
+  )
+  return board
+}
+
+test('pointer drag across a tall board does not trip DndContext measuring', async ({
+  page,
+}) =>
+{
+  const consoleErrors: string[] = []
+  page.on('console', (message) =>
+  {
+    if (
+      message.type() === 'error' &&
+      message.text().includes('Maximum update depth exceeded')
+    )
+    {
+      consoleErrors.push(message.text())
+    }
+  })
+
+  await openWorkspaceWithBoard(page, makeTallDragBoard())
+
+  const source = page.getByTestId(tierItemTestId('item-0'))
+  const target = page.getByTestId('unranked-container')
+  const sourceBox = await source.boundingBox()
+  const targetBox = await target.boundingBox()
+  if (!sourceBox || !targetBox)
+  {
+    throw new Error('unable to resolve tall board drag boxes')
+  }
+
+  const sourceX = sourceBox.x + sourceBox.width / 2
+  const sourceY = sourceBox.y + sourceBox.height / 2
+  const targetX = targetBox.x + targetBox.width / 2
+  const targetY = targetBox.y + 20
+
+  await page.mouse.move(sourceX, sourceY)
+  await page.mouse.down()
+  for (let step = 1; step <= 30; step++)
+  {
+    await page.mouse.move(
+      sourceX + ((targetX - sourceX) * step) / 30,
+      sourceY + ((targetY - sourceY) * step) / 30
+    )
+    await page.waitForTimeout(20)
+  }
+  await page.waitForTimeout(250)
+  await page.mouse.up()
+
+  await expect(target.getByTestId(tierItemTestId('item-0'))).toBeVisible()
+  expect(consoleErrors).toEqual([])
 })
 
 test('bulk item delete is restored by one undo', async ({ page }) =>
@@ -229,21 +200,8 @@ test('mixed aspect-ratio prompt fits a mobile settings viewport', async ({
   )
 
   await openWorkspaceWithBoard(page)
-  await page.getByRole('button', { name: 'Open settings' }).click()
-  const settings = page.getByRole('dialog', { name: 'Settings' })
-  await expect(settings).toBeVisible()
-
-  await page.getByRole('tab', { name: /layout/i }).click()
-  await settings.getByRole('button', { name: '1:1', exact: true }).click()
-  await page.getByRole('tab', { name: /items/i }).click()
-
   const imageUrl = new URL('/e2e-wide.svg', page.url()).toString()
-  await settings.getByLabel('Image URL').fill(imageUrl)
-  await settings.getByRole('button', { name: 'Add' }).first().click()
-
-  const prompt = page.getByRole('dialog', {
-    name: 'Mixed aspect ratios detected',
-  })
+  const prompt = await addImageViaSettings(page, imageUrl)
   await expect(prompt).toBeVisible()
   await expect(prompt).toContainText('1 item')
 
@@ -270,6 +228,33 @@ test('mixed aspect-ratio prompt fits a mobile settings viewport', async ({
   expect(pageOverflows).toBe(false)
 })
 
+test('mixed aspect-ratio prompt opens the image editor', async ({ page }) =>
+{
+  await page.route('**/e2e-editor-wide.svg', async (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#555"/></svg>',
+    })
+  )
+
+  await openWorkspaceWithBoard(page)
+  const imageUrl = new URL('/e2e-editor-wide.svg', page.url()).toString()
+  const prompt = await addImageViaSettings(page, imageUrl)
+  await expect(prompt).toBeVisible()
+  await prompt.getByRole('button', { name: /adjust each item/i }).click()
+  await expect(prompt).toBeHidden()
+
+  const editor = page.getByRole('dialog', {
+    name: 'Adjust items to fit board',
+  })
+  await expect(editor).toBeVisible()
+  await expect(editor.getByRole('tab', { name: 'Mismatched' })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  )
+  await expect(editor).toContainText('Item 1 of 1')
+})
+
 test('embed route renders hash-share board without workspace controls', async ({
   page,
 }) =>
@@ -283,4 +268,106 @@ test('embed route renders hash-share board without workspace controls', async ({
   await expect(page.getByText('Alpha')).toBeVisible()
   await expect(page.getByText('Made with Tier List Builder')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add tier' })).toHaveCount(0)
+})
+
+test('marketplace filters follow query-param changes while mounted', async ({
+  page,
+}) =>
+{
+  await page.goto('/templates?q=zelda&cat=gaming&sort=popular')
+
+  const search = templateSearchBox(page)
+  const sort = templateSortSelect(page)
+  await expect(search).toHaveValue('zelda')
+  await expect(templateCategoryChip(page, 'Gaming')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
+  await expect(sort).toHaveValue('popular')
+
+  await page.evaluate(() =>
+  {
+    window.history.pushState(
+      null,
+      '',
+      '/templates?q=ghibli&cat=anime&sort=featured&tag=Bosses'
+    )
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
+  })
+
+  await expect(search).toHaveValue('ghibli')
+  await expect(templateCategoryChip(page, 'Anime & Manga')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
+  await expect(
+    page.getByRole('button', { name: 'Remove tag filter "bosses"' })
+  ).toBeVisible()
+  await expect(sort).toHaveValue('recent')
+  await expect(sort).toBeDisabled()
+  await expect(page).toHaveURL(/tag=bosses/)
+})
+
+test('My Boards signed-out sync CTA opens auth and links to templates', async ({
+  page,
+}) =>
+{
+  await page.goto('/boards')
+
+  await expect(page.getByRole('heading', { name: 'My boards' })).toBeVisible()
+  await expect(
+    page.getByText('These boards live on this device only.')
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Add tier' })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Sign in to sync' }).click()
+  const signIn = page.getByRole('dialog', { name: 'Sign in' })
+  await expect(signIn).toBeVisible()
+  await expect(signIn.getByLabel('Email')).toBeFocused()
+
+  await signIn.getByRole('tab', { name: 'Create account' }).click()
+  await expect(
+    page.getByRole('dialog', { name: 'Create account' })
+  ).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  await page.getByRole('link', { name: 'Templates' }).click()
+  await expect(page).toHaveURL(/\/templates$/)
+  await expect(templateSearchBox(page)).toBeVisible()
+})
+
+test('marketplace discrete filters create navigable history entries', async ({
+  page,
+}) =>
+{
+  await page.goto('/templates')
+
+  const all = templateCategoryChip(page, 'All')
+  const gaming = templateCategoryChip(page, 'Gaming')
+  const sort = templateSortSelect(page)
+
+  await gaming.click()
+  await expect(page).toHaveURL(/cat=gaming/)
+  await expect(gaming).toHaveAttribute('aria-pressed', 'true')
+
+  await sort.selectOption('popular')
+  await expect(page).toHaveURL(/sort=popular/)
+  await expect(sort).toHaveValue('popular')
+
+  await page.goBack()
+  await expect(page).not.toHaveURL(/sort=popular/)
+  await expect(gaming).toHaveAttribute('aria-pressed', 'true')
+  await expect(sort).toHaveValue('recent')
+
+  await page.goBack()
+  await expect(page).not.toHaveURL(/cat=gaming/)
+  await expect(all).toHaveAttribute('aria-pressed', 'true')
+
+  await page.goForward()
+  await expect(gaming).toHaveAttribute('aria-pressed', 'true')
+
+  await page.goForward()
+  await expect(sort).toHaveValue('popular')
 })

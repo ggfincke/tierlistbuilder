@@ -1,5 +1,6 @@
 // tests/shared-lib/memoryStorage.ts
 // in-memory Storage polyfill — shared across tests that stub localStorage
+// (cloud merge, board storage, local board session)
 
 export const createMemoryStorage = (): Storage =>
 {

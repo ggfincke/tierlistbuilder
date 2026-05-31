@@ -48,7 +48,7 @@ export const useDismissibleLayer = ({
   onPositionUpdate,
 }: UseDismissibleLayerOptions) =>
 {
-  const latestRef = useRef<LatestDismissibleLayerOptions>({
+  const buildLatest = (): LatestDismissibleLayerOptions => ({
     layerRef,
     triggerRef,
     ignoreRefs,
@@ -59,21 +59,12 @@ export const useDismissibleLayer = ({
     stopEscapePropagation,
     onPositionUpdate,
   })
+  const latestRef = useRef<LatestDismissibleLayerOptions>(buildLatest())
   const hasPositionUpdate = onPositionUpdate !== undefined
 
   useEffect(() =>
   {
-    latestRef.current = {
-      layerRef,
-      triggerRef,
-      ignoreRefs,
-      onDismiss,
-      closeOnEscape,
-      closeOnInteractOutside,
-      escapePhase,
-      stopEscapePropagation,
-      onPositionUpdate,
-    }
+    latestRef.current = buildLatest()
   })
 
   useEffect(() =>

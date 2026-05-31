@@ -5,20 +5,25 @@ import { useCallback } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useAppReady } from '~/app/bootstrap/useAppBootstrap'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
 import { useModalStack } from '~/app/shells/useModalStack'
 import { WorkspaceModalLayer } from '~/app/shells/workspace/WorkspaceModalLayer'
 import { useWorkspaceExportActions } from '~/app/shells/workspace/useWorkspaceExportActions'
 import type { WorkspaceModalPayloads } from '~/app/shells/workspace/workspaceModals'
+import { useRankingPublishAvailability } from '~/features/marketplace/model/publish/useRankingPublishAvailability'
 import { BoardActionBar } from '~/features/workspace/boards/ui/board-chrome/BoardActionBar'
 import { BoardManager } from '~/features/workspace/boards/ui/board-chrome/BoardManager'
 import { BoardHeader } from '~/features/workspace/boards/ui/board-chrome/BoardHeader'
 import { BulkActionBar } from '~/features/workspace/boards/ui/board-chrome/BulkActionBar'
+import { ConflictResolverModal } from '~/features/workspace/boards/ui/modals/ConflictResolverModal'
 import { TierList } from '~/features/workspace/boards/ui/tier-list/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useWarmActiveBoardImages } from '~/features/workspace/boards/model/useWarmActiveBoardImages'
 import { getResponsiveToolbarPosition } from '~/shared/overlay/toolbarPosition'
+import { WORKSPACE_SHELL_CLASS } from '~/shared/ui/pageContainer'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/aspect-ratio/AspectRatioPromptProvider'
 import { useCurrentPageBackground } from '~/features/workspace/settings/model/useCurrentPageBackground'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
@@ -53,6 +58,11 @@ export const WorkspaceShell = () =>
   useBoardThemeOverrides()
   useWarmActiveBoardImages(appReady)
 
+  // BoardManager surfaces cloud-only affordances (sync badge, conflict resolver,
+  // recently-deleted) only while the user is signed in
+  const session = useAuthSession()
+  const cloudEnabled = session.status === 'signed-in'
+
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
   const modalStack = useModalStack<WorkspaceModalPayloads>()
   const { state: modalState, open: openModal, close: closeModal } = modalStack
@@ -84,21 +94,44 @@ export const WorkspaceShell = () =>
   )
   const handleOpenStats = useCallback(() => openModal('stats'), [openModal])
   const handleOpenShare = useCallback(() => openModal('share'), [openModal])
+  const activeBoardId = useWorkspaceBoardRegistryStore(
+    (state) => state.activeBoardId
+  )
+  const activeBoardTitle = useActiveBoardStore((state) => state.title)
+  const rankingPublishAvailability = useRankingPublishAvailability(
+    activeBoardId,
+    undefined,
+    cloudEnabled && activeBoardId !== null
+  )
+  const canPublishRanking =
+    cloudEnabled &&
+    activeBoardId !== null &&
+    Boolean(rankingPublishAvailability?.canPublish)
+  const handlePublishRanking = useCallback(() =>
+  {
+    if (!canPublishRanking || activeBoardId === null) return
+    openModal('publishRanking', {
+      boardExternalId: activeBoardId,
+      defaultTitle: activeBoardTitle,
+    })
+  }, [activeBoardId, activeBoardTitle, canPublishRanking, openModal])
+  const handlePublishTemplate = useCallback(() =>
+  {
+    if (!cloudEnabled) return
+    openModal('publishTemplate', {
+      initialBoardExternalId: activeBoardId ?? null,
+    })
+  }, [activeBoardId, cloudEnabled, openModal])
   if (!appReady)
   {
-    return (
-      <main
-        id="app-shell"
-        className="ambient-layer min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
-      />
-    )
+    return <main id="app-shell" className={WORKSPACE_SHELL_CLASS} />
   }
 
   return (
     <AspectRatioPromptProvider>
       <main
         id="app-shell"
-        className="ambient-layer min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
+        className={WORKSPACE_SHELL_CLASS}
         style={pageBackground ? { backgroundColor: pageBackground } : undefined}
       >
         <div className="app-content mx-auto w-full max-w-6xl px-3 pb-4 pt-20 sm:px-6 sm:pb-6 sm:pt-24">
@@ -140,6 +173,18 @@ export const WorkspaceShell = () =>
                       onAnnotateExport: exportActions.handleAnnotateExport,
                       onPreviewExport: exportActions.handlePreviewExport,
                     }}
+                    publish={{
+                      // mirror the mutation gate before surfacing ranking publish
+                      ranking: canPublishRanking
+                        ? handlePublishRanking
+                        : undefined,
+                      // template publish needs sign-in too; PublishModal handles
+                      // the empty-board placeholder + submit guard
+                      template: cloudEnabled
+                        ? handlePublishTemplate
+                        : undefined,
+                      signInRequired: !cloudEnabled,
+                    }}
                     onReset={handleResetBoard}
                   />
                 }
@@ -152,7 +197,11 @@ export const WorkspaceShell = () =>
         <BoardManager
           toolbarPosition={toolbarPosition}
           onSwitchBoard={transitionTo}
+          cloudEnabled={cloudEnabled}
         />
+        {session.status === 'signed-in' && (
+          <ConflictResolverModal user={session.user} />
+        )}
         <WorkspaceModalLayer
           modalStack={modalStack}
           exportStatus={exportActions.exportStatus}

@@ -9,6 +9,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(here, '..')
 
 const srcRoot = path.resolve(repoRoot, 'src')
+const convexRoot = path.resolve(repoRoot, 'convex')
 const testsRoot = path.resolve(repoRoot, 'tests')
 const contractsRoot = path.resolve(repoRoot, 'packages/contracts')
 
@@ -16,6 +17,11 @@ const contractsRoot = path.resolve(repoRoot, 'packages/contracts')
 const sourceAlias = {
   find: /^~\//,
   replacement: `${srcRoot}/`,
+}
+// resolve @convex/_generated/* imports for the typed api & dataModel
+const convexAlias = {
+  find: /^@convex\//,
+  replacement: `${convexRoot}/`,
 }
 // @tests/ -> tests/ — used by tests for fixtures & shared helpers
 const testsAlias = {
@@ -29,4 +35,9 @@ const contractsSubpathAlias = {
 }
 
 // vite & vitest both accept the array form of alias entries
-export const moduleAliases = [sourceAlias, testsAlias, contractsSubpathAlias]
+export const moduleAliases = [
+  sourceAlias,
+  convexAlias,
+  testsAlias,
+  contractsSubpathAlias,
+]

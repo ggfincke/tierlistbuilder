@@ -2,24 +2,25 @@
 
 ## Stack
 
-| Layer        | Technology                                         |
-| ------------ | -------------------------------------------------- |
-| UI           | React 19 + TypeScript 5.9                          |
-| Build        | Vite 7                                             |
-| Styling      | Tailwind CSS 4 (`@tailwindcss/vite` plugin)        |
-| State        | Zustand 5 (persisted to localStorage)              |
-| Drag & drop  | @dnd-kit/core + @dnd-kit/sortable                  |
-| Icons        | lucide-react                                       |
-| Image export | html-to-image (PNG/JPEG/WebP)                      |
-| PDF export   | jsPDF                                              |
-| Compression  | pako (share-link payloads)                         |
-| Unit testing | Vitest                                             |
-| E2E testing  | Playwright                                         |
-| Deployment   | Cloudflare Workers (via `@cloudflare/vite-plugin`) |
+| Layer        | Technology                                           |
+| ------------ | ---------------------------------------------------- |
+| UI           | React 19 + TypeScript 5.9                            |
+| Build        | Vite 7                                               |
+| Styling      | Tailwind CSS 4 (`@tailwindcss/vite` plugin)          |
+| State        | Zustand 5 (persisted to localStorage)                |
+| Drag & drop  | @dnd-kit/core + @dnd-kit/sortable                    |
+| Icons        | lucide-react                                         |
+| Image export | html-to-image (PNG/JPEG/WebP)                        |
+| PDF export   | jsPDF                                                |
+| Compression  | pako (share-link payloads)                           |
+| Backend      | Convex + @convex-dev/auth + @convex-dev/rate-limiter |
+| Unit testing | Vitest                                               |
+| E2E testing  | Playwright                                           |
+| Deployment   | Cloudflare Workers (via `@cloudflare/vite-plugin`)   |
 
 ## Directory Structure
 
-The codebase is organized into three top-level layers: `app/` (bootstrap, routing, and shells), `features/{workspace,library,embed,platform}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Shared serializable types live in the top-level `packages/contracts/` workspace package. See `dev-docs/archive/directory-restructure-proposal.mdx` for the long-form rationale.
+The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,platform,marketplace,library,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Cross-runtime wire types live in the top-level `packages/contracts/` workspace package.
 
 ```
 src/
@@ -28,74 +29,108 @@ src/
 │   ├── main.tsx                     # React mount
 │   ├── index.css                    # Tailwind entry
 │   ├── bootstrap/
-│   │   ├── useAppBootstrap.ts       # hydrate stores, bootstrap session, register autosave
+│   │   └── useAppBootstrap.ts       # hydrate stores, bootstrap session, register autosave
 │   ├── routes/
-│   │   ├── AppRouter.tsx            # BrowserRouter route table
-│   │   ├── AppChromeLayout.tsx      # shared top chrome + Outlet for app routes
+│   │   ├── AppRouter.tsx            # React Router route tree
 │   │   ├── WorkspaceRoute.tsx       # workspace entry
-│   │   ├── MyBoardsRoute.tsx        # library route entry
 │   │   ├── EmbedRoute.tsx           # embed entry
-│   │   └── NotFoundRoute.tsx        # 404 fallback
-│   └── shells/
-│       ├── AppTopNav.tsx            # global top nav (brand pill, route pills, account menu)
-│       ├── topNav/                  # top-nav chrome + preferences modal layer
-│       ├── workspace/               # WorkspaceShell, WorkspaceModalLayer, export actions, modal payload map
-│       └── useModalStack.ts         # keyed modal state helper
+│   │   ├── MyBoardsRoute.tsx         # library entry
+│   │   ├── NotFoundRoute.tsx        # 404 fallback
+│   │   └── AppChromeLayout.tsx      # chrome wrapper for app routes
+│   ├── shells/
+│   │   ├── topNav/                  # fixed global chrome composition, route pills, account menu
+│   │   ├── workspace/               # editable workspace shell, modal layer, export actions
+│   │   └── useModalStack.ts         # keyed modal state helper
+│   └── sync/                        # app-level cloud sync orchestration and auth-epoch lifecycle
 ├── features/workspace/
 │   ├── annotation/{model,ui}        # draw-over annotation editor
 │   ├── boards/
-│   │   ├── data/local/              # per-board localStorage I/O
+│   │   ├── data/
+│   │   │   ├── local/               # per-board localStorage I/O + sync/delete sidecars
+│   │   │   └── cloud/               # Convex board repo/mapper, pull/flush/merge, scheduler
 │   │   ├── dnd/                     # dnd-kit wiring, sensors, pointer math, layout sessions
 │   │   ├── interaction/             # keyboard drag controller, focus restore, useKeyboardDrag
-│   │   ├── lib/                     # boardDefaults, dndIds, containerLabel, aspectRatio (pure helpers)
-│   │   ├── model/                   # active board store, registry, session facade, snapshot ops
-│   │   └── ui/                      # TierList, TierRow, TierItem, BoardHeader, BoardActionBar, etc.
+│   │   ├── lib/                     # dndIds, containerLabel
+│   │   ├── model/                   # active board store, registry, session facade, conflicts, snapshot ops
+│   │   └── ui/
+│   │       ├── board-chrome/        # BoardHeader, BoardActionBar, BoardManager, badges, bulk actions
+│   │       ├── tier-list/           # TierList, TierRow, TierLabel, UnrankedPool, TrashZone
+│   │       ├── items/               # TierItem and item context menu
+│   │       ├── menus/               # row/save/color popups
+│   │       ├── modals/              # board conflict and recently deleted dialogs
+│   │       └── drag-overlay/        # dnd-kit overlay renderers
 │   ├── export/{lib,model,ui}        # PNG/JPEG/WebP/PDF/JSON export + preview + progress
+│   ├── imageEditor/
+│   │   ├── lib/                     # crop geometry, label options, & measurement helpers
+│   │   ├── model/
+│   │   │   ├── transform/           # transform drafts, pan, wheel zoom, arrow nudge, selected-item handlers
+│   │   │   ├── auto-crop/           # bulk and single-item auto-crop hooks
+│   │   │   ├── labels/              # label drafts and label-aware aspect measurement
+│   │   │   └── *.ts                 # open/filter store, item filtering, selection, modal actions
+│   │   └── ui/                      # modal, pane, rail, preview canvas, footer, label controls
 │   ├── settings/
-│   │   ├── data/local/              # settings storage key
 │   │   ├── lib/                     # image upload constants & helpers
-│   │   ├── model/                   # settings store, palette selector, aspect ratio, image import
-│   │   └── ui/                      # BoardSettingsModal & tabbed content
-│   ├── sharing/
-│   │   ├── inbound/                 # detect & import share URLs into the active board
-│   │   ├── snapshot-compression/    # hash fragment codec (pako deflate + base64url)
-│   │   └── ui/                      # ShareModal
+│   │   ├── model/
+│   │   │   ├── aspect-ratio/        # prompt context/provider/state/import and ratio picker state
+│   │   │   ├── auto-crop/           # prompt-level auto-crop controller and trim preference
+│   │   │   └── *.ts                 # board overrides, palette selectors, image import
+│   │   └── ui/
+│   │       ├── aspect-ratio/        # prompt modal, ratio pickers, tiles, mismatch previews
+│   │       ├── auto-crop/           # trim-shadow control shared by settings/editor
+│   │       └── *.tsx                # BoardSettingsModal and remaining board-specific tab content
+│   ├── sharing/ui                   # ShareModal, RecentSharesModal
 │   ├── shortcuts/{lib,model,ui}     # keyboard shortcut registry, panel, list
+│   ├── sync/                        # workspace-owned sync session, adapters, pending sidecar recovery
 │   ├── stats/{model,ui}             # board statistics & distribution chart
-│   └── tier-presets/                # reusable tier structures (local storage, independent of boards)
-│       ├── data/local/              # preset storage key
+│   └── tier-presets/                # reusable tier structures (local + cloud storage, independent of boards)
+│       ├── data/{local,cloud}       # preset storage key; Convex preset sync
 │       ├── model/                   # tier preset store, built-in presets
 │       └── ui/                      # PresetPickerModal, SavePresetModal
-├── features/library/                # My Boards page, filters, cards, list rows, local projections
-├── features/embed/ui                # read-only EmbedView primitives
 ├── features/platform/
-│   ├── media/                       # cross-feature image-file validation
-│   ├── preferences/                 # app preferences store, local storage, PreferencesModal, theme sync
-│   └── share/                       # inbound share-fragment resolver
+│   ├── auth/{model,ui}              # SignInModal, account profile sections, profile draft helpers, Convex auth wiring
+│   ├── media/                       # imageFetcher, imageUploader, Convex upload repository
+│   ├── preferences/                 # global preferences store, sync, theme hooks, modal
+│   ├── share/                       # short-link repository, URL builders, inbound share resolver
+│   └── sync/
+│       ├── lib/                     # cloudSyncConfig, concurrency, convexClient, crossTabSyncLock, errors, first-login lifecycle
+│       ├── state/                   # syncStatusStore, syncStatusVisuals, cloud pull progress
+│       └── transport/               # connectivity detection
+├── features/marketplace/            # templates, ranking publish/detail/remix, gallery flows
+│   ├── ui/                          # account, cards, consensus, cover, discovery, layout, meta, publish, template
+│   │   └── consensus/{views,rail,criterion,item,lib,compare}/
+│   └── model/{gallery,detail,publish,remix,cover,analytics,actions}/
+├── features/library/                # signed-in My Boards surface
+│   └── ui/{cards,list,chrome,chips,modals}/
+├── features/embed/ui                # read-only EmbedView primitives
 └── shared/
     ├── a11y/                        # announce() module, LiveRegion component
-    ├── board-ui/                    # BoardPrimitives, ItemContent, ItemOverlayButton, StaticBoard, boardTestIds, constants
-    ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl, useViewportWidth
-    ├── images/                      # imageStore, imageBlobCache, imagePersistence (IndexedDB blobs + refs)
-    ├── lib/                         # color, colorName, math, fileName, className, pluralize, downloadBlob,
-    │                                # browserStorage, storageMetering, logger, urls, typeGuards,
+    ├── board-data/                  # default board, snapshot normalizer, JSON/wire parsers
+    ├── board-ui/                    # BoardPrimitives, ItemContent, shared board rendering, cover framing, constants
+    ├── catalog/                     # compact count/date/estimate formatters + URL filter helpers
+    ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl
+    ├── images/                      # imageStore, imageBlobCache, imagePersistence, imageLoad
+    ├── lib/                         # color, math, fileName, className, pluralize, downloadBlob,
+    │                                # browserStorage, logger, urls, typeGuards,
     │                                # asyncMapLimit, binaryCodec, boardSnapshotItems, errors,
-    │                                # localSidecar, scheduleIdle, sha256, proceedGuard
+    │                                # localSidecar, sha256, sync/ (debouncedSyncRunner,
+    │                                # ownedSyncMeta, backoff, proceedGuard),
+    │                                # autoCrop/ (pipeline, cache & transforms-runner hooks)
     ├── notifications/               # ToastContainer, useToastStore
-    ├── overlay/                     # BaseModal, ConfirmDialog, progress, focus/inert dialog wiring,
-    │                                # dismissible layers, anchored popups, toolbar positioning, nested menus
+    ├── overlay/                     # BaseModal, ConfirmDialog, toolbarPosition, progress, focus/inert dialog wiring,
+    │                                # dismissible layers, anchored popups, menu overflow, nested menus
+    ├── routes/                      # base-path-aware route constants/path builders
     ├── selection/                   # useRovingSelection, selectionNavigation, selectionState
-    ├── routes/                      # base-path-aware route constants/path helpers
+    ├── sharing/                     # hash-fragment compression & short-link snapshot codecs
     ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors
     └── ui/                          # ActionButton, Button, buttonBase, PrimaryButton, SecondaryButton,
                                      # ColorInput, ErrorBoundary, PickerGrid, SettingsSection,
-                                     # SearchField, TextArea, TextInput, UploadDropzone
+                                     # settings controls, TextArea, TextInput, UploadDropzone
 
-packages/contracts/                  # @tierlistbuilder/contracts — shared serializable types
+packages/contracts/                  # @tierlistbuilder/contracts — cross-runtime wire types
 ├── lib/                             # ids, theme, themeDefinition
-├── marketplace/                     # template, ranking, aggregate, and seed-pipeline contracts
-├── platform/                        # upload, user, short-link, preferences, and error contracts
-└── workspace/                       # board, boardEnvelope, sync, settings, tierPreset
+├── marketplace/                     # public template/ranking marketplace contracts + category taxonomy
+├── workspace/                       # board, boardEnvelope, boardSync, cloudBoard, cloudPreset, tierPreset
+└── platform/                        # errors, media, preferences, shortLink, uploadEnvelope, user
 ```
 
 ## State Management
@@ -117,20 +152,36 @@ Persistence is split across features instead of living in a single monolithic `s
 - `features/workspace/boards/model/boardSession.ts` — model facade for session bootstrap, autosave subscription, CRUD, registry coordination, event listeners, and persistence wrappers
 - `features/workspace/boards/model/session/*` — board-session internals split by autosave, bootstrap, CRUD, events, persistence, registry, and storage warning reporting
 - `features/workspace/boards/data/local/boardStorage.ts` — per-board localStorage I/O, versioned envelopes, typed `ok`/`missing`/`corrupted` load outcomes, quota error messaging
-- `features/platform/preferences/data/local/preferencesStorage.ts` — preferences storage key & schema version
+- `features/workspace/boards/data/local/storageMetering.ts` — quota estimation, near-full warnings
+- `features/platform/preferences/data/local/preferencesStorage.ts` — preference storage key & schema version
 - `features/workspace/tier-presets/data/local/tierPresetStorage.ts` — preset storage key & schema version
 - `shared/lib/browserStorage.ts` — generic localStorage wrapper, Zustand persist adapter
-- `shared/lib/storageMetering.ts` — quota estimation, near-full warnings
-  Pre-1.0 storage changes are allowed to be breaking. Incompatible localStorage or
-  IndexedDB payloads should be wiped by version reset/recreation instead of
-  converted forward, while JSON/share import validation should continue rejecting
-  malformed or unsupported files.
+- `shared/lib/sync/ownedSyncMeta.ts` — shared owner-scoped pending/synced timestamp helpers for preference and preset sidecars
+
+Pre-1.0 storage changes are allowed to be breaking. Incompatible localStorage or
+IndexedDB payloads should be wiped by version reset/recreation instead of
+converted forward, while JSON/share import validation should continue rejecting
+malformed or unsupported files.
 
 Local images live in `shared/images/imageStore.ts` as content-addressed blobs.
 Imported items keep a small display blob plus an optional editor source blob.
 Board saves update board-scoped blob refs; workspace bootstrap reconciles refs
 from all local snapshots and prunes unreferenced blobs after the local image GC
 grace window. IndexedDB schema changes use a reset, not old-blob migration.
+
+## Cloud Sync
+
+Cloud sync is split between app-level orchestration, platform infrastructure,
+and workspace adapters:
+
+- `app/sync/createAppSyncSession.ts` owns startup wiring: online/offline connectivity, auth-epoch lifetime, sync-status store setup, and the workspace sync session.
+- `app/sync/useCloudSync.ts` mounts that session from the route chrome.
+- `features/platform/sync/{lib,state,transport}/` stays foundational: Convex client access, concurrency constants, cross-tab locks, errors, sync status/progress state, and connectivity detection. It must not import workspace, marketplace, or library slices.
+- `features/workspace/sync/workspaceSyncSession.ts` owns workspace sync adapters for boards, preferences, tier presets, board deletes, pending sidecar recovery, first-login workspace merges, and conflict queueing.
+- `features/workspace/sync/useWorkspaceBoardSyncSubscriber.ts` observes active board edits and forwards `PendingBoardSync` work into the workspace session after the first-login board merge gate opens.
+- `features/workspace/sync/useWorkspaceBoardSyncStatus.ts` is the board-aware status hook. It composes platform status state with workspace conflict state so platform sync remains product-slice agnostic.
+- Per-slice cloud transport remains under `features/workspace/*/data/cloud/`; platform orchestration does not import those modules directly.
+- `shared/lib/sync/debouncedSyncRunner.ts` is the shared debounce/retry kernel. Preferences and presets use it directly; board sync wraps it through `cloudSyncScheduler.ts` for peer-tab locks, conflict pauses, pending marker persistence, and permanent-error cleanup.
 
 ## Drag and Drop
 
@@ -167,66 +218,80 @@ The separation ensures board-input orchestration (selection, focus persistence, 
 
 ## Routing
 
-`app/routes/AppRouter.tsx` uses `react-router-dom`'s `BrowserRouter` with `normalizeBasePath()` as the basename. Chrome-wrapped routes render through `AppChromeLayout`, which owns app bootstrap and top navigation before handing the active route to `<Outlet />`.
+`app/routes/AppRouter.tsx` owns the React Router tree and lazy-loads marketplace, library, and embed route chunks:
 
-- `/` → `WorkspaceRoute` → `WorkspaceShell` (full editable shell)
-- `/boards` → `MyBoardsRoute` → `MyBoardsPage` (local board library)
-- `/embed` → `EmbedRoute` → `EmbedView` (read-only embed view)
-- anything else → `NotFoundRoute`
+- `/` -> `WorkspaceRoute` -> `WorkspaceShell` (full editable shell)
+- `/templates` -> `MarketplaceLayout` -> template gallery
+- `/templates/:slug` -> template detail
+- `/boards` -> `MyBoardsRoute` -> signed-in library
+- `/embed` -> `EmbedRoute` -> `EmbedView`
+- anything else -> `NotFoundRoute`
 
-Share links use the `#share=<base64url>` hash fragment. The snapshot strips private notes, image refs, and deleted items, then compresses directly into a base64url URL fragment via `encodeBoardToShareFragment`. `useAppBootstrap` and `EmbedView` detect the fragment through `features/platform/share/inboundShare.ts`; workspace bootstrap imports and clears the fragment, while embed reads it into local component state.
+Base-path-aware route constants and URL builders live in `shared/routes/pathname.ts` so feature slices can link without importing the app router.
 
-The embed route inflates via `shared/board-ui/` primitives and never mounts the editable active-board store.
+Two share-link carriers land on these routes:
+
+- **Short-link query (`?s=<slug>`, primary).** `createBoardShortLink` strips deleted items, converts live image refs into inline JSON wire bytes, rejects payloads above `MAX_SNAPSHOT_COMPRESSED_BYTES` before upload, then uploads the compressed snapshot to Convex storage & mints a slug. `getShareUrlFromSlug` and `getEmbedUrlFromSlug` live in `features/platform/share/shortLinkShare.ts`.
+- **Hash fragment (`#share=<base64url>`, fallback).** The snapshot strips image refs and deleted items, then compresses directly into a base64url URL fragment via `encodeBoardToShareFragment` in `shared/sharing/hashShare.ts`.
+
+`features/platform/share/inboundShare.ts` resolves the current URL into a `BoardSnapshot`. Workspace bootstrap imports the result into the active board session; embed normalizes it and renders through `shared/board-ui/*` without mounting the editable active-board store.
 
 ## Component Hierarchy
 
 ```
 App (app/App.tsx → AppRouter)
-├── AppChromeLayout
-│   ├── AppTopNav
-│   │   ├── BrandPill
-│   │   ├── NewBoardAction
-│   │   ├── SurfaceNav
-│   │   └── TopNavAccountControl → PreferencesModal
-│   ├── WorkspaceRoute → WorkspaceShell
-│   │   ├── BoardHeader                — click-to-edit board title
-│   │   │   └── BoardPublishChip       — content-derived Draft/WIP/Live state
-│   │   ├── BoardActionBar             — undo/redo, add tier, settings, export, reset, share
-│   │   │   ├── ActionButton[]         — reusable circular icon buttons
-│   │   │   └── ExportMenu             — export dropdown w/ nested hover submenus
-│   │   ├── TierList                   — DndContext wrapper, tier rows, unranked pool, drag overlay
-│   │   │   ├── TierRow[]              — tier label + sortable item grid + color picker popups
-│   │   │   │   ├── TierLabel          — colored label (editable name)
-│   │   │   │   ├── TierItem[]         — sortable items (delegates keyboard to useKeyboardDrag)
-│   │   │   │   ├── TierRowSettingsMenu — gear button + row settings popup
-│   │   │   │   └── ColorPicker        — fixed-position color swatch popup
-│   │   │   ├── UnrankedPool           — droppable pool for unassigned items
-│   │   │   └── TrashZone              — drag-to-trash (visible during drag)
-│   │   ├── BoardSettingsModal         — tabbed modal shell w/ per-tab subcomponents
-│   │   ├── PresetPickerModal          — modal for selecting built-in & user tier presets
-│   │   ├── SavePresetModal            — save current tiers as a user preset
-│   │   ├── AspectRatioIssueModal      — blocking mixed-ratio warning dialog
-│   │   ├── ShareModal                 — generate hash share / embed URLs
-│   │   ├── StatsModal                 — board statistics
-│   │   │   └── TierDistributionChart  — per-tier item counts
-│   │   ├── AnnotationEditor           — draw-over overlay editor
-│   │   ├── ImageEditorModal           — per-item crop, label, alt-text, notes, background editor
-│   │   ├── ItemPreviewModal           — read-only item zoom/preview surface
-│   │   ├── ItemContextMenu            — item actions and edit entry points
-│   │   ├── DragOverlay → DragOverlayItem — ghost item (uses ItemContent for rendering)
-│   │   ├── ConfirmDialog              — shared modal for destructive confirmations
-│   │   ├── ProgressOverlay            — shared blocking overlay (export-all)
-│   │   ├── BulkActionBar              — floating bar for multi-select operations
-│   │   ├── ShortcutsPanel → ShortcutsList — help panel listing keyboard shortcuts
-│   │   ├── ToastContainer             — auto-dismissing notifications
-│   │   └── LiveRegion                 — screen reader announcement target
-│   └── MyBoardsRoute → MyBoardsPage
-│       ├── LibrarySearchInput
-│       ├── LibraryFilterBar
-│       ├── NewBoardTile
-│       ├── BoardCard[]                — grid view w/ mosaic covers and publish/sync chips
-│       ├── BoardListTable             — dense list view
-│       └── RenameBoardModal
+├── AppTopNav                       — fixed global chrome shell
+│   ├── SurfaceNav                  — Workspace/Templates route pills
+│   ├── TopNavAccountControl        — avatar trigger, account menu, sign-out
+│   └── TopNavModalLayer            — lazy SignIn/Account/Preferences launchers
+├── WorkspaceRoute → WorkspaceShell
+│   ├── BoardHeader                — click-to-edit board title
+│   ├── BoardActionBar             — undo/redo, add tier, settings, export, reset, share
+│   │   ├── ActionButton[]         — reusable circular icon buttons
+│   │   └── ExportMenu             — export dropdown w/ nested hover submenus
+│   ├── TierList                   — DndContext wrapper, tier rows, unranked pool, drag overlay
+│   │   ├── TierRow[]              — tier label + sortable item grid + color picker popups
+│   │   │   ├── TierLabel          — colored label (editable name)
+│   │   │   ├── TierItem[]         — sortable items (delegates keyboard to useKeyboardDrag)
+│   │   │   ├── TierRowSettingsMenu — gear button + row settings popup
+│   │   │   └── ColorPicker        — fixed-position color swatch popup
+│   │   ├── UnrankedPool           — droppable pool for unassigned items
+│   │   └── TrashZone              — drag-to-trash (visible during drag)
+│   ├── BoardSettingsModal         — tabbed modal shell w/ per-tab subcomponents
+│   │   ├── ItemsTab               — import, text items, deleted items (+ DeletedItemsSection)
+│   │   ├── AppearanceTab          — theme, text style, tier-color sync
+│   │   │   ├── ThemePicker
+│   │   │   ├── PalettePicker
+│   │   │   └── TextStylePicker
+│   │   ├── LayoutTab              — item sizing, tier-label layout, aspect ratio
+│   │   │   ├── AspectRatioSection → AspectRatioPicker → AspectRatioTiles
+│   │   │   ├── SegmentedControl
+│   │   │   ├── Toggle, SettingRow
+│   │   │   └── ImageUploader
+│   │   └── MoreTab                — export prefs, storage, shortcuts
+│   ├── BoardManager               — floating panel (bottom-right) for board switching
+│   │   └── BoardSyncBadge         — per-board sync status badge
+│   ├── PresetPickerModal          — modal for selecting built-in & user tier presets
+│   ├── SavePresetModal            — save current tiers as a user preset
+│   ├── RecentlyDeletedModal       — restore soft-deleted boards within retention window
+│   ├── AspectRatioIssueModal      — blocking mixed-ratio warning dialog
+│   ├── ConflictResolverModal      — board sync conflict resolution (cloud vs. local)
+│   ├── ShareModal                 — generate short link, copy share / embed URLs
+│   ├── RecentSharesModal          — list & revoke live snapshot shares
+│   ├── StatsModal                 — board statistics
+│   │   └── TierDistributionChart  — per-tier item counts
+│   ├── AnnotationEditor           — draw-over overlay editor
+│   │   ├── AnnotationCanvas
+│   │   └── AnnotationToolbar
+│   ├── ItemEditPopover            — inline item label & background editor
+│   ├── SyncStatusIndicator        — global cloud sync state indicator
+│   ├── DragOverlay → DragOverlayItem — ghost item (uses ItemContent for rendering)
+│   ├── ConfirmDialog              — shared modal for destructive confirmations
+│   ├── ProgressOverlay            — shared blocking overlay (export-all, cloud pull)
+│   ├── BulkActionBar              — floating bar for multi-select operations
+│   ├── ShortcutsPanel → ShortcutsList — help panel listing keyboard shortcuts
+│   ├── ToastContainer             — auto-dismissing notifications
+│   └── LiveRegion                 — screen reader announcement target
 └── EmbedRoute → EmbedView — read-only iframe view
 ```
 
@@ -239,21 +304,21 @@ management, popups, and menu behavior can change independently:
 - **Modal behavior:** `modalDialog.ts`, `focusTrap.ts`, and `modalLayer.ts` own Escape handling, focus containment, app-shell inert state, and scroll locking. The keyed modal stack lives in `app/shells/useModalStack.ts`.
 - **Popup/menu behavior:** `dismissibleLayer.ts`, `anchoredPopup.ts`, `popupPosition.ts`, `uiMeasurements.ts`, `menuOverflow.ts`, and `nestedMenus.ts` own outside interaction, positioning, overflow flipping, and submenu state.
 
-Tier-row popups (`ColorPicker`, `TierRowSettingsMenu`) compute their position via `popupPosition.ts` at open time. `BoardManager` and `ExportMenu` keep their own anchored layouts but reuse dismissal and overflow helpers. `BoardSettingsModal`, `PresetPickerModal`, `ShareModal`, `StatsModal`, `ImageEditorModal`, `ItemPreviewModal`, and `AspectRatioIssueModal` all build on `BaseModal`.
+Tier-row popups (`ColorPicker`, `TierRowSettingsMenu`) compute their position via `popupPosition.ts` at open time. `BoardManager` and `ExportMenu` keep their own anchored layouts but reuse dismissal and overflow helpers. `BoardSettingsModal`, `PresetPickerModal`, `ShareModal`, `RecentSharesModal`, `RecentlyDeletedModal`, `AspectRatioIssueModal`, `ConflictResolverModal`, and `SignInModal` all build on `BaseModal`.
 
 Toolbar-position-aware submenu class sets live in `shared/overlay/toolbarPosition.ts`, consumed by `BoardActionBar`, `ExportMenu`, `TierList`, `useGlobalShortcuts`, and the workspace shell.
 
 ## Theming
 
-8 color themes + 5 text styles, controlled via CSS custom properties (`--t-*` for colors, `--ts-*` for typography). Theme definitions live in `src/shared/theme/`:
+See **[`docs/design-system.mdx`](design-system.mdx)** for the runtime token contract, primitive picker, and overlay composition rules. 8 color themes + 5 text styles, controlled via CSS custom properties (`--t-*` for colors, `--ts-*` for typography). Theme definitions live in `src/shared/theme/`:
 
 - `tokens.ts` — `--t-*` color tokens applied at `:root`
 - `palettes.ts` — tier-color palettes
 - `textStyles.ts` — font-family & weight tokens
-- `runtime.ts` — `applyThemeTokens` / `applyTextStyle` DOM writers
+- `runtime.ts` — `applyThemeTokens` / `applyTextStyleTokens` DOM writers
 - `tierColors.ts` — `TierColorSpec` resolution against the active palette
 
-The `useThemeSync` hook (called in `WorkspaceShell` from `src/features/platform/preferences/model/useThemeSync.ts`) syncs theme tokens from `usePreferencesStore` to `:root`; `WorkspaceShell` layers board-specific overrides on top. `EmbedRoute` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render the Scoreboard theme regardless of the host's preference; `EmbedView` defaults `paletteId` to `'classic'` to keep tier colors neutral for embedders. Non-system fonts are loaded dynamically from Google Fonts.
+The `useThemeSync` hook (`features/platform/preferences/model/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `usePreferencesStore` to `:root`. `WorkspaceShell` layers board text-style overrides through `useBoardThemeOverrides()`. `EmbedRoute` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render stable chrome tokens regardless of the host's preference, while `EmbedView` keeps the neutral `classic` tier palette. Non-system fonts are loaded dynamically from Google Fonts.
 
 ## Export Pipeline
 
@@ -270,38 +335,113 @@ All export lib code lives in `features/workspace/export/lib/`; the UI (`ExportMe
 Share/export image behavior is intentionally split by carrier:
 
 - JSON export preserves live and deleted item images via inline bytes.
+- Short links preserve live item images via inline bytes, but drop deleted items.
 - Hash-fragment shares drop image refs and deleted items to keep URLs bounded.
+- Cloud sync preserves images through Convex media assets, not share snapshots.
 
 ## Boundary Rules
 
 - `shared/*` must not import from `features/*`. Shared code is framework-only and feature-agnostic.
-- Inside `features/workspace/*`, cross-slice imports are allowed in the direction of structural dependency. `tier-presets` may import board contract types because presets produce boards.
-- The embed view renders through `shared/board-ui/*` primitives only and never mounts the editable active-board store.
-- UI (`ui/`) → model (`model/`) → data (`data/local/`). Components don't call localStorage directly; they go through a `model/` selector or `data/*` helper.
+- `shared/board-data/*`, `shared/board-ui/*`, `shared/sharing/*`, and `shared/routes/*` are the neutral homes for current board snapshot, rendering, share-codec, and route-path helpers.
+- The embed shell resolves shares through `features/platform/share/*`, renders through `shared/board-ui/*`, and never mounts the editable active-board store.
+- Workspace owns activation of cloud-backed boards via `features/workspace/boards/model/cloudBoardActivation.ts`; marketplace/library callers do not reach through workspace persistence internals directly.
+- Workspace exposes publishable-board scanning via `features/workspace/boards/model/usePublishableBoards.ts`; marketplace publish UI does not read board storage directly.
+- UI (`ui/`) → model (`model/`) → data (`data/{local,cloud}/`). Components don't call localStorage or Convex directly — they go through `model/` selectors or `data/*` helpers.
+- Platform sync owns auth/connectivity/status primitives only; app sync composes those primitives with workspace sessions.
+- Per-slice cloud transport (Convex args, mappers) lives in the owning slice. Platform media and share repositories own storage upload URLs, media finalization, and short-link lookups.
+- `app/sync/*` is the only place allowed to compose platform sync infrastructure with workspace sessions. Keep product-slice imports out of `features/platform/sync/*`.
+- `SaveOrPublishMenu` may preload the marketplace publish modal to reduce perceived latency, but that edge is a lazy-loader hint only; workspace UI must not call marketplace runtime logic directly.
+- Share code intentionally has three homes: `features/platform/share/*` for short-link data access, `features/workspace/sharing/ui/*` for workspace dialogs, and `shared/sharing/*` for pure codecs plus the compression worker.
 
 ## Types
 
-Types are split between `packages/contracts/` (stable, serializable shapes) and slice-local `runtime.ts` files (implementation-private, never persisted or sent across boundaries). There is no barrel file — every import points directly at the module that defines the type.
+Types are split between `packages/contracts/` (stable, serializable, cross-runtime) and slice-local `runtime.ts` files (implementation-private, never persisted or sent across boundaries). There is no barrel file — every import points directly at the module that defines the type.
 
 **Contracts (`@tierlistbuilder/contracts`, `packages/contracts/`):**
 
-Anything that crosses a process boundary — localStorage, JSON exports, and share links — lives here:
+Anything that crosses a process boundary — localStorage, JSON exports, share links, Convex function arguments/results — lives here:
 
-- `lib/ids.ts` — `BoardId`, `TierId`, `PresetId`, `UserPresetId`, `BuiltinPresetId` template-literal brands; `ItemId` is a nominal brand w/ `asItemId()` cast at trust boundaries.
+- `lib/ids.ts` — `BoardId`, `TierId`, `PresetId`, `UserPresetId`, `BuiltinPresetId` template-literal brands; `ItemId` is a nominal brand w/ `asItemId()` cast at trust boundaries. `generate*` ID factories shared across frontend & Convex.
 - `lib/theme.ts`, `lib/themeDefinition.ts` — `ThemeId`, `PaletteId`, `TextStyleId`.
+- `marketplace/category.ts` — template category taxonomy shared by contracts, Convex validators, and UI filters.
+- `marketplace/template.ts` — public template summary/detail/draft/use contracts.
+- `marketplace/ranking.ts` — public ranking summary/detail/publish/remix contracts.
+- `platform/preferences.ts` — `AppPreferences`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.
 - `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`.
-- `workspace/settings.ts` — `AppSettings`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.
 - `workspace/tierPreset.ts` — `TierPreset`, `TierPresetTier`.
-- `workspace/boardEnvelope.ts` — version marker for per-board localStorage envelopes.
+- `workspace/cloudBoard.ts`, `workspace/cloudPreset.ts`, `workspace/boardSync.ts`, `workspace/boardEnvelope.ts` — cloud-sync & envelope wire types.
+- `platform/errors.ts`, `platform/media.ts`, `platform/shortLink.ts`, `platform/user.ts` — platform-level shared contracts.
+- `platform/uploadEnvelope.ts` — prefixed header binding an upload blob to its purpose, owner, & signed token so intercepted `(storageId, token)` pairs can't cross-account finalize.
 
 **Runtime (slice-local `runtime.ts`):**
 
 Types that only live in memory stay in the frontend tree, collocated w/ the stores that use them:
 
-- `features/workspace/boards/model/runtime.ts` — `ContainerSnapshot`, `ContainerSnapshotTier`, `KeyboardMode`, `ActiveBoardRuntimeState`, `freshRuntimeState`, `ItemRecord`.
+- `features/workspace/boards/model/runtime.ts` — `ContainerSnapshot`, `KeyboardMode`, `ActiveBoardRuntimeState`, and runtime-state factories.
 - `features/workspace/export/model/runtime.ts` — `ImageFormat`, `ExportAppearance`.
 
 `BoardSnapshot` is the canonical serializable board shape. `ContainerSnapshot` is the runtime-only lightweight ordering used during drag preview — it mirrors tier/unranked item ID arrays without carrying full tier metadata.
+
+## Backend
+
+The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{media,preferences,shortLinks}`, and `marketplace/{templates,rankings}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
+
+Convex validators are exposed through domain entrypoints under
+`convex/lib/validators/{common,workspace,platform,marketplace,seedPipeline}.ts`.
+Each file owns the validator definitions and contract-mirror assertions for its
+domain. `common.ts` is limited to cross-domain primitives such as theme IDs,
+tier color specs, item transforms, tier preset rows, and label settings.
+
+Marketplace ranking backend files are grouped by workflow:
+
+- `marketplace/rankings/public/` — public queries and mutations.
+- `marketplace/rankings/aggregate/` — aggregate computation helpers and scheduled jobs.
+- `marketplace/rankings/seed/` — seed manifest validators, planning, scoring, lifecycle, cleanup, and seed actions.
+- `marketplace/rankings/maintenance/` — owner/data cascade jobs.
+
+Marketplace template helpers are split by responsibility under
+`marketplace/templates/lib/`:
+
+- `normalize.ts` — input normalization, validation, defaults.
+- `trending.ts` — trending-score math, metric-day bucketing, projection cache.
+- `state.ts` — publication/access-state predicates & state-field builders.
+- `board.ts` — template-to-board tier/item materialization.
+- `projections.ts` — read-side projections: media/author/item loaders, stats reads, & summary/detail/draft/card shaping.
+- `writes.ts` — table writes & lifecycle: stats/cards/tags writes, publication-state mutations, deletes, & slug allocation.
+
+Key boundary: **UI components never call Convex directly**. Every query & mutation flows through a per-feature adapter, platform repository, or auth hook. This keeps wire types, error surfaces, and retry policy out of the UI layer.
+
+Schema (`convex/schema.ts`) defines the app-owned tables alongside `@convex-dev/auth`'s `authTables`:
+
+- `users` — extends auth-managed fields w/ app-owned `displayName`, `avatarStorageId`, `tier`, timestamps.
+- `userPreferences` — per-user mirror of `AppPreferences`.
+- `boards` — owner-scoped boards w/ revision, source-template link, soft-delete tombstone, aspect-ratio fields, and per-board style overrides.
+- `boardTiers` / `boardItems` — ordered rows keyed by fractional `order` numbers. `boardItems` carry `aspectRatio` & `imageFit` overrides.
+- `mediaAssets` — uploaded image metadata, content-hash deduplicated, indexed by owner + hash.
+- `tierPresets` — reusable tier structures owned by a user.
+- `shortLinks` — share-link slug indirection backed by compressed snapshot blobs in `_storage`, TTL-swept via cron.
+- `templates` / `templateItems` / `templateTags` — public/unlisted marketplace templates, item snapshots, tag rows, and fork tracking.
+- `templateCards` / `templateStats` / `templateMetricDays` — denormalized gallery cards, all-time counts, and rolling daily metrics for trending sort/rails.
+- `marketplaceStats` — singleton marketplace aggregate counters used by gallery category chips.
+- `publishedRankings` / `publishedRankingTiers` / `publishedRankingItems` — immutable ranking snapshots published from completed template-backed boards and used by ranking detail/remix flows.
+
+Marketplace seed ingest runs through dedicated HTTP endpoints under
+`/api/seed/*`. They fail closed unless `CONVEX_SEED_ENABLED=true` and the
+caller sends the deployment's `CONVEX_SEED_SECRET` as a bearer authorization
+header.
+
+`npm run db:reset -- --yes`
+(`python -m seed_pipeline.dev_reset` under `scripts/seed_pipeline/` →
+`/api/dev/reset` → `convex/dev/reset.ts`) wipes every user table and `_storage`
+blob for fast dev iteration. Schema is preserved. Server-side it requires
+`CONVEX_DEV_RESET_ALLOWED=true` plus a typed confirm token derived from the
+deployment URL; the client refuses to call it when `CONVEX_DEPLOYMENT` starts
+with `prod:`.
+
+Account deletion and sign-out-everywhere cleanup schedule one paginated auth
+cleanup step per Convex mutation, then continue through internal scheduled
+functions. The client clears its local auth token after scheduling so browser
+state updates immediately while backend-owned data cleanup finishes out of band.
 
 ## Testing
 
@@ -309,5 +449,10 @@ Unit & integration tests live under `tests/` and run via Vitest. End-to-end Play
 
 - `npm test` — Vitest single pass
 - `npm run test:watch` — Vitest watch mode
-- `npm run test:e2e` — Playwright smoke + guardrails (requires `npx playwright install chromium` once)
+- `npm run test:e2e` — Playwright smoke + guardrails for workspace, image-editor persistence, account profile/delete, embed, marketplace filters, signed-in publish/use-template, and My Boards activation (requires `npx playwright install chromium` once; config prepares local Convex Auth)
 - `npm run test:e2e:ui` — Playwright headed runner
+- `npm run audit:dead-code` — Knip unused dependency/export/file audit
+
+Docs are part of the maintenance surface: when a consolidation pass changes
+slice ownership, public contracts, or test coverage, update this file and
+`tests/README.md` in the same change.

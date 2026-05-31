@@ -5,9 +5,9 @@
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "baseUrl": ".",
     "paths": {
       "~/*": ["./src/*"],
+      "@convex/*": ["./convex/*"],
       "@tests/*": ["./tests/*"],
       "@tierlistbuilder/contracts/*": ["./packages/contracts/*"]
     },
@@ -30,5 +30,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "packages/contracts"]
+  "include": ["src", "packages/contracts", "convex/_generated"]
 }

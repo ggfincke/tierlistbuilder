@@ -26,6 +26,14 @@ const utcDayKey = (): string => new Date().toISOString().slice(0, 10)
 const sessionRecordValue = (value: string, today: string | null): string =>
   today === null ? value : `${today}:${value}`
 
+const trimToCap = (values: Set<string>): string[] =>
+{
+  const entries = [...values]
+  return entries.length > MAX_RECORDED_VALUES
+    ? entries.slice(entries.length - MAX_RECORDED_VALUES)
+    : entries
+}
+
 const readRecordedValues = (storageKey: string): Set<string> =>
 {
   if (typeof window === 'undefined') return new Set()
@@ -52,12 +60,7 @@ const writeRecordedValues = (storageKey: string, values: Set<string>): void =>
 
   try
   {
-    const entries = [...values]
-    const trimmed =
-      entries.length > MAX_RECORDED_VALUES
-        ? entries.slice(entries.length - MAX_RECORDED_VALUES)
-        : entries
-    window.sessionStorage.setItem(storageKey, JSON.stringify(trimmed))
+    window.sessionStorage.setItem(storageKey, JSON.stringify(trimToCap(values)))
   }
   catch
   {
@@ -104,14 +107,12 @@ const writeDailyRecordedValues = (
   values: Set<string>
 ): void =>
 {
-  const entries = [...values]
-  const trimmed =
-    entries.length > MAX_RECORDED_VALUES
-      ? entries.slice(entries.length - MAX_RECORDED_VALUES)
-      : entries
   writeBrowserStorageItem(
     storageKey,
-    JSON.stringify({ day: today, values: trimmed } satisfies DailyRecord)
+    JSON.stringify({
+      day: today,
+      values: trimToCap(values),
+    } satisfies DailyRecord)
   )
 }
 

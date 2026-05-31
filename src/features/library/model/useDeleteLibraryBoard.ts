@@ -1,20 +1,26 @@
 // src/features/library/model/useDeleteLibraryBoard.ts
-// deletion driver for library rows — delegates to deleteBoardSession
+// deletion driver for library rows — delegates to deleteBoardSession when the
+// board is in the workspace registry, falls back to a direct cloud soft-delete
 
 import { useCallback, useState } from 'react'
 
 import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  LibraryBoardListItem,
+  SyncState,
+} from '@tierlistbuilder/contracts/workspace/board'
+import { deleteBoardImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { deleteBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { toast } from '~/shared/notifications/useToastStore'
 
-import { useLibraryBoardAction } from '~/features/library/model/useLibraryBoardAction'
+import { useLibraryBoardAction } from './useLibraryBoardAction'
 
 interface DeleteLibraryBoardTarget
 {
   externalId: BoardId
   title: string
+  syncState: SyncState
 }
 
 interface DeleteLibraryBoardAction
@@ -37,6 +43,7 @@ export const useDeleteLibraryBoard = (): DeleteLibraryBoardAction =>
     setConfirmTarget({
       externalId: asBoardId(board.externalId),
       title: board.title,
+      syncState: board.syncState,
     })
   }, [])
 
@@ -51,7 +58,8 @@ export const useDeleteLibraryBoard = (): DeleteLibraryBoardAction =>
     const target = confirmTarget
 
     const registry = useWorkspaceBoardRegistryStore.getState()
-    if (registry.boards.length <= 1)
+    const inRegistry = registry.isBoardInRegistry(target.externalId)
+    if (inRegistry && registry.boards.length <= 1)
     {
       toast('At least one board has to stay in your workspace.', 'error')
       return
@@ -67,8 +75,24 @@ export const useDeleteLibraryBoard = (): DeleteLibraryBoardAction =>
       },
       async () =>
       {
-        await deleteBoardSession(target.externalId)
-        toast(`Deleted "${target.title}".`, 'success')
+        if (inRegistry)
+        {
+          await deleteBoardSession(target.externalId)
+        }
+        else
+        {
+          // cloud-only row — soft-delete via the mutation directly so it
+          // still lands in Recently deleted
+          await deleteBoardImperative({ boardExternalId: target.externalId })
+        }
+
+        const restorable = target.syncState !== 'localOnly'
+        toast(
+          restorable
+            ? `Moved "${target.title}" to Recently deleted.`
+            : `Deleted "${target.title}".`,
+          'success'
+        )
       }
     )
   }, [confirmTarget, run])

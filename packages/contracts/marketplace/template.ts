@@ -2,10 +2,18 @@
 // public template marketplace contracts shared by frontend slices
 
 import type { TierPresetTier } from '../workspace/tierPreset'
+import { generateBase62Slug, isBase62Slug } from '../lib/ids'
+import {
+  COVER_RENDER_FIELD_KEYS,
+  pickNullableCoverRenderFields,
+} from '../workspace/board'
 import type {
+  BoardAutoPlateSettings,
   BoardLabelSettings,
+  CoverRenderFieldSource,
   ImageFit,
   ItemTransform,
+  MediaPlate,
 } from '../workspace/board'
 import type { PaginationResult } from '../lib/pagination'
 import type { TemplateCategory } from './category'
@@ -99,31 +107,11 @@ const TEMPLATE_SLUG_LENGTH = 10
 // so big rosters fill the card instead of leaving empty cells
 export const MAX_TEMPLATE_COVER_ITEMS = 24
 
-const TEMPLATE_SLUG_PATTERN = new RegExp(
-  `^[0-9A-Za-z]{${TEMPLATE_SLUG_LENGTH}}$`
-)
-
-const BASE62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
 export const isTemplateSlug = (value: unknown): value is string =>
-  typeof value === 'string' && TEMPLATE_SLUG_PATTERN.test(value)
+  isBase62Slug(value, TEMPLATE_SLUG_LENGTH)
 
 export const generateTemplateSlug = (): string =>
-{
-  let out = ''
-  const buf = new Uint8Array(TEMPLATE_SLUG_LENGTH)
-  while (out.length < TEMPLATE_SLUG_LENGTH)
-  {
-    crypto.getRandomValues(buf)
-    for (const byte of buf)
-    {
-      if (byte >= 248) continue
-      out += BASE62[byte % 62]
-      if (out.length === TEMPLATE_SLUG_LENGTH) break
-    }
-  }
-  return out
-}
+  generateBase62Slug(TEMPLATE_SLUG_LENGTH)
 
 export interface TemplateAuthor
 {
@@ -191,9 +179,43 @@ export interface TemplateCoverItem
   media: TemplateMediaRef
   label: string | null
   backgroundColor: string | null
+  mediaPlate: MediaPlate | null
   aspectRatio: number | null
   imageFit: ImageFit | null
   transform: ItemTransform | null
+  imagePadding: number | null
+}
+
+export type TemplateCoverItemPresentationFields = Omit<
+  TemplateCoverItem,
+  'media'
+>
+
+export const pickTemplateCoverItemPresentationFields = (
+  item: CoverRenderFieldSource & { label?: string | null }
+): TemplateCoverItemPresentationFields =>
+{
+  const renderFields = pickNullableCoverRenderFields(item)
+  return {
+    label: item.label ?? null,
+    ...(Object.fromEntries(
+      COVER_RENDER_FIELD_KEYS.map((key) => [key, renderFields[key]])
+    ) as Omit<TemplateCoverItemPresentationFields, 'label'>),
+  }
+}
+
+export interface MarketplaceItemRenderFields
+{
+  label: string | null
+  backgroundColor: string | null
+  mediaPlate: MediaPlate | null
+  altText: string | null
+  media: TemplateMediaRef | null
+  order: number
+  aspectRatio: number | null
+  imageFit: ImageFit | null
+  transform: ItemTransform | null
+  imagePadding: number | null
 }
 
 export interface MarketplaceTemplateBase
@@ -237,6 +259,11 @@ export interface MarketplaceTemplateSummary extends MarketplaceTemplateBase
   itemAspectRatio: number | null
   // board-wide fit pinned by the publisher; null falls back to 'cover'
   defaultItemImageFit: ImageFit | null
+  // board-wide plate inset pinned by the publisher; null falls back to the
+  // plate-aware default
+  defaultItemImagePadding: number | null
+  // per-board logo backdrop pinned by the publisher; null -> On+Auto default
+  autoPlate: BoardAutoPlateSettings | null
 }
 
 export interface MarketplaceTemplateGalleryCard extends MarketplaceTemplateSummary
@@ -300,17 +327,9 @@ export interface MarketplaceTemplateDraftTemplate
   coverItems: TemplateCoverItem[]
 }
 
-export interface MarketplaceTemplateItem
+export interface MarketplaceTemplateItem extends MarketplaceItemRenderFields
 {
   externalId: string
-  label: string | null
-  backgroundColor: string | null
-  altText: string | null
-  media: TemplateMediaRef | null
-  order: number
-  aspectRatio: number | null
-  imageFit: ImageFit | null
-  transform: ItemTransform | null
 }
 
 export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
