@@ -1,4 +1,4 @@
-// src/shared/lib/useCollectAutoCropTransformsRunner.ts
+// src/shared/lib/autoCrop/useCollectAutoCropTransformsRunner.ts
 // cancellable batch runner for auto-crop transform collection
 
 import { useCallback, useState } from 'react'
@@ -6,9 +6,10 @@ import { useCallback, useState } from 'react'
 import type { TierItem } from '@tierlistbuilder/contracts/workspace/board'
 import { useAbortControllerHandle } from '~/shared/hooks/useAbortControllerHandle'
 import {
+  areCachedAutoCropsApplied,
   collectAutoCropTransforms,
   type AutoCropTransformEntry,
-} from '~/shared/lib/autoCrop'
+} from '~/shared/lib/autoCrop/pipeline'
 import { isAbortError } from '~/shared/lib/errors'
 
 export interface AutoCropProgress
@@ -27,10 +28,18 @@ interface CollectAutoCropTransformsRunParams
   onError?: (error: unknown) => void
 }
 
+type CachedAutoCropTransformsAppliedParams = Pick<
+  CollectAutoCropTransformsRunParams,
+  'targets' | 'getBoardAspectRatio' | 'trimSoftShadows'
+>
+
 const EMPTY_PROGRESS: AutoCropProgress = { running: false, done: 0, total: 0 }
 
 export const useCollectAutoCropTransformsRunner = (): {
   abort: () => void
+  areCachedTransformsApplied: (
+    params: CachedAutoCropTransformsAppliedParams
+  ) => boolean
   progress: AutoCropProgress
   run: (
     params: CollectAutoCropTransformsRunParams
@@ -45,6 +54,17 @@ export const useCollectAutoCropTransformsRunner = (): {
     abortController.abort()
     setProgress(EMPTY_PROGRESS)
   }, [abortController])
+
+  const areCachedTransformsApplied = useCallback(
+    ({
+      targets,
+      getBoardAspectRatio,
+      trimSoftShadows,
+    }: CachedAutoCropTransformsAppliedParams): boolean =>
+      !progress.running &&
+      areCachedAutoCropsApplied(targets, getBoardAspectRatio, trimSoftShadows),
+    [progress.running]
+  )
 
   const run = useCallback(
     async ({
@@ -88,5 +108,5 @@ export const useCollectAutoCropTransformsRunner = (): {
     [abortController]
   )
 
-  return { abort, progress, run }
+  return { abort, areCachedTransformsApplied, progress, run }
 }

@@ -6,6 +6,7 @@ import {
   DEFAULT_TIER_NAMES,
   DEFAULT_TITLE,
   buildDefaultTiers,
+  createBoardTier,
 } from '~/shared/board-data/boardDefaults'
 import type {
   BoardSnapshot,
@@ -42,15 +43,16 @@ import {
 } from '~/shared/lib/typeGuards'
 import {
   CLOUD_MEDIA_OWNERSHIPS,
+  normalizeImagePadding,
   type CloudMediaOwnership,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   ASPECT_RATIO_MODES,
   IMAGE_FITS,
+  assignNormalizedItemScalars,
+  normalizeBoardAutoPlate,
   normalizeBoardLabelSettings,
   normalizeEnum,
-  normalizeItemLabelOptions,
-  normalizeItemTransform,
   normalizePositiveFinite,
 } from '~/shared/board-data/boardNormalizers'
 import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
@@ -214,32 +216,11 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   const imageRef = normalizeImageRef(raw.imageRef)
   const tileImageRef = normalizeImageRef(raw.tileImageRef)
   const sourceImageRef = normalizeImageRef(raw.sourceImageRef)
-  const aspectRatio = normalizePositiveFinite(raw.aspectRatio)
-  const imageFit = normalizeEnum(raw.imageFit, IMAGE_FITS)
-  const transform = normalizeItemTransform(raw.transform)
-  const labelOptions = normalizeItemLabelOptions(raw.labelOptions)
-
-  const sourceTemplateItemExternalId = asNonEmptyString(
-    raw.sourceTemplateItemExternalId
-  )
-
   const item: TierItem = { id }
   if (imageRef) item.imageRef = imageRef
   if (tileImageRef) item.tileImageRef = tileImageRef
   if (sourceImageRef) item.sourceImageRef = sourceImageRef
-  if (typeof raw.label === 'string') item.label = raw.label
-  if (typeof raw.backgroundColor === 'string')
-    item.backgroundColor = raw.backgroundColor
-  if (typeof raw.altText === 'string') item.altText = raw.altText
-  if (typeof raw.notes === 'string') item.notes = raw.notes
-  if (aspectRatio !== undefined) item.aspectRatio = aspectRatio
-  if (imageFit !== undefined) item.imageFit = imageFit
-  if (transform !== undefined) item.transform = transform
-  if (labelOptions !== undefined) item.labelOptions = labelOptions
-  if (sourceTemplateItemExternalId !== undefined)
-  {
-    item.sourceTemplateItemExternalId = sourceTemplateItemExternalId
-  }
+  assignNormalizedItemScalars(item, raw)
   return item
 }
 
@@ -306,15 +287,18 @@ export const createInitialBoardData = (
 })
 
 // build a single new tier w/ a generated ID & auto-assigned palette color
+// name defaults to "Tier N+1"; callers pass a continued series name
 export const createNewTier = (
   paletteId: PaletteId,
-  tierCount: number
-): Tier => ({
-  id: generateTierId(),
-  name: `Tier ${tierCount + 1}`,
-  colorSpec: getAutoTierColorSpec(paletteId, tierCount),
-  itemIds: [],
-})
+  tierCount: number,
+  name = `Tier ${tierCount + 1}`
+): Tier =>
+  createBoardTier({
+    id: generateTierId(),
+    name,
+    paletteId,
+    index: tierCount,
+  })
 
 // authoritative list of BoardSnapshot fields persisted/synced as a unit.
 // `satisfies` keeps projector & equality aligned w/ the contract — adding
@@ -329,10 +313,12 @@ const BOARD_DATA_SELECTION_KEYS = [
   'itemAspectRatioMode',
   'aspectRatioPromptDismissed',
   'defaultItemImageFit',
+  'defaultItemImagePadding',
   'paletteId',
   'textStyleId',
   'pageBackground',
   'labels',
+  'autoPlate',
   'sourceTemplateId',
   'sourceRankingId',
   'sourceTemplateTitle',
@@ -421,12 +407,16 @@ export const normalizeBoardSnapshot = (
     aspectRatioPromptDismissed:
       value?.aspectRatioPromptDismissed === true ? true : undefined,
     defaultItemImageFit: normalizeEnum(value?.defaultItemImageFit, IMAGE_FITS),
+    defaultItemImagePadding: normalizeImagePadding(
+      value?.defaultItemImagePadding
+    ),
     paletteId: normalizeEnum(value?.paletteId, PALETTE_IDS),
     textStyleId: normalizeEnum(value?.textStyleId, TEXT_STYLE_IDS),
     pageBackground: isHexColor(value?.pageBackground)
       ? value.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(value?.labels),
+    autoPlate: normalizeBoardAutoPlate(value?.autoPlate),
     sourceTemplateId: asNonEmptyString(value?.sourceTemplateId),
     sourceRankingId: asNonEmptyString(value?.sourceRankingId),
     sourceTemplateTitle: asNonEmptyString(value?.sourceTemplateTitle),

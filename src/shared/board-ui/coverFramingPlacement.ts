@@ -6,6 +6,7 @@ import {
   FULL_COVER_FRAME,
   type CoverFrame,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import { isPositiveFiniteNumber } from '@tierlistbuilder/contracts/lib/typeGuards'
 
 export interface CoverFramePlacement
 {
@@ -24,8 +25,6 @@ interface ComputeInput
   sourceHeight: number
 }
 
-const isPositiveFinite = (n: number): boolean => Number.isFinite(n) && n > 0
-
 // place the source image so the frame region object-covers the container.
 // scale = max axis ratio so the frame fills the container; the image is then
 // translated so the frame's center sits at the container's center
@@ -38,10 +37,10 @@ export const computeFramedPlacement = ({
 }: ComputeInput): CoverFramePlacement | null =>
 {
   if (
-    !isPositiveFinite(containerWidth) ||
-    !isPositiveFinite(containerHeight) ||
-    !isPositiveFinite(sourceWidth) ||
-    !isPositiveFinite(sourceHeight)
+    !isPositiveFiniteNumber(containerWidth) ||
+    !isPositiveFiniteNumber(containerHeight) ||
+    !isPositiveFiniteNumber(sourceWidth) ||
+    !isPositiveFiniteNumber(sourceHeight)
   )
   {
     return null
@@ -49,7 +48,10 @@ export const computeFramedPlacement = ({
   const f = frame ?? FULL_COVER_FRAME
   const frameWpx = f.width * sourceWidth
   const frameHpx = f.height * sourceHeight
-  if (!isPositiveFinite(frameWpx) || !isPositiveFinite(frameHpx)) return null
+  if (!isPositiveFiniteNumber(frameWpx) || !isPositiveFiniteNumber(frameHpx))
+  {
+    return null
+  }
   const scale = Math.max(containerWidth / frameWpx, containerHeight / frameHpx)
   const imgW = sourceWidth * scale
   const imgH = sourceHeight * scale

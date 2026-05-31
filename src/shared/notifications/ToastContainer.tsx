@@ -2,7 +2,6 @@
 // fixed-position toast stack — renders auto-dismissing notification toasts
 
 import { X } from 'lucide-react'
-import { useShallow } from 'zustand/react/shallow'
 
 import { useToastStore, type Toast } from '~/shared/notifications/useToastStore'
 
@@ -14,6 +13,19 @@ const TYPE_CLASSES: Record<Toast['type'], string> = {
     'border-[color-mix(in_srgb,var(--t-destructive)_50%,transparent)] bg-[color-mix(in_srgb,var(--t-destructive)_10%,var(--t-bg-overlay))]',
 }
 
+const dismissToast = (id: string): void =>
+{
+  useToastStore.getState().removeToast(id)
+}
+
+const handleActionClick = (toastInstance: Toast): void =>
+{
+  // dismiss before invoking so any UI the action surfaces (eg sign-in modal)
+  // isn't covered by the toast — same reason toastWithAction wraps onClick
+  dismissToast(toastInstance.id)
+  toastInstance.action?.onClick()
+}
+
 interface ToastContainerProps
 {
   reducedMotion?: boolean
@@ -23,12 +35,7 @@ export const ToastContainer = ({
   reducedMotion = false,
 }: ToastContainerProps = {}) =>
 {
-  const { toasts, removeToast } = useToastStore(
-    useShallow((s) => ({
-      toasts: s.toasts,
-      removeToast: s.removeToast,
-    }))
-  )
+  const toasts = useToastStore((s) => s.toasts)
 
   if (toasts.length === 0) return null
 
@@ -44,9 +51,18 @@ export const ToastContainer = ({
           className={`pointer-events-auto flex items-center gap-2 rounded-lg border px-3 py-2 shadow-lg ${TYPE_CLASSES[t.type]} ${reducedMotion ? '' : 'animate-[fadeIn_120ms_ease-out]'}`}
         >
           <span className="text-sm text-[var(--t-text)]">{t.message}</span>
+          {t.action && (
+            <button
+              type="button"
+              onClick={() => handleActionClick(t)}
+              className="focus-custom rounded-md border border-[var(--t-border-hover)] bg-[var(--t-bg-surface)] px-2 py-0.5 text-xs font-semibold text-[var(--t-text)] transition hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+            >
+              {t.action.label}
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => removeToast(t.id)}
+            onClick={() => dismissToast(t.id)}
             className="rounded p-0.5 text-[var(--t-text-faint)] transition-colors hover:text-[var(--t-text)]"
             aria-label="Dismiss"
           >

@@ -16,6 +16,7 @@ export const ITEM_LONG_EDGE_PX: Record<ItemSize, number> = {
   small: 64,
   medium: 104,
   large: 140,
+  xl: 180,
 }
 
 interface ItemSlotDimensions
@@ -75,4 +76,5 @@ export const LABEL_PADDING_CLASS: Record<ItemSize, string> = {
   small: 'px-1.5 py-1',
   medium: 'px-3 py-2',
   large: 'px-4 py-3',
+  xl: 'px-5 py-4',
 }
