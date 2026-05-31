@@ -17,10 +17,7 @@ import { BaseModal } from '~/shared/overlay/BaseModal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { OverrideColorRow } from '~/shared/ui/settings/OverrideColorRow'
 import { PalettePicker } from '~/shared/ui/settings/PalettePicker'
-import {
-  SettingLabel,
-  ToggleRow,
-} from '~/shared/ui/settings/SettingsChrome'
+import { SettingLabel, ToggleRow } from '~/shared/ui/settings/SettingsChrome'
 import { TextStylePicker } from '~/shared/ui/settings/TextStylePicker'
 import { ThemePicker } from '~/shared/ui/settings/ThemePicker'
 

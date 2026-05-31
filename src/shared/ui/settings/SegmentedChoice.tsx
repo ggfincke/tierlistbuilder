@@ -34,15 +34,14 @@ export const SegmentedChoice = <TValue extends string>({
 }: SegmentedChoiceProps<TValue>) =>
 {
   const keys = useMemo(() => options.map((option) => option.value), [options])
-  const { groupProps, getItemProps, isActive } =
-    useRovingSelection<TValue>({
-      items: keys,
-      activeKey: value,
-      onSelect: onChange,
-      kind: 'radio',
-      groupLabel: label,
-      columns,
-    })
+  const { groupProps, getItemProps, isActive } = useRovingSelection<TValue>({
+    items: keys,
+    activeKey: value,
+    onSelect: onChange,
+    kind: 'radio',
+    groupLabel: label,
+    columns,
+  })
 
   return (
     <div

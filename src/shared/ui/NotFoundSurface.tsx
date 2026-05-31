@@ -38,12 +38,7 @@ export const NotFoundSurface = ({
           </>
         )}
       </p>
-      <ButtonLink
-        to={to}
-        variant="primary"
-        size="md"
-        className="mt-5"
-      >
+      <ButtonLink to={to} variant="primary" size="md" className="mt-5">
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
         {actionLabel}
       </ButtonLink>

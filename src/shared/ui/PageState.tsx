@@ -21,9 +21,7 @@ export const CenteredPageState = ({
   <div className={CENTERED_PAGE_STATE_CLASS}>
     {title}
     {body !== undefined && body !== null && (
-      <p className="max-w-sm text-[14px] text-[var(--t-text-muted)]">
-        {body}
-      </p>
+      <p className="max-w-sm text-[14px] text-[var(--t-text-muted)]">{body}</p>
     )}
     {action}
   </div>

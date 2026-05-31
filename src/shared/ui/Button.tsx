@@ -37,15 +37,16 @@ interface ButtonStyleProps
   active?: boolean
 }
 
-interface ButtonProps extends Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  'type'
->, ButtonStyleProps
-{
+interface ButtonProps
+  extends
+    Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'>,
+    ButtonStyleProps
+    {
   type?: ButtonHTMLAttributes<HTMLButtonElement>['type']
 }
 
-interface ButtonLinkProps extends LinkProps, ButtonStyleProps {}
+interface ButtonLinkProps extends LinkProps, ButtonStyleProps
+{}
 
 // -------- primary ------------------------------------------------------------
 
@@ -195,8 +196,7 @@ const buttonClassName = ({
 }: ButtonStyleProps & { className?: string }): string =>
 {
   const resolvedSize: ButtonSize =
-    size ??
-    (variant === 'primary' ? 'sm' : variant === 'overlay' ? 'sm' : 'md')
+    size ?? (variant === 'primary' ? 'sm' : variant === 'overlay' ? 'sm' : 'md')
   const resolvedTone: ButtonTone =
     tone === 'default' ? (variant === 'primary' ? 'accent' : 'default') : tone
 
@@ -228,8 +228,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ...props
     },
     ref
-  ) =>
-  (
+  ) => (
     <button
       ref={ref}
       type={type}

@@ -65,10 +65,7 @@ interface SettingsTabLayoutProps
   aside: ReactNode
 }
 
-export const SettingsTabLayout = ({
-  main,
-  aside,
-}: SettingsTabLayoutProps) => (
+export const SettingsTabLayout = ({ main, aside }: SettingsTabLayoutProps) => (
   <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
     <div className="flex flex-col gap-4 lg:col-span-2">{main}</div>
     {aside}
@@ -134,10 +131,7 @@ type PasswordFieldProps = Omit<
   onChange: (value: string) => void
 }
 
-export const PasswordField = ({
-  onChange,
-  ...props
-}: PasswordFieldProps) => (
+export const PasswordField = ({ onChange, ...props }: PasswordFieldProps) => (
   <TextInput
     {...props}
     type="password"
