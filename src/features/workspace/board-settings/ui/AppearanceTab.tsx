@@ -101,7 +101,9 @@ const ImageStyleSection = () =>
     setPendingStyleId(styleId)
     timerRef.current = setTimeout(() =>
     {
-      void run(styleId).finally(() => setPendingStyleId(null))
+      void run(styleId)
+        .finally(() => setPendingStyleId(null))
+        .catch(() => undefined)
     }, STYLE_SWITCH_DEBOUNCE_MS)
   }
 

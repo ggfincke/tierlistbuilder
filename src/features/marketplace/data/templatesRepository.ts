@@ -80,10 +80,12 @@ export const getTemplateBySlugImperative = (
 // the contract-default to stay friendly w/ convex query limits
 const listTemplateItemsImperative = async (
   slug: string,
-  paginationOpts: { cursor: string | null; numItems: number }
+  paginationOpts: { cursor: string | null; numItems: number },
+  styleId?: string | null
 ): Promise<MarketplaceTemplateItemsResult> =>
   getConvexClient().query(api.marketplace.templates.queries.listTemplateItems, {
     slug,
+    ...(styleId ? { styleId } : {}),
     paginationOpts,
   })
 
@@ -91,7 +93,8 @@ const listTemplateItemsImperative = async (
 // upstream query's per-page cap; safe for standard-size templates (≤200 items)
 // & large templates routed through the same path (caller decides cap)
 export const loadAllTemplateItemsImperative = async (
-  slug: string
+  slug: string,
+  options: { styleId?: string | null } = {}
 ): Promise<MarketplaceTemplateItem[]> =>
 {
   const items: MarketplaceTemplateItem[] = []
@@ -99,10 +102,14 @@ export const loadAllTemplateItemsImperative = async (
   while (true)
   {
     const result: MarketplaceTemplateItemsResult =
-      await listTemplateItemsImperative(slug, {
-        cursor,
-        numItems: DEFAULT_TEMPLATE_ITEM_PAGE_SIZE,
-      })
+      await listTemplateItemsImperative(
+        slug,
+        {
+          cursor,
+          numItems: DEFAULT_TEMPLATE_ITEM_PAGE_SIZE,
+        },
+        options.styleId
+      )
     items.push(...result.page)
     if (result.isDone) return items
     cursor = result.continueCursor

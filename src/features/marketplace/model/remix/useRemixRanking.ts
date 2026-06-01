@@ -39,7 +39,8 @@ export const useRemixRanking = (): RemixRankingAction =>
       }
 
       const templateItems = await loadAllTemplateItemsImperative(
-        ranking.template.slug
+        ranking.template.slug,
+        { styleId: ranking.activeStyleId }
       )
 
       await runLocalFork({
