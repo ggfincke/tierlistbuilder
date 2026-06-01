@@ -45,6 +45,23 @@ _TEMPLATE_PASSTHROUGH_FIELDS = (
 )
 
 
+# resolve a per-style image folder + auto-detected cover into the composed shape.
+# each style is just another folder keyed by the same item externalIds; the
+# default style points at the template's own folder
+def _compose_style(style: JsonObject, repo_root: Path) -> JsonObject:
+	folder_rel = style["folder"]
+	composed: JsonObject = {
+		"id": style["id"],
+		"label": style.get("label"),
+		"folder": folder_rel,
+		"isDefault": bool(style.get("isDefault", False)),
+	}
+	cover = _detect_cover(repo_root / folder_rel)
+	if cover is not None:
+		composed["coverImage"] = cover.relative_to(repo_root).as_posix()
+	return composed
+
+
 @dataclass(frozen=True)
 class CompositionError:
 	code: str
@@ -234,6 +251,15 @@ def _legacy_template(template: JsonObject, template_path: Path, repo_root: Path)
 	cover = _detect_cover(folder_path)
 	if cover is not None:
 		legacy["coverImage"] = cover.relative_to(repo_root).as_posix()
+	# styles are template-scoped image skins; compose each into the in-memory
+	# shape so build.py can compile per-style assets
+	styles = template.get("styles")
+	if isinstance(styles, list) and styles:
+		legacy["styles"] = [
+			_compose_style(style, repo_root)
+			for style in styles
+			if isinstance(style, dict)
+		]
 	return legacy
 
 

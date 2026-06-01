@@ -264,7 +264,131 @@ def _compile_template(
 			every=log_every,
 		),
 	)
+	# compile image styles (skins). all styles get a compiled row; non-default
+	# styles also compile a per-item asset map keyed by item externalId
+	styles = template.get("styles")
+	if isinstance(styles, list) and styles:
+		compiled["styles"] = [
+			_compile_style(
+				style,
+				order,
+				items,
+				ratio_decision,
+				compiled.get("coverImage"),
+				template,
+				repo_root,
+				variants_dir,
+				progress,
+			)
+			for order, style in enumerate(styles)
+			if isinstance(style, dict)
+		]
 	return compiled
+
+
+def _compile_style(
+	style: JsonObject,
+	order: int,
+	items: list[JsonObject],
+	template_ratio_decision: RatioDecision,
+	template_cover_asset: JsonObject | None,
+	template: JsonObject,
+	repo_root: Path,
+	variants_dir: Path,
+	progress: ProgressLogger,
+) -> JsonObject:
+	style_id = style["id"]
+	is_default = bool(style.get("isDefault", False))
+	compiled_style: JsonObject = {
+		"id": style_id,
+		"label": style.get("label"),
+		"order": order,
+		"isDefault": is_default,
+		"folder": style["folder"],
+	}
+	if is_default:
+		# the default style's per-item images live on the template items, so it
+		# carries no itemAssets; reuse the template ratio + cover for its row
+		compiled_style["itemAspectRatio"] = template_ratio_decision.item_aspect_ratio
+		if template_cover_asset is not None:
+			compiled_style["coverImage"] = template_cover_asset
+		return compiled_style
+	# non-default: inspect this skin's folder & compile a per-item asset map
+	style_folder = repo_root / style["folder"]
+	log_every = progress_interval(len(items))
+
+	def inspect_style_item(item: JsonObject) -> SourceAsset:
+		return inspect_source(style_folder / item["image"], repo_root)
+
+	style_sources = run_in_parallel(
+		items,
+		inspect_style_item,
+		BUILD_WORKERS,
+		on_complete=lambda completed, total, _item: progress.count(
+			f"{template['externalId']} style {style_id} inspect",
+			completed,
+			total,
+			every=log_every,
+		),
+	)
+	style_ratio = resolve_ratio_decision(source.aspect_ratio for source in style_sources)
+	compiled_style["itemAspectRatio"] = style_ratio.item_aspect_ratio
+	auto_plate_mode = template["autoPlate"]["mode"] if "autoPlate" in template else None
+	style_inputs = list(zip(items, style_sources, strict=True))
+
+	def compile_style_item(args: tuple[JsonObject, SourceAsset]) -> JsonObject:
+		item, source = args
+		return _compile_style_item(
+			item, source, style_ratio, auto_plate_mode, repo_root, variants_dir
+		)
+
+	style_assets = run_in_parallel(
+		style_inputs,
+		compile_style_item,
+		BUILD_WORKERS,
+		on_complete=lambda completed, total, _item: progress.count(
+			f"{template['externalId']} style {style_id} variants",
+			completed,
+			total,
+			every=log_every,
+		),
+	)
+	compiled_style["itemAssets"] = {
+		item["externalId"]: asset
+		for item, asset in zip(items, style_assets, strict=True)
+	}
+	if "coverImage" in style:
+		compiled_style["coverImage"] = compile_asset(
+			repo_root / style["coverImage"], repo_root, variants_dir
+		)
+	return compiled_style
+
+
+def _compile_style_item(
+	item: JsonObject,
+	source: SourceAsset,
+	ratio_decision: RatioDecision,
+	auto_plate_mode: str | None,
+	repo_root: Path,
+	variants_dir: Path,
+) -> JsonObject:
+	transform = resolve_item_transform(
+		source.aspect_ratio,
+		source.content_bbox,
+		ratio_decision.item_aspect_ratio,
+		ratio_decision.ratio_source,
+	)
+	media_plate = (
+		None if auto_plate_mode in AUTO_PLATE_MEDIA_PLATE_SUPPRESSING_MODES else source.media_plate
+	)
+	return {
+		"externalId": item["externalId"],
+		"aspectRatio": source.aspect_ratio,
+		"transform": transform,
+		"mediaPlate": media_plate,
+		"imagePadding": item.get("imagePadding"),
+		"asset": compile_asset(source.path, repo_root, variants_dir, source),
+	}
 
 
 def _compile_item(
@@ -429,6 +553,19 @@ def _compiled_assets(compiled: JsonObject) -> list[object] | None:
 				return None
 			asset = item.get("asset")
 			assets.append(asset)
+		# per-style covers & item assets also live on disk; include them so a
+		# warm cache hit only fires when every style variant is present too
+		for style in template.get("styles") or []:
+			if not isinstance(style, dict):
+				continue
+			style_cover = style.get("coverImage")
+			if isinstance(style_cover, dict):
+				assets.append(style_cover)
+			item_assets = style.get("itemAssets")
+			if isinstance(item_assets, dict):
+				for entry in item_assets.values():
+					if isinstance(entry, dict) and isinstance(entry.get("asset"), dict):
+						assets.append(entry["asset"])
 	return assets
 
 
@@ -476,6 +613,22 @@ def _compute_compile_fingerprint(
 		cover = template.get("coverImage")
 		if isinstance(cover, str):
 			images.append(repo_root / cover)
+		# per-style item images + covers so a skin's art edit invalidates the cache.
+		# the default style reuses the template folder, already counted above
+		styles = template.get("styles")
+		if isinstance(styles, list):
+			for style in styles:
+				if not isinstance(style, dict) or style.get("isDefault"):
+					continue
+				style_folder_rel = style.get("folder")
+				if isinstance(style_folder_rel, str):
+					style_folder = repo_root / style_folder_rel
+					for item in items:
+						if isinstance(item, dict) and isinstance(item.get("image"), str):
+							images.append(style_folder / item["image"])
+				style_cover = style.get("coverImage")
+				if isinstance(style_cover, str):
+					images.append(repo_root / style_cover)
 	image_entries = []
 	for image_path in images:
 		resolved = image_path.resolve()

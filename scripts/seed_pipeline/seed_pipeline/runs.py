@@ -38,6 +38,7 @@ from .reports import (
 	write_verify_report,
 )
 from .template_payloads import (
+	build_style_item_upserts,
 	build_template_upserts,
 	criteria_content_hash,
 	items_content_hash,
@@ -51,6 +52,7 @@ SEED_FINALIZE_MEDIA_ROUTE = "/api/seed/finalize-media"
 SEED_CLEANUP_ROUTE = "/api/seed/cleanup"
 SEED_UPSERT_TEMPLATES_ROUTE = "/api/seed/upsert-templates"
 SEED_SYNC_TEMPLATE_ITEMS_ROUTE = "/api/seed/sync-template-items"
+SEED_SYNC_TEMPLATE_STYLE_ITEMS_ROUTE = "/api/seed/sync-template-style-items"
 SEED_UPSERT_CRITERIA_ROUTE = "/api/seed/upsert-criteria"
 SEED_VERIFY_CHUNK_ROUTE = "/api/seed/verify-chunk"
 SEED_COMPLETE_VERIFICATION_ROUTE = "/api/seed/complete-verification"
@@ -59,6 +61,7 @@ SEED_ROLLBACK_ROUTE = "/api/seed/rollback"
 
 TEMPLATE_BATCH_SIZE = 128
 ITEM_BATCH_SIZE = 4096
+STYLE_ITEM_BATCH_SIZE = 4096
 CRITERION_BATCH_SIZE = 512
 UPLOAD_URL_BATCH_SIZE = 128
 FINALIZE_ASSET_BATCH_SIZE = 64
@@ -115,6 +118,8 @@ def apply_seed_manifest(
 	template_results = _upsert_templates(context)
 	criterion_results = _upsert_criteria(context)
 	item_results = _upsert_items(context)
+	# style item assets depend on template items existing (join via item externalId)
+	_upsert_style_items(context)
 	return write_apply_report(context, template_results, criterion_results, item_results)
 
 
@@ -268,6 +273,7 @@ def run_seed_manifest(
 	_upsert_templates(context)
 	_upsert_criteria(context, diff)
 	_upsert_items(context, diff)
+	_upsert_style_items(context)
 	verification = _verify_seed_release(context)
 	if not verification.get("verified"):
 		write_verify_report(context, verification)
@@ -303,6 +309,10 @@ def cached_item_upserts(context: SeedRunContext) -> list[JsonObject]:
 
 def cached_criterion_upserts(context: SeedRunContext) -> list[JsonObject]:
 	return _cached_payload(context, "criteria", build_criterion_upserts)
+
+
+def cached_style_item_upserts(context: SeedRunContext) -> list[JsonObject]:
+	return _cached_payload(context, "styleItems", build_style_item_upserts)
 
 
 def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
@@ -778,6 +788,53 @@ def _upsert_criteria(context: SeedRunContext, diff: JsonObject | None = None) ->
 					**run_request(context),
 					"forceTemplateExternalIds": force_template_external_ids,
 					"criteria": chunk,
+				},
+			)
+		)
+	return results
+
+
+def _upsert_style_items(context: SeedRunContext) -> list[JsonObject]:
+	results: list[JsonObject] = []
+	rows = cached_style_item_upserts(context)
+	if not rows:
+		return results
+	# group by (template, style) so each POST carries one skin's full item set;
+	# the server upserts changed rows & prunes any item no longer in the style
+	groups: dict[tuple[str, str], list[JsonObject]] = {}
+	for row in rows:
+		key = (str(row["templateExternalId"]), str(row["styleExternalId"]))
+		groups.setdefault(key, []).append(row)
+	batches = list(groups.items())
+	for index, ((template_external_id, style_external_id), group) in enumerate(batches, start=1):
+		if len(group) > STYLE_ITEM_BATCH_SIZE:
+			msg = (
+				f"{template_external_id}:{style_external_id} has {len(group)} style items, "
+				f"exceeding per-call limit {STYLE_ITEM_BATCH_SIZE}"
+			)
+			raise RuntimeError(msg)
+		context.progress.count(
+			"style item sync batches",
+			index,
+			len(batches),
+			suffix=f"({template_external_id}:{style_external_id}, {len(group)} items)",
+		)
+		items = [
+			{
+				key: value
+				for key, value in row.items()
+				if key not in ("templateExternalId", "styleExternalId")
+			}
+			for row in group
+		]
+		results.append(
+			context.client.mutation(
+				SEED_SYNC_TEMPLATE_STYLE_ITEMS_ROUTE,
+				{
+					**run_request(context),
+					"templateExternalId": template_external_id,
+					"styleExternalId": style_external_id,
+					"items": items,
 				},
 			)
 		)

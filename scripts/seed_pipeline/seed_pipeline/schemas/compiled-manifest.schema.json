@@ -281,6 +281,92 @@
           "items": {
             "$ref": "#/$defs/item"
           }
+        },
+        "styles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/compiledStyle"
+          }
+        }
+      }
+    },
+    "compiledStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "order", "isDefault", "folder", "itemAspectRatio"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "label": {
+          "type": ["string", "null"],
+          "maxLength": 40
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "isDefault": {
+          "type": "boolean"
+        },
+        "folder": {
+          "type": "string",
+          "minLength": 1
+        },
+        "itemAspectRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "coverImage": {
+          "$ref": "#/$defs/compiledAsset"
+        },
+        "itemAssets": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/compiledStyleItem"
+          }
+        }
+      }
+    },
+    "compiledStyleItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "externalId",
+        "aspectRatio",
+        "transform",
+        "mediaPlate",
+        "imagePadding",
+        "asset"
+      ],
+      "properties": {
+        "externalId": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "aspectRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "transform": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/itemTransform"
+            }
+          ]
+        },
+        "mediaPlate": {
+          "enum": ["light", "dark", null]
+        },
+        "imagePadding": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 0.4
+        },
+        "asset": {
+          "$ref": "#/$defs/compiledAsset"
         }
       }
     },
