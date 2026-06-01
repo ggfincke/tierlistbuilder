@@ -165,6 +165,7 @@ export const loadBoardCloudState = async (
     pageBackground: board.pageBackground ?? undefined,
     labels: board.labels ?? undefined,
     autoPlate: board.autoPlate ?? undefined,
+    imageStyleId: board.imageStyleId ?? undefined,
     // surface source-template/ranking identity as public slugs so the wire
     // stays slug-based both ways. titles are denormalized on the board record
     // so the breadcrumb survives even if the source template was unpublished
@@ -212,6 +213,7 @@ export const loadBoardCloudState = async (
         sourceTemplateItemExternalId: item.templateItemId
           ? templateItemIdToExternalId.get(item.templateItemId)
           : undefined,
+        imageSource: item.imageSource,
       }
     }),
   }
