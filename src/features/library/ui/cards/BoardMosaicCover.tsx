@@ -5,8 +5,9 @@
 import type {
   BoardAutoPlateSettings,
   ImageFit,
-  LibraryBoardCoverItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardCoverItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import type {
   TemplateCoverFraming,
   TemplateMediaRef,

@@ -8,10 +8,9 @@ import {
   generateTierId,
 } from '@tierlistbuilder/contracts/lib/ids'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import {
-  DEFAULT_BOARD_TITLE,
-  pickCoverRenderFields,
-} from '@tierlistbuilder/contracts/workspace/board'
+import { DEFAULT_BOARD_TITLE } from '@tierlistbuilder/contracts/workspace/board'
+import { pickCoverRenderFields } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import { loadTileStorageId } from '../../../lib/mediaVariants'
 import type { BoardLibrarySummaryItem } from '../../../workspace/boards/librarySummary'
 

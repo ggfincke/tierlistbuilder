@@ -3,7 +3,8 @@
 
 import { useDeferredValue, useMemo } from 'react'
 
-import type { LibraryBoardFilter } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardFilter } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 
 import { BoardCard } from '~/features/library/ui/cards/BoardCard'

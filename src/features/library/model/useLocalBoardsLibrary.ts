@@ -5,16 +5,19 @@
 import { useMemo } from 'react'
 
 import {
+  type BoardSnapshot,
+  type BoardMeta,
+  type TierItem,
+} from '@tierlistbuilder/contracts/workspace/board'
+import {
   LIBRARY_BOARD_COVER_ITEM_LIMIT,
   LIBRARY_BOARD_TIER_LIMIT,
   deriveLibraryPublishState,
-  type BoardSnapshot,
-  type BoardMeta,
   type LibraryBoardCoverItem,
   type LibraryBoardListItem,
   type LibraryBoardTierBreakdown,
-  type TierItem,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   PaletteId,

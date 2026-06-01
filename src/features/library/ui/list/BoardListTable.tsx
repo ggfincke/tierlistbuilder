@@ -4,7 +4,7 @@
 import { memo } from 'react'
 import { Pin } from 'lucide-react'
 
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 import { makeBoardClickHandler } from '~/features/library/lib/boardClickHandler'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'

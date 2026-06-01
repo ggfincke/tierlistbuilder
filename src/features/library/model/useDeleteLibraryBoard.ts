@@ -8,7 +8,8 @@ import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   LibraryBoardListItem,
   SyncState,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import { deleteBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { deleteLibraryBoard } from '~/features/workspace/boards/model/libraryBoardAccess'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'

@@ -412,7 +412,8 @@ Anything that crosses a process boundary — localStorage, JSON exports, share l
 - `platform/errors.ts`, `platform/media.ts`, `platform/shortLink.ts`, `platform/user.ts` — platform infrastructure contracts.
 - `social/profile.ts`, `social/showcase.ts` — public profile and profile-showcase contracts.
 - `platform/uploadEnvelope.ts` — prefixed header binding an upload blob to its purpose, owner, & signed token so intercepted `(storageId, token)` pairs can't cross-account finalize.
-- `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`, and library board read models.
+- `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`, and base board list rows.
+- `workspace/libraryBoard.ts` — My Lists read-model rows, publish/sync status enums, cover-summary helpers, and library sort/filter options.
 - `workspace/imageMath.ts` — item transform, aspect-ratio, and auto-crop math mirrored by the Python seed pipeline.
 - `workspace/tierPreset.ts` — `TierPreset`, `TierPresetTier`.
 - `workspace/cloudBoard.ts`, `workspace/cloudPreset.ts`, `workspace/boardSync.ts`, `workspace/boardEnvelope.ts` — cloud-sync & envelope wire types.

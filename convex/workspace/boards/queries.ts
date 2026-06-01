@@ -5,14 +5,17 @@ import { ConvexError, v } from 'convex/values'
 import { query, type QueryCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
+  type BoardListItem,
+  type DeletedBoardListItem,
+} from '@tierlistbuilder/contracts/workspace/board'
+import {
   deriveLibraryPublishState,
   deriveLibrarySyncState,
   pickCoverRenderFields,
-  type BoardListItem,
-  type DeletedBoardListItem,
   type LibraryBoardCoverItem,
   type LibraryBoardListItem,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import type {
   TemplateCoverFraming,

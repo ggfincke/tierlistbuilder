@@ -3,7 +3,7 @@
 
 import { Globe2, Lock } from 'lucide-react'
 
-import type { LibraryBoardVisibility } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardVisibility } from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 interface VisibilityChipProps
 {

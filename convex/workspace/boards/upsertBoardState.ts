@@ -15,7 +15,6 @@ import {
   LABEL_FONT_SIZE_PX_MAX,
   LABEL_FONT_SIZE_PX_MIN,
   normalizeBoardTitle,
-  pickCoverRenderFields,
   type ItemTransformBoundsViolation,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -63,6 +62,8 @@ import type {
   BoardLabelSettings,
   LabelPlacement,
 } from '@tierlistbuilder/contracts/workspace/board'
+import { pickCoverRenderFields } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import {
   isBoardId,
   isMediaAssetExternalId,

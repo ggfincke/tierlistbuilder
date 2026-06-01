@@ -7,14 +7,15 @@
 // then the derivation stays content-only & Live is a passthrough input).
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import type { PublishState } from '@tierlistbuilder/contracts/workspace/board'
+import type { PublishState } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import type { ActiveBoardRuntimeState } from '~/features/workspace/boards/model/runtime'
 import {
   PUBLISH_STATE_META,
   type PublishStateMeta,
 } from '~/shared/board-ui/publishStateMeta'
 
-// the workspace layers an 'empty' case onto the contract's PublishState — a
+// the workspace layers an 'empty' case onto the contract's PublishState; a
 // board w/ zero items shows no chip at all, vs Draft which has items not yet
 // placed. getPublishStateVisual maps 'empty' -> null
 type WorkspacePublishState = PublishState | 'empty'

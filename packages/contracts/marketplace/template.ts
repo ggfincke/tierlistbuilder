@@ -6,11 +6,11 @@ import { generateBase62Slug, isBase62Slug } from '../lib/ids'
 import {
   COVER_RENDER_FIELD_KEYS,
   pickNullableCoverRenderFields,
-} from '../workspace/board'
+  type CoverRenderFieldSource,
+} from '../workspace/libraryBoard'
 import type {
   BoardAutoPlateSettings,
   BoardLabelSettings,
-  CoverRenderFieldSource,
   ImageFit,
   ItemTransform,
   MediaPlate,

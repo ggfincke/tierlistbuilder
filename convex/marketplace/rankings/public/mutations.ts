@@ -14,10 +14,9 @@ import {
   generateTierId,
 } from '@tierlistbuilder/contracts/lib/ids'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import {
-  normalizeBoardTitle,
-  pickCoverRenderFields,
-} from '@tierlistbuilder/contracts/workspace/board'
+import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
+import { pickCoverRenderFields } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import {
   isRankingSlug,
   type MarketplaceRankingPublishResult,

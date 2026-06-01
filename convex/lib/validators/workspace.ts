@@ -4,6 +4,10 @@
 import type { Infer } from 'convex/values'
 import { v } from 'convex/values'
 import {
+  type BoardListItem,
+  type DeletedBoardListItem,
+} from '@tierlistbuilder/contracts/workspace/board'
+import {
   BOARD_CLOUD_STATES,
   BOARD_MATERIALIZATION_STATES,
   BOARD_PAUSED_REASONS,
@@ -11,12 +15,11 @@ import {
   PUBLISH_STATES,
   SYNC_STATES,
   type BoardCloudState,
-  type BoardListItem,
   type BoardMaterializationState,
   type BoardPausedReason,
-  type DeletedBoardListItem,
   type LibraryBoardListItem,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import type {
   CloudBoardState,
   CloudBoardStateItem,

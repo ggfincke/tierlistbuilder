@@ -10,7 +10,8 @@ import {
   type LibraryBoardFilter,
   type LibraryBoardSort,
   type LibraryBoardView,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import {
   createPatchedSearchParams,
   isStringMember,

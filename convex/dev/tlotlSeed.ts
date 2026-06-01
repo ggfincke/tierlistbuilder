@@ -26,10 +26,9 @@ import {
   generateItemId,
   generateTierId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import {
-  normalizeBoardTitle,
-  pickCoverRenderFields,
-} from '@tierlistbuilder/contracts/workspace/board'
+import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
+import { pickCoverRenderFields } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import { buildForkedBoardInsert } from '../workspace/boards/cloudFields'
 import {
   buildBoardLibrarySummary,

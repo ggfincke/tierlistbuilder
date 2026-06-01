@@ -5,7 +5,8 @@
 import { useCallback, useState } from 'react'
 
 import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import { materializeCloudBoardInBackground } from '~/features/workspace/boards/model/cloud/cloudBoardActivation'
 import { renameBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'

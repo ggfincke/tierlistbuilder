@@ -2,7 +2,7 @@
 // publish-state chip — Draft / WIP / Live. 'overlay' variant sits over cover
 // art on a dark scrim; 'inline' sits on a themed surface. Live carries a pulse
 
-import type { PublishState } from '@tierlistbuilder/contracts/workspace/board'
+import type { PublishState } from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 import { PUBLISH_STATE_META } from '~/shared/board-ui/publishStateMeta'
 

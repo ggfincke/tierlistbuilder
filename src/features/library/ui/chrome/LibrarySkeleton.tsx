@@ -1,7 +1,8 @@
 // src/features/library/ui/chrome/LibrarySkeleton.tsx
 // loading-state placeholders for the page's content section
 
-import type { LibraryBoardDensity } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardDensity } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { BOARD_LIST_GRID_TEMPLATE } from '~/features/library/ui/list/boardListGrid'
 import {
