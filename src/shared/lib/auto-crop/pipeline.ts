@@ -1,4 +1,4 @@
-// src/shared/lib/autoCrop/pipeline.ts
+// src/shared/lib/auto-crop/pipeline.ts
 // browser-side auto-crop pipeline: decode w/ createImageBitmap + canvas, then
 // hand pixels to shared math. cache, hook integration, & blob loading stay here
 
@@ -29,7 +29,7 @@ import { getPrimaryImageRef } from '~/shared/lib/imageRefs'
 import { logger } from '~/shared/lib/logger'
 import { withTimeout } from '~/shared/lib/promise'
 import { withImageBitmap } from '~/shared/images/imageBitmap'
-import { createScanCache } from '~/shared/lib/autoCrop/scanCache'
+import { createScanCache } from '~/shared/lib/auto-crop/scanCache'
 
 const AUTO_CROP_BATCH_CONCURRENCY = 4
 const AUTO_CROP_DECODE_TIMEOUT_MS = 5_000

@@ -1,4 +1,4 @@
-// src/shared/lib/autoCrop/useCollectAutoCropTransformsRunner.ts
+// src/shared/lib/auto-crop/useCollectAutoCropTransformsRunner.ts
 // cancellable batch runner for auto-crop transform collection
 
 import { useCallback, useState } from 'react'
@@ -9,7 +9,7 @@ import {
   areCachedAutoCropsApplied,
   collectAutoCropTransforms,
   type AutoCropTransformEntry,
-} from '~/shared/lib/autoCrop/pipeline'
+} from '~/shared/lib/auto-crop/pipeline'
 import { isAbortError } from '~/shared/lib/errors'
 
 export interface AutoCropProgress

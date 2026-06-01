@@ -10,7 +10,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { getBlobsBatch } from '~/shared/images/imageStore'
-import { getAutoCropImageRef } from '~/shared/lib/autoCrop/pipeline'
+import { getAutoCropImageRef } from '~/shared/lib/auto-crop/pipeline'
 import { isAbortError } from '~/shared/lib/errors'
 import { logger } from '~/shared/lib/logger'
 import { sleep, withTimeout } from '~/shared/lib/promise'

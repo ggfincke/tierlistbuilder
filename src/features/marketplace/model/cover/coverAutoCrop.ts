@@ -16,8 +16,8 @@ import {
   type TemplateCoverFraming,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { scanBlobForAutoCrop } from '~/shared/lib/autoCrop/pipeline'
-import { createScanCache } from '~/shared/lib/autoCrop/scanCache'
+import { scanBlobForAutoCrop } from '~/shared/lib/auto-crop/pipeline'
+import { createScanCache } from '~/shared/lib/auto-crop/scanCache'
 import { logger } from '~/shared/lib/logger'
 
 // breathing room around the detected content, as a fraction of source-image

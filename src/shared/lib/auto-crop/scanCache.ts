@@ -1,4 +1,4 @@
-// src/shared/lib/autoCrop/scanCache.ts
+// src/shared/lib/auto-crop/scanCache.ts
 // small LRU cache factory for auto-crop scan results
 
 import type { AutoCropScan } from '@tierlistbuilder/contracts/workspace/imageMath'

@@ -8,7 +8,7 @@ import { padBBox } from '@tierlistbuilder/contracts/workspace/imageMath'
 import {
   bboxToItemTransform,
   detectContentBBoxFromImageData,
-} from '~/shared/lib/autoCrop/pipeline'
+} from '~/shared/lib/auto-crop/pipeline'
 
 interface AlphaRect
 {

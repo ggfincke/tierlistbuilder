@@ -11,10 +11,10 @@ import type {
 import {
   getAutoCropImageRef,
   isCachedAutoCropApplied,
-} from '~/shared/lib/autoCrop/pipeline'
+} from '~/shared/lib/auto-crop/pipeline'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
-import { useCollectAutoCropTransformsRunner } from '~/shared/lib/autoCrop/useCollectAutoCropTransformsRunner'
-import { useAutoCropCacheVersion } from '~/shared/lib/autoCrop/useAutoCropCache'
+import { useCollectAutoCropTransformsRunner } from '~/shared/lib/auto-crop/useCollectAutoCropTransformsRunner'
+import { useAutoCropCacheVersion } from '~/shared/lib/auto-crop/useAutoCropCache'
 import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 interface UseImageEditorAutoCropAllInput

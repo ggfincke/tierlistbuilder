@@ -127,7 +127,7 @@ src/
     │                                # asyncMapLimit, binaryCodec, boardSnapshotItems, errors,
     │                                # localSidecar, sha256, sync/ (debouncedSyncRunner,
     │                                # ownedSyncMeta, backoff, proceedGuard),
-    │                                # autoCrop/ (pipeline, cache & transforms-runner hooks)
+    │                                # auto-crop/ (pipeline, cache & transforms-runner hooks)
     ├── notifications/               # ToastContainer, useToastStore
     ├── overlay/                     # BaseModal, ConfirmDialog, toolbarPosition, progress, focus/inert dialog wiring,
     │                                # dismissible layers, anchored popups, menu overflow, nested menus

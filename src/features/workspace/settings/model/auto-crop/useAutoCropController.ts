@@ -8,13 +8,13 @@ import type {
   ImageFit,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { AutoCropTransformEntry } from '~/shared/lib/autoCrop/pipeline'
+import type { AutoCropTransformEntry } from '~/shared/lib/auto-crop/pipeline'
 import {
   type AutoCropProgress,
   useCollectAutoCropTransformsRunner,
-} from '~/shared/lib/autoCrop/useCollectAutoCropTransformsRunner'
+} from '~/shared/lib/auto-crop/useCollectAutoCropTransformsRunner'
 import { logger } from '~/shared/lib/logger'
-import { useAutoCropCacheVersion } from '~/shared/lib/autoCrop/useAutoCropCache'
+import { useAutoCropCacheVersion } from '~/shared/lib/auto-crop/useAutoCropCache'
 
 const DEBUG_TARGET_ID_LIMIT = 20
 
