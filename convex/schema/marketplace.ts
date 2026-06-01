@@ -105,6 +105,7 @@ export const marketplaceTables = {
     seedReleaseStatus: v.optional(seedTemplateReleaseStatusValidator),
     seedMetadataContentHash: v.optional(v.string()),
     seedItemsContentHash: v.optional(v.string()),
+    seedStyleItemsContentHash: v.optional(v.union(v.string(), v.null())),
     seedCriteriaContentHash: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -341,7 +342,7 @@ export const marketplaceTables = {
     autoPlate: v.optional(boardAutoPlateSettingsValidator),
     seedDatasetKey: v.optional(v.string()),
     seedReleaseId: v.optional(v.string()),
-    seedStylesContentHash: v.optional(v.string()),
+    seedItemsContentHash: v.optional(v.union(v.string(), v.null())),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -358,14 +359,12 @@ export const marketplaceTables = {
     itemExternalId: v.string(),
     mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     ...styleItemRenderFields,
-    seedContentHash: v.optional(v.string()),
   })
     .index('byTemplateStyleAndItem', [
       'templateId',
       'styleExternalId',
       'itemExternalId',
     ])
-    .index('byTemplateItem', ['templateItemId'])
     .index('byMedia', ['mediaAssetId']),
   publishedRankings: defineTable({
     slug: v.string(),

@@ -7,10 +7,12 @@ import { mutation } from '../../_generated/server'
 import type { Doc } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
+import { enforceRateLimit } from '../../lib/rateLimiter'
 import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 import { loadTemplateItems } from '../../marketplace/templates/lib/projections'
 import {
+  isAllowedTemplateStyle,
   isDefaultStyleId,
   loadStyleItemAssets,
   loadTemplateStyles,
@@ -78,11 +80,24 @@ export const switchBoardImageStyle = mutation({
       styles,
       board.imageStyleId ?? undefined
     )
+    // a stored id that no longer names a live style (style removed by reseed) is
+    // a dead pointer: items still show the old skin while currentStyleId resolves
+    // to default. force the switch through so selecting default actually repairs
+    // the board instead of hitting the no-op below
+    const storedStyleIsStale =
+      board.imageStyleId != null &&
+      !isAllowedTemplateStyle(template.defaultStyleId, styles, board.imageStyleId)
     // no-op when already on the target skin — never bump revision needlessly
-    if (effectiveStyleId === currentStyleId)
+    if (effectiveStyleId === currentStyleId && !storedStyleIsStale)
     {
       return { revision: board.revision, imageStyleId: board.imageStyleId ?? null }
     }
+
+    // throttle past the no-op check so only real switches cost a token; scoped
+    // per board so toggling one board can't exhaust the whole account's budget
+    await enforceRateLimit(ctx, 'userBoardStyleSwitch', userId, {
+      scope: board._id,
+    })
 
     const { serverItems } = await loadBoundedBoardRows(ctx, board._id)
     const templateItems = await loadTemplateItems(ctx, sourceTemplateId)
@@ -120,6 +135,8 @@ export const switchBoardImageStyle = mutation({
           transform: resolved.transform ?? undefined,
           mediaPlate: resolved.mediaPlate ?? undefined,
           imagePadding: resolved.imagePadding ?? undefined,
+          // alt text is per-style; clear it when the target skin doesn't override
+          altText: resolved.altText ?? undefined,
         })
       })
     )

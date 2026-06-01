@@ -48,6 +48,37 @@ def criteria_content_hash(template_external_id: str, criteria: list[JsonObject])
 	return _child_content_hash("criteria", template_external_id, criteria)
 
 
+def style_items_content_hash(
+	template_external_id: str,
+	style_external_id: str,
+	items: list[JsonObject],
+) -> str:
+	return seed_content_hash(
+		"template-style-items",
+		{
+			"templateExternalId": template_external_id,
+			"styleExternalId": style_external_id,
+			"items": sorted(items, key=lambda item: str(item["itemExternalId"])),
+		},
+	)
+
+
+def template_style_items_content_hash(
+	template_external_id: str,
+	style_hashes: list[JsonObject],
+) -> str:
+	return seed_content_hash(
+		"template-style-items-index",
+		{
+			"templateExternalId": template_external_id,
+			"styles": sorted(
+				style_hashes,
+				key=lambda item: str(item["styleExternalId"]),
+			),
+		},
+	)
+
+
 def _child_content_hash(
 	child_key: str,
 	template_external_id: str,
@@ -97,19 +128,20 @@ def _build_template_styles(template: JsonObject) -> list[JsonObject] | None:
 		if not isinstance(style, dict):
 			continue
 		cover = style.get("coverImage")
-		rows.append(
-			{
-				"externalId": style["id"],
-				"label": style.get("label") or style["id"],
-				"order": style.get("order", 0),
-				"isDefault": bool(style.get("isDefault", False)),
-				"coverMediaDedupeHash": asset_dedupe_hash(cover),
-				"itemAspectRatio": style.get("itemAspectRatio"),
-				"defaultItemImagePadding": template.get("defaultItemImagePadding"),
-				"labels": template.get("labels"),
-				"autoPlate": template.get("autoPlate"),
-			}
-		)
+		row = {
+			"externalId": style["id"],
+			"label": style.get("label") or style["id"],
+			"order": style.get("order", 0),
+			"isDefault": bool(style.get("isDefault", False)),
+			"coverMediaDedupeHash": asset_dedupe_hash(cover),
+			"itemAspectRatio": style.get("itemAspectRatio"),
+			"defaultItemImagePadding": template.get("defaultItemImagePadding"),
+		}
+		if "labels" in template:
+			row["labels"] = template["labels"]
+		if "autoPlate" in template:
+			row["autoPlate"] = template["autoPlate"]
+		rows.append(row)
 	return rows
 
 

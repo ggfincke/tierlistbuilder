@@ -886,16 +886,13 @@ const applyBoardState = async (
     board.defaultItemImageFit !== writeFields.defaultItemImageFit ||
     (board.defaultItemImagePadding ?? null) !==
       writeFields.defaultItemImagePadding
-  const resolvedImageStyleId = await resolveBoardImageStyleId(
-    ctx,
-    getBoardSourceTemplateId(board),
-    args.imageStyleId
-  )
+  // imageStyleId is server-authoritative: only fork (insert) & switchBoardImageStyle
+  // mutate it (the switch re-points items to match). a normal sync must never
+  // change it -- it just echoes whatever the last pull gave it
   const styleOverrideChanged =
     board.paletteId !== writeFields.paletteId ||
     board.textStyleId !== writeFields.textStyleId ||
     board.pageBackground !== writeFields.pageBackground ||
-    (board.imageStyleId ?? null) !== resolvedImageStyleId ||
     !boardLabelSettingsEqual(board.labels, writeFields.labels) ||
     !boardAutoPlateSettingsEqual(board.autoPlate, writeFields.autoPlate)
   const templateProgressState = resolveTemplateProgressState(
@@ -926,7 +923,6 @@ const applyBoardState = async (
     updatedAt: Date.now(),
     revision: newRevision,
     ...writeFields,
-    imageStyleId: resolvedImageStyleId,
     activeItemCount: progressCounts.activeItemCount,
     unrankedItemCount: progressCounts.unrankedItemCount,
     templateProgressState,

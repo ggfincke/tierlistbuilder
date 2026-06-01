@@ -20,7 +20,12 @@ from .manifest import (
 )
 from .progress import ProgressLogger
 from .report_layout import append_section, compiled_report_header
-from .template_payloads import build_template_upserts
+from .template_payloads import (
+	build_style_item_upserts,
+	build_template_upserts,
+	style_items_content_hash,
+	template_style_items_content_hash,
+)
 
 
 SEED_STATE_ROUTE = "/api/seed/state"
@@ -207,6 +212,7 @@ def build_seed_diff(compiled: JsonObject, state: JsonObject) -> JsonObject:
 	return {
 		"templates": _diff_templates(compiled, state),
 		"items": _diff_items(compiled, state),
+		"styleItems": _diff_style_items(compiled, state),
 		"criteria": _diff_criteria(compiled, state),
 		"media": _diff_media(compiled, state),
 		"activation": {
@@ -245,6 +251,8 @@ def render_diff_report(
 	_append_diff_section(lines, "Items To Update", diff["items"]["update"])
 	_append_diff_section(lines, "Items To Reorder", diff["items"]["reorder"])
 	_append_diff_section(lines, "Items Unchanged", diff["items"]["unchanged"])
+	_append_diff_section(lines, "Style Items To Update", diff["styleItems"]["update"])
+	_append_diff_section(lines, "Style Items Unchanged", diff["styleItems"]["unchanged"])
 	_append_diff_section(lines, "Criteria To Create", diff["criteria"]["create"])
 	_append_diff_section(lines, "Criteria To Update", diff["criteria"]["update"])
 	_append_diff_section(lines, "Criteria Unchanged", diff["criteria"]["unchanged"])
@@ -356,6 +364,27 @@ def _diff_items(compiled: JsonObject, state: JsonObject) -> JsonObject:
 	}
 
 
+def _diff_style_items(compiled: JsonObject, state: JsonObject) -> JsonObject:
+	existing = {
+		template["externalId"]: template
+		for template in as_list(state.get("templates"))
+		if isinstance(template, dict)
+	}
+	update: list[JsonObject] = []
+	unchanged: list[JsonObject] = []
+	for template_external_id, content_hash in _compiled_style_item_hashes(compiled).items():
+		current = existing.get(template_external_id)
+		entry = {"templateExternalId": template_external_id}
+		if current is None:
+			update.append({**entry, "reasons": ["template"]})
+			continue
+		if current.get("styleItemsContentHash") != content_hash:
+			update.append({**entry, "reasons": ["styleItemsContentHash"]})
+		else:
+			unchanged.append(entry)
+	return {"update": update, "unchanged": unchanged}
+
+
 def _diff_criteria(compiled: JsonObject, state: JsonObject) -> JsonObject:
 	# criteria diffs drive ranking-question upserts, separate from item media
 	existing = {
@@ -423,6 +452,44 @@ def _compiled_asset_dedupe_hashes(compiled: JsonObject) -> set[str]:
 		if dedupe_hash is not None:
 			hashes.add(dedupe_hash)
 	return hashes
+
+
+def _compiled_style_item_hashes(compiled: JsonObject) -> dict[str, str]:
+	rows_by_template_style: dict[tuple[str, str], list[JsonObject]] = {}
+	for row in build_style_item_upserts(compiled):
+		template_external_id = str(row["templateExternalId"])
+		style_external_id = str(row["styleExternalId"])
+		items = rows_by_template_style.setdefault(
+			(template_external_id, style_external_id),
+			[],
+		)
+		items.append(
+			{
+				key: value
+				for key, value in row.items()
+				if key not in ("templateExternalId", "styleExternalId")
+			}
+		)
+
+	style_hashes_by_template: dict[str, list[JsonObject]] = {}
+	for (template_external_id, style_external_id), items in rows_by_template_style.items():
+		style_hashes_by_template.setdefault(template_external_id, []).append(
+			{
+				"styleExternalId": style_external_id,
+				"styleItemsContentHash": style_items_content_hash(
+					template_external_id,
+					style_external_id,
+					items,
+				),
+			}
+		)
+	return {
+		template_external_id: template_style_items_content_hash(
+			template_external_id,
+			style_hashes,
+		)
+		for template_external_id, style_hashes in style_hashes_by_template.items()
+	}
 
 
 def _compiled_variant_hashes(compiled: JsonObject) -> set[str]:

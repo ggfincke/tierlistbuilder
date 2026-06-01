@@ -78,6 +78,21 @@ interface SeedTemplateInput
   itemCount: number
   labels?: { show: boolean }
   autoPlate?: { mode: 'uniform'; uniformColor: string }
+  styles?: SeedTemplateStyleInput[]
+  defaultStyleId?: string | null
+}
+
+interface SeedTemplateStyleInput
+{
+  externalId: string
+  label: string
+  order: number
+  isDefault: boolean
+  coverMediaDedupeHash: string | null
+  itemAspectRatio: number | null
+  defaultItemImagePadding: number | null
+  labels?: { show: boolean }
+  autoPlate?: { mode: 'uniform'; uniformColor: string }
 }
 
 interface SeedItemInput
@@ -91,6 +106,16 @@ interface SeedItemInput
   mediaPlate: null
   imagePadding: number | null
   backgroundColor: string | null
+}
+
+interface SeedStyleItemInput
+{
+  itemExternalId: string
+  mediaDedupeHash: string | null
+  aspectRatio: number | null
+  transform: ItemTransform | null
+  mediaPlate: null
+  imagePadding: number | null
 }
 
 const buildSeedTemplate = (
@@ -157,6 +182,19 @@ const buildSeedItemsInput = (args: {
     ? { allowContentHashSkip: args.allowContentHashSkip }
     : {}),
   items: args.items,
+})
+
+const seedStyleItem = (
+  itemExternalId: string,
+  overrides: Partial<Omit<SeedStyleItemInput, 'itemExternalId'>> = {}
+): SeedStyleItemInput => ({
+  itemExternalId,
+  mediaDedupeHash: null,
+  aspectRatio: 1,
+  transform: null,
+  mediaPlate: null,
+  imagePadding: null,
+  ...overrides,
 })
 
 const getSeedTemplate = async (
@@ -1106,6 +1144,115 @@ describe('seed run precheck API', () =>
     })
     expect(row?.mediaAssetId).toBe(current.mediaAssetId)
     expect(row?.mediaAssetId).not.toBe(stale.mediaAssetId)
+  })
+
+  it('stores style-item hashes and prunes child rows when styles are dropped', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, AUTHOR_EMAIL)
+    await seedMediaVariant(t, authorId, 'hash-mario')
+    await t.mutation(
+      internal.marketplace.seed.templates.endpoints.upsertSeedTemplates,
+      buildSeedTemplateInput({
+        runId: 'run-style-prune',
+        template: {
+          metadataContentHash: 'meta-style-prune-v1',
+          defaultStyleId: 'default',
+          styles: [
+            {
+              externalId: 'default',
+              label: 'Default',
+              order: 0,
+              isDefault: true,
+              coverMediaDedupeHash: null,
+              itemAspectRatio: 1,
+              defaultItemImagePadding: null,
+            },
+            {
+              externalId: 'alt',
+              label: 'Alt',
+              order: 1,
+              isDefault: false,
+              coverMediaDedupeHash: null,
+              itemAspectRatio: 1,
+              defaultItemImagePadding: null,
+            },
+          ],
+        },
+      })
+    )
+    await t.mutation(
+      internal.marketplace.seed.templates.endpoints.syncSeedTemplateItems,
+      buildSeedItemsInput({
+        runId: 'run-style-prune',
+        itemsContentHash: 'items-style-prune',
+        items: [seedItem('mario', 0, { mediaDedupeHash: 'tile:hash-mario' })],
+      })
+    )
+    await t.mutation(
+      internal.marketplace.seed.templates.endpoints.syncSeedTemplateStyleItems,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-style-prune',
+        templateExternalId: 'gaming:ssbu-fighters',
+        styleExternalId: 'alt',
+        styleItemsContentHash: 'v1:style-items-alt',
+        items: [seedStyleItem('mario')],
+      }
+    )
+    const syncedState = await t.query(
+      internal.marketplace.seed.templates.endpoints.resolveSeedState,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        authorEmail: AUTHOR_EMAIL,
+        templateExternalIds: ['gaming:ssbu-fighters'],
+        itemExternalIds: [],
+        criterionExternalIds: [],
+        variantHashes: [],
+      }
+    )
+    expect(syncedState.templates[0].styleItemsContentHash).toMatch(/^v1:/)
+
+    await t.mutation(
+      internal.marketplace.seed.templates.endpoints.upsertSeedTemplates,
+      buildSeedTemplateInput({
+        runId: 'run-style-prune',
+        template: {
+          metadataContentHash: 'meta-style-prune-v2',
+          defaultStyleId: null,
+        },
+      })
+    )
+    const rows = await t.run(async (ctx) =>
+    {
+      const template = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:ssbu-fighters')
+        )
+        .unique()
+      if (!template) throw new Error('seed template missing')
+      const styles = await ctx.db
+        .query('templateStyles')
+        .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+        .collect()
+      const styleItems = await ctx.db
+        .query('templateItemStyleAssets')
+        .withIndex('byTemplateStyleAndItem', (q) =>
+          q.eq('templateId', template._id)
+        )
+        .collect()
+      return { styleItems, styles, template }
+    })
+
+    expect(rows.styles).toEqual([])
+    expect(rows.styleItems).toEqual([])
+    expect(rows.template.seedStyleItemsContentHash).toBeNull()
   })
 
   it('fails verification when the release still has stale template rows', async () =>

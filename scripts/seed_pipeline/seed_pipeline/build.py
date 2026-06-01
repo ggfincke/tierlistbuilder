@@ -147,6 +147,18 @@ def _compile(
 		assets = [item["asset"] for item in compiled_template["items"]]
 		if compiled_template.get("coverImage") is not None:
 			assets.append(compiled_template["coverImage"])
+		# non-default skins ship their own per-item assets & covers; count them or
+		# the upload budget undercounts by the whole skin payload. default styles
+		# reuse templateItems + the template cover (already counted) -> skip
+		for style in compiled_template.get("styles") or []:
+			if style.get("isDefault"):
+				continue
+			style_cover = style.get("coverImage")
+			if style_cover is not None:
+				assets.append(style_cover)
+			for entry in (style.get("itemAssets") or {}).values():
+				if isinstance(entry, dict) and isinstance(entry.get("asset"), dict):
+					assets.append(entry["asset"])
 		# count covers as source images because upload/finalization treats them as media
 		source_image_count += len(assets)
 		variant_count += sum(len(asset["variants"]) for asset in assets)

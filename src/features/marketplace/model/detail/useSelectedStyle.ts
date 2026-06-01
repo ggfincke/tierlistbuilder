@@ -11,8 +11,6 @@ interface SelectedStyleResult
 {
   // resolved active style externalId; null only when the template has no styles
   styleId: string | null
-  // null when <=1 selectable style, so callers hide the switcher
-  visibleStyles: TemplateStyleOption[] | null
   // writes ?style=<id> via history.replace; clears the param on the default
   setStyle: (externalId: string) => void
 }
@@ -44,11 +42,6 @@ export const useSelectedStyle = (
     [styles, requested, defaultStyleId]
   )
 
-  const visibleStyles = useMemo(
-    () => (styles.length <= 1 ? null : [...styles]),
-    [styles]
-  )
-
   const setStyle = useCallback(
     (externalId: string) =>
     {
@@ -66,5 +59,5 @@ export const useSelectedStyle = (
     [defaultStyleId, setParams]
   )
 
-  return { styleId, visibleStyles, setStyle }
+  return { styleId, setStyle }
 }

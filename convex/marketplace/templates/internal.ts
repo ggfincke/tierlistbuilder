@@ -55,6 +55,8 @@ import {
 
 const cascadePhaseValidator = v.union(
   v.literal('items'),
+  v.literal('styleItems'),
+  v.literal('styles'),
   v.literal('tags'),
   v.literal('bookmarks'),
   v.literal('aggregateItems')
@@ -500,6 +502,34 @@ export const cascadeDeleteTemplate = internalMutation({
           page: async (cursor) =>
             await ctx.db
               .query('templateItems')
+              .withIndex('byTemplate', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          // non-default skins' per-item assets; left dangling otherwise they
+          // pin their media forever (the orphan GC now counts style refs)
+          phase: 'styleItems',
+          page: async (cursor) =>
+            await ctx.db
+              .query('templateItemStyleAssets')
+              .withIndex('byTemplateStyleAndItem', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          phase: 'styles',
+          page: async (cursor) =>
+            await ctx.db
+              .query('templateStyles')
               .withIndex('byTemplate', (q) =>
                 q.eq('templateId', args.templateId)
               )

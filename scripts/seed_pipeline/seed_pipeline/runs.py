@@ -42,6 +42,7 @@ from .template_payloads import (
 	build_template_upserts,
 	criteria_content_hash,
 	items_content_hash,
+	style_items_content_hash,
 )
 
 
@@ -273,7 +274,7 @@ def run_seed_manifest(
 	_upsert_templates(context)
 	_upsert_criteria(context, diff)
 	_upsert_items(context, diff)
-	_upsert_style_items(context)
+	_upsert_style_items(context, diff)
 	verification = _verify_seed_release(context)
 	if not verification.get("verified"):
 		write_verify_report(context, verification)
@@ -423,6 +424,7 @@ def _active_release_matches_compiled_manifest(
 		or as_list(diff["items"].get("create"))
 		or as_list(diff["items"].get("update"))
 		or as_list(diff["items"].get("reorder"))
+		or as_list(diff["styleItems"].get("update"))
 		or as_list(diff["criteria"].get("create"))
 		or as_list(diff["criteria"].get("update"))
 	):
@@ -794,11 +796,24 @@ def _upsert_criteria(context: SeedRunContext, diff: JsonObject | None = None) ->
 	return results
 
 
-def _upsert_style_items(context: SeedRunContext) -> list[JsonObject]:
+def _upsert_style_items(
+	context: SeedRunContext, diff: JsonObject | None = None
+) -> list[JsonObject]:
 	results: list[JsonObject] = []
 	rows = cached_style_item_upserts(context)
 	if not rows:
 		return results
+	# templates the diff flagged as changed must re-sync even if a stale hash
+	# matches; on apply (diff is None) nothing skips so a forced repair re-applies
+	force_template_external_ids = (
+		{
+			str(entry["templateExternalId"])
+			for entry in as_list(diff["styleItems"].get("update"))
+			if isinstance(entry, dict)
+		}
+		if diff is not None
+		else set()
+	)
 	# group by (template, style) so each POST carries one skin's full item set;
 	# the server upserts changed rows & prunes any item no longer in the style
 	groups: dict[tuple[str, str], list[JsonObject]] = {}
@@ -827,6 +842,11 @@ def _upsert_style_items(context: SeedRunContext) -> list[JsonObject]:
 			}
 			for row in group
 		]
+		content_hash = style_items_content_hash(
+			template_external_id,
+			style_external_id,
+			items,
+		)
 		results.append(
 			context.client.mutation(
 				SEED_SYNC_TEMPLATE_STYLE_ITEMS_ROUTE,
@@ -834,6 +854,9 @@ def _upsert_style_items(context: SeedRunContext) -> list[JsonObject]:
 					**run_request(context),
 					"templateExternalId": template_external_id,
 					"styleExternalId": style_external_id,
+					"styleItemsContentHash": content_hash,
+					"allowContentHashSkip": diff is not None
+					and template_external_id not in force_template_external_ids,
 					"items": items,
 				},
 			)

@@ -96,6 +96,7 @@ export interface SeedResolvedTemplate
   itemAspectRatio: number | null
   metadataContentHash: string | null
   itemsContentHash: string | null
+  styleItemsContentHash: string | null
   criteriaContentHash: string | null
 }
 

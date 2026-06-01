@@ -3,7 +3,7 @@
 // server-resident item images, so the switch is cloud-authoritative: it runs
 // the server mutation then re-materializes the snapshot
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import { switchBoardImageStyleImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloud/cloudBoardActivation'
@@ -19,9 +19,14 @@ interface SwitchImageStyleAction
 export const useSwitchImageStyle = (): SwitchImageStyleAction =>
 {
   const [isPending, setIsPending] = useState(false)
+  // re-entry guard: roving the picker (or a double-click) can fire run() again
+  // before the prior switch + re-materialize settle. ref (not isPending) so the
+  // []-dep callback never reads a stale value
+  const inFlightRef = useRef(false)
 
   const run = useCallback(async (styleId: string | null): Promise<void> =>
   {
+    if (inFlightRef.current) return
     const state = useActiveBoardStore.getState()
     const cloudBoardExternalId = state.cloudBoardExternalId
     // an unsynced local board has no server row to re-point against; the skin
@@ -41,6 +46,7 @@ export const useSwitchImageStyle = (): SwitchImageStyleAction =>
     }
     if ((state.imageStyleId ?? null) === (styleId ?? null)) return
 
+    inFlightRef.current = true
     setIsPending(true)
     try
     {
@@ -59,6 +65,7 @@ export const useSwitchImageStyle = (): SwitchImageStyleAction =>
     }
     finally
     {
+      inFlightRef.current = false
       setIsPending(false)
     }
   }, [])

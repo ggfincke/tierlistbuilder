@@ -289,39 +289,6 @@ export interface TemplateStyleOption
   isDefault: boolean
 }
 
-// full image style definition — render defaults a forked board inherits when
-// this style is active. the default style's per-item images live on the
-// template items; non-default styles override per item via TemplateStyleItemAsset
-export interface TemplateStyle
-{
-  externalId: string
-  label: string
-  order: number
-  isDefault: boolean
-  coverMedia: TemplateMediaRef | null
-  coverFraming: TemplateCoverFraming | null
-  itemAspectRatio: number | null
-  defaultItemImageFit: ImageFit | null
-  defaultItemImagePadding: number | null
-  labels: BoardLabelSettings | null
-  autoPlate: BoardAutoPlateSettings | null
-}
-
-// per-(style, item) image override keyed by item external id. media null marks
-// an item absent in this style
-export interface TemplateStyleItemAsset
-{
-  styleExternalId: string
-  itemExternalId: string
-  media: TemplateMediaRef | null
-  mediaPlate: MediaPlate | null
-  altText: string | null
-  aspectRatio: number | null
-  imageFit: ImageFit | null
-  transform: ItemTransform | null
-  imagePadding: number | null
-}
-
 export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
 {
   access: TemplateCardAccessState
