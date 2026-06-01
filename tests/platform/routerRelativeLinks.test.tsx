@@ -5,10 +5,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PublicProfileShowcase } from '@tierlistbuilder/contracts/platform/showcase'
+import type { PublicProfileShowcase } from '@tierlistbuilder/contracts/social/showcase'
 import { TopNavAccountMenu } from '~/app/shells/top-nav/TopNavAccountMenu'
-import { ProfileShowcaseView } from '~/features/platform/profile/ui/ProfileShowcaseView'
-import { AccountSettingsPage } from '~/features/platform/settings/pages/AccountSettingsPage'
+import { ProfileShowcaseView } from '~/features/social/profile/ui/ProfileShowcaseView'
+import { AccountSettingsPage } from '~/features/social/settings/pages/AccountSettingsPage'
 import { makePublicUserMe } from '@tests/fixtures'
 
 const mocks = vi.hoisted(() => ({
@@ -24,23 +24,23 @@ vi.mock('~/features/platform/auth/model/useProfileDraft', () => ({
   useProfileDraft: mocks.useProfileDraft,
 }))
 
-vi.mock('~/features/platform/settings/ui/AccountPanel', () => ({
+vi.mock('~/features/social/settings/ui/AccountPanel', () => ({
   AccountPanel: () => null,
 }))
 
-vi.mock('~/features/platform/settings/ui/AppearancePanel', () => ({
+vi.mock('~/features/social/settings/ui/AppearancePanel', () => ({
   AppearancePanel: () => null,
 }))
 
-vi.mock('~/features/platform/settings/ui/DataPanel', () => ({
+vi.mock('~/features/social/settings/ui/DataPanel', () => ({
   DataPanel: () => null,
 }))
 
-vi.mock('~/features/platform/settings/ui/PrivacyPanel', () => ({
+vi.mock('~/features/social/settings/ui/PrivacyPanel', () => ({
   PrivacyPanel: () => null,
 }))
 
-vi.mock('~/features/platform/settings/ui/ProfilePanel', () => ({
+vi.mock('~/features/social/settings/ui/ProfilePanel', () => ({
   ProfilePanel: () => null,
 }))
 

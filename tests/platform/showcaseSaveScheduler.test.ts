@@ -2,7 +2,7 @@
 // profile-showcase save debounce regressions
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createShowcaseSaveScheduler } from '~/features/platform/showcase/model/showcaseSaveScheduler'
+import { createShowcaseSaveScheduler } from '~/features/social/showcase/model/showcaseSaveScheduler'
 
 describe('createShowcaseSaveScheduler', () =>
 {

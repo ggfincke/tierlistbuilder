@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom'
 
 import type { AuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
-import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
+import { settingsTabPath } from '~/shared/routes/settings'
 import { PROFILE_ROUTE_PATH } from '~/shared/routes/pathname'
 import { Avatar } from '~/shared/ui/Avatar'
 import {

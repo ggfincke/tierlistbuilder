@@ -7,7 +7,7 @@ import type {
   ShowcaseMiniSnapshot,
   ShowcaseMiniTier,
   ShowcaseRankingTile,
-} from '@tierlistbuilder/contracts/platform/showcase'
+} from '@tierlistbuilder/contracts/social/showcase'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { getTextColor } from '~/shared/lib/color'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'

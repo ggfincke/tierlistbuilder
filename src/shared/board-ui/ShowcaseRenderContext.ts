@@ -3,7 +3,7 @@
 // resolved cover/mini payload so ItemContent can draw the tile
 
 import { createContext, type ReactNode } from 'react'
-import type { ShowcaseRankingTile } from '@tierlistbuilder/contracts/platform/showcase'
+import type { ShowcaseRankingTile } from '@tierlistbuilder/contracts/social/showcase'
 
 export interface ShowcaseRenderState
 {

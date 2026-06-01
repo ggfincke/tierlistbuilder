@@ -47,7 +47,7 @@ import {
   templateMediaRefValidator,
   templateSizeClassValidator,
 } from './marketplace'
-import { showcaseMiniSnapshotValidator } from '../../platform/showcase/validators'
+import { showcaseMiniSnapshotValidator } from '../../social/showcase/validators'
 
 const boardListItemBaseFields = {
   externalId: v.string(),

@@ -8,7 +8,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
   DEFAULT_SHOWCASE_TIERS,
   MAX_SHOWCASE_PLACED_ITEMS,
-} from '@tierlistbuilder/contracts/platform/showcase'
+} from '@tierlistbuilder/contracts/social/showcase'
 import {
   BUILTIN_PRESETS,
   type TierPresetTier,
@@ -43,7 +43,7 @@ import {
   deleteSeedBoardWithChildren,
   deleteSeedRankingWithChildren,
 } from '../marketplace/seed/rankings/cleanup'
-import { deleteShowcaseWithChildren } from '../platform/showcase/internal'
+import { deleteShowcaseWithChildren } from '../social/showcase/internal'
 import { requireDevSampleSeedAuthorized } from './seedGate'
 
 const TARGET_EMAIL = 'tterrag456@gmail.com'

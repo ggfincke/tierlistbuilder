@@ -8,7 +8,7 @@ Auth slice — wraps `@convex-dev/auth` for the workspace UI.
 - `model/useAuthActions.ts` — re-exports `signIn`/`signOut` from `@convex-dev/auth/react` so UI components can stay agnostic of the underlying provider package.
 - `model/useAccountMutations.ts` — typed mutation adapters for profile updates, sign-out-everywhere, and account deletion so account UI does not import Convex references directly.
 - `model/userIdentity.ts` — pure helper for deriving a stable per-user string ID (used as the IndexedDB upload-index partition key & as the cloud-merge "which user is this" cache key).
-- `ui/AccountSessionsSection.tsx`, `ui/AccountDangerZone.tsx` — sign-out-everywhere & account-deletion controls. Composed, with profile editing, into the full-page `/settings` route in `features/platform/settings` (which also hosts the marketplace author lists).
+- `ui/AccountSessionsSection.tsx`, `ui/AccountDangerZone.tsx` — sign-out-everywhere & account-deletion controls. Composed, with profile editing, into the full-page `/settings` route in `features/social/settings` (which also hosts the marketplace author lists).
 - `ui/SignInModal.tsx` — modal w/ email/password inputs. OAuth providers land in a follow-up once the app is registered.
 
 ## Rules

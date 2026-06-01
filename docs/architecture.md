@@ -97,14 +97,15 @@ src/
 │   ├── auth/{model,ui}              # SignInModal, account profile sections, profile draft helpers, Convex auth wiring
 │   ├── media/                       # imageFetcher, imageUploader, Convex upload repository
 │   ├── preferences/                 # global preferences store, sync, theme hooks, modal
-│   ├── profile/{pages,ui}           # public profile route, header, authored templates, tlotl showcase
-│   ├── settings/{model,pages,ui}    # signed-in account settings and account-management panels
 │   ├── share/                       # short-link repository, URL builders, inbound share resolver
-│   ├── showcase/{model,pages,ui}    # profile showcase editor, save scheduler, and snapshot transforms
 │   └── sync/
 │       ├── lib/                     # cloudSyncConfig, concurrency, convexClient, crossTabSyncLock, errors, first-login lifecycle
 │       ├── state/                   # syncStatusStore, syncStatusVisuals, cloud pull progress
 │       └── transport/               # connectivity detection
+├── features/social/
+│   ├── profile/{model,pages,ui}     # public profile route, header, authored templates, tlotl showcase
+│   ├── settings/{model,pages,ui}    # signed-in account settings and account-management panels
+│   └── showcase/{model,pages,ui}    # profile showcase editor, save scheduler, and snapshot transforms
 ├── features/marketplace/            # templates, ranking publish/detail/remix, gallery flows
 │   ├── data/                        # Convex repositories for gallery, detail, publish, and ranking reads/writes
 │   ├── pages/                       # route-entry pages for gallery, detail, compare, publish, and account views
@@ -144,8 +145,9 @@ src/
 packages/contracts/                  # @tierlistbuilder/contracts — cross-runtime wire types
 ├── lib/                             # ids, theme, math, pagination, strings, sha256, type guards
 ├── marketplace/                     # templates, rankings, aggregates, seed pipeline, categories, criteria
+├── social/                          # public profile and showcase contracts
 ├── workspace/                       # board, image math, envelopes, sync, cloud boards/presets, tier presets
-└── platform/                        # errors, media, preferences, profile/showcase, short links, uploads, users
+└── platform/                        # errors, media, preferences, short links, uploads, users
 ```
 
 ## Repo Root & Tooling
@@ -213,7 +215,8 @@ and workspace adapters:
 
 - `app/sync/createAppSyncSession.ts` owns startup wiring: online/offline connectivity, auth-epoch lifetime, sync-status store setup, and the workspace sync session.
 - `app/sync/useCloudSync.ts` mounts that session from the route chrome.
-- `features/platform/sync/{lib,state,transport}/` stays foundational: Convex client access, concurrency constants, cross-tab locks, errors, sync status/progress state, and connectivity detection. It must not import workspace, marketplace, or library slices.
+- `features/platform/sync/{lib,state,transport}/` stays foundational: Convex client access, concurrency constants, cross-tab locks, errors, sync status/progress state, and connectivity detection. It must not import workspace, marketplace, library, or social slices.
+- `features/social/{profile,settings,showcase}/` owns public identity, account settings, and the profile-showcase editor. It may compose platform auth/preferences/media infrastructure; platform must not import back into social.
 - `features/workspace/sync/workspaceSyncSession.ts` owns workspace sync adapters for boards, preferences, tier presets, board deletes, pending sidecar recovery, first-login workspace merges, and conflict queueing.
 - `features/workspace/sync/useWorkspaceBoardSyncSubscriber.ts` observes active board edits and forwards `PendingBoardSync` work into the workspace session after the first-login board merge gate opens.
 - `features/workspace/sync/useWorkspaceBoardSyncStatus.ts` is the board-aware status hook. It composes platform status state with workspace conflict state so platform sync remains product-slice agnostic.
@@ -386,8 +389,9 @@ Share/export image behavior is intentionally split by carrier:
 - Library board rows read and delete through `features/workspace/boards/model/libraryBoardAccess.ts`; library code does not import board storage or cloud repositories directly.
 - UI (`ui/`) → model (`model/`) → data (`data/{local,cloud}/`). Components don't call localStorage or Convex directly — they go through `model/` selectors or `data/*` helpers.
 - Platform sync owns auth/connectivity/status primitives only; app sync composes those primitives with workspace sessions.
+- Platform stays infrastructure-only. Public identity, account settings, and profile-showcase product surfaces live in `features/social/*`.
 - Per-slice cloud transport (Convex args, mappers) lives in the owning slice. Platform media and share repositories own storage upload URLs, media finalization, and short-link lookups.
-- `app/sync/*` is the only place allowed to compose platform sync infrastructure with workspace sessions. Keep product-slice imports out of `features/platform/sync/*`.
+- `app/sync/*` is the only place allowed to compose platform sync infrastructure with workspace sessions. Keep product-slice imports out of `features/platform/*`.
 - `SaveOrPublishMenu` may preload the marketplace publish modal to reduce perceived latency, but that edge is a lazy-loader hint only; workspace UI must not call marketplace runtime logic directly.
 - Share code intentionally has three homes: `features/platform/share/*` for short-link data access, `features/workspace/sharing/ui/*` for workspace dialogs, and `shared/sharing/*` for pure codecs plus the compression worker.
 
@@ -405,7 +409,8 @@ Anything that crosses a process boundary — localStorage, JSON exports, share l
 - `marketplace/category.ts` and `marketplace/templateCriterion.ts` — template category and criterion taxonomies shared by contracts, Convex validators, and UI filters.
 - `marketplace/template.ts`, `marketplace/ranking.ts`, `marketplace/rankingAggregate.ts`, `marketplace/seedPipeline.ts` — public template/ranking read models, aggregate payloads, publish/remix contracts, and seed ingest wire types.
 - `platform/preferences.ts` — `AppPreferences`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.
-- `platform/errors.ts`, `platform/media.ts`, `platform/profile.ts`, `platform/showcase.ts`, `platform/shortLink.ts`, `platform/user.ts` — platform-level shared contracts.
+- `platform/errors.ts`, `platform/media.ts`, `platform/shortLink.ts`, `platform/user.ts` — platform infrastructure contracts.
+- `social/profile.ts`, `social/showcase.ts` — public profile and profile-showcase contracts.
 - `platform/uploadEnvelope.ts` — prefixed header binding an upload blob to its purpose, owner, & signed token so intercepted `(storageId, token)` pairs can't cross-account finalize.
 - `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`, and library board read models.
 - `workspace/imageMath.ts` — item transform, aspect-ratio, and auto-crop math mirrored by the Python seed pipeline.
@@ -423,7 +428,7 @@ Types that only live in memory stay in the frontend tree, collocated w/ the stor
 
 ## Backend
 
-The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{account,media,preferences,profile,showcase,shortLinks}`, and `marketplace/{seed,templates,rankings}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
+The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{account,media,preferences,shortLinks}`, `social/{profile,showcase}`, and `marketplace/{seed,templates,rankings}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
 
 Convex validators are exposed through domain entrypoints under
 `convex/lib/validators/{common,workspace,platform,marketplace,seedPipeline}.ts`.

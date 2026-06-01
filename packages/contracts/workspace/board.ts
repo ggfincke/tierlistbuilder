@@ -824,7 +824,7 @@ export interface LibraryBoardListItem extends BoardListItem
   tierBreakdown: LibraryBoardTierBreakdown[]
   // live mini tier-list render for the cover — non-null only on boards w/ a
   // reachable live public ranking; drafts/WIP fall back to the mosaic cover
-  mini: import('../platform/showcase').ShowcaseMiniSnapshot | null
+  mini: import('../social/showcase').ShowcaseMiniSnapshot | null
   // forward-compat slot for a "pin to top" feature; always false today
   pinned: boolean
 }

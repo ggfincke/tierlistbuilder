@@ -90,6 +90,9 @@ convex/
     media/            # mediaAssets uploads (signed envelopes), queries, GC
     preferences/      # userPreferences get/upsert
     shortLinks/       # share-link slug resolution, listing, mutations, TTL sweeper
+  social/
+    profile/          # public profile read models
+    showcase/         # profile showcase reads, writes, validators, cleanup
   marketplace/
     seed/             # seed HTTP endpoint refs, shared seed lib, ranking seed jobs
     templates/        # public templates, job lifecycle, gallery reads, clone-to-board

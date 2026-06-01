@@ -14,7 +14,7 @@ import {
 import {
   enterShowcaseEditing,
   exitShowcaseEditing,
-} from '~/features/platform/showcase/model/showcaseSession'
+} from '~/features/social/showcase/model/showcaseSession'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { resetBoardStores } from '@tests/shared-lib/boardStores'
 

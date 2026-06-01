@@ -11,7 +11,7 @@ import type {
   TemplateCoverFraming,
   TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import type { ShowcaseMiniSnapshot } from '@tierlistbuilder/contracts/platform/showcase'
+import type { ShowcaseMiniSnapshot } from '@tierlistbuilder/contracts/social/showcase'
 
 import { externalIdToCode } from '~/shared/lib/initials'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'

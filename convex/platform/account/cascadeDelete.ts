@@ -24,7 +24,7 @@ import {
   deleteMediaAssetWithVariants,
   hasMediaAssetReferences,
 } from '../media/internal'
-import { deleteShowcaseWithChildren } from '../showcase/internal'
+import { deleteShowcaseWithChildren } from '../../social/showcase/internal'
 
 const CASCADE_PAGE_SIZE = BATCH_LIMITS.cascadeDelete
 

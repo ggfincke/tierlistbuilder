@@ -23,7 +23,7 @@ import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloud
 import {
   LIBRARY_COVER_MINI_TIER_LIMIT,
   type ShowcaseMiniSnapshot,
-} from '@tierlistbuilder/contracts/platform/showcase'
+} from '@tierlistbuilder/contracts/social/showcase'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
 import { findOwnedActiveBoardByExternalId } from '../../lib/permissions'
@@ -38,7 +38,7 @@ import {
   type TemplateProjectionCache,
 } from '../../marketplace/templates/lib/trending'
 import { toTemplateMediaRefWithFallback } from '../../marketplace/templates/lib/projections'
-import { buildMiniSnapshot } from '../../platform/showcase/lib'
+import { buildMiniSnapshot } from '../../social/showcase/lib'
 import {
   isPublishedTemplateRow,
   isPublicTemplateRow,

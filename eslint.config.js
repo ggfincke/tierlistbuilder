@@ -1,5 +1,5 @@
 // eslint.config.js
-// ESLint flat config — JS recommended, TypeScript, React hooks, & fast-refresh rules
+// ESLint flat config: JS recommended, TypeScript, React hooks, & fast-refresh
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
@@ -40,6 +40,26 @@ const workspaceBoardsDataImportPatterns = [
   '../../../../../../workspace/boards/data/**',
 ]
 
+const productSliceNames = [
+  'workspace',
+  'marketplace',
+  'library',
+  'social',
+  'embed',
+]
+
+const productSliceImportPatterns = [
+  ...productSliceNames.map((slice) => `~/features/${slice}/**`),
+  ...productSliceNames.flatMap((slice) => [
+    `../${slice}/**`,
+    `../../${slice}/**`,
+    `../../../${slice}/**`,
+    `../../../../${slice}/**`,
+    `../../../../../${slice}/**`,
+    `../../../../../../${slice}/**`,
+  ]),
+]
+
 const uiDataImportRestriction = {
   group: ['~/features/**/data/**'],
   message:
@@ -55,6 +75,11 @@ const workspaceBoardsDataImportRestriction = {
   group: workspaceBoardsDataImportPatterns,
   message:
     'External slices must use workspace boards model facades instead of board data modules.',
+}
+
+const platformProductImportRestriction = {
+  group: productSliceImportPatterns,
+  message: 'Platform infrastructure must not import product slices.',
 }
 
 const convexUiImportRestriction = {
@@ -167,6 +192,7 @@ export default defineConfig([
       'src/features/library/**/*.tsx',
       'src/features/marketplace/**/*.tsx',
       'src/features/platform/**/*.tsx',
+      'src/features/social/**/*.tsx',
       'src/features/embed/**/*.tsx',
     ],
     rules: {
@@ -188,6 +214,7 @@ export default defineConfig([
       'src/features/library/**/*.ts',
       'src/features/marketplace/**/*.ts',
       'src/features/platform/**/*.ts',
+      'src/features/social/**/*.ts',
       'src/features/embed/**/*.ts',
     ],
     rules: {
@@ -197,6 +224,38 @@ export default defineConfig([
           patterns: [
             appImportRestriction,
             workspaceBoardsDataImportRestriction,
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/platform/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            uiDataImportRestriction,
+            appImportRestriction,
+            workspaceBoardsDataImportRestriction,
+            convexUiImportRestriction,
+            platformProductImportRestriction,
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/platform/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            appImportRestriction,
+            workspaceBoardsDataImportRestriction,
+            platformProductImportRestriction,
           ],
         },
       ],
