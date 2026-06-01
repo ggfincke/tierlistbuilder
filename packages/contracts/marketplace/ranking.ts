@@ -2,7 +2,12 @@
 // public ranking contracts shared by Convex & future marketplace UI
 
 import { generateBase62Slug, isBase62Slug } from '../lib/ids'
-import type { BoardAutoPlateSettings } from '../workspace/board'
+import type {
+  BoardAutoPlateSettings,
+  BoardLabelSettings,
+  ImageFit,
+  ItemAspectRatioMode,
+} from '../workspace/board'
 import type { MarketplaceItemRenderFields, TemplateAuthor } from './template'
 import type { TemplateCategory } from './category'
 import type { PaginationResult } from '../lib/pagination'
@@ -116,7 +121,11 @@ export interface MarketplaceRankingDetail extends MarketplaceRankingSummary
   // display policy joined live from the source template (not snapshotted) so
   // legibility/layout fixes reach published rankings without a re-publish
   autoPlate: BoardAutoPlateSettings | null
+  itemAspectRatio: number | null
+  itemAspectRatioMode: ItemAspectRatioMode | null
+  defaultItemImageFit: ImageFit | null
   defaultItemImagePadding: number | null
+  labels: BoardLabelSettings | null
   // image style (skin) externalId the author published in; null when the source
   // template has no styles or the board used the default
   activeStyleId: string | null

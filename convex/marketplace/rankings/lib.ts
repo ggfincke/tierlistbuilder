@@ -292,7 +292,11 @@ export const toRankingDetail = async (
   return {
     ...summary,
     autoPlate: renderSource?.autoPlate ?? null,
+    itemAspectRatio: renderSource?.itemAspectRatio ?? null,
+    itemAspectRatioMode: renderSource?.itemAspectRatioMode ?? null,
+    defaultItemImageFit: renderSource?.defaultItemImageFit ?? null,
     defaultItemImagePadding: renderSource?.defaultItemImagePadding ?? null,
+    labels: renderSource?.labels ?? null,
     // image style the author published in; null when the source template is
     // single-skin or the board used the default
     activeStyleId: ranking.activeStyleId ?? null,

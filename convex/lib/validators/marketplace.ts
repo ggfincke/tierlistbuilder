@@ -425,7 +425,15 @@ export const marketplaceRankingItemValidator = v.object({
 export const marketplaceRankingDetailValidator = v.object({
   ...marketplaceRankingSummaryFields,
   autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
+  itemAspectRatio: v.union(v.number(), v.null()),
+  itemAspectRatioMode: v.union(
+    v.literal('auto'),
+    v.literal('manual'),
+    v.null()
+  ),
+  defaultItemImageFit: imageFitNullableValidator,
   defaultItemImagePadding: v.union(v.number(), v.null()),
+  labels: v.union(boardLabelSettingsValidator, v.null()),
   activeStyleId: v.union(v.string(), v.null()),
   tiers: v.array(marketplaceRankingTierValidator),
   items: v.array(marketplaceRankingItemValidator),

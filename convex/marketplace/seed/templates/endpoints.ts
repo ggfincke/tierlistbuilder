@@ -528,6 +528,10 @@ const syncSeedTemplateStyleRows = async (
       message: `seed template ${templateExternalId} has no styles but defaultStyleId is set`,
     })
   }
+  assertUniqueValues(
+    'seed template style externalId',
+    styles.map((style) => style.externalId)
+  )
 
   const existing = await ctx.db
     .query('templateStyles')

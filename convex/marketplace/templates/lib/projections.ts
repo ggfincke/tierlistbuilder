@@ -42,7 +42,12 @@ import {
 import { buildSearchText, failState } from './normalize'
 import { getTemplateAccessState, isPublishedTemplateRow } from './state'
 import { resolveTemplateCriteria } from '../criteria'
-import { isDefaultStyleId, loadTemplateStyles } from './styles'
+import {
+  isDefaultStyleId,
+  loadTemplateStyles,
+  resolveStyleItemAsset,
+  type StyleResolvedAsset,
+} from './styles'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -762,21 +767,22 @@ const loadRankingCountByCriterion = async (
 export const toTemplateItem = async (
   ctx: DbCtx,
   item: Doc<'templateItems'>,
-  cache?: TemplateProjectionCache
+  cache?: TemplateProjectionCache,
+  resolved: StyleResolvedAsset = resolveStyleItemAsset(item, null)
 ): Promise<MarketplaceTemplateItem> => ({
   externalId: item.externalId,
   label: item.label,
   backgroundColor: item.backgroundColor,
-  mediaPlate: item.mediaPlate ?? null,
-  altText: item.altText,
-  media: item.mediaAssetId
-    ? await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache)
+  mediaPlate: resolved.mediaPlate ?? null,
+  altText: resolved.altText,
+  media: resolved.mediaAssetId
+    ? await toTemplateMediaRef(ctx, resolved.mediaAssetId, 'tile', cache)
     : null,
   order: item.order,
-  aspectRatio: item.aspectRatio,
-  imageFit: item.imageFit,
-  transform: item.transform,
-  imagePadding: item.imagePadding ?? null,
+  aspectRatio: resolved.aspectRatio,
+  imageFit: resolved.imageFit,
+  transform: resolved.transform,
+  imagePadding: resolved.imagePadding ?? null,
 })
 
 export const toTemplateDraft = async (

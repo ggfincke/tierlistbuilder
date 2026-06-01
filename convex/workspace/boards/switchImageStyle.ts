@@ -125,7 +125,6 @@ export const switchBoardImageStyle = mutation({
     await Promise.all(
       serverItems.map(async (item) =>
       {
-        if (item.deletedAt !== null) return
         if (item.imageSource === 'pinned') return
         if (!item.templateItemId) return
         const templateItem = templateItemById.get(item.templateItemId)
