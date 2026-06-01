@@ -10,16 +10,16 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { ITEM_TRANSFORM_IDENTITY } from '@tierlistbuilder/contracts/workspace/board'
+import { isSameItemTransform } from '@tierlistbuilder/contracts/workspace/imageTransform'
 import {
   AUTO_CROP_ANALYSIS_MAX_SIZE,
   bboxToItemTransform,
   getAutoCropAnalysisDimensions,
-  isSameItemTransform,
   pickAutoCropBBox,
   scanAutoCropPixels,
   type AutoCropBBox,
   type AutoCropScan,
-} from '@tierlistbuilder/contracts/workspace/imageMath'
+} from '@tierlistbuilder/contracts/workspace/autoCrop'
 
 import { cacheFreshBlob } from '~/shared/images/imageBlobCache'
 import { getBlob, type BlobRecord } from '~/shared/images/imageBlobStore'

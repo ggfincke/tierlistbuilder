@@ -1,7 +1,8 @@
 // src/shared/lib/auto-crop/scanCache.ts
 // small LRU cache factory for auto-crop scan results
 
-import type { AutoCropScan } from '@tierlistbuilder/contracts/workspace/imageMath'
+import type { AutoCropScan } from '@tierlistbuilder/contracts/workspace/autoCrop'
+
 import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 
 export const createScanCache = <TKey>(maxEntries: number) =>

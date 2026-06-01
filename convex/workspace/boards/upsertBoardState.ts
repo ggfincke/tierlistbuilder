@@ -20,7 +20,8 @@ import {
 import {
   BOARD_ITEM_ASPECT_RATIO_MAX,
   BOARD_ITEM_ASPECT_RATIO_MIN,
-} from '@tierlistbuilder/contracts/workspace/imageMath'
+} from '@tierlistbuilder/contracts/workspace/aspectRatio'
+
 import {
   findRankingBySlug,
   findTemplateBySlug,

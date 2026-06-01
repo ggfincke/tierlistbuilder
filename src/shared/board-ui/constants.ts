@@ -8,7 +8,7 @@ import type {
   TierLabelFontSize,
 } from '@tierlistbuilder/contracts/platform/preferences'
 import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
-import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/aspectRatio'
 
 // reference edge for a 1:1 slot — also the geometric mean for non-square
 // ratios, so all aspect ratios occupy the same visual area as the square

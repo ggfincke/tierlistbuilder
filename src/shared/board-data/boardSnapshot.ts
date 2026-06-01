@@ -55,7 +55,7 @@ import {
   normalizeEnum,
   normalizePositiveFinite,
 } from '~/shared/board-data/boardNormalizers'
-import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/aspectRatio'
 
 interface RawTier
 {

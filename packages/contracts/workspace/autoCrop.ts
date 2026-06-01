@@ -1,262 +1,13 @@
-// packages/contracts/workspace/imageMath.ts
-// pure image-transform & auto-crop math shared by browser-facing modules
-// mirrored by scripts/seed_pipeline/seed_pipeline/crop.py for seed-time assets
+// packages/contracts/workspace/autoCrop.ts
+// auto-crop pixel math mirrored by scripts/seed_pipeline/seed_pipeline/crop.py
 
-import type { ImageFit, ItemTransform } from './board'
-import {
-  ITEM_TRANSFORM_IDENTITY,
-  ITEM_TRANSFORM_LIMITS,
-  type ItemRotation,
-} from './board'
+import type { ItemTransform } from './board'
+import { ITEM_TRANSFORM_IDENTITY, type ItemRotation } from './board'
 import { clamp } from '../lib/math'
-import { isPositiveFiniteNumber } from '../lib/typeGuards'
-
-export const clampItemTransform = (transform: ItemTransform): ItemTransform =>
-{
-  const { zoomMin, zoomMax, offsetMin, offsetMax } = ITEM_TRANSFORM_LIMITS
-  return {
-    rotation: transform.rotation,
-    zoom: clamp(transform.zoom, zoomMin, zoomMax),
-    offsetX: clamp(transform.offsetX, offsetMin, offsetMax),
-    offsetY: clamp(transform.offsetY, offsetMin, offsetMax),
-  }
-}
-
-export const isSameItemTransform = (
-  a: ItemTransform | undefined,
-  b: ItemTransform | undefined
-): boolean =>
-{
-  if (a === b) return true
-  if (!a || !b) return false
-  return (
-    a.rotation === b.rotation &&
-    a.zoom === b.zoom &&
-    a.offsetX === b.offsetX &&
-    a.offsetY === b.offsetY
-  )
-}
-
-export const isIdentityTransform = (transform: ItemTransform): boolean =>
-  isSameItemTransform(transform, ITEM_TRANSFORM_IDENTITY)
-
-interface ManualCropImageSize
-{
-  widthPercent: number
-  heightPercent: number
-}
-
-interface ManualCropGeometry
-{
-  frameWidth: number
-  frameHeight: number
-  imageWidth: number
-  imageHeight: number
-  fitWidth: number
-  fitHeight: number
-}
-
-const validRatio = (value: number | undefined, fallback: number): number =>
-  isPositiveFiniteNumber(value) ? value : fallback
-
-const resolveManualCropGeometry = (
-  imageAspectRatio: number | undefined,
-  frameAspectRatio: number,
-  rotation: ItemRotation
-): ManualCropGeometry =>
-{
-  const frameRatio = validRatio(frameAspectRatio, 1)
-  const imageRatio = validRatio(imageAspectRatio, frameRatio)
-  const frameWidth = frameRatio
-  const frameHeight = 1
-  const imageWidth = imageRatio
-  const imageHeight = 1
-  const rotated = rotation === 90 || rotation === 270
-
-  return {
-    frameWidth,
-    frameHeight,
-    imageWidth,
-    imageHeight,
-    fitWidth: rotated ? imageHeight : imageWidth,
-    fitHeight: rotated ? imageWidth : imageHeight,
-  }
-}
-
-export const resolveManualCropImageSize = (
-  imageAspectRatio: number | undefined,
-  frameAspectRatio: number,
-  rotation: ItemRotation
-): ManualCropImageSize =>
-{
-  const {
-    frameWidth,
-    frameHeight,
-    imageWidth,
-    imageHeight,
-    fitWidth,
-    fitHeight,
-  } = resolveManualCropGeometry(imageAspectRatio, frameAspectRatio, rotation)
-  const scale = Math.max(frameWidth / fitWidth, frameHeight / fitHeight)
-  const domWidth = imageWidth * scale
-  const domHeight = imageHeight * scale
-
-  return {
-    widthPercent: (domWidth / frameWidth) * 100,
-    heightPercent: (domHeight / frameHeight) * 100,
-  }
-}
-
-export const resolveManualCropFitZoom = (
-  imageAspectRatio: number | undefined,
-  frameAspectRatio: number,
-  rotation: ItemRotation,
-  fit: ImageFit
-): number =>
-{
-  if (fit === 'cover') return 1
-  const { frameWidth, frameHeight, fitWidth, fitHeight } =
-    resolveManualCropGeometry(imageAspectRatio, frameAspectRatio, rotation)
-  const coverScale = Math.max(frameWidth / fitWidth, frameHeight / fitHeight)
-  const containScale = Math.min(frameWidth / fitWidth, frameHeight / fitHeight)
-  return containScale / coverScale
-}
-
-export const itemTransformToCropCss = (
-  transform: ItemTransform
-): { left: string; top: string; transform: string } => ({
-  left: `${(50 + transform.offsetX * 100).toFixed(4)}%`,
-  top: `${(50 + transform.offsetY * 100).toFixed(4)}%`,
-  transform: `translate(-50%, -50%) scale(${transform.zoom}) rotate(${transform.rotation}deg)`,
-})
-
-// aspect-ratio presets & matching math — pure helpers shared between the
-// modal/picker UI & the seed script
-
-// relative difference within this fraction treats two ratios as equal; tuned
-// to absorb rounding & codec variance (e.g. 1000x1500 vs 1001x1500) without
-// letting obviously different ratios (4:3 vs 1:1) collapse into one bucket
-export const ASPECT_RATIO_TOLERANCE = 0.02
-export const BOARD_ITEM_ASPECT_RATIO_MAX = 4
-export const BOARD_ITEM_ASPECT_RATIO_MIN = 1 / BOARD_ITEM_ASPECT_RATIO_MAX
-
-export interface AspectRatioPreset
-{
-  label: string
-  width: number
-  height: number
-  value: number
-}
-
-const buildPreset = (width: number, height: number): AspectRatioPreset => ({
-  label: `${width}:${height}`,
-  width,
-  height,
-  value: width / height,
-})
-
-export const ASPECT_RATIO_PRESETS: readonly AspectRatioPreset[] = [
-  buildPreset(1, 1),
-  buildPreset(2, 3),
-  buildPreset(3, 4),
-  buildPreset(3, 2),
-  buildPreset(4, 3),
-  buildPreset(16, 9),
-  buildPreset(9, 16),
-]
-
-// two ratios are considered equal when their relative difference is within tol
-export const ratiosMatch = (
-  a: number,
-  b: number,
-  tol = ASPECT_RATIO_TOLERANCE
-): boolean =>
-{
-  if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0)
-  {
-    return false
-  }
-  const max = Math.max(a, b)
-  return Math.abs(a - b) / max <= tol
-}
-
-interface AspectRatioValueBucket<T>
-{
-  representative: number
-  count: number
-  ratios: number[]
-  values: T[]
-}
-
-const medianOf = (values: readonly number[]): number =>
-{
-  const sorted = [...values].sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 1
-    ? sorted[mid]
-    : (sorted[mid - 1] + sorted[mid]) / 2
-}
-
-// group values by ratio tolerance; each bucket's representative is the median
-// of its member ratios. returned sorted by bucket size desc
-export const bucketValuesByAspectRatio = <T>(
-  values: readonly T[],
-  getRatio: (value: T) => number | null | undefined,
-  tol = ASPECT_RATIO_TOLERANCE
-): AspectRatioValueBucket<T>[] =>
-{
-  const buckets: { ratios: number[]; values: T[] }[] = []
-  for (const value of values)
-  {
-    const ratio = getRatio(value)
-    if (!isPositiveFiniteNumber(ratio)) continue
-    let placed = false
-    for (const bucket of buckets)
-    {
-      if (ratiosMatch(ratio, bucket.ratios[0], tol))
-      {
-        bucket.ratios.push(ratio)
-        bucket.values.push(value)
-        placed = true
-        break
-      }
-    }
-    if (!placed) buckets.push({ ratios: [ratio], values: [value] })
-  }
-  return buckets
-    .map((bucket) => ({
-      representative: medianOf(bucket.ratios),
-      count: bucket.ratios.length,
-      ratios: bucket.ratios,
-      values: bucket.values,
-    }))
-    .sort((a, b) => b.count - a.count)
-}
-
-export const majorityAspectRatio = (
-  ratios: readonly number[],
-  tol = ASPECT_RATIO_TOLERANCE
-): number | null =>
-{
-  const buckets = bucketValuesByAspectRatio(ratios, (ratio) => ratio, tol)
-  return buckets[0]?.representative ?? null
-}
-
-export const findMatchingPreset = (
-  value: number,
-  tol = ASPECT_RATIO_TOLERANCE
-): AspectRatioPreset | undefined =>
-  ASPECT_RATIO_PRESETS.find((preset) => ratiosMatch(preset.value, value, tol))
-
-export const normalizeBoardItemAspectRatio = (
-  value: unknown
-): number | undefined =>
-  isPositiveFiniteNumber(value)
-    ? clamp(value, BOARD_ITEM_ASPECT_RATIO_MIN, BOARD_ITEM_ASPECT_RATIO_MAX)
-    : undefined
-
-// auto-crop math: detect content bbox from raw RGBA pixel data, then translate
-// it into an ItemTransform that frames the bbox in the configured cell ratio
+import {
+  clampItemTransform,
+  resolveManualCropImageSize,
+} from './imageTransform'
 
 // long-edge cap for the analysis canvas; bbox is normalized so detection
 // resolution is decoupled from natural pixel dimensions
@@ -378,7 +129,7 @@ const hasMeaningfulAlpha = (pixels: AutoCropPixelData): boolean =>
   const { data, width, height } = pixels
   const total = width * height
   let transparent = 0
-  // sample on a sparse stride (every 4th pixel) — meaningful transparency
+  // sample on a sparse stride; meaningful transparency
   // covers large regions, so we don't need full coverage to classify
   for (let i = 3; i < data.length; i += 16)
   {
@@ -611,6 +362,15 @@ const averageColor = (samples: readonly RGB[]): RGB =>
   return { r: r / samples.length, g: g / samples.length, b: b / samples.length }
 }
 
+const medianOf = (values: readonly number[]): number =>
+{
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 1
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
 const medianColor = (samples: readonly RGB[]): RGB => ({
   r: medianOf(samples.map((s) => s.r)),
   g: medianOf(samples.map((s) => s.g)),
@@ -667,7 +427,7 @@ export const bboxToItemTransform = (
   const bh = padded.bottom - padded.top
 
   const frameRatio = params.boardAspectRatio > 0 ? params.boardAspectRatio : 1
-  // wp/hp are the un-rotated element's CSS box as fractions of frame W/H —
+  // wp/hp are the un-rotated element's CSS box as fractions of frame W/H;
   // exactly what resolveManualCropImageSize emits at zoom=1, cover-fit
   const cropSize = resolveManualCropImageSize(
     params.imageAspectRatio,
@@ -679,7 +439,7 @@ export const bboxToItemTransform = (
 
   // visual extent of the bbox (after CSS rotation) as fractions of the
   // frame's W/H. for 90/270, the un-rotated W maps to frame H (& vice
-  // versa) — pixel widths convert through frameRatio
+  // versa); pixel widths convert through frameRatio
   const { visualW, visualH } = visualBBoxExtent(
     bw,
     bh,

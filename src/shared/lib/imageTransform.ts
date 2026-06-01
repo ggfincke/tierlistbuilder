@@ -7,7 +7,7 @@ import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import {
   itemTransformToCropCss,
   resolveManualCropImageSize,
-} from '@tierlistbuilder/contracts/workspace/imageMath'
+} from '@tierlistbuilder/contracts/workspace/imageTransform'
 
 export {
   clampItemTransform,
@@ -16,7 +16,7 @@ export {
   itemTransformToCropCss,
   resolveManualCropFitZoom,
   resolveManualCropImageSize,
-} from '@tierlistbuilder/contracts/workspace/imageMath'
+} from '@tierlistbuilder/contracts/workspace/imageTransform'
 
 interface ManualCropImgStyleOptions
 {

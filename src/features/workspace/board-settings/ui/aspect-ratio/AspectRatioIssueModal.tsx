@@ -6,7 +6,8 @@ import { useCallback, useId, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { ASPECT_RATIO_PRESETS } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { ASPECT_RATIO_PRESETS } from '@tierlistbuilder/contracts/workspace/aspectRatio'
+
 import { formatAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { ITEM_LONG_EDGE_PX } from '~/shared/board-ui/constants'
 import { resolveEffectiveShowLabels } from '~/shared/board-ui/labelSettings'

@@ -20,7 +20,8 @@ import {
   normalizeBoardItemAspectRatio,
   ratiosMatch,
   type AspectRatioPreset,
-} from '@tierlistbuilder/contracts/workspace/imageMath'
+} from '@tierlistbuilder/contracts/workspace/aspectRatio'
+
 import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 

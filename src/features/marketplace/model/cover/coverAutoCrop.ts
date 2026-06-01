@@ -7,7 +7,8 @@ import {
   pickAutoCropBBox,
   type AutoCropBBox,
   type AutoCropScan,
-} from '@tierlistbuilder/contracts/workspace/imageMath'
+} from '@tierlistbuilder/contracts/workspace/autoCrop'
+
 import {
   COVER_SURFACES,
   SURFACE_ASPECT_RATIOS,

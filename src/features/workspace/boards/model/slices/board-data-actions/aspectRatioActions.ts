@@ -11,7 +11,8 @@ import {
   computeAutoBoardAspectRatio,
   getBoardAspectRatioMode,
 } from '~/shared/board-ui/aspectRatio'
-import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/aspectRatio'
+
 import { clampImagePadding } from '@tierlistbuilder/contracts/workspace/board'
 import {
   clampItemTransform,
