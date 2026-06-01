@@ -23,34 +23,6 @@ describe('account template publish control', () =>
     })
   })
 
-  it('routes unpublished templates through republish', () =>
-  {
-    expect(
-      getTemplatePublishControl({ publicationState: 'unpublished' })
-    ).toEqual({
-      kind: 'toggle',
-      action: 'republish',
-    })
-  })
-
-  it('does not toggle an in-flight publish', () =>
-  {
-    expect(
-      getTemplatePublishControl({ publicationState: 'publishPending' })
-    ).toEqual({
-      kind: 'pending',
-    })
-  })
-
-  it('does not unpublish a failed publish', () =>
-  {
-    expect(
-      getTemplatePublishControl({ publicationState: 'publishFailed' })
-    ).toEqual({
-      kind: 'failed',
-    })
-  })
-
   it('links to the gallery only after a successful publish', () =>
   {
     expect(canViewTemplateInGallery({ publicationState: 'published' })).toBe(

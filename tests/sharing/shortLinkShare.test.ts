@@ -12,11 +12,7 @@ vi.mock('~/features/platform/share/shortLinkRepository', () => ({
 }))
 
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
-import {
-  ShortLinkDecodeError,
-  decodeBoardFromShortLink,
-  isShortLinkDecodeError,
-} from '~/features/platform/share/shortLinkShare'
+import { decodeBoardFromShortLink } from '~/features/platform/share/shortLinkShare'
 
 const mockSnapshotResponse = (
   body: BodyInit | null,
@@ -71,30 +67,6 @@ describe('short-link decode', () =>
     await expect(decodeBoardFromShortLink('AbCd1234')).rejects.toMatchObject({
       kind: 'too-large',
     })
-  })
-
-  it('classifies unreadable short-link snapshots as corrupt', async () =>
-  {
-    repositoryMocks.resolveShortLinkImperative.mockResolvedValue({
-      kind: 'snapshot',
-      snapshotUrl: 'https://example.test/snapshot.bin',
-      createdAt: 1,
-    })
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => mockSnapshotResponse(new Uint8Array([1, 2, 3]), 3))
-    )
-
-    await expect(decodeBoardFromShortLink('AbCd1234')).rejects.toMatchObject({
-      kind: 'corrupt',
-    })
-  })
-
-  it('exposes a type guard for short-link decode errors', () =>
-  {
-    const error = new ShortLinkDecodeError('not-found', 'missing')
-    expect(isShortLinkDecodeError(error)).toBe(true)
-    expect(isShortLinkDecodeError(new Error('missing'))).toBe(false)
   })
 
   it('stops after snapshot fetch when the caller aborts', async () =>

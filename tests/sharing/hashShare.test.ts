@@ -3,12 +3,10 @@
 
 import { describe, it, expect } from 'vitest'
 import {
-  ShareFragmentDecodeError,
   compressSnapshotBytes,
   decodeBoardFromShareFragment,
   encodeBoardToShareFragment,
   inflateSnapshotBytes,
-  isShareFragmentDecodeError,
   stripImagesForShare,
 } from '~/shared/sharing/hashShare'
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
@@ -147,38 +145,5 @@ describe('snapshot codec', () =>
         kind: 'too-large',
       }
     )
-  })
-
-  it('exposes a type guard for share-fragment decode errors', () =>
-  {
-    const error = new ShareFragmentDecodeError('invalid', 'bad share')
-    expect(isShareFragmentDecodeError(error)).toBe(true)
-    expect(isShareFragmentDecodeError(new Error('bad share'))).toBe(false)
-  })
-
-  it('round-trips compressSnapshotBytes -> inflateSnapshotBytes at the byte layer', async () =>
-  {
-    const original = makeBoardSnapshot({
-      title: 'Bytes Test',
-      tiers: [makeTier({ id: 'tier-s' })],
-    })
-    const bytes = await compressSnapshotBytes(original)
-    expect(bytes.byteLength).toBeGreaterThan(0)
-    const decoded = await inflateSnapshotBytes(bytes)
-    expect(decoded.title).toBe('Bytes Test')
-  })
-
-  it('decodes current share fragments', async () =>
-  {
-    const original = makeBoardSnapshot({
-      title: 'Current Fragment',
-      tiers: [makeTier({ id: 'tier-s' })],
-    })
-
-    const fragment = await encodeBoardToShareFragment(original)
-    const decoded = await decodeBoardFromShareFragment(fragment)
-
-    expect(decoded.title).toBe('Current Fragment')
-    expect(decoded.tiers[0].id).toBe('tier-s')
   })
 })

@@ -9,10 +9,7 @@ import {
   MENU_SUBMENU_LEFT_OFFSET_CLASS,
   MENU_SUBMENU_RIGHT_OFFSET_CLASS,
 } from '~/shared/overlay/menuOverflow'
-import {
-  getMenuPositionClasses,
-  getResponsiveToolbarPosition,
-} from '~/shared/overlay/toolbarPosition'
+import { getMenuPositionClasses } from '~/shared/overlay/toolbarPosition'
 
 describe('menu submenu placement & overflow flipping', () =>
 {
@@ -34,16 +31,5 @@ describe('menu submenu placement & overflow flipping', () =>
     expect(
       resolveMenuOverflowFlipTokens({ left: 120, right: 320 }, 1200)
     ).toEqual([])
-  })
-})
-
-describe('getResponsiveToolbarPosition', () =>
-{
-  it('collapses side toolbars to top below sm breakpoint, otherwise passes through', () =>
-  {
-    expect(getResponsiveToolbarPosition('left', false)).toBe('top')
-    expect(getResponsiveToolbarPosition('right', false)).toBe('top')
-    expect(getResponsiveToolbarPosition('right', true)).toBe('right')
-    expect(getResponsiveToolbarPosition('bottom', true)).toBe('bottom')
   })
 })

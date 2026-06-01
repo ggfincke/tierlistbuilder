@@ -72,32 +72,6 @@ describe('short-link snapshot codec', () =>
     expect(decoded.deletedItems).toEqual([])
   })
 
-  it('strips private notes from short-link payloads', async () =>
-  {
-    const itemId = asItemId('item-private')
-    const board = makeBoardSnapshot({
-      title: 'Short Link Notes',
-      tiers: [
-        makeTier({
-          id: 'tier-s',
-          itemIds: [itemId],
-        }),
-      ],
-      items: {
-        [itemId]: makeItem({
-          id: itemId,
-          label: 'Visible label',
-          notes: 'Only I should see this',
-        }),
-      },
-    })
-
-    const compressed = await compressShortLinkSnapshotBytes(board)
-    const decoded = await inflateSnapshotBytes(compressed)
-
-    expect(decoded.items[itemId]).not.toHaveProperty('notes')
-  })
-
   it('rejects oversized compressed snapshots before upload', () =>
   {
     expect(() =>

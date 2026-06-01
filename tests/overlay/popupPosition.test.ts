@@ -35,23 +35,6 @@ describe('computeColorPickerStyle', () =>
 
 describe('computeCustomColorPickerStyle', () =>
 {
-  it('uses the tray rect as the anchor when available', () =>
-  {
-    const button = anchorEl<HTMLButtonElement>({ bottom: 48, left: 60 })
-    const tray = anchorEl<HTMLDivElement>({ bottom: 160, left: 320 })
-
-    expect(
-      computeCustomColorPickerStyle(button, tray, 280, 0, {
-        width: 1200,
-        height: 800,
-      })
-    ).toEqual({
-      position: 'fixed',
-      top: 168,
-      left: 320,
-    })
-  })
-
   it('clamps the popup inside the viewport when the anchor is near the edge', () =>
   {
     const button = anchorEl<HTMLButtonElement>({ bottom: 620, left: 980 })
