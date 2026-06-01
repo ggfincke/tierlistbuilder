@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/slices/boardData/aspectRatioActions.ts
+// src/features/workspace/boards/model/slices/board-data-actions/aspectRatioActions.ts
 // aspect-ratio & image-fit actions for board & item display settings
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'

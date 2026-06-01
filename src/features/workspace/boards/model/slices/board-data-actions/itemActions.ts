@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/slices/boardData/itemActions.ts
+// src/features/workspace/boards/model/slices/board-data-actions/itemActions.ts
 // live-item action group for add, edit, remove, clear, sort, & shuffle
 
 import { announce } from '~/shared/a11y/announce'
@@ -19,7 +19,7 @@ import {
   MAX_DELETED_ITEMS,
 } from '~/features/workspace/boards/model/slices/helpers'
 import { withUndo } from '~/features/workspace/boards/model/slices/undoSlice'
-import { buildRemoveItemsPatch } from '~/features/workspace/boards/model/slices/boardData/itemRemoval'
+import { buildRemoveItemsPatch } from '~/features/workspace/boards/model/slices/board-data-actions/itemRemoval'
 import type {
   ActiveBoardSliceCreator,
   BoardDataSlice,

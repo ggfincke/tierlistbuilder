@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/slices/boardData/tierActions.ts
+// src/features/workspace/boards/model/slices/board-data-actions/tierActions.ts
 // tier action group for tier CRUD, ordering, labels, & row colors
 
 import { announce } from '~/shared/a11y/announce'

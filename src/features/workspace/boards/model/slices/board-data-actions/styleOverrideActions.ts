@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/slices/boardData/styleOverrideActions.ts
+// src/features/workspace/boards/model/slices/board-data-actions/styleOverrideActions.ts
 // per-board style override setters for palette, text style, & page background
 
 import {

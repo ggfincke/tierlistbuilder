@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/slices/boardData/lifecycleActions.ts
+// src/features/workspace/boards/model/slices/board-data-actions/lifecycleActions.ts
 // board data lifecycle actions for sync state, runtime errors, reset, & load
 
 import type { BoardSyncState } from '~/features/workspace/boards/model/sync'

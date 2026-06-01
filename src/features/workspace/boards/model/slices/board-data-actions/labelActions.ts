@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/slices/boardData/labelActions.ts
+// src/features/workspace/boards/model/slices/board-data-actions/labelActions.ts
 // per-board label defaults & per-tile label override actions
 
 import {

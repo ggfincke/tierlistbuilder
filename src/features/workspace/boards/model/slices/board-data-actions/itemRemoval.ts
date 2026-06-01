@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/slices/boardData/itemRemoval.ts
+// src/features/workspace/boards/model/slices/board-data-actions/itemRemoval.ts
 // shared live-item removal patch used by direct item actions & selection bulk delete
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
