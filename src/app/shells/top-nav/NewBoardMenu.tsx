@@ -1,6 +1,5 @@
-// src/app/shells/topNav/NewBoardMenu.tsx
-// 2-option dropdown for the "+ New board" CTA — blank board or browse
-// the community templates marketplace
+// src/app/shells/top-nav/NewBoardMenu.tsx
+// two-option new-board dropdown for blank boards & marketplace templates
 
 import { FilePlus2, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'

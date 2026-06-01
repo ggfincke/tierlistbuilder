@@ -1,5 +1,5 @@
-// src/app/shells/topNav/BrandPill.tsx
-// Scoreboard brand wordmark — "tier/list." w/ slash & trailing period in --t-accent
+// src/app/shells/top-nav/BrandPill.tsx
+// scoreboard brand wordmark w/ slash & trailing period
 
 import { Link } from 'react-router-dom'
 

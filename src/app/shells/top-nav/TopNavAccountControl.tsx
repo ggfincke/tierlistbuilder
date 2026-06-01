@@ -1,4 +1,4 @@
-// src/app/shells/topNav/TopNavAccountControl.tsx
+// src/app/shells/top-nav/TopNavAccountControl.tsx
 // avatar trigger & account menu state for global chrome
 
 import { useCallback, useId, useRef, useState } from 'react'
@@ -11,9 +11,9 @@ import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPr
 import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
 import { logger } from '~/shared/lib/logger'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
-import { TopNavAccountMenu } from '~/app/shells/topNav/TopNavAccountMenu'
-import { TopNavAvatarButton } from '~/app/shells/topNav/TopNavAvatarButton'
-import type { TopNavModalKey } from '~/app/shells/topNav/TopNavModalLayer'
+import { TopNavAccountMenu } from '~/app/shells/top-nav/TopNavAccountMenu'
+import { TopNavAvatarButton } from '~/app/shells/top-nav/TopNavAvatarButton'
+import type { TopNavModalKey } from '~/app/shells/top-nav/TopNavModalLayer'
 
 interface TopNavAccountControlProps
 {

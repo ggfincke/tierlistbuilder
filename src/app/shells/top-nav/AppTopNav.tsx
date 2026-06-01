@@ -1,6 +1,6 @@
-// src/app/shells/topNav/AppTopNav.tsx
-// Scoreboard top bar — BrandPill ... (+New, SurfaceNav, Avatar). A 1px
-// accent gradient runs across the very top edge as the editorial signature.
+// src/app/shells/top-nav/AppTopNav.tsx
+// * scoreboard top bar, route pills, new-board action, & account menu
+// top-edge accent stays here as route chrome signature
 
 import { useEffect, useState } from 'react'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
@@ -44,8 +44,7 @@ export const AppTopNav = () =>
     }
   }, [topNavLocked])
 
-  // ⌘, / Ctrl+, opens Preferences — the macOS-standard shortcut. Skipped while
-  // typing in a field so it doesn't hijack comma input.
+  // Cmd+, / Ctrl+, opens Preferences; skip editable fields.
   useEffect(() =>
   {
     const onKeyDown = (event: KeyboardEvent) =>
@@ -81,29 +80,19 @@ export const AppTopNav = () =>
         aria-label="Primary navigation"
         className="group pointer-events-none fixed inset-x-0 top-0 z-30"
       >
-        {/* Always-present invisible hover strip so the bar can slide in from
-            above when the cursor (or focus) enters the top edge — the bar
-            itself is translated off-screen, so it can't catch hover on its
-            own. Disabled when locked, since the bar is always visible. */}
         {!topNavLocked && (
           <span
             aria-hidden
             className="pointer-events-auto absolute inset-x-0 top-0 h-20"
           />
         )}
-        {/* Sliding bar — translates down from above on hover / focus-within.
-            Slides in immediately, lingers ~700ms before sliding back out, &
-            instantly retracts while the user is scrolling. */}
         <div
           className={`relative px-4 py-4 transition-transform duration-300 ease-out sm:px-6 sm:py-5 ${slideClasses}`}
         >
-          {/* Frosted backdrop + bottom border. */}
           <span
             aria-hidden
             className="pointer-events-none absolute inset-0 border-b border-[var(--t-border)] bg-[var(--t-bg-page)]/80 backdrop-blur-md"
           />
-          {/* 1px accent gradient — the Scoreboard "live" signature across the
-              very top edge of the bar. accent -> accent-2 -> transparent. */}
           <span
             aria-hidden
             className="pointer-events-none absolute inset-x-0 top-0 h-px"

@@ -1,6 +1,6 @@
-// src/app/shells/topNav/topNavItems.ts
-// route pill defs — Workspace · My Boards · Templates. "My Boards" per
-// Bundle A glossary decision (see dev-docs/phase-7c-design.md).
+// src/app/shells/top-nav/topNavItems.ts
+// route pill defs for workspace, boards, & templates
+// My Boards follows the Bundle A glossary decision.
 
 import { Bookmark, Layers, Sparkles, type LucideIcon } from 'lucide-react'
 

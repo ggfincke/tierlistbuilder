@@ -42,7 +42,7 @@ src/
 │   │   ├── NotFoundRoute.tsx        # 404 fallback
 │   │   └── AppChromeLayout.tsx      # chrome wrapper for app routes
 │   ├── shells/
-│   │   ├── topNav/                  # fixed global chrome composition, route pills, account menu
+│   │   ├── top-nav/                  # fixed global chrome composition, route pills, account menu
 │   │   ├── workspace/               # editable workspace shell, modal layer, export actions
 │   │   └── useModalStack.ts         # keyed modal state helper
 │   └── sync/                        # app-level cloud sync orchestration and auth-epoch lifecycle

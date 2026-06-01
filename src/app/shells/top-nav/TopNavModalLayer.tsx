@@ -1,4 +1,4 @@
-// src/app/shells/topNav/TopNavModalLayer.tsx
+// src/app/shells/top-nav/TopNavModalLayer.tsx
 // lazy preferences & auth modal slots for global chrome. account settings live
 // on the full-page /settings route reached from the avatar dropdown.
 

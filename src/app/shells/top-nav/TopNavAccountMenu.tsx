@@ -1,6 +1,5 @@
-// src/app/shells/topNav/TopNavAccountMenu.tsx
-// avatar dropdown menu — profile header + settings + preferences + auth
-// (My Boards lives in the top nav tabs, so it's omitted here)
+// src/app/shells/top-nav/TopNavAccountMenu.tsx
+// avatar dropdown menu for profile, settings, preferences, & auth
 
 import {
   LogIn,

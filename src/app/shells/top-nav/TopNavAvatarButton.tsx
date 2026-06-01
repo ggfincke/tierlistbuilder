@@ -1,6 +1,5 @@
-// src/app/shells/topNav/TopNavAvatarButton.tsx
-// circular avatar trigger for the global account menu — Scoreboard styling
-// (sits outside the segmented surface-nav pill as a standalone capsule).
+// src/app/shells/top-nav/TopNavAvatarButton.tsx
+// circular avatar trigger for the global account menu
 
 import { User } from 'lucide-react'
 
