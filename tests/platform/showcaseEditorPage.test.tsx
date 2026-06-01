@@ -4,7 +4,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ShowcaseEditorPage } from '~/features/platform/showcase/ui/ShowcaseEditorPage'
+import { ShowcaseEditorPage } from '~/features/platform/showcase/pages/ShowcaseEditorPage'
 import { makeSignedInSession } from '@tests/fixtures'
 
 const mocks = vi.hoisted(() => ({

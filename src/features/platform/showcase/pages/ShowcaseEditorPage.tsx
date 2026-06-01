@@ -1,6 +1,5 @@
-// src/features/platform/showcase/ui/ShowcaseEditorPage.tsx
-// self-only tlotl editor — reuses the workspace dnd over a Convex-backed
-// showcase. the global autosave is gated while this page owns the board store
+// src/features/platform/showcase/pages/ShowcaseEditorPage.tsx
+// self-only tlotl editor route entry
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useMutation, useQuery } from 'convex/react'
@@ -88,7 +87,7 @@ const ShowcaseEditorSignedIn = () =>
   const saveShowcase = useMutation(api.platform.showcase.saveProfileShowcase)
   const navigate = useNavigate()
 
-  // pure derive — recomputing tiles on a reactive editData update is cheap; the
+  // Pure derive: recomputing tiles on reactive editData updates is cheap.
   // store is loaded only once (see the load effect) so edits aren't clobbered
   const board = useMemo(
     () => (editData ? editShowcaseToSnapshot(editData) : null),
@@ -123,7 +122,7 @@ const ShowcaseEditorSignedIn = () =>
     }
   }, [saveCurrentShowcase])
 
-  // load the showcase into the shared board store exactly once
+  // Load the showcase into the shared board store exactly once.
   useEffect(() =>
   {
     if (loadedRef.current || !board) return

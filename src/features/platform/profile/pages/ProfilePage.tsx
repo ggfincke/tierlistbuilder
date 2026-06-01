@@ -1,5 +1,5 @@
-// src/features/platform/profile/ui/ProfilePage.tsx
-// public profile — identity header + tlotl showcase + authored templates
+// src/features/platform/profile/pages/ProfilePage.tsx
+// public profile route entry
 
 import { useQuery } from 'convex/react'
 
@@ -7,10 +7,10 @@ import { api } from '@convex/_generated/api'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { PAGE_TOP_LEVEL } from '~/shared/ui/pageContainer'
-import { AuthoredTemplates } from './AuthoredTemplates'
-import { ProfileHeader } from './ProfileHeader'
-import { ProfileShowcaseView } from './ProfileShowcaseView'
-import { ProfileNotFound, ProfileSkeleton } from './ProfileStates'
+import { AuthoredTemplates } from '../ui/AuthoredTemplates'
+import { ProfileHeader } from '../ui/ProfileHeader'
+import { ProfileShowcaseView } from '../ui/ProfileShowcaseView'
+import { ProfileNotFound, ProfileSkeleton } from '../ui/ProfileStates'
 
 interface ProfilePageProps
 {

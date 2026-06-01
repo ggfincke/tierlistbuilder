@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PublicProfileShowcase } from '@tierlistbuilder/contracts/platform/showcase'
 import { TopNavAccountMenu } from '~/app/shells/top-nav/TopNavAccountMenu'
 import { ProfileShowcaseView } from '~/features/platform/profile/ui/ProfileShowcaseView'
-import { AccountSettingsPage } from '~/features/platform/settings/ui/AccountSettingsPage'
+import { AccountSettingsPage } from '~/features/platform/settings/pages/AccountSettingsPage'
 import { makePublicUserMe } from '@tests/fixtures'
 
 const mocks = vi.hoisted(() => ({

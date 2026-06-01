@@ -3,7 +3,7 @@
 
 import { useParams } from 'react-router-dom'
 
-import { ProfilePage } from '~/features/platform/profile/ui/ProfilePage'
+import { ProfilePage } from '~/features/platform/profile/pages/ProfilePage'
 import { AmbientPageShell } from '~/shared/ui/AmbientPageShell'
 
 export const ProfileRoute = () =>

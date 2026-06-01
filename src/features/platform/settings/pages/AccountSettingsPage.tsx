@@ -1,6 +1,5 @@
-// src/features/platform/settings/ui/AccountSettingsPage.tsx
-// full-page account settings — persistent hero + underline tab bar over the
-// /settings sub-routes; each tab panel composes the backend-wired sections.
+// src/features/platform/settings/pages/AccountSettingsPage.tsx
+// full-page account settings route entry
 
 import type { ReactNode } from 'react'
 import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
@@ -13,13 +12,13 @@ import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { SignedOutPrompt } from '~/shared/ui/PageState'
 import { PAGE_TOP_LEVEL } from '~/shared/ui/pageContainer'
-import { AccountPanel } from './AccountPanel'
-import { AppearancePanel } from './AppearancePanel'
-import { DataPanel } from './DataPanel'
-import { PrivacyPanel } from './PrivacyPanel'
-import { ProfilePanel } from './ProfilePanel'
-import { PlanBadge } from './PlanBadge'
-import { SettingsTabs } from './SettingsTabs'
+import { AccountPanel } from '../ui/AccountPanel'
+import { AppearancePanel } from '../ui/AppearancePanel'
+import { DataPanel } from '../ui/DataPanel'
+import { PrivacyPanel } from '../ui/PrivacyPanel'
+import { ProfilePanel } from '../ui/ProfilePanel'
+import { PlanBadge } from '../ui/PlanBadge'
+import { SettingsTabs } from '../ui/SettingsTabs'
 
 const PROFILE_PATH = settingsTabPath('profile')
 
@@ -54,12 +53,6 @@ const SettingsHero = ({ user }: { user: PublicUserMe }) => (
       >
         ← Back to app
       </Link>
-      {/*
-        TODO(backend): Stripe checkout. `plan` is a real users column
-        ('free' | 'plus') but there is no billing integration, so the design's
-        "Subscribe" CTA is omitted:
-          <PrimaryButton>Subscribe</PrimaryButton>
-      */}
     </div>
   </header>
 )
@@ -91,10 +84,10 @@ const SettingsSignedOut = ({ onSignIn }: { onSignIn: () => void }) => (
 const SignedInSettings = ({ user }: { user: PublicUserMe }) =>
 {
   const navigate = useNavigate()
-  // page-level draft so the Identity editor & live preview share state, & edits
-  // survive switching tabs (the draft lives above the sub-routes)
+  // Page-level draft lets the Identity editor & live preview share state.
+  // Edits survive tab switches because the draft lives above sub-routes.
   const profile = useProfileDraft(user)
-  // sessions/danger actions sign the caller out; return them to the workspace
+  // Sessions/danger actions sign the caller out; return them to workspace.
   const handleSignedOut = () => navigate('/')
 
   return (

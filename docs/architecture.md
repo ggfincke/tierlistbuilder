@@ -95,10 +95,10 @@ src/
 │   ├── auth/{model,ui}              # SignInModal, account profile sections, profile draft helpers, Convex auth wiring
 │   ├── media/                       # imageFetcher, imageUploader, Convex upload repository
 │   ├── preferences/                 # global preferences store, sync, theme hooks, modal
-│   ├── profile/ui                   # public profile page, header, authored templates, tlotl showcase
-│   ├── settings/{model,ui}          # signed-in account settings and account-management panels
+│   ├── profile/{pages,ui}           # public profile route, header, authored templates, tlotl showcase
+│   ├── settings/{model,pages,ui}    # signed-in account settings and account-management panels
 │   ├── share/                       # short-link repository, URL builders, inbound share resolver
-│   ├── showcase/{model,ui}          # profile showcase editor, save scheduler, and snapshot transforms
+│   ├── showcase/{model,pages,ui}    # profile showcase editor, save scheduler, and snapshot transforms
 │   └── sync/
 │       ├── lib/                     # cloudSyncConfig, concurrency, convexClient, crossTabSyncLock, errors, first-login lifecycle
 │       ├── state/                   # syncStatusStore, syncStatusVisuals, cloud pull progress
