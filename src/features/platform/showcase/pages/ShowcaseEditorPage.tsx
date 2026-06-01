@@ -1,12 +1,10 @@
 // src/features/platform/showcase/pages/ShowcaseEditorPage.tsx
 // self-only tlotl editor route entry
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { useMutation, useQuery } from 'convex/react'
+import { useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus } from 'lucide-react'
 
-import { api } from '@convex/_generated/api'
 import type { ItemSize } from '@tierlistbuilder/contracts/platform/preferences'
 import type { ShowcaseRankingTile } from '@tierlistbuilder/contracts/platform/showcase'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
@@ -15,30 +13,13 @@ import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { SignedOutPrompt } from '~/shared/ui/PageState'
 import { PAGE_TOP_LEVEL } from '~/shared/ui/pageContainer'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
-import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { BoardRenderOverridesProvider } from '~/features/workspace/boards/model/BoardRenderOverridesProvider'
 import { TierList } from '~/features/workspace/boards/ui/tier-list/TierList'
 import { ShowcasePool } from '~/features/platform/showcase/ui/ShowcasePool'
 import { ShowcaseRenderContext } from '~/shared/board-ui/ShowcaseRenderContext'
-import {
-  boardDataFieldsEqual,
-  extractBoardData,
-} from '~/shared/board-data/boardSnapshot'
-import {
-  boardSnapshotToShowcaseSave,
-  editShowcaseToSnapshot,
-  SHOWCASE_PALETTE_ID,
-} from '~/features/platform/showcase/model/showcaseSnapshot'
-import {
-  enterShowcaseEditing,
-  exitShowcaseEditing,
-} from '~/features/platform/showcase/model/showcaseSession'
-import {
-  createShowcaseSaveScheduler,
-  type ShowcaseSaveScheduler,
-} from '~/features/platform/showcase/model/showcaseSaveScheduler'
+import { SHOWCASE_PALETTE_ID } from '~/features/platform/showcase/model/showcaseSnapshot'
+import { useShowcaseEditor } from '~/features/platform/showcase/model/useShowcaseEditor'
 
-const SAVE_DEBOUNCE_MS = 500
 const SHOWCASE_ITEM_SIZE: ItemSize = 'large'
 // stable empty map for the render context while the showcase query loads
 const EMPTY_TILES: Map<string, ShowcaseRankingTile> = new Map()
@@ -83,88 +64,14 @@ const ShowcaseEditorSignedOut = ({ onSignIn }: { onSignIn: () => void }) => (
 
 const ShowcaseEditorSignedIn = () =>
 {
-  const editData = useQuery(api.platform.showcase.getMyProfileShowcase, {})
-  const saveShowcase = useMutation(api.platform.showcase.saveProfileShowcase)
   const navigate = useNavigate()
-
-  // Pure derive: recomputing tiles on reactive editData updates is cheap.
-  // store is loaded only once (see the load effect) so edits aren't clobbered
-  const board = useMemo(
-    () => (editData ? editShowcaseToSnapshot(editData) : null),
-    [editData]
-  )
-
-  const loadedRef = useRef(false)
-  const saveSchedulerRef = useRef<ShowcaseSaveScheduler | null>(null)
-
-  const saveCurrentShowcase = useCallback(() =>
-  {
-    if (!loadedRef.current) return
-    const snapshot = extractBoardData(useActiveBoardStore.getState())
-    void saveShowcase(boardSnapshotToShowcaseSave(snapshot))
-  }, [saveShowcase])
-
-  useEffect(() =>
-  {
-    const scheduler = createShowcaseSaveScheduler(
-      saveCurrentShowcase,
-      SAVE_DEBOUNCE_MS
-    )
-    saveSchedulerRef.current = scheduler
-    return () =>
-    {
-      scheduler.flush()
-      scheduler.cancel()
-      if (saveSchedulerRef.current === scheduler)
-      {
-        saveSchedulerRef.current = null
-      }
-    }
-  }, [saveCurrentShowcase])
-
-  // Load the showcase into the shared board store exactly once.
-  useEffect(() =>
-  {
-    if (loadedRef.current || !board) return
-    loadedRef.current = true
-    enterShowcaseEditing(board.snapshot)
-  }, [board])
-
-  // restore the real board when leaving the editor
-  useEffect(
-    () => () =>
-    {
-      exitShowcaseEditing()
-      loadedRef.current = false
-    },
-    []
-  )
-
-  // debounce-persist store edits to Convex (the local autosave is gated)
-  useEffect(() =>
-  {
-    const unsubscribe = useActiveBoardStore.subscribe(
-      (state) => state,
-      () =>
-      {
-        if (!loadedRef.current) return
-        saveSchedulerRef.current?.schedule()
-      },
-      { equalityFn: boardDataFieldsEqual }
-    )
-    return unsubscribe
-  }, [])
-
-  const handleAddTier = useCallback(
-    () => useActiveBoardStore.getState().addTier(SHOWCASE_PALETTE_ID),
-    []
-  )
+  const { board, addTier, flushPendingSave } = useShowcaseEditor()
 
   const handleDoneEditing = useCallback(() =>
   {
-    saveSchedulerRef.current?.flush()
+    flushPendingSave()
     navigate(-1)
-  }, [navigate])
+  }, [flushPendingSave, navigate])
 
   const tiles = board?.render.tiles
   const renderValue = useMemo(() => ({ tiles: tiles ?? EMPTY_TILES }), [tiles])
@@ -202,7 +109,7 @@ const ShowcaseEditorSignedIn = () =>
           paletteId={SHOWCASE_PALETTE_ID}
         >
           <TierList
-            toolbar={<ShowcaseToolbar onAddTier={handleAddTier} />}
+            toolbar={<ShowcaseToolbar onAddTier={addTier} />}
             toolbarPosition="bottom"
             pool={<ShowcasePool />}
           />

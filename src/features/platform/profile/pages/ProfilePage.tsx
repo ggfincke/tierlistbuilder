@@ -1,10 +1,8 @@
 // src/features/platform/profile/pages/ProfilePage.tsx
 // public profile route entry
 
-import { useQuery } from 'convex/react'
-
-import { api } from '@convex/_generated/api'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { usePublicProfile } from '~/features/platform/profile/model/usePublicProfile'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { PAGE_TOP_LEVEL } from '~/shared/ui/pageContainer'
 import { AuthoredTemplates } from '../ui/AuthoredTemplates'
@@ -19,17 +17,15 @@ interface ProfilePageProps
 
 export const ProfilePage = ({ handle }: ProfilePageProps) =>
 {
-  const profile = useQuery(
-    api.platform.profile.getPublicProfileByHandle,
-    handle ? { handle } : 'skip'
-  )
+  const profileState = usePublicProfile(handle)
   const session = useAuthSession()
+  const profile = profileState.status === 'ready' ? profileState.profile : null
 
   useDocumentTitle(
     profile ? `@${profile.handle}` : handle ? `@${handle}` : 'Profile'
   )
 
-  if (!handle || profile === null)
+  if (profileState.status === 'not-found')
   {
     return (
       <section className={PAGE_TOP_LEVEL}>
@@ -37,7 +33,7 @@ export const ProfilePage = ({ handle }: ProfilePageProps) =>
       </section>
     )
   }
-  if (profile === undefined)
+  if (profileState.status === 'loading')
   {
     return (
       <section className={PAGE_TOP_LEVEL}>
@@ -46,18 +42,19 @@ export const ProfilePage = ({ handle }: ProfilePageProps) =>
     )
   }
 
+  const { profile: readyProfile } = profileState
   const isSelf =
-    session.status === 'signed-in' && session.user._id === profile.id
+    session.status === 'signed-in' && session.user._id === readyProfile.id
 
   return (
     <section className={PAGE_TOP_LEVEL}>
-      <ProfileHeader profile={profile} isSelf={isSelf} />
-      <ProfileShowcaseView showcase={profile.showcase} isSelf={isSelf} />
+      <ProfileHeader profile={readyProfile} isSelf={isSelf} />
+      <ProfileShowcaseView showcase={readyProfile.showcase} isSelf={isSelf} />
       <div className="mt-12">
         <AuthoredTemplates
-          templates={profile.templates}
-          hasMore={profile.hasMoreTemplates}
-          displayName={profile.displayName ?? `@${profile.handle}`}
+          templates={readyProfile.templates}
+          hasMore={readyProfile.hasMoreTemplates}
+          displayName={readyProfile.displayName ?? `@${readyProfile.handle}`}
           isSelf={isSelf}
         />
       </div>

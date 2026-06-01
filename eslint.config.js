@@ -57,6 +57,12 @@ const workspaceBoardsDataImportRestriction = {
     'External slices must use workspace boards model facades instead of board data modules.',
 }
 
+const convexUiImportRestriction = {
+  group: ['convex/react', '@convex/_generated/api'],
+  message:
+    'UI/page .tsx files must use model or data hooks instead of Convex directly.',
+}
+
 export default defineConfig([
   // exclude build output & generated code from linting
   globalIgnores([
@@ -125,7 +131,7 @@ export default defineConfig([
       'no-restricted-imports': [
         'error',
         {
-          patterns: [uiDataImportRestriction],
+          patterns: [uiDataImportRestriction, convexUiImportRestriction],
         },
       ],
     },
@@ -136,7 +142,11 @@ export default defineConfig([
       'no-restricted-imports': [
         'error',
         {
-          patterns: [uiDataImportRestriction, appImportRestriction],
+          patterns: [
+            uiDataImportRestriction,
+            appImportRestriction,
+            convexUiImportRestriction,
+          ],
         },
       ],
     },
@@ -167,6 +177,7 @@ export default defineConfig([
             uiDataImportRestriction,
             appImportRestriction,
             workspaceBoardsDataImportRestriction,
+            convexUiImportRestriction,
           ],
         },
       ],
@@ -202,6 +213,7 @@ export default defineConfig([
               group: sharedBoundaryImportPatterns,
               message: 'Shared modules must stay feature- and app-agnostic.',
             },
+            convexUiImportRestriction,
           ],
         },
       ],
