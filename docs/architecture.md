@@ -73,7 +73,7 @@ src/
 │   │   │   └── *.ts                 # open/filter store, item filtering, selection, modal actions
 │   │   └── ui/                      # modal, pane, rail, preview canvas, footer, label controls
 │   ├── preview/{model,ui}           # read-only board previews, cover assets, and preview shells
-│   ├── settings/
+│   ├── board-settings/
 │   │   ├── lib/                     # image upload constants & helpers
 │   │   ├── model/
 │   │   │   ├── aspect-ratio/        # prompt context/provider/state/import and ratio picker state

@@ -5,7 +5,7 @@ import { createContext, useContext } from 'react'
 import type { ItemSize } from '@tierlistbuilder/contracts/platform/preferences'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useCurrentPaletteId } from '~/features/workspace/board-settings/model/useCurrentPaletteId'
 
 export interface BoardRenderOverrides
 {

@@ -3,7 +3,7 @@
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { selectTiersMeta } from '~/features/workspace/boards/model/slices/selectors'
-import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useCurrentPaletteId } from '~/features/workspace/board-settings/model/useCurrentPaletteId'
 import { getTextColor } from '~/shared/lib/color'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 
