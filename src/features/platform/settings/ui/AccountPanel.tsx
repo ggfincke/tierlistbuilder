@@ -16,7 +16,7 @@ import {
   SettingsTabLayout,
 } from '~/shared/ui/settings/SettingsChrome'
 import { PasswordChangeDialog } from './PasswordChangeDialog'
-import { PlanBadge } from './SettingsChrome'
+import { PlanBadge } from './PlanBadge'
 
 const ReadonlyValue = ({ children }: { children: ReactNode }) => (
   <p className="truncate rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] px-3 py-2 text-[13px] text-[var(--t-text-secondary)]">

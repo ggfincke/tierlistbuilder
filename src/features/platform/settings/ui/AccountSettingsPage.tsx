@@ -18,7 +18,7 @@ import { AppearancePanel } from './AppearancePanel'
 import { DataPanel } from './DataPanel'
 import { PrivacyPanel } from './PrivacyPanel'
 import { ProfilePanel } from './ProfilePanel'
-import { PlanBadge } from './SettingsChrome'
+import { PlanBadge } from './PlanBadge'
 import { SettingsTabs } from './SettingsTabs'
 
 const PROFILE_PATH = settingsTabPath('profile')

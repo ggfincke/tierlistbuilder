@@ -20,7 +20,11 @@
 
 ## Directory Structure
 
-The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,platform,marketplace,library,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Cross-runtime wire types live in the top-level `packages/contracts/` workspace package.
+The codebase is organized into three top-level frontend layers: `app/`
+(bootstrap & routing), `features/{workspace,platform,marketplace,library,embed}/*`
+(per-slice feature code), and `shared/*` (cross-feature primitives).
+Cross-runtime wire types live in the top-level `packages/contracts/` workspace
+package.
 
 ```
 src/
@@ -68,6 +72,7 @@ src/
 │   │   │   ├── labels/              # label drafts and label-aware aspect measurement
 │   │   │   └── *.ts                 # open/filter store, item filtering, selection, modal actions
 │   │   └── ui/                      # modal, pane, rail, preview canvas, footer, label controls
+│   ├── preview/{model,ui}           # read-only board previews, cover assets, and preview shells
 │   ├── settings/
 │   │   ├── lib/                     # image upload constants & helpers
 │   │   ├── model/
@@ -90,16 +95,24 @@ src/
 │   ├── auth/{model,ui}              # SignInModal, account profile sections, profile draft helpers, Convex auth wiring
 │   ├── media/                       # imageFetcher, imageUploader, Convex upload repository
 │   ├── preferences/                 # global preferences store, sync, theme hooks, modal
+│   ├── profile/ui                   # public profile page, header, authored templates, tlotl showcase
+│   ├── settings/{model,ui}          # signed-in account settings and account-management panels
 │   ├── share/                       # short-link repository, URL builders, inbound share resolver
+│   ├── showcase/{model,ui}          # profile showcase editor, save scheduler, and snapshot transforms
 │   └── sync/
 │       ├── lib/                     # cloudSyncConfig, concurrency, convexClient, crossTabSyncLock, errors, first-login lifecycle
 │       ├── state/                   # syncStatusStore, syncStatusVisuals, cloud pull progress
 │       └── transport/               # connectivity detection
 ├── features/marketplace/            # templates, ranking publish/detail/remix, gallery flows
+│   ├── data/                        # Convex repositories for gallery, detail, publish, and ranking reads/writes
+│   ├── pages/                       # route-entry pages for gallery, detail, compare, publish, and account views
 │   ├── ui/                          # account, cards, consensus, cover, discovery, layout, meta, publish, template
 │   │   └── consensus/{views,rail,criterion,item,lib,compare}/
 │   └── model/{gallery,detail,publish,remix,cover,analytics,actions}/
 ├── features/library/                # signed-in My Boards surface
+│   ├── lib/                         # board-list grouping, filtering, and view helpers
+│   ├── model/                       # local/cloud library adapters and board deletion hooks
+│   ├── pages/                       # route-entry My Boards page
 │   └── ui/{cards,list,chrome,chips,modals}/
 ├── features/embed/ui                # read-only EmbedView primitives
 └── shared/
@@ -127,11 +140,33 @@ src/
                                      # settings controls, TextArea, TextInput, UploadDropzone
 
 packages/contracts/                  # @tierlistbuilder/contracts — cross-runtime wire types
-├── lib/                             # ids, theme, themeDefinition
-├── marketplace/                     # public template/ranking marketplace contracts + category taxonomy
-├── workspace/                       # board, boardEnvelope, boardSync, cloudBoard, cloudPreset, tierPreset
-└── platform/                        # errors, media, preferences, shortLink, uploadEnvelope, user
+├── lib/                             # ids, theme, math, pagination, strings, sha256, type guards
+├── marketplace/                     # templates, rankings, aggregates, seed pipeline, categories, criteria
+├── workspace/                       # board, image math, envelopes, sync, cloud boards/presets, tier presets
+└── platform/                        # errors, media, preferences, profile/showcase, short links, uploads, users
 ```
+
+## Repo Root & Tooling
+
+Root-level directories outside `src/` are also part of the architecture surface:
+
+```
+config/                              # shared build/test aliases and tool glue
+docs/                                # shipped architecture and design-system docs
+dev-docs/                            # local-only audits, plans, and scratch docs; gitignored
+eslint-rules/                        # custom comment-style lint rules
+scripts/                             # repo utilities, screenshots, cover previews, seed pipeline CLI
+scripts/lib/                         # shared Node script helpers
+scripts/seed_pipeline/               # Python seed-pipeline package and dev-reset tooling
+tests/                               # Vitest unit/integration tests
+e2e/                                 # Playwright browser smoke and guardrail tests
+```
+
+`docs/` is the committed, maintained documentation home. `dev-docs/` is for
+local working notes and generated audits; it is excluded in `.gitignore` so
+scratch planning files do not appear in fresh clones or CI. Tooling that spans
+multiple runtimes should live under `config/`, `scripts/`, or `eslint-rules/`
+rather than a feature slice.
 
 ## State Management
 
@@ -362,16 +397,17 @@ Types are split between `packages/contracts/` (stable, serializable, cross-runti
 Anything that crosses a process boundary — localStorage, JSON exports, share links, Convex function arguments/results — lives here:
 
 - `lib/ids.ts` — `BoardId`, `TierId`, `PresetId`, `UserPresetId`, `BuiltinPresetId` template-literal brands; `ItemId` is a nominal brand w/ `asItemId()` cast at trust boundaries. `generate*` ID factories shared across frontend & Convex.
-- `lib/theme.ts`, `lib/themeDefinition.ts` — `ThemeId`, `PaletteId`, `TextStyleId`.
-- `marketplace/category.ts` — template category taxonomy shared by contracts, Convex validators, and UI filters.
-- `marketplace/template.ts` — public template summary/detail/draft/use contracts.
-- `marketplace/ranking.ts` — public ranking summary/detail/publish/remix contracts.
+- `lib/theme.ts`, `lib/themeDefinition.ts`, `lib/hexColor.ts` — theme, palette, text-style, and hex-color primitives.
+- `lib/math.ts`, `lib/pagination.ts`, `lib/publicTier.ts`, `lib/strings.ts`, `lib/typeGuards.ts`, `lib/sha256.ts` — shared runtime primitives used across domains and runtimes.
+- `marketplace/category.ts` and `marketplace/templateCriterion.ts` — template category and criterion taxonomies shared by contracts, Convex validators, and UI filters.
+- `marketplace/template.ts`, `marketplace/ranking.ts`, `marketplace/rankingAggregate.ts`, `marketplace/seedPipeline.ts` — public template/ranking read models, aggregate payloads, publish/remix contracts, and seed ingest wire types.
 - `platform/preferences.ts` — `AppPreferences`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.
-- `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`.
+- `platform/errors.ts`, `platform/media.ts`, `platform/profile.ts`, `platform/showcase.ts`, `platform/shortLink.ts`, `platform/user.ts` — platform-level shared contracts.
+- `platform/uploadEnvelope.ts` — prefixed header binding an upload blob to its purpose, owner, & signed token so intercepted `(storageId, token)` pairs can't cross-account finalize.
+- `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`, and library board read models.
+- `workspace/imageMath.ts` — item transform, aspect-ratio, and auto-crop math mirrored by the Python seed pipeline.
 - `workspace/tierPreset.ts` — `TierPreset`, `TierPresetTier`.
 - `workspace/cloudBoard.ts`, `workspace/cloudPreset.ts`, `workspace/boardSync.ts`, `workspace/boardEnvelope.ts` — cloud-sync & envelope wire types.
-- `platform/errors.ts`, `platform/media.ts`, `platform/shortLink.ts`, `platform/user.ts` — platform-level shared contracts.
-- `platform/uploadEnvelope.ts` — prefixed header binding an upload blob to its purpose, owner, & signed token so intercepted `(storageId, token)` pairs can't cross-account finalize.
 
 **Runtime (slice-local `runtime.ts`):**
 

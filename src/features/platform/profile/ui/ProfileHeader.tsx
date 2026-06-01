@@ -5,7 +5,7 @@ import { MapPin } from 'lucide-react'
 
 import type { PublicUserProfile } from '@tierlistbuilder/contracts/platform/profile'
 import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
-import { PlanBadge } from '~/features/platform/settings/ui/SettingsChrome'
+import { PlanBadge } from '~/features/platform/settings/ui/PlanBadge'
 import { Avatar } from '~/shared/ui/Avatar'
 import { ButtonLink } from '~/shared/ui/Button'
 

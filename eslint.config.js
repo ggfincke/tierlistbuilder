@@ -17,6 +17,7 @@ export default defineConfig([
     '.agents',
     '.claude',
     '.convex',
+    '.tmp',
     'skills-lock.json',
   ]),
   {

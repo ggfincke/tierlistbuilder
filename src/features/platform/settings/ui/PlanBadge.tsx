@@ -1,9 +1,8 @@
-// src/features/platform/settings/ui/SettingsChrome.tsx
-// account settings-specific badges
+// src/features/platform/settings/ui/PlanBadge.tsx
+// account plan badge
 
 import type { UserPlan } from '@tierlistbuilder/contracts/platform/user'
 
-// plan pill — lime for Plus, outlined neutral for Free
 export const PlanBadge = ({ plan }: { plan: UserPlan }) =>
   plan === 'plus' ? (
     <span className="rounded bg-[var(--t-accent-2)] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#0a0a0a]">
