@@ -279,6 +279,49 @@ export interface MarketplaceTemplateItem extends MarketplaceItemRenderFields
   externalId: string
 }
 
+// one selectable image style surfaced to the style picker. previewUrl is the
+// style cover (or a representative tile); null when the style has no cover yet
+export interface TemplateStyleOption
+{
+  externalId: string
+  label: string
+  previewUrl: string | null
+  isDefault: boolean
+}
+
+// full image style definition — render defaults a forked board inherits when
+// this style is active. the default style's per-item images live on the
+// template items; non-default styles override per item via TemplateStyleItemAsset
+export interface TemplateStyle
+{
+  externalId: string
+  label: string
+  order: number
+  isDefault: boolean
+  coverMedia: TemplateMediaRef | null
+  coverFraming: TemplateCoverFraming | null
+  itemAspectRatio: number | null
+  defaultItemImageFit: ImageFit | null
+  defaultItemImagePadding: number | null
+  labels: BoardLabelSettings | null
+  autoPlate: BoardAutoPlateSettings | null
+}
+
+// per-(style, item) image override keyed by item external id. media null marks
+// an item absent in this style
+export interface TemplateStyleItemAsset
+{
+  styleExternalId: string
+  itemExternalId: string
+  media: TemplateMediaRef | null
+  mediaPlate: MediaPlate | null
+  altText: string | null
+  aspectRatio: number | null
+  imageFit: ImageFit | null
+  transform: ItemTransform | null
+  imagePadding: number | null
+}
+
 export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
 {
   access: TemplateCardAccessState
@@ -290,6 +333,8 @@ export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
   // pre-baked board label settings; null falls back to the forking user's
   // global showLabels + built-in defaults
   labels: BoardLabelSettings | null
+  // selectable image styles (skins). empty or single-entry -> picker suppressed
+  styleOptions: TemplateStyleOption[]
 }
 
 export type MarketplaceTemplateItemsResult =

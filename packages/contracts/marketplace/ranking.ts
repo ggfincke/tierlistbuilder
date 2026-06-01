@@ -117,6 +117,9 @@ export interface MarketplaceRankingDetail extends MarketplaceRankingSummary
   // legibility/layout fixes reach published rankings without a re-publish
   autoPlate: BoardAutoPlateSettings | null
   defaultItemImagePadding: number | null
+  // image style (skin) externalId the author published in; null when the source
+  // template has no styles or the board used the default
+  activeStyleId: string | null
   tiers: MarketplaceRankingTier[]
   items: MarketplaceRankingItem[]
 }

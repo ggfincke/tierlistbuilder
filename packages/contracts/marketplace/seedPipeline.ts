@@ -297,6 +297,21 @@ export interface SeedCleanupOutput
   skippedStorageIds: string[]
 }
 
+// per-template image style (skin) metadata row. the default style's per-item
+// images live on the template items; non-default styles sync them separately
+export interface SeedTemplateStyle
+{
+  externalId: string
+  label: string
+  order: number
+  isDefault: boolean
+  coverMediaDedupeHash: string | null
+  itemAspectRatio: number | null
+  defaultItemImagePadding: number | null
+  labels?: BoardLabelSettings
+  autoPlate?: BoardAutoPlateSettings
+}
+
 export interface SeedTemplateUpsert
 {
   externalId: string
@@ -315,6 +330,9 @@ export interface SeedTemplateUpsert
   labels?: BoardLabelSettings
   // per-template logo backdrop pinned at publish; absent -> On+Auto default
   autoPlate?: BoardAutoPlateSettings
+  // image styles (skins) for this template; absent -> single-skin template
+  styles?: SeedTemplateStyle[]
+  defaultStyleId?: string | null
 }
 
 export interface SeedTemplateUpsertOutput
@@ -352,6 +370,31 @@ export interface SeedSyncTemplateItemsOutput
   moved: SeedTemplateItemKey[]
   unchanged: SeedTemplateItemKey[]
   deleted: SeedTemplateItemKey[]
+}
+
+export interface SeedTemplateStyleItemKey
+{
+  templateExternalId: string
+  styleExternalId: string
+  itemExternalId: string
+}
+
+export interface SeedTemplateStyleItemUpsert
+{
+  itemExternalId: string
+  mediaDedupeHash: string | null
+  aspectRatio: number | null
+  transform: ItemTransform | null
+  mediaPlate: MediaPlate | null
+  imagePadding: number | null
+}
+
+export interface SeedSyncTemplateStyleItemsOutput
+{
+  created: SeedTemplateStyleItemKey[]
+  updated: SeedTemplateStyleItemKey[]
+  unchanged: SeedTemplateStyleItemKey[]
+  deleted: SeedTemplateStyleItemKey[]
 }
 
 export interface SeedTemplateCriterionKey

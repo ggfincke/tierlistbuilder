@@ -83,6 +83,12 @@ export const normalizeImagePadding = (value: unknown): number | undefined =>
 export const MEDIA_PLATES = ['light', 'dark'] as const
 export type MediaPlate = (typeof MEDIA_PLATES)[number]
 
+// origin of a board item's current image. 'linked' follows the active board
+// image style & re-points on a skin switch; 'pinned' is user-owned (imported
+// or manually recropped) & is never touched by a switch. absent -> 'linked'
+export const ITEM_IMAGE_SOURCES = ['linked', 'pinned'] as const
+export type ItemImageSource = (typeof ITEM_IMAGE_SOURCES)[number]
+
 // per-board backdrop behind transparent logos. 'off' plates nothing; 'auto'
 // plates only low-contrast logos (per-item MediaPlate) w/ a theme shade;
 // 'uniform' fills uniformColor behind every image
@@ -489,6 +495,9 @@ export interface TierItem
   // locally. first cloud sync resolves it to boardItems.templateItemId so the
   // board can publish rankings against its source template.
   sourceTemplateItemExternalId?: string
+  // whether this item's image follows the active board image style ('linked')
+  // or is user-owned ('pinned'); absent -> 'linked'. see ItemImageSource
+  imageSource?: ItemImageSource
   // set only on profile-showcase items — marks this tile as a published-ranking
   // lane. absent on every normal board item. see ShowcaseItemRef
   showcaseRanking?: ShowcaseItemRef
@@ -546,6 +555,9 @@ interface BoardSnapshotBase
   // criterion/lane the user started from when forking a template or remixing a
   // ranking. the server validates it against the source template on first sync.
   preferredCriterionExternalId?: string
+  // active board image style (skin) externalId; absent -> source template
+  // default style. drives which per-item images the board renders
+  imageStyleId?: string
 }
 
 // full serializable board snapshot — persisted per board & exchanged across import/export
