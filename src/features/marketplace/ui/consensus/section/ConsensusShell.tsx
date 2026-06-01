@@ -1,4 +1,4 @@
-// src/features/marketplace/ui/discovery/ConsensusShell.tsx
+// src/features/marketplace/ui/consensus/section/ConsensusShell.tsx
 // shared two-column layout for consensus body, rail, toolbar, & actions
 
 import type { ReactNode } from 'react'

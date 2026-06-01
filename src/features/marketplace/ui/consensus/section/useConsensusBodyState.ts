@@ -1,11 +1,11 @@
-// src/features/marketplace/ui/discovery/useConsensusBodyState.ts
+// src/features/marketplace/ui/consensus/section/useConsensusBodyState.ts
 // local view state for a consensus lane
 
 import { useCallback, useState } from 'react'
 
 import type { TemplateRankingAggregateItemSort } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { ConsensusRailTab } from '../consensus/rail/ConsensusRankingsRail'
-import type { ConsensusVizMode } from '../consensus/lib/utils'
+import type { ConsensusRailTab } from '../rail/ConsensusRankingsRail'
+import type { ConsensusVizMode } from '../lib/utils'
 
 export const useConsensusBodyState = (criterionExternalId: string) =>
 {

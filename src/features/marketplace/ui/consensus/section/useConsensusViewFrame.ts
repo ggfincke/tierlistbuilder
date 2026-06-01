@@ -1,4 +1,4 @@
-// src/features/marketplace/ui/discovery/useConsensusViewFrame.ts
+// src/features/marketplace/ui/consensus/section/useConsensusViewFrame.ts
 // stable render-frame cache for aggregate & pinned-ranking swaps
 
 import { useEffect, useMemo } from 'react'

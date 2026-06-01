@@ -23,7 +23,7 @@ import { PAGE_DETAIL_TOP_LEVEL } from '~/shared/ui/pageContainer'
 import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
 import { Card } from '~/features/marketplace/ui/cards/Card'
-import { CommunityConsensusSection } from '~/features/marketplace/ui/discovery/CommunityConsensusSection'
+import { CommunityConsensusSection } from '~/features/marketplace/ui/consensus/section/CommunityConsensusSection'
 import {
   HeroRailCards,
   HeroRailCardsLoading,

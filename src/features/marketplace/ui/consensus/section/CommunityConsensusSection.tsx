@@ -1,80 +1,52 @@
-// src/features/marketplace/ui/discovery/CommunityConsensusSection.tsx
+// src/features/marketplace/ui/consensus/section/CommunityConsensusSection.tsx
 // toolbar + viz + rail scoped to a single criterion lane; chip selector
 // renders above the section when the template has multiple criteria
 
-import { ArrowLeftRight, Loader2, Plus } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 
 import type {
   MarketplaceTemplateRankingAggregate,
-  MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { isTemplateRankingAggregateReady as isAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import { RANKING_FEATURED_BADGE_LABELS } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { useCompareRanking } from '~/features/marketplace/model/detail/useCompareRanking'
 import { selectBusiestOtherCriterion } from '~/features/marketplace/model/detail/criterionSelection'
-import { useRemixConsensus } from '~/features/marketplace/model/remix/useRemixConsensus'
-import { useRemixRanking } from '~/features/marketplace/model/remix/useRemixRanking'
-import { useUseTemplate } from '~/features/marketplace/model/remix/useUseTemplate'
-import {
-  ACCESS_META,
-  isTemplateAccessBlocked,
-} from '~/features/marketplace/model/accessMeta'
 import {
   useMyRankingForTemplate,
   useTemplateRankingAggregateItems,
-  type TemplateRankingAggregateItemsPageStatus,
 } from '~/features/marketplace/model/detail/useRankingDetail'
-import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
-import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
-import { BucketLegend } from '../consensus/criterion/BucketLegend'
-import { ConsensusBars } from '../consensus/views/ConsensusBars'
-import { ConsensusFeaturedSpotlight } from '../consensus/rail/ConsensusFeaturedSpotlight'
-import { ConsensusHeatmap } from '../consensus/views/ConsensusHeatmap'
-import { ConsensusRanked } from '../consensus/views/ConsensusRanked'
-import {
-  ConsensusRankingsRail,
-  type ConsensusRailTab,
-} from '../consensus/rail/ConsensusRankingsRail'
-import { ConsensusScatter } from '../consensus/views/ConsensusScatter'
-import { ConsensusTierRows } from '../consensus/views/ConsensusTierRows'
-import { ConsensusToolbar } from '../consensus/criterion/ConsensusToolbar'
-import { CriterionChips } from '../consensus/criterion/CriterionChips'
-import { CriterionEmptyLane } from '../consensus/criterion/CriterionEmptyLane'
-import { LaneStatsCard } from '../consensus/rail/LaneStatsCard'
-import { LoadingBlock } from '../consensus/views/LoadingBlock'
+import { BucketLegend } from '../criterion/BucketLegend'
+import { CriterionChips } from '../criterion/CriterionChips'
+import { CriterionEmptyLane } from '../criterion/CriterionEmptyLane'
+import { LoadingBlock } from '../views/LoadingBlock'
 import {
   buildRowsForActiveRanking,
   filterAndSortActiveRankingRows,
-} from '../consensus/lib/activeRankingRows'
-import { CompareSectionHeading } from '../consensus/compare/CompareSectionHeading'
-import { ItemPopover } from '../consensus/item/ItemPopover'
-import { usePopover } from '../consensus/item/usePopover'
-import { templateFrame, type ConsensusVizMode } from '../consensus/lib/utils'
+} from '../lib/activeRankingRows'
+import { ItemPopover } from '../item/ItemPopover'
+import { usePopover } from '../item/usePopover'
+import { templateFrame } from '../lib/utils'
+import { ConsensusActionButtons } from './ConsensusActionButtons'
+import { ConsensusSectionHeader } from './ConsensusSectionHeader'
+import {
+  ConsensusRailSlot,
+  ConsensusToolbarSlot,
+  LoadMoreButton,
+  SectionSkeleton,
+} from './ConsensusSectionSlots'
 import { ConsensusShell } from './ConsensusShell'
+import { ConsensusVizSwitch } from './ConsensusVizSwitch'
 import { useConsensusBodyState } from './useConsensusBodyState'
 import { useConsensusRailData } from './useConsensusRailData'
 import {
   useConsensusViewFrame,
   type ActiveRankingMeta,
 } from './useConsensusViewFrame'
-import { SectionEyebrow } from '../consensus/SectionEyebrow'
-
-const ACTION_PILL_CLASS =
-  'focus-custom flex h-full flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-dashed border-[var(--t-border)] bg-transparent px-3 py-2 text-[12px] font-medium text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
-
-type ConsensusBodyState = ReturnType<typeof useConsensusBodyState>
-type ConsensusRailResult = ReturnType<typeof useConsensusRailData>['railResult']
-type ConsensusSpotlightRanking = ReturnType<
-  typeof useConsensusRailData
->['spotlightRanking']
 
 interface CommunityConsensusSectionProps
 {
@@ -87,433 +59,6 @@ interface CommunityConsensusSectionProps
   // for single-criterion templates so the chip row + lane chrome suppress
   visibleCriteria: readonly MarketplaceTemplateCriterion[] | null
   onCriterionChange: (externalId: string) => void
-}
-
-interface ConsensusActionButtonsProps
-{
-  compareHref: string | null
-  templateSlug: string
-  templateTitle: string
-  criterionExternalId: string
-  access: MarketplaceTemplateDetail['access']
-  // pinned rail rankings remix their snapshot instead of the bare template
-  activeRanking: { slug: string; title: string } | null
-  // true when the community lane has a generated aggregate to clone
-  consensusRemixable: boolean
-}
-
-interface ConsensusPrimaryAction
-{
-  idleLabel: string
-  run: () => void
-}
-
-const ConsensusActionButtons = ({
-  compareHref,
-  templateSlug,
-  templateTitle,
-  criterionExternalId,
-  access,
-  activeRanking,
-  consensusRemixable,
-}: ConsensusActionButtonsProps) =>
-{
-  const { run: runUseTemplate, isPending: isUseTemplatePending } =
-    useUseTemplate()
-  const { run: runRemixRanking, isPending: isRemixRankingPending } =
-    useRemixRanking()
-  const { run: runRemixConsensus, isPending: isRemixConsensusPending } =
-    useRemixConsensus()
-  const accessMeta = ACCESS_META[access]
-  const accessBlocked = isTemplateAccessBlocked(access)
-  const isRemixPending = isRemixRankingPending || isRemixConsensusPending
-  const isPending = isUseTemplatePending || isRemixPending
-  const primaryAction: ConsensusPrimaryAction = activeRanking
-    ? {
-        idleLabel: 'Remix this ranking',
-        run: () => runRemixRanking(activeRanking.slug, activeRanking.title),
-      }
-    : consensusRemixable
-      ? {
-          idleLabel: 'Remix this ranking',
-          run: () =>
-            runRemixConsensus({
-              templateSlug,
-              templateTitle,
-              criterionExternalId,
-            }),
-        }
-      : {
-          idleLabel: 'New ranking',
-          run: () =>
-            runUseTemplate(templateSlug, templateTitle, {
-              preferredCriterionExternalId: criterionExternalId,
-            }),
-        }
-  const label = accessBlocked
-    ? accessMeta.ctaLabel
-    : isRemixPending
-      ? 'Remixing…'
-      : isUseTemplatePending
-        ? 'Forking…'
-        : primaryAction.idleLabel
-  return (
-    <div className="flex h-full w-full gap-2">
-      {compareHref && (
-        <Link to={compareHref} className={ACTION_PILL_CLASS}>
-          <ArrowLeftRight className="h-3 w-3" strokeWidth={2.2} />
-          Compare
-        </Link>
-      )}
-      <button
-        type="button"
-        onClick={primaryAction.run}
-        disabled={isPending || accessBlocked}
-        title={accessMeta.ctaTooltip ?? undefined}
-        className={`${ACTION_PILL_CLASS} disabled:cursor-not-allowed disabled:opacity-60`}
-      >
-        {isPending && !accessBlocked ? (
-          <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} />
-        ) : (
-          <Plus className="h-3 w-3" strokeWidth={2.4} />
-        )}
-        {label}
-      </button>
-    </div>
-  )
-}
-
-const SectionSkeleton = () => (
-  <div aria-hidden="true" className="space-y-3">
-    <SkeletonBlock className="h-9 w-full rounded-md" tone="soft" />
-    {Array.from({ length: 4 }).map((_, index) => (
-      <SkeletonBlock key={index} className="h-16 rounded-md" tone="soft" />
-    ))}
-  </div>
-)
-
-const LoadMoreButton = ({
-  status,
-  onLoadMore,
-}: {
-  status: TemplateRankingAggregateItemsPageStatus
-  onLoadMore: () => void
-}) =>
-{
-  if (status !== 'CanLoadMore' && status !== 'LoadingMore') return null
-  return (
-    <div className="mt-4 flex justify-center">
-      <button
-        type="button"
-        disabled={status !== 'CanLoadMore'}
-        onClick={onLoadMore}
-        className="focus-custom inline-flex h-10 items-center gap-2 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-4 text-sm font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-      >
-        {status === 'LoadingMore' && (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-        )}
-        {status === 'LoadingMore' ? 'Loading items…' : 'Load more items'}
-      </button>
-    </div>
-  )
-}
-
-interface ConsensusToolbarSlotProps
-{
-  query: string
-  onQueryChange: ConsensusBodyState['setSearchQuery']
-  sort: ConsensusBodyState['sort']
-  onSortChange: ConsensusBodyState['setSort']
-  vizMode: ConsensusBodyState['vizMode']
-  onVizModeChange: ConsensusBodyState['setVizMode']
-  totalCount: number
-  isActiveRanking: boolean
-  sourceRowCount: number
-  filteredCount: number
-}
-
-const ConsensusToolbarSlot = ({
-  query,
-  onQueryChange,
-  sort,
-  onSortChange,
-  vizMode,
-  onVizModeChange,
-  totalCount,
-  isActiveRanking,
-  sourceRowCount,
-  filteredCount,
-}: ConsensusToolbarSlotProps) => (
-  <ConsensusToolbar
-    query={query}
-    onQueryChange={onQueryChange}
-    sort={sort}
-    onSortChange={onSortChange}
-    vizMode={vizMode}
-    onVizModeChange={onVizModeChange}
-    totalCount={isActiveRanking ? sourceRowCount : totalCount}
-    filteredCount={filteredCount}
-  />
-)
-
-interface ConsensusLaneStatsProps
-{
-  aggregate: MarketplaceTemplateRankingAggregate | null | undefined
-  fallbackCount: number
-}
-
-const ConsensusLaneStats = ({
-  aggregate,
-  fallbackCount,
-}: ConsensusLaneStatsProps) => (
-  <LaneStatsCard
-    rankingCount={aggregate?.rankingCount ?? fallbackCount}
-    mostAgreed={aggregate?.mostAgreed ?? null}
-    mostDivisive={aggregate?.mostDivisive ?? null}
-    computedAt={aggregate?.computedAt ?? null}
-  />
-)
-
-interface ConsensusRailSlotProps
-{
-  rankingCount: number
-  aggregateForStats: MarketplaceTemplateRankingAggregate | null | undefined
-  spotlightRanking: ConsensusSpotlightRanking
-  activeSlug: string | null
-  onSelectRanking: (slug: string | null) => void
-  railResult: ConsensusRailResult
-  railTab: ConsensusRailTab
-  onRailTabChange: (next: ConsensusRailTab) => void
-  forceLoading?: boolean
-}
-
-const ConsensusRailSlot = ({
-  rankingCount,
-  aggregateForStats,
-  spotlightRanking,
-  activeSlug,
-  onSelectRanking,
-  railResult,
-  railTab,
-  onRailTabChange,
-  forceLoading = false,
-}: ConsensusRailSlotProps) =>
-{
-  const railLoading =
-    forceLoading ||
-    (railResult.status === 'LoadingFirstPage' && railResult.items.length === 0)
-  const rankings = forceLoading ? [] : railResult.items
-  const loadMoreEligible =
-    !forceLoading &&
-    railTab === 'all' &&
-    (railResult.status === 'CanLoadMore' || railResult.status === 'LoadingMore')
-  const loadMoreLabel =
-    forceLoading || railResult.status === 'LoadingMore'
-      ? 'Loading…'
-      : 'Load more rankings'
-
-  return (
-    <>
-      <ConsensusLaneStats
-        aggregate={aggregateForStats}
-        fallbackCount={rankingCount}
-      />
-      {!forceLoading && spotlightRanking && (
-        <ConsensusFeaturedSpotlight
-          ranking={spotlightRanking}
-          active={activeSlug === spotlightRanking.slug}
-          onSelect={() =>
-            onSelectRanking(
-              activeSlug === spotlightRanking.slug
-                ? null
-                : spotlightRanking.slug
-            )
-          }
-        />
-      )}
-      <ConsensusRankingsRail
-        rankingCount={rankingCount}
-        rankings={rankings}
-        isLoading={railLoading}
-        activeSlug={activeSlug}
-        onSelect={onSelectRanking}
-        tab={railTab}
-        onTabChange={onRailTabChange}
-        loadMoreEligible={loadMoreEligible}
-        loadMoreLabel={loadMoreLabel}
-        onLoadMore={() => railResult.loadMore()}
-      />
-    </>
-  )
-}
-
-interface SectionHeaderProps
-{
-  aggregate: MarketplaceTemplateRankingAggregate | null | undefined
-  showYourPlacementsCopy: boolean
-  activeRanking: ActiveRankingMeta | null
-  onResetActive: () => void
-  selectedCriterion: MarketplaceTemplateCriterion
-  // multi-criterion templates surface lane-specific copy ("Competitive
-  // consensus" rather than the generic "Community consensus") so users
-  // never confuse aggregate datasets across lanes
-  multiCriterion: boolean
-}
-
-const SectionHeader = ({
-  aggregate,
-  showYourPlacementsCopy,
-  activeRanking,
-  onResetActive,
-  selectedCriterion,
-  multiCriterion,
-}: SectionHeaderProps) =>
-{
-  const showStale = aggregate?.state === 'stale'
-
-  if (activeRanking)
-  {
-    const eyebrow = activeRanking.featuredBadge
-      ? `${RANKING_FEATURED_BADGE_LABELS[activeRanking.featuredBadge]} ranking`
-      : 'Individual ranking'
-    return (
-      <CompareSectionHeading
-        eyebrow={eyebrow}
-        eyebrowTone={activeRanking.featuredBadge ? 'warning' : 'faint'}
-        title={activeRanking.title}
-        body={
-          <>
-            Viewing one ranking — by {activeRanking.authorName},{' '}
-            {formatRelativeTime(activeRanking.updatedAt)}.{' '}
-            <button
-              type="button"
-              onClick={onResetActive}
-              className="focus-custom rounded text-[var(--t-accent)] transition hover:text-[var(--t-accent-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-            >
-              Back to community average
-            </button>
-            .
-          </>
-        }
-      />
-    )
-  }
-
-  const heading = multiCriterion
-    ? `${selectedCriterion.name} consensus`
-    : 'Community consensus'
-  const description = multiCriterion ? selectedCriterion.prompt : null
-  return (
-    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0">
-        <SectionEyebrow>
-          {multiCriterion ? 'Ranking by criterion' : 'The community’s verdict'}
-        </SectionEyebrow>
-        <div className="mt-0.5 flex flex-wrap items-center gap-2">
-          <h2 className="text-xl font-semibold tracking-tight text-[var(--t-text)]">
-            {heading}
-          </h2>
-          {showStale && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.04)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-              Recomputing
-            </span>
-          )}
-        </div>
-        {description && (
-          <p className="mt-1 text-xs text-[var(--t-text-secondary)]">
-            {description}
-          </p>
-        )}
-        {showYourPlacementsCopy && (
-          <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-            <strong className="font-semibold text-[var(--t-accent)]">
-              Your placements
-            </strong>{' '}
-            shown as accent badges where they differ.
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-interface VizSwitchProps
-{
-  mode: ConsensusVizMode
-  rows: readonly MarketplaceTemplateRankingAggregateItem[]
-  buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
-  template: MarketplaceTemplateDetail
-  onOpenItem: ReturnType<typeof usePopover>['open']
-  showControversy: boolean
-  yourPlacements: Record<string, number> | null
-}
-
-const VizSwitch = ({
-  mode,
-  rows,
-  buckets,
-  template,
-  onOpenItem,
-  showControversy,
-  yourPlacements,
-}: VizSwitchProps) =>
-{
-  const frame = templateFrame(template)
-  switch (mode)
-  {
-    case 'tiers':
-      return (
-        <ConsensusTierRows
-          rows={rows}
-          buckets={buckets}
-          frame={frame}
-          displaySettings={template}
-          onOpenItem={onOpenItem}
-          yourPlacements={yourPlacements}
-        />
-      )
-    case 'bars':
-      return (
-        <ConsensusBars
-          rows={rows}
-          buckets={buckets}
-          frame={frame}
-          displaySettings={template}
-          showControversy={showControversy}
-          onOpenItem={onOpenItem}
-        />
-      )
-    case 'heatmap':
-      return (
-        <ConsensusHeatmap
-          rows={rows}
-          buckets={buckets}
-          frame={frame}
-          displaySettings={template}
-          onOpenItem={onOpenItem}
-        />
-      )
-    case 'scatter':
-      return (
-        <ConsensusScatter
-          rows={rows}
-          buckets={buckets}
-          onOpenItem={onOpenItem}
-        />
-      )
-    case 'ranked':
-      return (
-        <ConsensusRanked
-          rows={rows}
-          buckets={buckets}
-          frame={frame}
-          displaySettings={template}
-          onOpenItem={onOpenItem}
-        />
-      )
-    default:
-      return null
-  }
 }
 
 export const CommunityConsensusSection = ({
@@ -710,7 +255,7 @@ export const CommunityConsensusSection = ({
         {(vizMode === 'bars' || vizMode === 'ranked') && (
           <BucketLegend buckets={renderFrame.buckets} />
         )}
-        <VizSwitch
+        <ConsensusVizSwitch
           mode={vizMode}
           rows={renderFrame.rows}
           buckets={renderFrame.buckets}
@@ -961,7 +506,7 @@ export const CommunityConsensusSection = ({
   return (
     <>
       {chipsBlock}
-      <SectionHeader
+      <ConsensusSectionHeader
         aggregate={headerAggregate}
         showYourPlacementsCopy={showYourPlacementsCopy}
         activeRanking={headerMeta}

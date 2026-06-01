@@ -109,7 +109,7 @@ src/
 │   ├── data/                        # Convex repositories for gallery, detail, publish, and ranking reads/writes
 │   ├── pages/                       # route-entry pages for gallery, detail, compare, publish, and account views
 │   ├── ui/                          # account, cards, consensus, cover, discovery, layout, meta, publish, template
-│   │   └── consensus/{views,rail,criterion,item,lib,compare}/
+│   │   └── consensus/{section,views,rail,criterion,item,lib,compare}/
 │   └── model/{gallery,detail,publish,remix,cover,analytics,actions}/
 ├── features/library/                # signed-in My Boards surface
 │   ├── lib/                         # board-list grouping, filtering, and view helpers
