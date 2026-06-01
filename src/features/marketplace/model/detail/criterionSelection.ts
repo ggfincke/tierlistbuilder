@@ -1,8 +1,15 @@
 // src/features/marketplace/model/detail/criterionSelection.ts
-// pure helpers for picking criteria across consensus surfaces — kept out
-// of the hook module so non-React callers don't import a hook file
+// pure helpers for picking criteria across consensus surfaces
 
+import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
+
+export interface CompareCriterionSelection
+{
+  left: MarketplaceTemplateCriterion
+  right: MarketplaceTemplateCriterion
+  isSwapped: boolean
+}
 
 export const findActiveCriterion = (
   criteria: readonly MarketplaceTemplateCriterion[],
@@ -75,4 +82,31 @@ export const selectBusiestOtherCriterion = (
     }
   }
   return best
+}
+
+export const resolveCompareCriterionSelection = (
+  template: MarketplaceTemplateDetail,
+  activeCriteria: readonly MarketplaceTemplateCriterion[],
+  leftParam: string | null,
+  rightParam: string | null
+): CompareCriterionSelection | null =>
+{
+  if (activeCriteria.length < 2) return null
+  const sorted = [...activeCriteria].sort((a, b) => a.order - b.order)
+  const primary = findPrimaryCriterion(activeCriteria) ?? sorted[0]!
+  const left = findActiveCriterion(activeCriteria, leftParam) ?? primary
+
+  // URL value wins; invalid/equal right side falls back to busiest other lane
+  let right = findActiveCriterion(activeCriteria, rightParam)
+  if (!right || right.externalId === left.externalId)
+  {
+    const counts = template.rankingCountByCriterion ?? {}
+    right = selectBusiestOtherCriterion(sorted, left.externalId, counts)
+  }
+  if (!right) return null
+  return {
+    left,
+    right,
+    isSwapped: leftParam === right.externalId && rightParam === left.externalId,
+  }
 }

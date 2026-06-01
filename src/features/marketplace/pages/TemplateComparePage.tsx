@@ -3,7 +3,7 @@
 // & the page joins both lanes' aggregate items by templateItemId
 
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { type MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
@@ -12,19 +12,14 @@ import {
   isTemplateRankingAggregateReady as isAggregateReady,
   type MarketplaceTemplateRankingAggregate,
   type MarketplaceTemplateRankingAggregateBucket,
-  type MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 
+import { useTemplateRankingAggregate } from '~/features/marketplace/model/detail/useRankingDetail'
 import {
-  useTemplateRankingAggregate,
-  useTemplateRankingAggregateItems,
-  type TemplateRankingAggregateItemsPageStatus,
-} from '~/features/marketplace/model/detail/useRankingDetail'
-import {
-  findActiveCriterion,
-  findPrimaryCriterion,
-  selectBusiestOtherCriterion,
+  resolveCompareCriterionSelection,
+  type CompareCriterionSelection,
 } from '~/features/marketplace/model/detail/criterionSelection'
+import { useCompareLaneItems } from '~/features/marketplace/model/detail/useCompareLanes'
 import { useTemplateDetailRoute } from '~/features/marketplace/model/detail/useMarketplaceDetailRoute'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { formatCountedWord } from '~/shared/lib/pluralize'
@@ -52,86 +47,9 @@ import {
   joinLanesByTemplateItem,
 } from '~/features/marketplace/ui/consensus/compare/laneUtils'
 
-interface ResolvedSelection
-{
-  left: MarketplaceTemplateCriterion
-  right: MarketplaceTemplateCriterion
-  isSwapped: boolean
-}
-
 const LEFT_PARAM = 'left'
 const RIGHT_PARAM = 'right'
 const EMPTY_BUCKETS: MarketplaceTemplateRankingAggregateBucket[] = []
-
-// resolves left/right from URL: missing left -> primary; missing right ->
-// busiest other lane; collision -> swap right to the next active lane
-const resolveSelection = (
-  template: MarketplaceTemplateDetail,
-  activeCriteria: readonly MarketplaceTemplateCriterion[],
-  leftParam: string | null,
-  rightParam: string | null
-): ResolvedSelection | null =>
-{
-  if (activeCriteria.length < 2) return null
-  const sorted = [...activeCriteria].sort((a, b) => a.order - b.order)
-  const primary = findPrimaryCriterion(activeCriteria) ?? sorted[0]!
-  const left = findActiveCriterion(activeCriteria, leftParam) ?? primary
-  // pick the right side from the URL first; if missing/invalid/equal to
-  // left, default to the busiest *other* criterion (most rankings) &
-  // fall back to the next-by-order if no rankings exist anywhere yet
-  let right = findActiveCriterion(activeCriteria, rightParam)
-  if (!right || right.externalId === left.externalId)
-  {
-    const counts = template.rankingCountByCriterion ?? {}
-    right = selectBusiestOtherCriterion(sorted, left.externalId, counts)
-  }
-  if (!right) return null
-  return {
-    left,
-    right,
-    isSwapped: leftParam === right.externalId && rightParam === left.externalId,
-  }
-}
-
-interface CompareLaneItemsResult
-{
-  items: MarketplaceTemplateRankingAggregateItem[]
-  status: TemplateRankingAggregateItemsPageStatus
-  loadMore: (count?: number) => void
-}
-
-// drives auto-pagination so the compare surface always operates on the full
-// list. without this we'd render charts on the first 100 items & silently
-// miss the rest of a 200/500-roster template
-const useFullyLoadedAggregateItems = (
-  templateSlug: string,
-  criterionExternalId: string,
-  generation: number | null,
-  enabled: boolean
-): CompareLaneItemsResult =>
-{
-  const result = useTemplateRankingAggregateItems({
-    templateSlug,
-    criterionExternalId,
-    generation,
-    sort: 'templateOrder',
-    enabled,
-    pageSize: 100,
-  })
-  const { status, loadMore } = result
-  // template order is stable & the page-size cap is 100, so we keep
-  // requesting the next page until the cursor exhausts. effects that
-  // ignore returned promises read fine w/ this loadMore signature
-  useEffect(() =>
-  {
-    if (!enabled) return
-    if (status === 'CanLoadMore')
-    {
-      loadMore(100)
-    }
-  }, [enabled, loadMore, status])
-  return result
-}
 
 const NotFound = () => (
   <NotFoundSurface
@@ -159,7 +77,7 @@ const PageSkeleton = () => (
   </section>
 )
 
-// twin variants share the swap action — desktop floats over the lane-card
+// twin variants share the swap action; desktop floats over the lane-card
 // gutter as a circular icon, mobile drops below the stacked headers as a
 // labeled chip. one component keeps the onClick & a11y attrs in one place
 const SwapLanesButton = ({
@@ -201,7 +119,7 @@ const SwapLanesButton = ({
 interface CompareBodyProps
 {
   detail: MarketplaceTemplateDetail
-  selection: ResolvedSelection
+  selection: CompareCriterionSelection
   activeCriteria: readonly MarketplaceTemplateCriterion[]
   onSwap: (next: { left?: string; right?: string }) => void
 }
@@ -230,20 +148,20 @@ const CompareBody = ({
   const leftReady = isAggregateReady(leftAggregate)
   const rightReady = isAggregateReady(rightAggregate)
 
-  const leftItems = useFullyLoadedAggregateItems(
+  const leftItems = useCompareLaneItems(
     detail.slug,
     leftCriterion.externalId,
     leftAggregate?.activeGeneration ?? null,
     leftReady
   )
-  const rightItems = useFullyLoadedAggregateItems(
+  const rightItems = useCompareLaneItems(
     detail.slug,
     rightCriterion.externalId,
     rightAggregate?.activeGeneration ?? null,
     rightReady
   )
 
-  // both lanes need ready aggregates before we can compute insights — the
+  // both lanes need ready aggregates before we can compute insights; the
   // viz blocks would otherwise render against ghost data while one lane
   // catches up
   const aggregatesReady = leftReady && rightReady
@@ -521,7 +439,7 @@ export const TemplateComparePage = () =>
   const activeCriteria = detail.criteria.filter((c) => c.status === 'active')
   if (activeCriteria.length < 2) return <NotFound />
 
-  const selection = resolveSelection(
+  const selection = resolveCompareCriterionSelection(
     detail,
     activeCriteria,
     params.get(LEFT_PARAM),
