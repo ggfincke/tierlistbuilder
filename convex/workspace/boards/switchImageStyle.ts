@@ -86,11 +86,18 @@ export const switchBoardImageStyle = mutation({
     // the board instead of hitting the no-op below
     const storedStyleIsStale =
       board.imageStyleId != null &&
-      !isAllowedTemplateStyle(template.defaultStyleId, styles, board.imageStyleId)
+      !isAllowedTemplateStyle(
+        template.defaultStyleId,
+        styles,
+        board.imageStyleId
+      )
     // no-op when already on the target skin — never bump revision needlessly
     if (effectiveStyleId === currentStyleId && !storedStyleIsStale)
     {
-      return { revision: board.revision, imageStyleId: board.imageStyleId ?? null }
+      return {
+        revision: board.revision,
+        imageStyleId: board.imageStyleId ?? null,
+      }
     }
 
     // throttle past the no-op check so only real switches cost a token; scoped

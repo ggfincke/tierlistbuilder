@@ -83,7 +83,7 @@ const ImageStyleSection = () =>
   const activeStyleId = imageStyleId ?? defaultStyleExternalId
   const shownStyleId = pendingStyleId ?? activeStyleId
   // the switch is a server op that bumps the board revision, so it's only safe
-  // once edits have flushed -- otherwise it conflicts with the pending push
+  // once edits have flushed -- otherwise it conflicts w/ the pending push
   const caption = !isSynced
     ? 'Sync this board to the cloud to switch image styles.'
     : hasPendingSync

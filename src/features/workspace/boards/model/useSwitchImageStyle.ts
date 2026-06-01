@@ -41,7 +41,10 @@ export const useSwitchImageStyle = (): SwitchImageStyleAction =>
     // guard) & the next flush conflicts. wait for the board to settle first
     if (state.pendingSyncAt !== null)
     {
-      toast('Saving recent edits — try switching the image style again in a moment.', 'info')
+      toast(
+        'Saving recent edits — try switching the image style again in a moment.',
+        'info'
+      )
       return
     }
     if ((state.imageStyleId ?? null) === (styleId ?? null)) return

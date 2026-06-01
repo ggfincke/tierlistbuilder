@@ -80,7 +80,10 @@ export const useUseTemplate = (): UseTemplateAction =>
       // large templates: queued server-side clone. signed-out viewers can't
       // fork these locally (storage budget) so we route to a sign-in prompt.
       // non-default skins take the same server path for correct image data
-      if (requiresServerQueuedClone(detail.sizeClass) || isNonDefaultStyleSelected)
+      if (
+        requiresServerQueuedClone(detail.sizeClass) ||
+        isNonDefaultStyleSelected
+      )
       {
         if (!signedIn)
         {

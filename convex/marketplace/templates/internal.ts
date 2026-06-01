@@ -382,7 +382,8 @@ export const processTemplateCloneJob = internalMutation({
     const hasReadyTiles = await allMediaAssetsHaveReadyTileVariants(
       ctx,
       page.page.map(
-        (item) => resolvedByExternalId.get(item.externalId)?.mediaAssetId ?? null
+        (item) =>
+          resolvedByExternalId.get(item.externalId)?.mediaAssetId ?? null
       )
     )
     if (!hasReadyTiles)

@@ -87,10 +87,7 @@ export const insertBoardItemsFromTemplate = async (
   ctx: MutationCtx,
   boardId: Id<'boards'>,
   templateItems: readonly Doc<'templateItems'>[],
-  styleAssets: ReadonlyMap<
-    string,
-    Doc<'templateItemStyleAssets'>
-  > = new Map()
+  styleAssets: ReadonlyMap<string, Doc<'templateItemStyleAssets'>> = new Map()
 ): Promise<BoardLibrarySummaryItem[]> =>
 {
   const rows = await Promise.all(

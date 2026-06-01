@@ -269,17 +269,20 @@ export const toRankingDetail = async (
 ): Promise<MarketplaceRankingDetail> =>
 {
   const cache = createTemplateProjectionCache()
-  const [summary, tiers, items, sourceTemplate, activeStyle] = await Promise.all(
-    [
+  const [summary, tiers, items, sourceTemplate, activeStyle] =
+    await Promise.all([
       toRankingSummary(ctx, ranking, cache),
       loadRankingTiers(ctx, ranking._id),
       loadRankingItems(ctx, ranking._id),
       ctx.db.get(ranking.sourceTemplateId),
       // the skin the ranking was published in owns its board-level display
       // policy; null styleId (single-skin / default) -> falls back to template
-      loadTemplateStyleRow(ctx, ranking.sourceTemplateId, ranking.activeStyleId),
-    ]
-  )
+      loadTemplateStyleRow(
+        ctx,
+        ranking.sourceTemplateId,
+        ranking.activeStyleId
+      ),
+    ])
 
   // pull display policy (backdrop + plate inset) live so legibility/layout fixes
   // reach every published ranking w/o re-publish; the active skin wins over the
