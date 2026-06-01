@@ -18,10 +18,8 @@ import {
 } from '~/features/workspace/tier-presets/model/tierPresets'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
-import {
-  pruneUnreferencedBlobs,
-  replaceBlobRefs,
-} from '~/shared/images/imageStore'
+import { pruneUnreferencedBlobs } from '~/shared/images/imageBlobGc'
+import { replaceBlobRefs } from '~/shared/images/imageBlobRefStore'
 import { collectSnapshotLocalImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
 import { formatCountedWord, pluralizeWord } from '~/shared/lib/pluralize'

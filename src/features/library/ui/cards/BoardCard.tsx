@@ -8,7 +8,7 @@ import { ArrowRight } from 'lucide-react'
 import type {
   LibraryBoardDensity,
   LibraryBoardListItem,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 import { makeBoardClickHandler } from '~/features/library/lib/boardClickHandler'
 import { LIBRARY_COVER_ASPECT_BY_DENSITY } from '~/features/library/lib/densityLayout'

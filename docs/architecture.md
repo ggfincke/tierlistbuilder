@@ -20,7 +20,11 @@
 
 ## Directory Structure
 
-The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,platform,marketplace,library,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Cross-runtime wire types live in the top-level `packages/contracts/` workspace package.
+The codebase is organized into three top-level frontend layers: `app/`
+(bootstrap & routing), `features/{workspace,platform,social,marketplace,library,embed}/*`
+(per-slice feature code), and `shared/*` (cross-feature primitives).
+Cross-runtime wire types live in the top-level `packages/contracts/` workspace
+package.
 
 ```
 src/
@@ -38,7 +42,9 @@ src/
 │   │   ├── NotFoundRoute.tsx        # 404 fallback
 │   │   └── AppChromeLayout.tsx      # chrome wrapper for app routes
 │   ├── shells/
-│   │   ├── topNav/                  # fixed global chrome composition, route pills, account menu
+│   │   ├── AmbientPageShell.tsx      # ambient route shell, toast host, and live region
+│   │   ├── MarketplaceLayout.tsx     # templates/rankings route wrapper with footer
+│   │   ├── top-nav/                  # fixed global chrome composition, route pills, account menu
 │   │   ├── workspace/               # editable workspace shell, modal layer, export actions
 │   │   └── useModalStack.ts         # keyed modal state helper
 │   └── sync/                        # app-level cloud sync orchestration and auth-epoch lifecycle
@@ -60,7 +66,7 @@ src/
 │   │       ├── modals/              # board conflict and recently deleted dialogs
 │   │       └── drag-overlay/        # dnd-kit overlay renderers
 │   ├── export/{lib,model,ui}        # PNG/JPEG/WebP/PDF/JSON export + preview + progress
-│   ├── imageEditor/
+│   ├── image-editor/
 │   │   ├── lib/                     # crop geometry, label options, & measurement helpers
 │   │   ├── model/
 │   │   │   ├── transform/           # transform drafts, pan, wheel zoom, arrow nudge, selected-item handlers
@@ -68,7 +74,8 @@ src/
 │   │   │   ├── labels/              # label drafts and label-aware aspect measurement
 │   │   │   └── *.ts                 # open/filter store, item filtering, selection, modal actions
 │   │   └── ui/                      # modal, pane, rail, preview canvas, footer, label controls
-│   ├── settings/
+│   ├── preview/{model,ui}           # read-only board previews, cover assets, and preview shells
+│   ├── board-settings/
 │   │   ├── lib/                     # image upload constants & helpers
 │   │   ├── model/
 │   │   │   ├── aspect-ratio/        # prompt context/provider/state/import and ratio picker state
@@ -95,26 +102,38 @@ src/
 │       ├── lib/                     # cloudSyncConfig, concurrency, convexClient, crossTabSyncLock, errors, first-login lifecycle
 │       ├── state/                   # syncStatusStore, syncStatusVisuals, cloud pull progress
 │       └── transport/               # connectivity detection
+├── features/social/
+│   ├── profile/{model,pages,ui}     # public profile route, header, authored templates, tlotl showcase
+│   ├── settings/{model,pages,ui}    # signed-in account settings and account-management panels
+│   └── showcase/{model,pages,ui}    # profile showcase editor, save scheduler, and snapshot transforms
 ├── features/marketplace/            # templates, ranking publish/detail/remix, gallery flows
+│   ├── data/                        # Convex repositories for gallery, detail, publish, and ranking reads/writes
+│   ├── pages/                       # route-entry pages for gallery, detail, compare, publish, and account views
 │   ├── ui/                          # account, cards, consensus, cover, discovery, layout, meta, publish, template
-│   │   └── consensus/{views,rail,criterion,item,lib,compare}/
+│   │   └── consensus/{section,views,rail,criterion,item,lib,compare}/
 │   └── model/{gallery,detail,publish,remix,cover,analytics,actions}/
 ├── features/library/                # signed-in My Boards surface
+│   ├── lib/                         # board-list grouping, filtering, and view helpers
+│   ├── model/                       # local/cloud library adapters and board deletion hooks
+│   ├── pages/                       # route-entry My Boards page
 │   └── ui/{cards,list,chrome,chips,modals}/
 ├── features/embed/ui                # read-only EmbedView primitives
 └── shared/
     ├── a11y/                        # announce() module, LiveRegion component
     ├── board-data/                  # default board, snapshot normalizer, JSON/wire parsers
-    ├── board-ui/                    # BoardPrimitives, ItemContent, shared board rendering, cover framing, constants
+    ├── board-ui/                    # BoardPrimitives, ItemContent, shared board rendering, constants
+    │   ├── cover/                   # cover framing, media plates, image attrs
+    │   ├── labels/                  # label resolution, overrides, band variants, blocks
+    │   └── mosaic/                  # cover mosaic grid components & geometry
     ├── catalog/                     # compact count/date/estimate formatters + URL filter helpers
     ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl
-    ├── images/                      # imageStore, imageBlobCache, imagePersistence, imageLoad
+    ├── images/                      # imageBlobStore, imageBlobRefStore, imageUploadIndex, cache/persistence/load
     ├── lib/                         # color, math, fileName, className, pluralize, downloadBlob,
     │                                # browserStorage, logger, urls, typeGuards,
     │                                # asyncMapLimit, binaryCodec, boardSnapshotItems, errors,
     │                                # localSidecar, sha256, sync/ (debouncedSyncRunner,
     │                                # ownedSyncMeta, backoff, proceedGuard),
-    │                                # autoCrop/ (pipeline, cache & transforms-runner hooks)
+    │                                # auto-crop/ (pipeline, cache & transforms-runner hooks)
     ├── notifications/               # ToastContainer, useToastStore
     ├── overlay/                     # BaseModal, ConfirmDialog, toolbarPosition, progress, focus/inert dialog wiring,
     │                                # dismissible layers, anchored popups, menu overflow, nested menus
@@ -127,11 +146,34 @@ src/
                                      # settings controls, TextArea, TextInput, UploadDropzone
 
 packages/contracts/                  # @tierlistbuilder/contracts — cross-runtime wire types
-├── lib/                             # ids, theme, themeDefinition
-├── marketplace/                     # public template/ranking marketplace contracts + category taxonomy
-├── workspace/                       # board, boardEnvelope, boardSync, cloudBoard, cloudPreset, tierPreset
-└── platform/                        # errors, media, preferences, shortLink, uploadEnvelope, user
+├── lib/                             # ids, theme, math, pagination, strings, sha256, type guards
+├── marketplace/                     # templates, rankings, aggregates, seed pipeline, categories, criteria
+├── social/                          # public profile and showcase contracts
+├── workspace/                       # board, image math, envelopes, sync, cloud boards/presets, tier presets
+└── platform/                        # errors, media, preferences, short links, uploads, users
 ```
+
+## Repo Root & Tooling
+
+Root-level directories outside `src/` are also part of the architecture surface:
+
+```
+config/                              # shared build/test aliases and tool glue
+docs/                                # shipped architecture and design-system docs
+dev-docs/                            # local-only audits, plans, and scratch docs; gitignored
+eslint-rules/                        # custom comment-style lint rules
+scripts/                             # repo utilities, screenshots, cover previews, seed pipeline CLI
+scripts/lib/                         # shared Node script helpers
+scripts/seed_pipeline/               # Python seed-pipeline package and dev-reset tooling
+tests/                               # Vitest unit/integration tests
+e2e/                                 # Playwright browser smoke and guardrail tests
+```
+
+`docs/` is the committed, maintained documentation home. `dev-docs/` is for
+local working notes and generated audits; it is excluded in `.gitignore` so
+scratch planning files do not appear in fresh clones or CI. Tooling that spans
+multiple runtimes should live under `config/`, `scripts/`, or `eslint-rules/`
+rather than a feature slice.
 
 ## State Management
 
@@ -163,7 +205,7 @@ IndexedDB payloads should be wiped by version reset/recreation instead of
 converted forward, while JSON/share import validation should continue rejecting
 malformed or unsupported files.
 
-Local images live in `shared/images/imageStore.ts` as content-addressed blobs.
+Local images live in `shared/images/imageBlobStore.ts` as content-addressed blobs.
 Imported items keep a small display blob plus an optional editor source blob.
 Board saves update board-scoped blob refs; workspace bootstrap reconciles refs
 from all local snapshots and prunes unreferenced blobs after the local image GC
@@ -176,7 +218,8 @@ and workspace adapters:
 
 - `app/sync/createAppSyncSession.ts` owns startup wiring: online/offline connectivity, auth-epoch lifetime, sync-status store setup, and the workspace sync session.
 - `app/sync/useCloudSync.ts` mounts that session from the route chrome.
-- `features/platform/sync/{lib,state,transport}/` stays foundational: Convex client access, concurrency constants, cross-tab locks, errors, sync status/progress state, and connectivity detection. It must not import workspace, marketplace, or library slices.
+- `features/platform/sync/{lib,state,transport}/` stays foundational: Convex client access, concurrency constants, cross-tab locks, errors, sync status/progress state, and connectivity detection. It must not import workspace, marketplace, library, or social slices.
+- `features/social/{profile,settings,showcase}/` owns public identity, account settings, and the profile-showcase editor. It may compose platform auth/preferences/media infrastructure; platform must not import back into social.
 - `features/workspace/sync/workspaceSyncSession.ts` owns workspace sync adapters for boards, preferences, tier presets, board deletes, pending sidecar recovery, first-login workspace merges, and conflict queueing.
 - `features/workspace/sync/useWorkspaceBoardSyncSubscriber.ts` observes active board edits and forwards `PendingBoardSync` work into the workspace session after the first-login board merge gate opens.
 - `features/workspace/sync/useWorkspaceBoardSyncStatus.ts` is the board-aware status hook. It composes platform status state with workspace conflict state so platform sync remains product-slice agnostic.
@@ -341,15 +384,19 @@ Share/export image behavior is intentionally split by carrier:
 
 ## Boundary Rules
 
+- Directories under `src/` use lowercase/kebab-case segments. `convex/` keeps
+  camelCase function namespaces where they map to generated API paths.
 - `shared/*` must not import from `features/*`. Shared code is framework-only and feature-agnostic.
 - `shared/board-data/*`, `shared/board-ui/*`, `shared/sharing/*`, and `shared/routes/*` are the neutral homes for current board snapshot, rendering, share-codec, and route-path helpers.
 - The embed shell resolves shares through `features/platform/share/*`, renders through `shared/board-ui/*`, and never mounts the editable active-board store.
-- Workspace owns activation of cloud-backed boards via `features/workspace/boards/model/cloudBoardActivation.ts`; marketplace/library callers do not reach through workspace persistence internals directly.
+- Workspace owns activation of cloud-backed boards via `features/workspace/boards/model/cloud/cloudBoardActivation.ts`; marketplace/library callers do not reach through workspace persistence internals directly.
 - Workspace exposes publishable-board scanning via `features/workspace/boards/model/usePublishableBoards.ts`; marketplace publish UI does not read board storage directly.
+- Library board rows read and delete through `features/workspace/boards/model/libraryBoardAccess.ts`; library code does not import board storage or cloud repositories directly.
 - UI (`ui/`) → model (`model/`) → data (`data/{local,cloud}/`). Components don't call localStorage or Convex directly — they go through `model/` selectors or `data/*` helpers.
 - Platform sync owns auth/connectivity/status primitives only; app sync composes those primitives with workspace sessions.
+- Platform stays infrastructure-only. Public identity, account settings, and profile-showcase product surfaces live in `features/social/*`.
 - Per-slice cloud transport (Convex args, mappers) lives in the owning slice. Platform media and share repositories own storage upload URLs, media finalization, and short-link lookups.
-- `app/sync/*` is the only place allowed to compose platform sync infrastructure with workspace sessions. Keep product-slice imports out of `features/platform/sync/*`.
+- `app/sync/*` is the only place allowed to compose platform sync infrastructure with workspace sessions. Keep product-slice imports out of `features/platform/*`.
 - `SaveOrPublishMenu` may preload the marketplace publish modal to reduce perceived latency, but that edge is a lazy-loader hint only; workspace UI must not call marketplace runtime logic directly.
 - Share code intentionally has three homes: `features/platform/share/*` for short-link data access, `features/workspace/sharing/ui/*` for workspace dialogs, and `shared/sharing/*` for pure codecs plus the compression worker.
 
@@ -362,16 +409,19 @@ Types are split between `packages/contracts/` (stable, serializable, cross-runti
 Anything that crosses a process boundary — localStorage, JSON exports, share links, Convex function arguments/results — lives here:
 
 - `lib/ids.ts` — `BoardId`, `TierId`, `PresetId`, `UserPresetId`, `BuiltinPresetId` template-literal brands; `ItemId` is a nominal brand w/ `asItemId()` cast at trust boundaries. `generate*` ID factories shared across frontend & Convex.
-- `lib/theme.ts`, `lib/themeDefinition.ts` — `ThemeId`, `PaletteId`, `TextStyleId`.
-- `marketplace/category.ts` — template category taxonomy shared by contracts, Convex validators, and UI filters.
-- `marketplace/template.ts` — public template summary/detail/draft/use contracts.
-- `marketplace/ranking.ts` — public ranking summary/detail/publish/remix contracts.
+- `lib/theme.ts`, `lib/themeDefinition.ts`, `lib/hexColor.ts` — theme, palette, text-style, and hex-color primitives.
+- `lib/coverMedia.ts`, `lib/math.ts`, `lib/pagination.ts`, `lib/publicTier.ts`, `lib/strings.ts`, `lib/typeGuards.ts`, `lib/sha256.ts` — shared runtime primitives used across domains and runtimes.
+- `marketplace/category.ts` and `marketplace/templateCriterion.ts` — template category and criterion taxonomies shared by contracts, Convex validators, and UI filters.
+- `marketplace/template.ts`, `marketplace/ranking.ts`, `marketplace/rankingAggregate.ts`, `marketplace/seedPipeline.ts` — public template/ranking read models, aggregate payloads, publish/remix contracts, and seed ingest wire types.
 - `platform/preferences.ts` — `AppPreferences`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.
-- `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`.
+- `platform/errors.ts`, `platform/media.ts`, `platform/shortLink.ts`, `platform/user.ts` — platform infrastructure contracts.
+- `social/profile.ts`, `social/showcase.ts` — public profile and profile-showcase contracts.
+- `platform/uploadEnvelope.ts` — prefixed header binding an upload blob to its purpose, owner, & signed token so intercepted `(storageId, token)` pairs can't cross-account finalize.
+- `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`, and base board list rows.
+- `workspace/libraryBoard.ts` — My Lists read-model rows, publish/sync status enums, cover-summary helpers, and library sort/filter options.
+- `workspace/imageTransform.ts`, `workspace/aspectRatio.ts`, `workspace/autoCrop.ts` — item transform, aspect-ratio, and auto-crop math mirrored by the Python seed pipeline.
 - `workspace/tierPreset.ts` — `TierPreset`, `TierPresetTier`.
 - `workspace/cloudBoard.ts`, `workspace/cloudPreset.ts`, `workspace/boardSync.ts`, `workspace/boardEnvelope.ts` — cloud-sync & envelope wire types.
-- `platform/errors.ts`, `platform/media.ts`, `platform/shortLink.ts`, `platform/user.ts` — platform-level shared contracts.
-- `platform/uploadEnvelope.ts` — prefixed header binding an upload blob to its purpose, owner, & signed token so intercepted `(storageId, token)` pairs can't cross-account finalize.
 
 **Runtime (slice-local `runtime.ts`):**
 
@@ -384,7 +434,7 @@ Types that only live in memory stay in the frontend tree, collocated w/ the stor
 
 ## Backend
 
-The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{media,preferences,shortLinks}`, and `marketplace/{templates,rankings}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
+The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{account,media,preferences,shortLinks}`, `social/{profile,showcase}`, and `marketplace/{seed,templates,rankings}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
 
 Convex validators are exposed through domain entrypoints under
 `convex/lib/validators/{common,workspace,platform,marketplace,seedPipeline}.ts`.
@@ -396,7 +446,8 @@ Marketplace ranking backend files are grouped by workflow:
 
 - `marketplace/rankings/public/` — public queries and mutations.
 - `marketplace/rankings/aggregate/` — aggregate computation helpers and scheduled jobs.
-- `marketplace/rankings/seed/` — seed manifest validators, planning, scoring, lifecycle, cleanup, and seed actions.
+- `marketplace/seed/rankings/` — seed manifest validators, planning, scoring, task resolution, row writes, lifecycle, cleanup, and seed actions.
+- `marketplace/seed/lib/` — seed run records, media, templates, diagnostics, and shared validators.
 - `marketplace/rankings/maintenance/` — owner/data cascade jobs.
 
 Marketplace template helpers are split by responsibility under
@@ -405,13 +456,18 @@ Marketplace template helpers are split by responsibility under
 - `normalize.ts` — input normalization, validation, defaults.
 - `trending.ts` — trending-score math, metric-day bucketing, projection cache.
 - `state.ts` — publication/access-state predicates & state-field builders.
+- `publishing.ts` — shared publish insert fields, cover-frame validation, and cover-item shaping.
 - `board.ts` — template-to-board tier/item materialization.
 - `projections.ts` — read-side projections: media/author/item loaders, stats reads, & summary/detail/draft/card shaping.
 - `writes.ts` — table writes & lifecycle: stats/cards/tags writes, publication-state mutations, deletes, & slug allocation.
 
+Template publish/clone job mutations live in
+`marketplace/templates/publishJobs.ts`; the scheduled processors and cascade
+jobs stay in `marketplace/templates/internal.ts`.
+
 Key boundary: **UI components never call Convex directly**. Every query & mutation flows through a per-feature adapter, platform repository, or auth hook. This keeps wire types, error surfaces, and retry policy out of the UI layer.
 
-Schema (`convex/schema.ts`) defines the app-owned tables alongside `@convex-dev/auth`'s `authTables`:
+Schema (`convex/schema.ts`) is the required `defineSchema()` assembler. Domain table records live under `convex/schema/{workspace,platform,profile,marketplace,seed}.ts` and combine with `@convex-dev/auth`'s `authTables`:
 
 - `users` — extends auth-managed fields w/ app-owned `displayName`, `avatarStorageId`, `tier`, timestamps.
 - `userPreferences` — per-user mirror of `AppPreferences`.

@@ -1,7 +1,7 @@
 // src/shared/board-ui/publishStateMeta.ts
 // shared UI metadata for the draft / WIP / live publish-state taxonomy
 
-import type { PublishState } from '@tierlistbuilder/contracts/workspace/board'
+import type { PublishState } from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 type PublishStateTone = 'neutral' | 'accent' | 'live'
 

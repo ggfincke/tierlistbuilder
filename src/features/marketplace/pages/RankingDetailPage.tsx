@@ -12,9 +12,10 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardAutoPlateSettings } from '@tierlistbuilder/contracts/workspace/board'
-import { majorityAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { majorityAspectRatio } from '@tierlistbuilder/contracts/workspace/aspectRatio'
+
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { resolveLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { getTextColor } from '~/shared/lib/color'
 import { useRankingDetailRoute } from '~/features/marketplace/model/detail/useMarketplaceDetailRoute'

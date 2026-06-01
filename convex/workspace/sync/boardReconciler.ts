@@ -12,7 +12,8 @@ import type {
   MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { itemLabelOptionsEqual } from '@tierlistbuilder/contracts/workspace/board'
-import { isSameItemTransform } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { isSameItemTransform } from '@tierlistbuilder/contracts/workspace/imageTransform'
+
 import { tierColorSpecEqual } from '@tierlistbuilder/contracts/lib/theme'
 
 export interface TierDiff

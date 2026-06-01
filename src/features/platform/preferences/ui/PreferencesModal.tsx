@@ -1,6 +1,5 @@
 // src/features/platform/preferences/ui/PreferencesModal.tsx
-// quick appearance & accessibility prefs as a single-page popover (avatar menu
-// or ⌘,). changes apply live & persist per-device; mirrored on /settings.
+// quick appearance & accessibility prefs popover; mirrored on /settings
 
 import { useId } from 'react'
 import { Link } from 'react-router-dom'
@@ -11,7 +10,7 @@ import {
   HIGH_CONTRAST_THEME_ID,
   usePreferencesStore,
 } from '~/features/platform/preferences/model/usePreferencesStore'
-import { settingsTabPath } from '~/features/platform/settings/model/settingsTabs'
+import { settingsTabPath } from '~/shared/routes/settings'
 import { THEMES } from '~/shared/theme/tokens'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -66,7 +65,7 @@ export const PreferencesModal = ({ open, onClose }: PreferencesModalProps) =>
     }))
   )
 
-  // Volt doubles as the high-contrast theme — see toggleHighContrast
+  // Volt doubles as the high-contrast theme; see toggleHighContrast.
   const isHighContrast = themeId === HIGH_CONTRAST_THEME_ID
 
   return (

@@ -7,17 +7,18 @@ import {
   pickAutoCropBBox,
   type AutoCropBBox,
   type AutoCropScan,
-} from '@tierlistbuilder/contracts/workspace/imageMath'
+} from '@tierlistbuilder/contracts/workspace/autoCrop'
+
 import {
   COVER_SURFACES,
   SURFACE_ASPECT_RATIOS,
   type CoverFrame,
   type CoverSurface,
   type TemplateCoverFraming,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
 
-import { scanBlobForAutoCrop } from '~/shared/lib/autoCrop/pipeline'
-import { createScanCache } from '~/shared/lib/autoCrop/scanCache'
+import { scanBlobForAutoCrop } from '~/shared/lib/auto-crop/pipeline'
+import { createScanCache } from '~/shared/lib/auto-crop/scanCache'
 import { logger } from '~/shared/lib/logger'
 
 // breathing room around the detected content, as a fraction of source-image

@@ -7,7 +7,7 @@ import {
   type LibraryBoardFilter,
   type LibraryBoardListItem,
   type LibraryBoardSort,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 // every publish state has a visible filter chip — the rail is All + these
 export const VISIBLE_LIBRARY_BOARD_FILTERS = PUBLISH_STATES

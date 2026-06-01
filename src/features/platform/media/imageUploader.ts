@@ -9,12 +9,11 @@ import {
   collectSnapshotLocalImageHashes,
   forEachSnapshotItem,
 } from '~/shared/lib/boardSnapshotItems'
+import { getBlobsBatch, type BlobRecord } from '~/shared/images/imageBlobStore'
 import {
-  getBlobsBatch,
   getUploadStatusBatch,
   markUploaded,
-  type BlobRecord,
-} from '~/shared/images/imageStore'
+} from '~/shared/images/imageUploadIndex'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { brandedStringArrayIncludes, isPresent } from '~/shared/lib/typeGuards'
 import {

@@ -1,0 +1,94 @@
+// src/shared/board-ui/labels/labelBlocksStyle.ts
+// shared style helpers kept separate so fast-refresh stays component-only
+
+import type { CSSProperties } from 'react'
+
+import { TEXT_STYLES } from '~/shared/theme/textStyles'
+import type { LabelTextColor } from '@tierlistbuilder/contracts/workspace/board'
+import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
+import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
+
+export const LABEL_SCRIM_CLASS = {
+  none: '',
+  dark: 'bg-black/60',
+  light: 'bg-white/70',
+} as const
+
+export const LABEL_SCRIM_TEXT_CLASS = {
+  none: 'text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]',
+  dark: 'text-white',
+  light: 'text-[rgb(20,20,20)]',
+} as const
+
+// 'auto' inherits scrim text color; other values force explicit hex
+const LABEL_TEXT_COLOR_HEX: Record<LabelTextColor, string | undefined> = {
+  auto: undefined,
+  white: '#ffffff',
+  black: '#141414',
+  red: '#ef4444',
+  orange: '#f59e0b',
+  yellow: '#facc15',
+  green: '#22c55e',
+  blue: '#3b82f6',
+  purple: '#a855f7',
+}
+
+export const LABEL_TEXT_COLOR_STYLE = Object.fromEntries(
+  Object.entries(LABEL_TEXT_COLOR_HEX).map(([color, hex]) => [
+    color,
+    hex ? { color: hex } : undefined,
+  ])
+) as Record<LabelTextColor, CSSProperties | undefined>
+
+const LABEL_FONT_STYLES = Object.fromEntries(
+  Object.entries(TEXT_STYLES).map(([id, style]) => [
+    id,
+    {
+      fontFamily: style.fontFamily,
+      letterSpacing: style.letterSpacing,
+    },
+  ])
+) as Record<TextStyleId, CSSProperties>
+
+const MAX_PADDING_STYLE_CACHE_ENTRIES = 128
+
+const paddingKey = (fontSizePx: number): number =>
+  Number.isFinite(fontSizePx) ? Number(fontSizePx.toFixed(2)) : 0
+
+const createCachedPaddingStyle = (
+  inlineFactor: number,
+  blockFactor: number
+): ((fontSizePx: number) => CSSProperties) =>
+{
+  const cache = new Map<number, CSSProperties>()
+  return (fontSizePx) =>
+  {
+    const key = paddingKey(fontSizePx)
+    const cached = cache.get(key)
+    if (cached)
+    {
+      touchMapEntry(cache, key)
+      return cached
+    }
+    const style = {
+      paddingInline: `${Math.max(2, Math.round(fontSizePx * inlineFactor))}px`,
+      paddingBlock: `${Math.max(1, Math.round(fontSizePx * blockFactor))}px`,
+    }
+    setMapEntryLru(cache, key, style, MAX_PADDING_STYLE_CACHE_ENTRIES)
+    return style
+  }
+}
+
+export const captionPaddingStyle = createCachedPaddingStyle(0.35, 0.12)
+
+export const overlayPaddingStyle = createCachedPaddingStyle(0.4, 0.15)
+
+// undefined textStyleId inherits the page font
+export const labelFontStyle = (
+  textStyleId: ResolvedLabelDisplay['textStyleId']
+): CSSProperties | undefined =>
+{
+  if (!textStyleId) return undefined
+  return LABEL_FONT_STYLES[textStyleId]
+}

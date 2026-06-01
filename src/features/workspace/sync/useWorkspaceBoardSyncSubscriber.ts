@@ -14,7 +14,7 @@ import {
   boardDataFieldsEqual,
   extractBoardData,
 } from '~/shared/board-data/boardSnapshot'
-import { extractBoardSyncState } from '~/features/workspace/boards/model/sync'
+import { extractBoardSyncState } from '~/features/workspace/boards/model/cloud/sync'
 import type { PendingBoardSync } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 
 interface WorkspaceBoardSyncSubscriberOptions

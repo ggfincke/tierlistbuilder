@@ -1,11 +1,12 @@
 import type {
   BoardListItem,
-  LibraryBoardListItem,
   BoardMeta,
   BoardSnapshot,
   Tier,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import {
   DEFAULT_USER_PRIVACY_SETTINGS,
   type PublicUserMe,

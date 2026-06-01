@@ -5,7 +5,8 @@
 import { useCallback, useId, useRef, useState } from 'react'
 import { Copy, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import {
   OverlayDivider,
   OverlayMenuItem,

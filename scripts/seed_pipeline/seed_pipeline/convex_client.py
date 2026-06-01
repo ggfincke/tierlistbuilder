@@ -39,85 +39,6 @@ CONVEX_WRITE_RATE_ERROR_MARKERS: tuple[str, ...] = (
 	"bytes written per 1 second",
 )
 
-SEED_HTTP_ROUTES = {
-	("query", "marketplace/seedRuns:resolveSeedState"): "/api/seed/state",
-	(
-		"query",
-		"marketplace/seedRuns:resolveSeedMediaByHashes",
-	): "/api/seed/media-by-hashes",
-	("query", "marketplace/seedRuns:getSeedRunStatus"): "/api/seed/status",
-	("mutation", "marketplace/seedRuns:beginSeedRun"): "/api/seed/begin",
-	(
-		"mutation",
-		"marketplace/seedRuns:generateSeedUploadUrls",
-	): "/api/seed/upload-urls",
-	(
-		"mutation",
-		"marketplace/seedPipeline/storageUploads:registerSeedUploadedStorageIds",
-	): "/api/seed/register-uploads",
-	("mutation", "marketplace/seedRuns:upsertSeedTemplates"): "/api/seed/upsert-templates",
-	(
-		"mutation",
-		"marketplace/seedRuns:syncSeedTemplateItems",
-	): "/api/seed/sync-template-items",
-	("mutation", "marketplace/seedRuns:upsertSeedCriteria"): "/api/seed/upsert-criteria",
-	(
-		"mutation",
-		"marketplace/seedRuns:verifySeedReleaseChunk",
-	): "/api/seed/verify-chunk",
-	(
-		"mutation",
-		"marketplace/seedRuns:completeSeedReleaseVerification",
-	): "/api/seed/complete-verification",
-	("mutation", "marketplace/seedRuns:activateSeedRelease"): "/api/seed/activate",
-	("mutation", "marketplace/seedRuns:rollbackSeedRelease"): "/api/seed/rollback",
-	(
-		"query",
-		"marketplace/rankings/seed/actions:preflightSeedRankings",
-	): "/api/seed/rankings/preflight",
-	(
-		"query",
-		"marketplace/rankings/seed/actions:verifySeedRankings",
-	): "/api/seed/rankings/verify",
-	(
-		"mutation",
-		"marketplace/rankings/seed/lifecycle:activateSeedRankings",
-	): "/api/seed/rankings/activate",
-	(
-		"mutation",
-		"marketplace/rankings/seed/lifecycle:queueActiveSeedRankingAggregates",
-	): "/api/seed/rankings/queue-aggregates",
-	(
-		"mutation",
-		"marketplace/rankings/seed/lifecycle:rollbackSeedRankings",
-	): "/api/seed/rankings/rollback",
-	(
-		"action",
-		"marketplace/rankings/seed/actions:ensureSeedRankingAuthors",
-	): "/api/seed/rankings/ensure-authors",
-	(
-		"action",
-		"marketplace/seedRuns:ensureSeedAuthor",
-	): "/api/seed/ensure-author",
-	(
-		"action",
-		"marketplace/seedRuns:finalizeSeedUploadedMedia",
-	): "/api/seed/finalize-media",
-	(
-		"action",
-		"marketplace/rankings/seed/actions:applySeedRankingChunk",
-	): "/api/seed/rankings/apply",
-	(
-		"action",
-		"marketplace/rankings/seed/actions:cleanupStaleSeedRankings",
-	): "/api/seed/rankings/cleanup-stale",
-	(
-		"action",
-		"marketplace/seedPipeline/storageUploads:cleanupAbandonedSeedRun",
-	): "/api/seed/cleanup",
-	("action", "dev/reset:wipeDeployment"): "/api/dev/reset",
-}
-
 
 @dataclass(frozen=True)
 class ConvexSeedSettings:
@@ -143,14 +64,16 @@ class ConvexSeedClient:
 	def __init__(self, settings: ConvexSeedSettings) -> None:
 		self.settings = settings
 
-	def query(self, function_path: str, args: JsonObject) -> JsonObject:
-		return self._call("query", function_path, args)
+	# query/mutation/action mirror the backing Convex function kind for call-site
+	# readability; every seed endpoint is a POST to its /api/seed/* route
+	def query(self, route: str, args: JsonObject) -> JsonObject:
+		return self._call(route, args)
 
-	def mutation(self, function_path: str, args: JsonObject) -> JsonObject:
-		return self._call("mutation", function_path, args)
+	def mutation(self, route: str, args: JsonObject) -> JsonObject:
+		return self._call(route, args)
 
-	def action(self, function_path: str, args: JsonObject) -> JsonObject:
-		return self._call("action", function_path, args)
+	def action(self, route: str, args: JsonObject) -> JsonObject:
+		return self._call(route, args)
 
 	def upload_file(
 		self,
@@ -183,10 +106,7 @@ class ConvexSeedClient:
 			raise ConvexClientError("Convex upload did not return storageId")
 		return storage_id
 
-	def _call(self, kind: str, function_path: str, args: JsonObject) -> JsonObject:
-		route = SEED_HTTP_ROUTES.get((kind, function_path))
-		if route is None:
-			raise ConvexClientError(f"unsupported seed Convex function: {function_path}")
+	def _call(self, route: str, args: JsonObject) -> JsonObject:
 		body = json.dumps(args).encode("utf-8")
 		payload = self._request_json(
 			lambda: Request(
@@ -302,11 +222,7 @@ def read_seed_settings(
 
 
 def resolve_seed_secret(env: Mapping[str, str], explicit: str | None = None) -> str | None:
-	return (
-		explicit
-		or os.environ.get(CONVEX_SEED_SECRET_ENV)
-		or env.get(CONVEX_SEED_SECRET_ENV)
-	)
+	return explicit or os.environ.get(CONVEX_SEED_SECRET_ENV) or env.get(CONVEX_SEED_SECRET_ENV)
 
 
 def resolve_seed_author_password(env: Mapping[str, str]) -> str | None:

@@ -3,7 +3,7 @@
 
 import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 import { api } from '@convex/_generated/api'
-import { putBlob } from '~/shared/images/imageStore'
+import { putBlob } from '~/shared/images/imageBlobStore'
 import {
   cacheFreshBlob,
   markCloudRequestsFailed,

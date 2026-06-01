@@ -20,7 +20,7 @@ import { persistBoardSyncState } from '~/features/workspace/boards/model/boardSe
 import {
   clearBoardPendingSync,
   isBoardPendingSyncOwnedBy,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import type { PendingBoardSync } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 import type { TierPresetSyncWork } from '~/features/workspace/tier-presets/data/cloud/cloudSync'
 

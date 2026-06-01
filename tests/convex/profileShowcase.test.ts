@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { DEFAULT_SHOWCASE_TIERS } from '@tierlistbuilder/contracts/platform/showcase'
+import { DEFAULT_SHOWCASE_TIERS } from '@tierlistbuilder/contracts/social/showcase'
 import {
   asUser,
   makeTest,
@@ -127,7 +127,7 @@ describe('profile showcase queries', () =>
 
     const owner = asUser(t, ownerId)
     const coverMode = await owner.query(
-      api.platform.showcase.getMyProfileShowcase,
+      api.social.showcase.queries.getMyProfileShowcase,
       {}
     )
 
@@ -157,7 +157,7 @@ describe('profile showcase queries', () =>
 
     const owner = asUser(t, ownerId)
     const data = await owner.query(
-      api.platform.showcase.getMyProfileShowcase,
+      api.social.showcase.queries.getMyProfileShowcase,
       {}
     )
     const mini = data.unranked[0]?.mini
@@ -175,7 +175,7 @@ describe('profile showcase queries', () =>
     const seeded = await seedShowcaseRanking(t, ownerId)
     const owner = asUser(t, ownerId)
 
-    await owner.mutation(api.platform.showcase.saveProfileShowcase, {
+    await owner.mutation(api.social.showcase.mutations.saveProfileShowcase, {
       tiers: DEFAULT_SHOWCASE_TIERS,
       placements: [
         {
@@ -187,7 +187,7 @@ describe('profile showcase queries', () =>
     })
 
     const beforeProfile = await t.query(
-      api.platform.profile.getPublicProfileByHandle,
+      api.social.profile.queries.getPublicProfileByHandle,
       { handle: 'showcase-visible' }
     )
     expect(beforeProfile?.showcase).toMatchObject({ placedCount: 1 })
@@ -201,7 +201,7 @@ describe('profile showcase queries', () =>
     })
 
     const afterProfile = await t.query(
-      api.platform.profile.getPublicProfileByHandle,
+      api.social.profile.queries.getPublicProfileByHandle,
       { handle: 'showcase-visible' }
     )
     expect(afterProfile?.showcase).toMatchObject({ placedCount: 0 })
@@ -210,7 +210,7 @@ describe('profile showcase queries', () =>
     ).toBe(true)
 
     const editData = await owner.query(
-      api.platform.showcase.getMyProfileShowcase,
+      api.social.showcase.queries.getMyProfileShowcase,
       {}
     )
     expect(editData.placed).toHaveLength(0)

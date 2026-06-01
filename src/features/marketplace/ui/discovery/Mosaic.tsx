@@ -8,12 +8,12 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
-import { resolveCoverTileRender } from '~/shared/board-ui/coverTileRender'
-import { MosaicGrid } from '~/shared/board-ui/MosaicGrid'
+import { resolveCoverTileRender } from '~/shared/board-ui/cover/coverTileRender'
+import { MosaicGrid } from '~/shared/board-ui/mosaic/MosaicGrid'
 import type {
   MediaDecoding,
   MediaLoading,
-} from '~/shared/board-ui/mediaImageAttrs'
+} from '~/shared/board-ui/cover/mediaImageAttrs'
 
 export type MosaicDensity = 'small' | 'default' | 'large' | 'hero'
 

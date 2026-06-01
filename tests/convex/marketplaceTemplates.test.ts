@@ -53,7 +53,7 @@ import {
   withFakeTimers,
 } from '@tests/convex/convexTestHelpers'
 
-// seed maintenance fns are internal-only; auth lives on /api/seed/* routes.
+// seed maintenance fns are internal-only; auth lives on /api/seed routes.
 // most tests call impls directly; route regressions use HTTP when dispatch matters
 const setTemplateCriteria = async (
   t: ConvexTestHandle,
@@ -61,7 +61,7 @@ const setTemplateCriteria = async (
   criteria: MarketplaceTemplateCriterion[] = TEST_CRITERIA
 ) =>
   await t.mutation(
-    internal.marketplace.templates.seed.setTemplateCriteriaImpl,
+    internal.marketplace.seed.templates.maintenance.setTemplateCriteriaImpl,
     { slug, criteria }
   )
 
@@ -1490,7 +1490,7 @@ describe('marketplace template Convex functions', () =>
         )
         if (canceled.status !== 'jobQueued') throw new Error('expected job')
         await caller.mutation(
-          api.marketplace.templates.mutations.cancelTemplatePublishJob,
+          api.marketplace.templates.publishJobs.cancelTemplatePublishJob,
           { jobId: canceled.jobId as Id<'templatePublishJobs'> }
         )
         await runScheduled(t)
@@ -1949,7 +1949,10 @@ describe('marketplace template Convex functions', () =>
     })
 
     await expect(
-      t.action(internal.marketplace.templates.seed.wipeSeededDataBatch, {})
+      t.action(
+        internal.marketplace.seed.templates.maintenance.wipeSeededDataBatch,
+        {}
+      )
     ).resolves.toEqual({
       templatesDeleted: 1,
       itemsDeleted: 260,
@@ -2398,7 +2401,7 @@ describe('marketplace template Convex functions', () =>
       }
     })
 
-    // board-unique: publishing replacementBoard never touches oldBoard — both
+    // board-unique: publishing replacementBoard never touches oldBoard; both
     // rankings coexist (the 2025-vs-2026 case)
     expect(stored.oldBoardLivePublicRankingId).toBe(stored.oldRanking?._id)
     expect(stored.replacementBoardLivePublicRankingId).toBe(

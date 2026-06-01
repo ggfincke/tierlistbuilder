@@ -7,7 +7,7 @@ import { joinClassNames } from '~/shared/lib/className'
 import type {
   MediaDecoding,
   MediaLoading,
-} from '~/shared/board-ui/mediaImageAttrs'
+} from '~/shared/board-ui/cover/mediaImageAttrs'
 
 interface MediaMatteFrameProps
 {

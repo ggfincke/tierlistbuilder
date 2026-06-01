@@ -86,11 +86,16 @@ convex/
     userUpsert.ts     # populates app-owned user fields on first sign-in
     validators/       # v.object() shapes mirroring packages/contracts (common, platform, workspace, marketplace, seedPipeline)
   platform/
+    account/          # profile, sessions, avatar, password, account deletion
     media/            # mediaAssets uploads (signed envelopes), queries, GC
     preferences/      # userPreferences get/upsert
     shortLinks/       # share-link slug resolution, listing, mutations, TTL sweeper
+  social/
+    profile/          # public profile read models
+    showcase/         # profile showcase reads, writes, validators, cleanup
   marketplace/
-    templates/        # public template publishing, gallery reads, clone-to-board
+    seed/             # seed HTTP endpoint refs, shared seed lib, ranking seed jobs
+    templates/        # public templates, job lifecycle, gallery reads, clone-to-board
     rankings/         # published ranking snapshots and remix-to-board
   workspace/
     boards/           # boards CRUD + cascade delete + upsertBoardState
@@ -101,8 +106,9 @@ convex/
   convex.config.ts    # defineApp() — registers rate-limiter component
   crons.ts            # daily GC: hard-delete expired boards, orphan media, storage, expired shares
   http.ts             # /auth/* HTTP routes
-  schema.ts           # app tables + @convex-dev/auth authTables
-  users.ts            # getMe query
+  schema.ts           # defineSchema assembler for app tables + authTables
+  schema/             # per-domain defineTable records
+  users.ts            # compatibility exports for api.users.* paths
 ```
 
 ## Adding a new function

@@ -19,7 +19,8 @@ import { isActiveTemplateJobStatus } from '@tierlistbuilder/contracts/marketplac
 import {
   LIBRARY_BOARD_COVER_ITEM_LIMIT,
   pickCoverRenderFields,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import {
   getLargeTemplateFeatureState,
   getPlanEntitlements,

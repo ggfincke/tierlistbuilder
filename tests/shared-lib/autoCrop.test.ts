@@ -4,11 +4,12 @@
 import { describe, expect, it } from 'vitest'
 
 import { ITEM_TRANSFORM_LIMITS } from '@tierlistbuilder/contracts/workspace/board'
-import { padBBox } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { padBBox } from '@tierlistbuilder/contracts/workspace/autoCrop'
+
 import {
   bboxToItemTransform,
   detectContentBBoxFromImageData,
-} from '~/shared/lib/autoCrop/pipeline'
+} from '~/shared/lib/auto-crop/pipeline'
 
 interface AlphaRect
 {

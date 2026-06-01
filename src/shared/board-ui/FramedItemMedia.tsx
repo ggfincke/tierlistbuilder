@@ -16,7 +16,7 @@ import type {
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
-import { PlateInsetFrame } from '~/shared/board-ui/PlateInsetFrame'
+import { PlateInsetFrame } from '~/shared/board-ui/cover/PlateInsetFrame'
 import {
   buildManualCropImgStyle,
   isIdentityTransform,

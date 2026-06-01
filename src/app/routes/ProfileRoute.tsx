@@ -1,10 +1,10 @@
 // src/app/routes/ProfileRoute.tsx
-// /u/:handle route — public profile shell
+// /u/:handle route: public profile shell
 
 import { useParams } from 'react-router-dom'
 
-import { ProfilePage } from '~/features/platform/profile/ui/ProfilePage'
-import { AmbientPageShell } from '~/shared/ui/AmbientPageShell'
+import { ProfilePage } from '~/features/social/profile/pages/ProfilePage'
+import { AmbientPageShell } from '~/app/shells/AmbientPageShell'
 
 export const ProfileRoute = () =>
 {

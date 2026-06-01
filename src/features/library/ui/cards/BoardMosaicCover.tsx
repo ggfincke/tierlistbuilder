@@ -5,21 +5,23 @@
 import type {
   BoardAutoPlateSettings,
   ImageFit,
-  LibraryBoardCoverItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardCoverItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import type {
   TemplateCoverFraming,
   TemplateMediaRef,
-} from '@tierlistbuilder/contracts/marketplace/template'
-import type { ShowcaseMiniSnapshot } from '@tierlistbuilder/contracts/platform/showcase'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
+
+import type { ShowcaseMiniSnapshot } from '@tierlistbuilder/contracts/social/showcase'
 
 import { externalIdToCode } from '~/shared/lib/initials'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
-import { FramedCoverImage } from '~/shared/board-ui/FramedCoverImage'
+import { FramedCoverImage } from '~/shared/board-ui/cover/FramedCoverImage'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
-import { MosaicGrid } from '~/shared/board-ui/MosaicGrid'
+import { MosaicGrid } from '~/shared/board-ui/mosaic/MosaicGrid'
 import { ShowcaseMiniTierRows } from '~/shared/board-ui/ShowcaseTileContent'
-import { resolveCoverTileRender } from '~/shared/board-ui/coverTileRender'
+import { resolveCoverTileRender } from '~/shared/board-ui/cover/coverTileRender'
 
 type CoverDensity = 'dense' | 'default' | 'loose'
 

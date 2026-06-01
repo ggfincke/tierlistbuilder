@@ -9,12 +9,12 @@ import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import type { ExportStatus } from '~/features/workspace/export/model/useExportController'
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { AspectRatioIssueModal } from '~/features/workspace/settings/ui/aspect-ratio/AspectRatioIssueModal'
-import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import { AspectRatioIssueModal } from '~/features/workspace/board-settings/ui/aspect-ratio/AspectRatioIssueModal'
+import { useImageEditorStore } from '~/features/workspace/image-editor/model/useImageEditorStore'
 import {
   loadImageEditorModal,
   preloadImageEditorModal,
-} from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
+} from '~/features/workspace/image-editor/ui/loadImageEditorModal'
 import { loadPublishModal } from '~/features/marketplace/ui/publish/loadPublishModal'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
 import { lazyNamed } from '~/shared/lib/lazyNamed'
@@ -39,7 +39,7 @@ const ShareModal = lazyNamed(
 )
 const ImageEditorModal = lazyNamed(loadImageEditorModal, 'ImageEditorModal')
 const BoardSettingsModal = lazyNamed(
-  () => import('~/features/workspace/settings/ui/BoardSettingsModal'),
+  () => import('~/features/workspace/board-settings/ui/BoardSettingsModal'),
   'BoardSettingsModal'
 )
 const PublishRankingModal = lazyNamed(

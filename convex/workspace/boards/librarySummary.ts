@@ -8,7 +8,8 @@ import {
   pickCoverRenderFields,
   type LibraryBoardCoverRenderFields,
   type LibraryBoardTierBreakdown,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import type { TierColorSpec } from '@tierlistbuilder/contracts/lib/theme'
 
 export interface BoardLibrarySummaryCoverItem extends LibraryBoardCoverRenderFields

@@ -9,7 +9,7 @@ import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { useCloudSync } from '~/app/sync/useCloudSync'
 import { getWorkspacePath } from '~/shared/routes/pathname'
-import { AppTopNav } from '~/app/shells/topNav/AppTopNav'
+import { AppTopNav } from '~/app/shells/top-nav/AppTopNav'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 
 const WorkspaceSkipLink = () =>

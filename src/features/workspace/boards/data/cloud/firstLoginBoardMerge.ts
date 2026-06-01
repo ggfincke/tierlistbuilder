@@ -9,7 +9,7 @@ import {
   markBoardPendingSync,
   markBoardSynced,
   type BoardSyncState,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import { listMyBoardsImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { pullAllCloudBoards } from '~/features/workspace/boards/data/cloud/cloudPull'
 import {

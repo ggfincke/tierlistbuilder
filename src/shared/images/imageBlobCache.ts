@@ -6,7 +6,7 @@ import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media
 import { collectSnapshotRenderImageVariantRefs } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
 import { pruneOldestMapEntries, touchMapEntry } from '~/shared/lib/lru'
-import { getBlobsBatch } from '~/shared/images/imageStore'
+import { getBlobsBatch } from '~/shared/images/imageBlobStore'
 
 // pluggable cloud image batch fetcher — features register it at boot so shared
 // code stays feature-agnostic. batching keeps one sign-in warm-up to one

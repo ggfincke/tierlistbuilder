@@ -9,7 +9,7 @@ import type {
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import type { MarketplaceTemplateRankingAggregateItem } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { resolveLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
 
 export interface AggregateItemFrame
 {

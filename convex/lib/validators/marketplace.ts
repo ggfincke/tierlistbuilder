@@ -8,6 +8,11 @@ import {
   TEMPLATE_CATEGORIES,
   type TemplateCategory,
 } from '@tierlistbuilder/contracts/marketplace/category'
+import type {
+  CoverFrame,
+  TemplateCoverFraming,
+  TemplateMediaRef,
+} from '@tierlistbuilder/contracts/lib/coverMedia'
 import {
   TEMPLATE_CARD_ACCESS_STATES,
   TEMPLATE_GALLERY_RAILS,
@@ -16,7 +21,6 @@ import {
   TEMPLATE_PUBLICATION_STATES,
   TEMPLATE_SIZE_CLASSES,
   TEMPLATE_VISIBILITIES,
-  type CoverFrame,
   type MarketplaceTemplateBookmarkListItem,
   type MarketplaceTemplateBookmarkListResult,
   type MarketplaceTemplateBookmarkState,
@@ -39,16 +43,15 @@ import {
   type MarketplaceTemplatePublishResult,
   type MarketplaceTemplateSummary,
   type MarketplaceTemplateUseResult,
-  type TemplateCoverFraming,
   type TemplateCoverItem,
   type TemplateGalleryRail,
   type TemplateJobStatus,
   type TemplateListSort,
-  type TemplateMediaRef,
   type TemplatePublicationState,
   type TemplateSizeClass,
   type TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
+
 import {
   TEMPLATE_CRITERION_STATUSES,
   type MarketplaceTemplateCriterion,

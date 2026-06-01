@@ -15,13 +15,13 @@ import {
   LABEL_FONT_SIZE_PX_MAX,
   LABEL_FONT_SIZE_PX_MIN,
   normalizeBoardTitle,
-  pickCoverRenderFields,
   type ItemTransformBoundsViolation,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   BOARD_ITEM_ASPECT_RATIO_MAX,
   BOARD_ITEM_ASPECT_RATIO_MIN,
-} from '@tierlistbuilder/contracts/workspace/imageMath'
+} from '@tierlistbuilder/contracts/workspace/aspectRatio'
+
 import {
   findRankingBySlug,
   findTemplateBySlug,
@@ -63,6 +63,8 @@ import type {
   BoardLabelSettings,
   LabelPlacement,
 } from '@tierlistbuilder/contracts/workspace/board'
+import { pickCoverRenderFields } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import {
   isBoardId,
   isMediaAssetExternalId,

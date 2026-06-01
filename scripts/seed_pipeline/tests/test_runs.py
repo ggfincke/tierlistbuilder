@@ -219,20 +219,20 @@ class SeedRunPayloadTests(unittest.TestCase):
 		activate_args = [
 			args
 			for client in clients
-			for function_path, args in client.mutations
-			if function_path == "marketplace/seedRuns:activateSeedRelease"
+			for route, args in client.mutations
+			if route == "/api/seed/activate"
 		][0]
 		sync_args = [
 			args
 			for client in clients
-			for function_path, args in client.mutations
-			if function_path == "marketplace/seedRuns:syncSeedTemplateItems"
+			for route, args in client.mutations
+			if route == "/api/seed/sync-template-items"
 		][0]
 		criteria_args = [
 			args
 			for client in clients
-			for function_path, args in client.mutations
-			if function_path == "marketplace/seedRuns:upsertSeedCriteria"
+			for route, args in client.mutations
+			if route == "/api/seed/upsert-criteria"
 		][0]
 		self.assertEqual(checkpoint["previousActiveReleaseId"], "old-release")
 		self.assertEqual(activate_args["previousReleaseId"], "old-release")
@@ -307,14 +307,14 @@ class FakeSeedClient:
 		self.actions: list[tuple[str, dict[str, object]]] = []
 		self.settings = FakeSeedSettings()
 
-	def query(self, _function_path: str, _args: dict[str, object]) -> dict[str, object]:
+	def query(self, _route: str, _args: dict[str, object]) -> dict[str, object]:
 		return self.state
 
-	def mutation(self, function_path: str, args: dict[str, object]) -> dict[str, object]:
-		self.mutations.append((function_path, args))
-		if function_path == "marketplace/seedRuns:beginSeedRun":
+	def mutation(self, route: str, args: dict[str, object]) -> dict[str, object]:
+		self.mutations.append((route, args))
+		if route == "/api/seed/begin":
 			return {"run": {"runId": args["runId"], "status": "building"}}
-		if function_path == "marketplace/seedRuns:verifySeedReleaseChunk":
+		if route == "/api/seed/verify-chunk":
 			template_external_ids = args["templateExternalIds"]
 			return {
 				"diagnostics": [],
@@ -324,17 +324,17 @@ class FakeSeedClient:
 					"criterionCount": 0,
 				},
 			}
-		if function_path == "marketplace/seedRuns:completeSeedReleaseVerification":
+		if route == "/api/seed/complete-verification":
 			return {"verified": True, "diagnostics": []}
-		if function_path == "marketplace/seedRuns:activateSeedRelease":
+		if route == "/api/seed/activate":
 			return {
 				"activeReleaseId": args["releaseId"],
 				"previousReleaseId": args["previousReleaseId"],
 			}
 		return {"created": [], "updated": [], "unchanged": []}
 
-	def action(self, function_path: str, args: dict[str, object]) -> dict[str, object]:
-		self.actions.append((function_path, args))
+	def action(self, route: str, args: dict[str, object]) -> dict[str, object]:
+		self.actions.append((route, args))
 		return {"created": False}
 
 

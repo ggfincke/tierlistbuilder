@@ -3,7 +3,8 @@
 
 import { useQuery } from 'convex/react'
 
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import { api } from '@convex/_generated/api'
 
 interface BoardsLibraryResult

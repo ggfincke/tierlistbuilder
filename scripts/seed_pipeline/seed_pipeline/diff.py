@@ -23,8 +23,8 @@ from .report_layout import append_section, compiled_report_header
 from .template_payloads import build_template_upserts
 
 
-SEED_STATE_FUNCTION = "marketplace/seedRuns:resolveSeedState"
-SEED_MEDIA_BY_HASHES_FUNCTION = "marketplace/seedRuns:resolveSeedMediaByHashes"
+SEED_STATE_ROUTE = "/api/seed/state"
+SEED_MEDIA_BY_HASHES_ROUTE = "/api/seed/media-by-hashes"
 SEED_STATE_VARIANT_HASH_BATCH_SIZE = 1000
 SEED_STATE_ITEM_BATCH_SIZE = 1500
 SEED_STATE_MEDIA_WORKERS = 4
@@ -69,7 +69,7 @@ def resolve_seed_state(
 	progress: ProgressLogger | None = None,
 ) -> JsonObject:
 	state = client.query(
-		SEED_STATE_FUNCTION,
+		SEED_STATE_ROUTE,
 		build_state_headline_request(compiled),
 	)
 	state["items"] = _resolve_seed_items(client, compiled, progress)
@@ -103,7 +103,7 @@ def _resolve_seed_items(
 				suffix=f"{chunk_items} item ids",
 			)
 		response = client.query(
-			SEED_STATE_FUNCTION,
+			SEED_STATE_ROUTE,
 			build_state_items_request(compiled, [template["externalId"] for template in chunk]),
 		)
 		items.extend(item for item in as_list(response.get("items")) if isinstance(item, dict))
@@ -127,7 +127,7 @@ def _resolve_seed_media(
 
 	def query_media_chunk(chunk: list[str]) -> list[JsonObject]:
 		response = client.query(
-			SEED_MEDIA_BY_HASHES_FUNCTION,
+			SEED_MEDIA_BY_HASHES_ROUTE,
 			{"authorEmail": compiled["authorEmail"], "variantHashes": chunk},
 		)
 		return [item for item in as_list(response.get("media")) if isinstance(item, dict)]
@@ -270,9 +270,7 @@ def _diff_templates(compiled: JsonObject, state: JsonObject) -> JsonObject:
 		for template in as_list(state.get("templates"))
 		if isinstance(template, dict)
 	}
-	upserts = {
-		template["externalId"]: template for template in build_template_upserts(compiled)
-	}
+	upserts = {template["externalId"]: template for template in build_template_upserts(compiled)}
 	create: list[str] = []
 	update: list[JsonObject] = []
 	unchanged: list[str] = []

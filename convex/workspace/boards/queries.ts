@@ -5,25 +5,29 @@ import { ConvexError, v } from 'convex/values'
 import { query, type QueryCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
+  type BoardListItem,
+  type DeletedBoardListItem,
+} from '@tierlistbuilder/contracts/workspace/board'
+import {
   deriveLibraryPublishState,
   deriveLibrarySyncState,
   pickCoverRenderFields,
-  type BoardListItem,
-  type DeletedBoardListItem,
   type LibraryBoardCoverItem,
   type LibraryBoardListItem,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import type {
   TemplateCoverFraming,
   TemplateMediaRef,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
+
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import {
   LIBRARY_COVER_MINI_TIER_LIMIT,
   type ShowcaseMiniSnapshot,
-} from '@tierlistbuilder/contracts/platform/showcase'
+} from '@tierlistbuilder/contracts/social/showcase'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
 import { findOwnedActiveBoardByExternalId } from '../../lib/permissions'
@@ -38,7 +42,7 @@ import {
   type TemplateProjectionCache,
 } from '../../marketplace/templates/lib/trending'
 import { toTemplateMediaRefWithFallback } from '../../marketplace/templates/lib/projections'
-import { buildMiniSnapshot } from '../../platform/showcase'
+import { buildMiniSnapshot } from '../../social/showcase/lib'
 import {
   isPublishedTemplateRow,
   isPublicTemplateRow,

@@ -11,7 +11,7 @@ import {
   type LibraryBoardFilter,
   type LibraryBoardSort,
   type LibraryBoardView,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 import {
   VISIBLE_LIBRARY_BOARD_FILTERS,

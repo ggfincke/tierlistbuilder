@@ -10,8 +10,8 @@ We focus on critical pure-function and local persistence behavior:
 
 - **Drag & Keyboard Logic**: snapshot transforms, rendered-row grouping, drag-end decisions, pointer math, and keyboard navigation
 - **Board Data**: snapshot normalization, board operations, tier colors, presets, local board sessions, and localStorage envelopes
-- **Import / Export / Sharing**: JSON parsing, multi-board envelopes, hash-share compression, and image byte preservation for JSON export
-- **Images**: content-addressed image store, blob cache lifecycle, and manual crop/transform math
+- **Import / Export / Sharing**: JSON export parsing, multi-board envelopes, hash-share compression, and image byte preservation for JSON export
+- **Images**: content-addressed image store, blob cache lifecycle, uploads, and manual crop/transform math
 - **Convex Marketplace**: template publish/use, owner management, trending metrics, ranking publish/remix, and cascade cleanup
 - **Cloud Sync & Merge**: cloud board mapper, scheduler retry/dedupe/rate-limit, first-login push semantics, & per-feature first-login merge invariants (boards, preferences, tier presets)
 - **Contracts**: upload envelope wrap/unwrap binding kind+userId+token (tamper defense)
@@ -33,21 +33,33 @@ E2E tests live in `e2e/` and are excluded from Vitest. Keep them to a small smok
 
 ## Structure
 
+Top-level folders are behavior domains, not source-layer names. Keep `data/`,
+`model/`, and real feature-slice names like `platform/` out of the top level
+unless they describe the behavior under test.
+
 ```
 tests/
 ├── fixtures.ts                      — shared snapshot/tier builders & constants
 ├── typeHelpers.ts                   — asInvalid<T> for intentionally malformed inputs
 ├── setup.ts                         — global vitest setup
+├── auth/                            — auth error mapping and account auth guardrails
 ├── board/                           — board snapshot, ops, tier colors, presets
+│                                      local board session/storage/fork/publishable-board helpers
+├── cloud-sync/                      — cloud board mapper, activation, scheduler, first-login merge invariants
+│                                      for boards, preferences, and tier presets
 ├── contracts/                       — wire-format guardrails (upload envelope tamper defense)
 ├── convex/                          — Convex backend flows for marketplace, media, sync, auth, and cascades
-├── data/                            — board storage, export JSON, image cache/store, cloud mapper, image uploader
 ├── dnd/                             — drag snapshot, drag-end decisions, pointer, keyboard, layout
+├── export/                          — JSON export/import envelopes and embedded image bytes
+├── image-editor/                    — image editor transform draft behavior
+├── images/                          — image blob cache/store and upload helpers
 ├── interaction/                     — tab stops, selection navigation, selection state
-├── model/                           — local board session & image editor transform math
+├── library/                         — My Boards click routing and local library adapters
+├── marketplace/                     — gallery rails, account templates, compare lanes, publish defaults
 ├── overlay/                         — nested menus, popup/progress/toolbar helpers
-├── platform/                        — cloud sync scheduler, first-login board push, per-feature merge invariants (preferences, tier presets, boards)
+├── routing/                         — basename-aware route and link helpers
 ├── settings/                        — aspect-ratio prompt snapshots & mismatch grouping
+├── showcase/                        — profile-showcase editor, session, and save scheduler
 ├── shared-hooks/                    — session/UTC-day storage gates for once-per-X actions
 ├── shared-lib/                      — color, image transforms, snapshot item collection, auto-crop math
 └── sharing/                         — hash-fragment & short-link snapshot codecs

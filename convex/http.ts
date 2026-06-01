@@ -7,7 +7,7 @@ import type { FunctionReference } from 'convex/server'
 import { auth } from './auth'
 import { httpAction, type ActionCtx } from './_generated/server'
 import { internal } from './_generated/api'
-import { requireSeedRequestAuthorized } from './marketplace/seedAuth'
+import { requireSeedRequestAuthorized } from './marketplace/seed/auth'
 import {
   CONVEX_ERROR_CODES,
   type ConvexErrorCode,
@@ -138,11 +138,11 @@ const seedHttpAction = (kind: SeedRouteKind, ref: SeedRouteRef) =>
     }
   })
 
-const seedRuns = internal.marketplace.seedRuns
-const storageUploads = internal.marketplace.seedPipeline.storageUploads
-const rankingSeeds = internal.marketplace.rankings.seed.actions
-const rankingSeedLifecycle = internal.marketplace.rankings.seed.lifecycle
-const templateSeeds = internal.marketplace.templates.seed
+const seedRuns = internal.marketplace.seed.templates.endpoints
+const storageUploads = internal.marketplace.seed.lib.storageUploads
+const rankingSeeds = internal.marketplace.seed.rankings.actions
+const rankingSeedLifecycle = internal.marketplace.seed.rankings.lifecycle
+const templateSeeds = internal.marketplace.seed.templates.maintenance
 
 const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
   ['/api/seed/ensure-author', 'action', seedRuns.ensureSeedAuthor],

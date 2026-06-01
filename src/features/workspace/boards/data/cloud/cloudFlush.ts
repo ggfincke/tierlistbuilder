@@ -10,7 +10,7 @@ import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import {
   extractBoardSyncState,
   type BoardSyncState,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import { upsertBoardStateImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
 import { uploadBoardImages } from '~/features/platform/media/imageUploader'

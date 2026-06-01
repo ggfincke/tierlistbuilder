@@ -19,7 +19,8 @@ import {
   type CoverFrame,
   type TemplateCoverFraming,
   type TemplateMediaRef,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
+
 import {
   asItemId,
   generateTierId,
@@ -55,7 +56,7 @@ import {
   normalizeEnum,
   normalizePositiveFinite,
 } from '~/shared/board-data/boardNormalizers'
-import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/aspectRatio'
 
 interface RawTier
 {

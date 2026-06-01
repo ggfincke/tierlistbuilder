@@ -3,7 +3,7 @@
 
 import { useAppReady } from '~/app/bootstrap/useAppBootstrap'
 import { MyBoardsPage } from '~/features/library/pages/MyBoardsPage'
-import { AmbientPageShell } from '~/shared/ui/AmbientPageShell'
+import { AmbientPageShell } from '~/app/shells/AmbientPageShell'
 
 export const MyBoardsRoute = () =>
 {

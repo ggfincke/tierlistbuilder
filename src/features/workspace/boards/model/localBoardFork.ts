@@ -23,11 +23,12 @@ import type {
   ItemTransform,
   MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { TemplateMediaRef } from '@tierlistbuilder/contracts/lib/coverMedia'
 import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateItem,
-  TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
+
 import type {
   MarketplaceRankingDetail,
   MarketplaceRankingItem,
@@ -38,7 +39,7 @@ import {
   EMPTY_BOARD_SYNC_STATE,
   markBoardPendingSync,
   type BoardSyncState,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
@@ -49,7 +50,7 @@ import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { logger } from '~/shared/lib/logger'
 import { cacheFreshBlob, warmFromBoard } from '~/shared/images/imageBlobCache'
 import { createBlobRecord } from '~/shared/images/imagePersistence'
-import { putBlob } from '~/shared/images/imageStore'
+import { putBlob } from '~/shared/images/imageBlobStore'
 
 const SOURCE_MEDIA_FETCH_CONCURRENCY = 4
 

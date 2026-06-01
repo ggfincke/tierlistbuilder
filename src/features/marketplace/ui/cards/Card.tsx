@@ -12,8 +12,8 @@ import {
 import { memo, type ComponentType, type SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 
+import type { CoverSurface } from '@tierlistbuilder/contracts/lib/coverMedia'
 import type {
-  CoverSurface,
   MarketplaceTemplateSummary,
   TemplateCardAccessState,
 } from '@tierlistbuilder/contracts/marketplace/template'
@@ -25,7 +25,7 @@ import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMet
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { CHUNKY_SHADOW_ACCENT_STATIC } from '~/shared/ui/chunkyShadow'
 import { Avatar } from '~/shared/ui/Avatar'
-import type { MediaLoading } from '~/shared/board-ui/mediaImageAttrs'
+import type { MediaLoading } from '~/shared/board-ui/cover/mediaImageAttrs'
 import {
   InlineCardStat,
   OverlayChip,

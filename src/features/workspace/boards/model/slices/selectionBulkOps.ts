@@ -6,7 +6,7 @@ import { formatCountedWord } from '~/shared/lib/pluralize'
 import { EMPTY_SELECTION } from '~/features/workspace/boards/model/runtime'
 import { stripItemsFromContainers } from '~/features/workspace/boards/model/slices/helpers'
 import { withUndo } from '~/features/workspace/boards/model/slices/undoSlice'
-import { buildRemoveItemsPatch } from '~/features/workspace/boards/model/slices/boardData/itemRemoval'
+import { buildRemoveItemsPatch } from '~/features/workspace/boards/model/slices/board-data-actions/itemRemoval'
 import type { ActiveBoardStore } from '~/features/workspace/boards/model/slices/types'
 
 type SelectionMutation = {

@@ -13,7 +13,8 @@ import {
 import type {
   LibraryBoardFilter,
   SyncState,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import { PUBLISH_STATE_META } from '~/shared/board-ui/publishStateMeta'
 
 interface SyncMeta

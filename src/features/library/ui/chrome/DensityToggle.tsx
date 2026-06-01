@@ -6,7 +6,8 @@ import { Columns2, Columns3, Columns4 } from 'lucide-react'
 import {
   LIBRARY_BOARD_DENSITIES,
   type LibraryBoardDensity,
-} from '@tierlistbuilder/contracts/workspace/board'
+} from '@tierlistbuilder/contracts/workspace/libraryBoard'
+
 import {
   IconToggleGroup,
   type IconToggleOption,

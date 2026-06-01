@@ -5,25 +5,22 @@ import { Layers } from 'lucide-react'
 import { useMemo } from 'react'
 
 import { type MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
-import {
-  isTemplateRankingAggregateReady as isAggregateReady,
-  type MarketplaceTemplateRankingAggregate,
-} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import { isTemplateRankingAggregateReady as isAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useSelectedCriterion } from '~/features/marketplace/model/detail/useSelectedCriterion'
 import { useRelatedTemplates } from '~/features/marketplace/model/detail/useTemplateDetail'
 import { useTemplateRankingAggregate } from '~/features/marketplace/model/detail/useRankingDetail'
+import { useHeroAggregate } from '~/features/marketplace/model/detail/useHeroAggregate'
 import { useTemplateDetailRoute } from '~/features/marketplace/model/detail/useMarketplaceDetailRoute'
 import { useRecordTemplateView } from '~/features/marketplace/model/analytics/useRecordTemplateView'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
-import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { PAGE_DETAIL_TOP_LEVEL } from '~/shared/ui/pageContainer'
 import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
 import { Card } from '~/features/marketplace/ui/cards/Card'
-import { CommunityConsensusSection } from '~/features/marketplace/ui/discovery/CommunityConsensusSection'
+import { CommunityConsensusSection } from '~/features/marketplace/ui/consensus/section/CommunityConsensusSection'
 import {
   HeroRailCards,
   HeroRailCardsLoading,
@@ -41,20 +38,6 @@ import { MarketplaceBreadcrumb } from '~/features/marketplace/ui/layout/Marketpl
 import { SectionEyebrow } from '~/features/marketplace/ui/consensus/SectionEyebrow'
 
 const RELATED_LIMIT = 4
-const MAX_HERO_AGGREGATE_CACHE_ENTRIES = 32
-const HERO_AGGREGATE_CACHE = new Map<
-  string,
-  MarketplaceTemplateRankingAggregate
->()
-
-const readCachedHeroAggregate = (
-  cacheKey: string
-): MarketplaceTemplateRankingAggregate | null =>
-{
-  const cached = HERO_AGGREGATE_CACHE.get(cacheKey) ?? null
-  if (cached) touchMapEntry(HERO_AGGREGATE_CACHE, cacheKey)
-  return cached
-}
 
 const NotFound = () => (
   <NotFoundSurface
@@ -167,48 +150,8 @@ interface TemplateDetailContentProps
   detail: MarketplaceTemplateDetail
 }
 
-const useCachedHeroAggregate = (
-  cacheKey: string,
-  readyAggregate: MarketplaceTemplateRankingAggregate | null,
-  useFallback: boolean
-): MarketplaceTemplateRankingAggregate | null =>
-{
-  const cachedAggregate = readCachedHeroAggregate(cacheKey)
-  if (
-    readyAggregate !== null &&
-    !isSameHeroAggregate(cachedAggregate, readyAggregate)
-  )
-  {
-    setMapEntryLru(
-      HERO_AGGREGATE_CACHE,
-      cacheKey,
-      readyAggregate,
-      MAX_HERO_AGGREGATE_CACHE_ENTRIES
-    )
-  }
-
-  return readyAggregate ?? (useFallback ? cachedAggregate : null)
-}
-
-const isSameHeroAggregate = (
-  previous: MarketplaceTemplateRankingAggregate | null,
-  next: MarketplaceTemplateRankingAggregate
-): boolean =>
-{
-  if (previous === null) return false
-  return (
-    previous.criterion.externalId === next.criterion.externalId &&
-    previous.state === next.state &&
-    previous.activeGeneration === next.activeGeneration &&
-    previous.rankingCount === next.rankingCount &&
-    previous.itemCount === next.itemCount &&
-    previous.computedAt === next.computedAt &&
-    previous.staleAt === next.staleAt
-  )
-}
-
 // inner component so the criterion-aware hooks below only mount once we
-// have a resolved template — `useSelectedCriterion` needs the criteria
+// have a resolved template; `useSelectedCriterion` needs the criteria
 // list at call time, & we don't want to pass an empty placeholder
 const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
 {
@@ -224,7 +167,7 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
     detail.rankingCountByCriterion?.[criterion.externalId] ??
     0
   const readyAggregate = isAggregateReady(aggregate) ? aggregate : null
-  const heroAggregate = useCachedHeroAggregate(
+  const heroAggregate = useHeroAggregate(
     `${detail.slug}:${criterion.externalId}`,
     readyAggregate,
     aggregate === undefined
@@ -240,7 +183,7 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
   // that may not match what the chart below is showing
   const frame = templateFrame(detail)
   const hasPreset = detail.suggestedTiers.length > 0
-  // template-level "any lane has rankings" — used to keep the hero grid stable
+  // template-level "any lane has rankings"; keeps the hero grid stable
   // when the user clicks between lanes; otherwise the cover/meta widths shift
   // every time the current lane happens to have no consensus content
   const templateHasAnyRankings = useMemo(

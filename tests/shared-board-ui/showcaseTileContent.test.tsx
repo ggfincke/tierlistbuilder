@@ -7,7 +7,7 @@ import type { MarketplaceItemRenderFields } from '@tierlistbuilder/contracts/mar
 import type {
   ShowcaseMiniSnapshot,
   ShowcaseRankingTile,
-} from '@tierlistbuilder/contracts/platform/showcase'
+} from '@tierlistbuilder/contracts/social/showcase'
 import { ShowcaseTileContent } from '~/shared/board-ui/ShowcaseTileContent'
 
 const media = {

@@ -4,11 +4,11 @@
 import { describe, expect, it } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
-import type { SeedRankingsManifest } from '@convex/marketplace/rankings/seed/validators'
+import type { SeedRankingsManifest } from '@convex/marketplace/seed/rankings/validators'
 import {
   formatBoardSeedId,
   formatRankingSeedId,
-} from '@convex/marketplace/rankings/seed/naming'
+} from '@convex/marketplace/seed/rankings/naming'
 import type { MediaPlate } from '@tierlistbuilder/contracts/workspace/board'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
 import {
@@ -41,7 +41,7 @@ describe('ranking seed pipeline', () =>
     })
 
     const result = await t.query(
-      internal.marketplace.rankings.seed.actions.preflightSeedRankings,
+      internal.marketplace.seed.rankings.actions.preflightSeedRankings,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
@@ -70,7 +70,7 @@ describe('ranking seed pipeline', () =>
     })
 
     const result = await t.query(
-      internal.marketplace.rankings.seed.actions.preflightSeedRankings,
+      internal.marketplace.seed.rankings.actions.preflightSeedRankings,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
@@ -102,7 +102,7 @@ describe('ranking seed pipeline', () =>
     })
 
     const result = await t.query(
-      internal.marketplace.rankings.seed.actions.preflightSeedRankings,
+      internal.marketplace.seed.rankings.actions.preflightSeedRankings,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
@@ -209,7 +209,7 @@ describe('ranking seed pipeline', () =>
     })
 
     const result = await t.query(
-      internal.marketplace.rankings.seed.actions.verifySeedRankings,
+      internal.marketplace.seed.rankings.actions.verifySeedRankings,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
@@ -264,7 +264,7 @@ describe('ranking seed pipeline', () =>
     await seedActiveRun(t, OLD_RELEASE)
 
     const result = await t.mutation(
-      internal.marketplace.rankings.seed.lifecycle.activateSeedRankings,
+      internal.marketplace.seed.rankings.lifecycle.activateSeedRankings,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
@@ -296,7 +296,7 @@ describe('ranking seed pipeline', () =>
     expect(rows.previousBoard?.seedReleaseStatus).toBe('rolled_back')
 
     const idempotent = await t.mutation(
-      internal.marketplace.rankings.seed.lifecycle.activateSeedRankings,
+      internal.marketplace.seed.rankings.lifecycle.activateSeedRankings,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
@@ -307,7 +307,7 @@ describe('ranking seed pipeline', () =>
     expect(idempotent.aggregateJobsQueued).toBe(0)
 
     const rolledBack = await t.mutation(
-      internal.marketplace.rankings.seed.lifecycle.rollbackSeedRankings,
+      internal.marketplace.seed.rankings.lifecycle.rollbackSeedRankings,
       {
         datasetKey: DATASET,
         targetReleaseId: OLD_RELEASE,
@@ -355,7 +355,7 @@ describe('ranking seed pipeline', () =>
 
     await expect(
       t.mutation(
-        internal.marketplace.rankings.seed.lifecycle.activateSeedRankings,
+        internal.marketplace.seed.rankings.lifecycle.activateSeedRankings,
         {
           datasetKey: DATASET,
           releaseId: RELEASE,
@@ -364,7 +364,7 @@ describe('ranking seed pipeline', () =>
     ).rejects.toThrow(/no active or activatable rows/)
     await expect(
       t.mutation(
-        internal.marketplace.rankings.seed.lifecycle.rollbackSeedRankings,
+        internal.marketplace.seed.rankings.lifecycle.rollbackSeedRankings,
         {
           datasetKey: DATASET,
           targetReleaseId: RELEASE,
@@ -419,7 +419,7 @@ describe('ranking seed pipeline', () =>
     })
 
     const result = await t.mutation(
-      internal.marketplace.rankings.seed.lifecycle.rollbackSeedRankings,
+      internal.marketplace.seed.rankings.lifecycle.rollbackSeedRankings,
       {
         datasetKey: DATASET,
         targetReleaseId: OLD_RELEASE,
@@ -467,7 +467,7 @@ describe('ranking seed pipeline', () =>
       task: typeof sampleTask
     ) =>
       await t.mutation(
-        internal.marketplace.rankings.seed.actions
+        internal.marketplace.seed.rankings.actions
           .upsertSeedRankingsForTemplateImpl,
         {
           datasetKey: DATASET,
@@ -484,7 +484,7 @@ describe('ranking seed pipeline', () =>
     expect(first.itemsWritten).toBe(2)
 
     const activated = await t.mutation(
-      internal.marketplace.rankings.seed.lifecycle.activateSeedRankings,
+      internal.marketplace.seed.rankings.lifecycle.activateSeedRankings,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
@@ -662,7 +662,7 @@ describe('ranking seed pipeline', () =>
     })
 
     const first = await t.mutation(
-      internal.marketplace.rankings.seed.actions.deleteStaleSeedRankingRowsImpl,
+      internal.marketplace.seed.rankings.actions.deleteStaleSeedRankingRowsImpl,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
@@ -675,7 +675,7 @@ describe('ranking seed pipeline', () =>
     expect(first.isDone).toBe(false)
 
     const second = await t.mutation(
-      internal.marketplace.rankings.seed.actions.deleteStaleSeedRankingRowsImpl,
+      internal.marketplace.seed.rankings.actions.deleteStaleSeedRankingRowsImpl,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,

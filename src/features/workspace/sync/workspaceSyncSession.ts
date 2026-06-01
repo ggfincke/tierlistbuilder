@@ -3,7 +3,7 @@
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { markBoardSynced } from '~/features/workspace/boards/model/sync'
+import { markBoardSynced } from '~/features/workspace/boards/model/cloud/sync'
 import { setupCloudImageFetcher } from '~/features/platform/media/imageFetcher'
 import { runFirstLoginSyncLifecycle } from '~/features/platform/sync/lib/firstLoginSyncLifecycle'
 import { setupBoardDeleteCloudSync } from '~/features/workspace/boards/data/cloud/setupBoardDeleteCloudSync'
@@ -29,7 +29,7 @@ import {
   type SchedulerBoardStatus,
 } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 import { flushBoardToCloud } from '~/features/workspace/boards/data/cloud/cloudFlush'
-import { useConflictQueueStore } from '~/features/workspace/boards/model/boardConflictQueueStore'
+import { useConflictQueueStore } from '~/features/workspace/boards/model/cloud/boardConflictQueueStore'
 import { logger } from '~/shared/lib/logger'
 import { CLOUD_SYNC_DEBOUNCE_MS } from '~/features/platform/sync/lib/concurrency'
 import {

@@ -2,7 +2,7 @@
 // grid & cover sizing for board-library density modes — `default` mirrors the
 // /templates browse grid so My Boards & the gallery render matching cards
 
-import type { LibraryBoardDensity } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardDensity } from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 // cover aspect ratio per density — width-driven so covers scale w/ the card
 export const LIBRARY_COVER_ASPECT_BY_DENSITY: Record<

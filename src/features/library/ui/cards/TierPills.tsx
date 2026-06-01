@@ -2,7 +2,7 @@
 // discrete per-tier item-count pills for board cards — the editorial
 // counterpart to TierBar's continuous fill. overflow collapses into +N
 
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 

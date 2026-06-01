@@ -9,7 +9,7 @@ import {
   bboxToItemTransform,
   pickAutoCropBBox,
   scanAutoCropPixels,
-} from '@tierlistbuilder/contracts/workspace/imageMath'
+} from '@tierlistbuilder/contracts/workspace/autoCrop'
 
 import { runConvexSync } from './lib/convexExec.mjs'
 

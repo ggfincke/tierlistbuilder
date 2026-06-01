@@ -5,7 +5,7 @@ import { Library } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
-import { useImageImport } from '~/features/workspace/settings/model/useImageImport'
+import { useImageImport } from '~/features/workspace/board-settings/model/useImageImport'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { selectActiveItemCount } from '~/features/workspace/boards/model/slices/selectors'

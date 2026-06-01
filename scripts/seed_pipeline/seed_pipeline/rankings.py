@@ -19,16 +19,14 @@ from .run_context import (
 )
 
 
-SEED_RANKINGS_PREFLIGHT_FUNCTION = "marketplace/rankings/seed/actions:preflightSeedRankings"
-SEED_RANKINGS_ENSURE_AUTHORS_FUNCTION = "marketplace/rankings/seed/actions:ensureSeedRankingAuthors"
-SEED_RANKINGS_APPLY_FUNCTION = "marketplace/rankings/seed/actions:applySeedRankingChunk"
-SEED_RANKINGS_CLEANUP_STALE_FUNCTION = "marketplace/rankings/seed/actions:cleanupStaleSeedRankings"
-SEED_RANKINGS_VERIFY_FUNCTION = "marketplace/rankings/seed/actions:verifySeedRankings"
-SEED_RANKINGS_ACTIVATE_FUNCTION = "marketplace/rankings/seed/lifecycle:activateSeedRankings"
-SEED_RANKINGS_ROLLBACK_FUNCTION = "marketplace/rankings/seed/lifecycle:rollbackSeedRankings"
-SEED_RANKINGS_QUEUE_AGGREGATES_FUNCTION = (
-	"marketplace/rankings/seed/lifecycle:queueActiveSeedRankingAggregates"
-)
+SEED_RANKINGS_PREFLIGHT_ROUTE = "/api/seed/rankings/preflight"
+SEED_RANKINGS_ENSURE_AUTHORS_ROUTE = "/api/seed/rankings/ensure-authors"
+SEED_RANKINGS_APPLY_ROUTE = "/api/seed/rankings/apply"
+SEED_RANKINGS_CLEANUP_STALE_ROUTE = "/api/seed/rankings/cleanup-stale"
+SEED_RANKINGS_VERIFY_ROUTE = "/api/seed/rankings/verify"
+SEED_RANKINGS_ACTIVATE_ROUTE = "/api/seed/rankings/activate"
+SEED_RANKINGS_ROLLBACK_ROUTE = "/api/seed/rankings/rollback"
+SEED_RANKINGS_QUEUE_AGGREGATES_ROUTE = "/api/seed/rankings/queue-aggregates"
 MAX_RANKING_ACTIVATION_BATCHES = 200
 RANKING_ACTIVATION_THROTTLE_SECONDS = 2.0
 MAX_RANKING_APPLY_ATTEMPTS = 6
@@ -45,7 +43,7 @@ def preflight_rankings_manifest(
 	options: SeedRunOptions,
 ) -> Path:
 	context = load_context(manifest_path, repo_root, options, "rankings:preflight")
-	result = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_FUNCTION)
+	result = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_ROUTE)
 	return _write_ranking_summary_report(context, "preflight", result)
 
 
@@ -59,7 +57,7 @@ def apply_rankings_manifest(
 	ranking_seeds = _require_ranking_seeds(context.compiled)
 	if options.dry_run:
 		context.progress.log("dry run complete; no ranking writes performed")
-		preflight = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_FUNCTION)
+		preflight = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_ROUTE)
 		return _write_ranking_apply_report(context, preflight, dry_run=True)
 	begin_seed_run(context)
 	result = _apply_rankings_with_authors(context, ranking_seeds)
@@ -72,7 +70,7 @@ def verify_rankings_manifest(
 	options: SeedRunOptions,
 ) -> Path:
 	context = load_context(manifest_path, repo_root, options, "rankings:verify")
-	result = _ranking_query(context, SEED_RANKINGS_VERIFY_FUNCTION)
+	result = _ranking_query(context, SEED_RANKINGS_VERIFY_ROUTE)
 	return _write_ranking_summary_report(context, "verify", result)
 
 
@@ -114,7 +112,7 @@ def run_rankings_manifest(
 ) -> Path:
 	context = load_context(manifest_path, repo_root, options, "rankings:run")
 	assert_write_allowed(options, "rankings run")
-	preflight = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_FUNCTION)
+	preflight = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_ROUTE)
 	if _has_error_diagnostics(preflight):
 		return _write_ranking_run_report(
 			context,
@@ -127,7 +125,7 @@ def run_rankings_manifest(
 	begin_seed_run(context)
 	ranking_seeds = _require_ranking_seeds(context.compiled)
 	apply_result = _apply_rankings_with_authors(context, ranking_seeds)
-	verify_result = _ranking_query(context, SEED_RANKINGS_VERIFY_FUNCTION)
+	verify_result = _ranking_query(context, SEED_RANKINGS_VERIFY_ROUTE)
 	rankings_applied = _rankings_applied(apply_result)
 	steps = [
 		"preflight complete",
@@ -148,9 +146,9 @@ def run_rankings_manifest(
 	return _write_ranking_run_report(context, steps, verify_result)
 
 
-def _ranking_query(context: SeedRunContext, function_path: str) -> JsonObject:
+def _ranking_query(context: SeedRunContext, route: str) -> JsonObject:
 	return context.client.query(
-		function_path,
+		route,
 		{
 			"datasetKey": context.compiled["datasetKey"],
 			"releaseId": context.compiled["releaseId"],
@@ -162,7 +160,7 @@ def _ranking_query(context: SeedRunContext, function_path: str) -> JsonObject:
 def _activate_rankings_until_complete(context: SeedRunContext) -> JsonObject:
 	result = _run_ranking_lifecycle_until_complete(
 		context,
-		SEED_RANKINGS_ACTIVATE_FUNCTION,
+		SEED_RANKINGS_ACTIVATE_ROUTE,
 		{
 			"datasetKey": context.compiled["datasetKey"],
 			"releaseId": context.compiled["releaseId"],
@@ -181,7 +179,7 @@ def _rollback_rankings_until_complete(
 	# only release id that matters is the one becoming active again
 	result = _run_ranking_lifecycle_until_complete(
 		context,
-		SEED_RANKINGS_ROLLBACK_FUNCTION,
+		SEED_RANKINGS_ROLLBACK_ROUTE,
 		{
 			"datasetKey": context.compiled["datasetKey"],
 			"targetReleaseId": target_release_id,
@@ -194,7 +192,7 @@ def _rollback_rankings_until_complete(
 
 def _run_ranking_lifecycle_until_complete(
 	context: SeedRunContext,
-	function_path: str,
+	route: str,
 	args: JsonObject,
 	active_release_id: str,
 ) -> JsonObject:
@@ -210,7 +208,7 @@ def _run_ranking_lifecycle_until_complete(
 	}
 	for batch_number in range(1, MAX_RANKING_ACTIVATION_BATCHES + 1):
 		try:
-			result = context.client.mutation(function_path, args)
+			result = context.client.mutation(route, args)
 		except ConvexClientError as error:
 			if not is_convex_write_rate_error(error):
 				raise
@@ -238,7 +236,7 @@ def _queue_active_ranking_aggregates_if_changed(
 	if changed == 0:
 		return
 	queued = context.client.mutation(
-		SEED_RANKINGS_QUEUE_AGGREGATES_FUNCTION,
+		SEED_RANKINGS_QUEUE_AGGREGATES_ROUTE,
 		{
 			"datasetKey": context.compiled["datasetKey"],
 			"releaseId": result["releaseId"],
@@ -294,7 +292,7 @@ def _apply_ranking_targets(
 	def _apply_one(chunk: JsonObject) -> JsonObject:
 		return _run_ranking_action_with_retries(
 			context,
-			SEED_RANKINGS_APPLY_FUNCTION,
+			SEED_RANKINGS_APPLY_ROUTE,
 			{
 				**run_request(context),
 				"rankingSeeds": chunk,
@@ -328,13 +326,13 @@ def _ranking_apply_retry_delay(attempt: int) -> float:
 
 def _run_ranking_action_with_retries(
 	context: SeedRunContext,
-	function_path: str,
+	route: str,
 	args: JsonObject,
 	throttle_label: str,
 ) -> JsonObject:
 	for attempt in range(1, MAX_RANKING_APPLY_ATTEMPTS + 1):
 		try:
-			return context.client.action(function_path, args)
+			return context.client.action(route, args)
 		except ConvexClientError as error:
 			if not is_convex_write_rate_error(error) or attempt >= MAX_RANKING_APPLY_ATTEMPTS:
 				raise
@@ -354,7 +352,7 @@ def _cleanup_stale_ranking_rows(
 	context.progress.log("cleaning stale ranking seed rows")
 	return _run_ranking_action_with_retries(
 		context,
-		SEED_RANKINGS_CLEANUP_STALE_FUNCTION,
+		SEED_RANKINGS_CLEANUP_STALE_ROUTE,
 		{
 			**run_request(context),
 			"rankingSeeds": ranking_seeds,
@@ -370,7 +368,7 @@ def _ensure_ranking_authors(
 ) -> JsonObject:
 	context.progress.log("ensuring ranking seed authors")
 	return context.client.action(
-		SEED_RANKINGS_ENSURE_AUTHORS_FUNCTION,
+		SEED_RANKINGS_ENSURE_AUTHORS_ROUTE,
 		{
 			**run_request(context),
 			"authorPassword": author_password,

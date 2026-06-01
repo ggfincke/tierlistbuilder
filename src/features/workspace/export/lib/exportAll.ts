@@ -21,7 +21,7 @@ import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/mode
 import { downloadBlob } from '~/shared/lib/downloadBlob'
 import { toFileBase } from '~/shared/lib/fileName'
 import { loadPdfLib, loadZipLib } from '~/shared/lib/lazyDependencies'
-import { getBlobsBatch } from '~/shared/images/imageStore'
+import { getBlobsBatch } from '~/shared/images/imageBlobStore'
 import {
   EXPORT_PIXEL_RATIO,
   IMAGE_FORMAT_META,

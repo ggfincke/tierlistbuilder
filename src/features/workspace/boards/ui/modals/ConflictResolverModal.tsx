@@ -13,12 +13,12 @@ import {
   resolveKeepLocal,
   type ResolveContext,
   type ResolveOutcome,
-} from '~/features/workspace/boards/model/boardConflictResolution'
+} from '~/features/workspace/boards/model/cloud/boardConflictResolution'
 import {
   selectCurrentConflict,
   useConflictQueueStore,
   type ConflictEntry,
-} from '~/features/workspace/boards/model/boardConflictQueueStore'
+} from '~/features/workspace/boards/model/cloud/boardConflictQueueStore'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 

@@ -14,7 +14,7 @@ import {
   restoreDeletedBoardSession,
   RestoreBoardError,
   useDeletedBoardSessions,
-} from '~/features/workspace/boards/model/deletedBoardSession'
+} from '~/features/workspace/boards/model/cloud/deletedBoardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'

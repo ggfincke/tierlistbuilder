@@ -15,7 +15,7 @@ import {
 import {
   SEED_ENABLED_ENV,
   SEED_SECRET_ENV,
-} from '../../convex/marketplace/seedAuth'
+} from '../../convex/marketplace/seed/auth'
 import { writeTemplateCard } from '@convex/marketplace/templates/lib/writes'
 import { buildFreshBoardCloudFields } from '@convex/workspace/boards/cloudFields'
 import {

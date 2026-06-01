@@ -11,6 +11,7 @@ import { selectMediaVariantSummary } from '../../../lib/mediaVariants'
 import { memoizePromise } from '../../../lib/cache'
 import { resolveUserAvatarUrl } from '../../../lib/avatar'
 import { findTemplateBySlug } from '../../../lib/marketplaceLookups'
+import type { TemplateMediaRef } from '@tierlistbuilder/contracts/lib/coverMedia'
 import type {
   MarketplaceTemplateDraftTemplate,
   MarketplaceTemplateBase,
@@ -20,8 +21,8 @@ import type {
   MarketplaceTemplateSummary,
   TemplateAuthor,
   TemplateCoverItem,
-  TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
+
 import {
   MAX_TEMPLATE_COVER_ITEMS,
   pickTemplateCoverItemPresentationFields,

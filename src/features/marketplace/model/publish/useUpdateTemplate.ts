@@ -4,7 +4,8 @@
 
 import { useCallback } from 'react'
 
-import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/lib/coverMedia'
+
 import {
   useUpdateMyTemplateMetaMutation,
   type UpdateMyTemplateMetaArgs,

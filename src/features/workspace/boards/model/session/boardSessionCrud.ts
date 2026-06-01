@@ -28,7 +28,7 @@ import {
   extractBoardSyncState,
   markBoardPendingSync,
   type BoardSyncState,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import {
   createBoardMeta,
   deduplicateBoardTitle,

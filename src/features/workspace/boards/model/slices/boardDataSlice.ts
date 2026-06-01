@@ -2,14 +2,14 @@
 // board data slice composition for snapshot state & domain action groups
 
 import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
-import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
-import { createAspectRatioActions } from '~/features/workspace/boards/model/slices/boardData/aspectRatioActions'
-import { createDeletedItemActions } from '~/features/workspace/boards/model/slices/boardData/deletedItemActions'
-import { createItemActions } from '~/features/workspace/boards/model/slices/boardData/itemActions'
-import { createLabelActions } from '~/features/workspace/boards/model/slices/boardData/labelActions'
-import { createLifecycleActions } from '~/features/workspace/boards/model/slices/boardData/lifecycleActions'
-import { createStyleOverrideActions } from '~/features/workspace/boards/model/slices/boardData/styleOverrideActions'
-import { createTierActions } from '~/features/workspace/boards/model/slices/boardData/tierActions'
+import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/cloud/sync'
+import { createAspectRatioActions } from '~/features/workspace/boards/model/slices/board-data-actions/aspectRatioActions'
+import { createDeletedItemActions } from '~/features/workspace/boards/model/slices/board-data-actions/deletedItemActions'
+import { createItemActions } from '~/features/workspace/boards/model/slices/board-data-actions/itemActions'
+import { createLabelActions } from '~/features/workspace/boards/model/slices/board-data-actions/labelActions'
+import { createLifecycleActions } from '~/features/workspace/boards/model/slices/board-data-actions/lifecycleActions'
+import { createStyleOverrideActions } from '~/features/workspace/boards/model/slices/board-data-actions/styleOverrideActions'
+import { createTierActions } from '~/features/workspace/boards/model/slices/board-data-actions/tierActions'
 import type {
   ActiveBoardSliceCreator,
   BoardDataSlice,

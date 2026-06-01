@@ -34,7 +34,7 @@ from .manifest import find_repo_root
 
 REPO_ROOT = find_repo_root(Path(__file__))
 DOTENV_PATH = REPO_ROOT / ".env.local"
-RESET_FUNCTION = "dev/reset:wipeDeployment"
+RESET_ROUTE = "/api/dev/reset"
 PROD_DEPLOYMENT_PREFIXES = ("prod:",)
 
 
@@ -116,7 +116,7 @@ def main() -> int:
 		)
 	)
 	try:
-		value = client.action(RESET_FUNCTION, {"confirm": confirm})
+		value = client.action(RESET_ROUTE, {"confirm": confirm})
 	except ConvexClientError as error:
 		print(f"\nreset failed: {error}", file=sys.stderr)
 		return 1

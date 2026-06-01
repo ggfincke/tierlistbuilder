@@ -1,7 +1,7 @@
 // src/features/library/ui/cards/TierBar.tsx
 // horizontal progress bar segmented by tier; unranked items fill the tail
 
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 import { clamp } from '~/shared/lib/math'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'

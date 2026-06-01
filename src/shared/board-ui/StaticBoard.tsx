@@ -32,7 +32,7 @@ import {
   TierDescriptionSubtitle,
 } from '~/shared/board-ui/BoardPrimitives'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { resolveLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
 import { TEXT_STYLES } from '~/shared/theme/textStyles'
 import { getWrappedItemsGridStyle } from '~/shared/board-ui/wrappedItemsGrid'
 

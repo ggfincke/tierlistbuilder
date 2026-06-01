@@ -66,7 +66,7 @@ class ConvexSeedClientTests(unittest.TestCase):
 		with patch("seed_pipeline.convex_client.urlopen", fake_urlopen):
 			self.assertEqual(
 				client.query(
-					"marketplace/seedRuns:resolveSeedState",
+					"/api/seed/state",
 					{"datasetKey": "marketplace-core"},
 				),
 				{"ok": True},
@@ -108,7 +108,7 @@ class ConvexSeedClientTests(unittest.TestCase):
 				"bad secret \\[redacted-seed-secret\\]",
 			) as raised:
 				client.query(
-					"marketplace/seedRuns:resolveSeedState",
+					"/api/seed/state",
 					{"datasetKey": "marketplace-core"},
 				)
 		self.assertEqual(raised.exception.error_code, "forbidden")
@@ -143,7 +143,7 @@ class ConvexSeedClientTests(unittest.TestCase):
 				"active seed release changed",
 			) as raised:
 				client.mutation(
-					"marketplace/seedRuns:activateSeedRelease",
+					"/api/seed/activate",
 					{"datasetKey": "marketplace-core"},
 				)
 		self.assertEqual(raised.exception.error_code, "invalid_state")
@@ -175,7 +175,7 @@ class ConvexSeedClientTests(unittest.TestCase):
 		with patch("seed_pipeline.convex_client.urlopen", fake_urlopen):
 			with self.assertRaisesRegex(ConvexClientError, "timed out"):
 				client.mutation(
-					"marketplace/seedRuns:beginSeedRun",
+					"/api/seed/begin",
 					{"datasetKey": "marketplace-core"},
 				)
 		self.assertEqual(attempts, 1)
@@ -199,7 +199,7 @@ class ConvexSeedClientTests(unittest.TestCase):
 
 		with patch("seed_pipeline.convex_client.urlopen", fake_urlopen):
 			with self.assertRaisesRegex(ConvexClientError, "timed out"):
-				client.action("dev/reset:wipeDeployment", {"confirm": "RESET-example"})
+				client.action("/api/dev/reset", {"confirm": "RESET-example"})
 		self.assertEqual(attempts, 1)
 
 	def test_settings_resolve_site_url_from_convex_client_url(self) -> None:

@@ -22,16 +22,17 @@ import {
   type CoverFrame,
   type CoverSurface,
   type TemplateCoverFraming,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
 import { AUTO_PLATE_UNIFORM_DARK_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 
-import { computeFramedPlacement } from '../src/shared/board-ui/coverFramingPlacement'
+import { computeFramedPlacement } from '../src/shared/board-ui/cover/coverFramingPlacement'
 
 interface ParsedArgs
 {
   input: string
   zoom: number | null
   outPath: string | null
+  group: string | null
 }
 
 interface SeedTemplate
@@ -53,6 +54,7 @@ interface ResolvedCover
   defaultZoom: number
   name: string
   source: 'template' | 'path'
+  group: string | null
 }
 
 interface SurfacePreview
@@ -123,7 +125,10 @@ const usage = (): never =>
       '                     examples/gaming/ssbu-fighters/_cover.jpg',
       "  --zoom <n>         override coverZoom; defaults to the template's",
       '                     coverZoom for matched templates, 1.0 for raw paths',
-      '  --out <path>       output PNG path; default: cover-previews/<name>-z<n>.png',
+      '  --set <slug>       group output under cover-previews/<slug>/; defaults',
+      '                     to the template slug for matched templates',
+      '  --out <path>       output PNG path; default:',
+      '                     cover-previews/[<slug>/]<name>-z<n>.png',
       '',
     ].join('\n')
   )
@@ -135,6 +140,7 @@ const parseArgs = (raw: readonly string[]): ParsedArgs =>
   let input: string | null = null
   let zoom: number | null = null
   let outPath: string | null = null
+  let group: string | null = null
   for (let i = 0; i < raw.length; i++)
   {
     const arg = raw[i]
@@ -159,6 +165,13 @@ const parseArgs = (raw: readonly string[]): ParsedArgs =>
       outPath = next
       continue
     }
+    if (arg === '--set' || arg === '--group')
+    {
+      const next = raw[++i]
+      if (next === undefined) usage()
+      group = next
+      continue
+    }
     if (arg.startsWith('-'))
     {
       process.stderr.write(`unknown flag: ${arg}\n`)
@@ -172,7 +185,7 @@ const parseArgs = (raw: readonly string[]): ParsedArgs =>
     input = arg
   }
   if (input === null) usage()
-  return { input, zoom, outPath }
+  return { input, zoom, outPath, group }
 }
 
 const looksLikePath = (input: string): boolean =>
@@ -240,6 +253,8 @@ const resolveFromTemplates = async (
     defaultZoom: zoom,
     name: basename(record.template.folder),
     source: 'template',
+    // matched templates group output under their slug by default
+    group: basename(record.template.folder),
   }
 }
 
@@ -260,6 +275,8 @@ const resolvePath = (input: string): ResolvedCover =>
     defaultZoom: 1,
     name,
     source: 'path',
+    // raw paths only group when --set is passed
+    group: null,
   }
 }
 
@@ -468,8 +485,10 @@ const main = async (): Promise<void> =>
     )
   }
 
+  // explicit --set wins; otherwise matched templates group under their slug
+  const group = args.group ?? cover.group
   const sourceAspect = sourceWidth / sourceHeight
-  const headerTitle = `${cover.name} - coverZoom ${formatZoom(zoom)}`
+  const headerTitle = `${group ? `${group} / ` : ''}${cover.name} - coverZoom ${formatZoom(zoom)}`
   const headerSubtitle = [
     `${sourceWidth}x${sourceHeight}`,
     `aspect ${sourceAspect.toFixed(3)}`,
@@ -521,9 +540,12 @@ const main = async (): Promise<void> =>
     .png()
     .toBuffer()
 
+  const defaultName = `${cover.name}-z${formatZoom(zoom)}.png`
   const outPath = args.outPath
     ? resolve(process.cwd(), args.outPath)
-    : join(DEFAULT_OUT_DIR, `${cover.name}-z${formatZoom(zoom)}.png`)
+    : group
+      ? join(DEFAULT_OUT_DIR, group, defaultName)
+      : join(DEFAULT_OUT_DIR, defaultName)
   await mkdir(dirname(outPath), { recursive: true })
   await writeFile(outPath, finalBuffer)
 

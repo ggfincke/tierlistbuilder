@@ -1,7 +1,7 @@
 // src/app/shells/workspace/workspaceModals.ts
 // typed payload map for workspace-owned modal state
 
-import type { SettingsTab } from '~/features/workspace/settings/ui/BoardSettingsModal'
+import type { SettingsTab } from '~/features/workspace/board-settings/ui/BoardSettingsModal'
 
 interface PublishRankingPayload
 {

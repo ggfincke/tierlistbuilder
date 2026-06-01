@@ -1,7 +1,7 @@
 // src/features/library/lib/boardClickHandler.ts
 // shared open-action binding for library board rows & cards
 
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 type OpenBoardHandler = (board: LibraryBoardListItem) => void
 

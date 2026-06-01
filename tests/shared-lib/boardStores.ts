@@ -6,8 +6,8 @@ import type {
   BoardSnapshot,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
-import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
+import type { BoardSyncState } from '~/features/workspace/boards/model/cloud/sync'
+import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/cloud/sync'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'

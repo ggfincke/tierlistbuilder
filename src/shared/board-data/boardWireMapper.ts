@@ -21,7 +21,8 @@ import {
   prepareDataUrlRecord,
   type PreparedBlobRecord,
 } from '~/shared/images/imagePersistence'
-import { getBlobsBatch, probeImageStore } from '~/shared/images/imageStore'
+import { getBlobsBatch } from '~/shared/images/imageBlobStore'
+import { probeImageStore } from '~/shared/images/idb/idbDatabase'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { decodeImageAspectRatioFromBlob } from '~/shared/images/imageLoad'
 import { isOptionalString, isRecord } from '~/shared/lib/typeGuards'

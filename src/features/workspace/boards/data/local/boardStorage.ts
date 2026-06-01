@@ -8,7 +8,7 @@ import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEn
 import {
   EMPTY_BOARD_SYNC_STATE,
   normalizeBoardSyncState,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import {
   deleteBrowserStorageItem,
   getBrowserStorage,
@@ -24,9 +24,9 @@ import { logger } from '~/shared/lib/logger'
 import { isRecord } from '~/shared/lib/typeGuards'
 import {
   clearBlobRefs,
-  pruneUnreferencedBlobs,
   replaceBlobRefs,
-} from '~/shared/images/imageStore'
+} from '~/shared/images/imageBlobRefStore'
+import { pruneUnreferencedBlobs } from '~/shared/images/imageBlobGc'
 
 import {
   boardStorageKey,
