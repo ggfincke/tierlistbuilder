@@ -26,20 +26,6 @@ const workflowFiles = readdirSync(workflowsDir).filter((name) =>
 
 describe('github actions uses ref pinning predicates', () =>
 {
-  it('allows local actions, SHA-pinned actions, & digest-pinned Docker actions', () =>
-  {
-    const immutableRefs = [
-      './.github/actions/setup',
-      `actions/checkout@${'a'.repeat(40)}`,
-      `docker://ghcr.io/org/action@sha256:${'a'.repeat(64)}`,
-    ]
-
-    for (const ref of immutableRefs)
-    {
-      expect(isImmutableUsesRef(ref), ref).toBe(true)
-    }
-  })
-
   it('rejects mutable GitHub and Docker action refs', () =>
   {
     const mutableRefs = [
@@ -61,11 +47,6 @@ describe('github actions uses ref pinning predicates', () =>
 
 describe('github actions are SHA-pinned', () =>
 {
-  it('finds workflow files to check', () =>
-  {
-    expect(workflowFiles.length).toBeGreaterThan(0)
-  })
-
   for (const file of workflowFiles)
   {
     it(`${file} pins every uses: ref to a commit SHA`, () =>

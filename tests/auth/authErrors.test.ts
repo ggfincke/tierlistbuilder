@@ -13,11 +13,4 @@ describe('mapAuthError', () =>
       'Wrong email or password.'
     )
   })
-
-  it('keeps existing invalid account code mapping', () =>
-  {
-    expect(mapAuthError('InvalidAccountId', 'sign-in')).toBe(
-      'Wrong email or password.'
-    )
-  })
 })

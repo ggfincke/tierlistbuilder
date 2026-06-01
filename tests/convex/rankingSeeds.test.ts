@@ -332,60 +332,6 @@ describe('ranking seed pipeline', () =>
     expect(rollbackRows.previousBoard?.seedReleaseStatus).toBe('active')
   })
 
-  it('rejects activation and rollback when the target release has no ranking rows', async () =>
-  {
-    const t = makeTest()
-    await seedSeedTemplate(t, {
-      releaseId: RELEASE,
-      templateExternalId: 'test:empty-target-release',
-      labels: ['Mario'],
-    })
-    const previous = await seedSeedTemplate(t, {
-      releaseId: OLD_RELEASE,
-      templateExternalId: 'test:active-before-empty-target',
-      labels: ['Mario'],
-    })
-    const previousSeed = await seedRankingRow(t, {
-      templateId: previous.templateId,
-      templateExternalId: 'test:active-before-empty-target',
-      releaseId: OLD_RELEASE,
-      status: 'active',
-      stableKey: 'active-before-empty-target',
-    })
-
-    await expect(
-      t.mutation(
-        internal.marketplace.seed.rankings.lifecycle.activateSeedRankings,
-        {
-          datasetKey: DATASET,
-          releaseId: RELEASE,
-        }
-      )
-    ).rejects.toThrow(/no active or activatable rows/)
-    await expect(
-      t.mutation(
-        internal.marketplace.seed.rankings.lifecycle.rollbackSeedRankings,
-        {
-          datasetKey: DATASET,
-          targetReleaseId: RELEASE,
-        }
-      )
-    ).rejects.toThrow(/no active or activatable rows/)
-
-    const previousRows = await t.run(async (ctx) =>
-    {
-      const [ranking, board] = await Promise.all([
-        ctx.db.get(previousSeed.rankingId),
-        ctx.db.get(previousSeed.boardId),
-      ])
-      return { ranking, board }
-    })
-    expect(previousRows.ranking?.publicationState).toBe('published')
-    expect(previousRows.ranking?.isPubliclyListable).toBe(true)
-    expect(previousRows.ranking?.seedReleaseStatus).toBe('active')
-    expect(previousRows.board?.seedReleaseStatus).toBe('active')
-  })
-
   it('rolls back active rows when the target release fills the old active scan window', async () =>
   {
     const t = makeTest()

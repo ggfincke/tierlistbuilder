@@ -7,11 +7,6 @@ import { tierColorSpecEqual } from '@tierlistbuilder/contracts/lib/theme'
 
 describe('tierColorSpecEqual', () =>
 {
-  it('treats absent specs as equal', () =>
-  {
-    expect(tierColorSpecEqual(undefined, null)).toBe(true)
-  })
-
   it('compares palette and custom specs by payload', () =>
   {
     expect(

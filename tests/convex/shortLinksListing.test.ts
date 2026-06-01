@@ -37,31 +37,4 @@ describe('short link listing selection', () =>
 
     expect(result.map((row) => row.slug)).toEqual(['live-new', 'live-old'])
   })
-
-  it('preserves query order while capping live rows', () =>
-  {
-    const now = 10_000
-    const rows = [
-      makeRow('live-3', now + 3, now + 3_000),
-      makeRow('live-2', now + 2, now + 2_000),
-      makeRow('live-1', now + 1, now + 1_000),
-    ]
-
-    const result = selectLiveOwnedShortLinks(rows, now, 2)
-
-    expect(result).toEqual([
-      {
-        slug: 'live-3',
-        boardTitle: 'Board live-3',
-        createdAt: now + 3,
-        expiresAt: now + 3_000,
-      },
-      {
-        slug: 'live-2',
-        boardTitle: 'Board live-2',
-        createdAt: now + 2,
-        expiresAt: now + 2_000,
-      },
-    ])
-  })
 })

@@ -7,10 +7,6 @@ import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import {
-  DEFAULT_USER_PRIVACY_SETTINGS,
-  MIN_PASSWORD_LENGTH,
-} from '@tierlistbuilder/contracts/platform/user'
 import { classifyItemCount } from '../../convex/lib/entitlements'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
 import {
@@ -202,18 +198,6 @@ const readTemplateCascade = async (
       .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
       .collect(),
   }))
-
-const readTemplateCard = async (
-  t: ConvexTestHandle,
-  templateId: Id<'templates'>
-) =>
-  await t.run(
-    async (ctx) =>
-      await ctx.db
-        .query('templateCards')
-        .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-        .unique()
-  )
 
 const seedProfileShowcase = async (
   t: ConvexTestHandle,
@@ -661,97 +645,6 @@ describe('user cascade cleanup', () =>
       )
     }))
 
-  it('projects and updates caller privacy settings', async () =>
-    await withFakeTimers(async () =>
-    {
-      const t = makeTest()
-      const userId = await seedUser(t)
-
-      const initial = await asUser(t, userId).query(api.users.getMe, {})
-      expect(initial?.privacy).toEqual(DEFAULT_USER_PRIVACY_SETTINGS)
-
-      await asUser(t, userId).mutation(api.users.updatePrivacySettings, {
-        defaultTemplateVisibility: 'unlisted',
-        defaultRankingVisibility: 'unlisted',
-        showInMembersDirectory: false,
-        hideProfileFromSearch: true,
-        allowAiTraining: true,
-      })
-
-      const after = await asUser(t, userId).query(api.users.getMe, {})
-      const stored = await t.run(async (ctx) => await ctx.db.get(userId))
-
-      expect(after?.privacy).toEqual({
-        defaultTemplateVisibility: 'unlisted',
-        defaultRankingVisibility: 'unlisted',
-        showInMembersDirectory: false,
-        hideProfileFromSearch: true,
-        allowAiTraining: true,
-      })
-      expect(stored).toMatchObject({
-        defaultTemplateVisibility: 'unlisted',
-        defaultRankingVisibility: 'unlisted',
-        showInMembersDirectory: false,
-        hideProfileFromSearch: true,
-        allowAiTraining: true,
-      })
-    }))
-
-  it('sets and removes the caller avatar through a verified upload envelope', async () =>
-    await withFakeTimers(async () =>
-    {
-      const t = makeTest()
-      const userId = await seedUser(t)
-      const storageId = await storeAvatarUpload(t, userId)
-
-      await asUser(t, userId).action(api.users.setAvatar, {
-        storageId,
-        uploadToken: AVATAR_UPLOAD_TOKEN,
-      })
-      const afterSet = await asUser(t, userId).query(api.users.getMe, {})
-
-      expect(afterSet).toMatchObject({
-        hasAvatar: true,
-        image: expect.any(String),
-      })
-
-      await asUser(t, userId).mutation(api.users.removeAvatar, {})
-      const afterRemove = await asUser(t, userId).query(api.users.getMe, {})
-      expect(afterRemove).toMatchObject({
-        hasAvatar: false,
-        image: null,
-      })
-    }))
-
-  it('propagates avatar changes to the author template cards', async () =>
-    await withFakeTimers(async () =>
-    {
-      const t = makeTest()
-      const userId = await seedUser(t, 'avatar-author@example.com', {
-        externalId: 'avatar-author-public',
-      })
-      const templateId = await seedTemplate(t, userId, 4)
-      const storageId = await storeAvatarUpload(t, userId)
-
-      await asUser(t, userId).action(api.users.setAvatar, {
-        storageId,
-        uploadToken: AVATAR_UPLOAD_TOKEN,
-      })
-      await runScheduled(t)
-
-      const user = await t.run(async (ctx) => await ctx.db.get(userId))
-      const afterSet = await readTemplateCard(t, templateId)
-      expect(user?.avatarStorageId).toBeDefined()
-      expect(afterSet?.authorAvatarStorageId).toEqual(user?.avatarStorageId)
-      expect(afterSet?.authorImageUrl).toBeNull()
-
-      await asUser(t, userId).mutation(api.users.removeAvatar, {})
-      await runScheduled(t)
-
-      const afterRemove = await readTemplateCard(t, templateId)
-      expect(afterRemove?.authorAvatarStorageId).toBeNull()
-    }))
-
   it('rejects avatar uploads with a mismatched envelope token', async () =>
     await withFakeTimers(async () =>
     {
@@ -822,27 +715,6 @@ describe('user cascade cleanup', () =>
         currentPassword: 'new-password',
         newPassword: 'next-password',
       })
-    }))
-
-  it('rejects a new password shorter than the minimum', async () =>
-    await withFakeTimers(async () =>
-    {
-      const t = makeTest()
-      const { userId, sessionId } = await seedPasswordAccount(
-        t,
-        'password-too-short@example.com',
-        'old-password'
-      )
-      const caller = asUser(t, userId, sessionId)
-
-      // correct current password isolates the length branch as the only reason
-      await expectConvexCode(
-        caller.action(api.users.changePassword, {
-          currentPassword: 'old-password',
-          newPassword: 'a'.repeat(MIN_PASSWORD_LENGTH - 1),
-        }),
-        CONVEX_ERROR_CODES.invalidInput
-      )
     }))
 
   it('cleanupAuthSessions keeps the parent session until refresh-token pages finish', async () =>

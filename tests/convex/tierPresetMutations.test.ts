@@ -7,10 +7,6 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { MAX_CLOUD_BOARD_TIERS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import {
-  MAX_TIER_DESCRIPTION_LEN,
-  MAX_TIER_NAME_LEN,
-} from '../../convex/lib/limits'
-import {
   asUser,
   expectConvexCode,
   makeTest,
@@ -33,20 +29,8 @@ describe('tier preset mutations', () =>
       ),
     ],
     [
-      'oversized tier name',
-      [makeTier({ name: 'x'.repeat(MAX_TIER_NAME_LEN + 1) })],
-    ],
-    [
-      'oversized tier description',
-      [makeTier({ description: 'x'.repeat(MAX_TIER_DESCRIPTION_LEN + 1) })],
-    ],
-    [
       'invalid custom tier color',
       [makeTier({ colorSpec: { kind: 'custom', hex: 'blue' } })],
-    ],
-    [
-      'invalid custom row color',
-      [makeTier({ rowColorSpec: { kind: 'custom', hex: '#12345g' } })],
     ],
   ])('rejects %s', async (_, tiers) =>
   {

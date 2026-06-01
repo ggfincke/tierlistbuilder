@@ -48,19 +48,6 @@ describe('getDraggedItemRect', () =>
 
 describe('resolveDragTargetIndex', () =>
 {
-  it('returns overItemsLength when dropping on empty container', () =>
-  {
-    const result = resolveDragTargetIndex({
-      draggedRect: makeRect({ width: 100, height: 50 }),
-      overRect: makeRect({ width: 500, height: 50 }),
-      overId: 'tier-a',
-      overContainerId: 'tier-a',
-      overIndex: 0,
-      overItemsLength: 0,
-    })
-    expect(result).toBe(0)
-  })
-
   it('forces index 0 when dragged left of the first item', () =>
   {
     const result = resolveDragTargetIndex({

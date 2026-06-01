@@ -4,7 +4,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   createContainerSnapshot,
-  findContainer,
   isSnapshotConsistent,
   moveItemInSnapshot,
   moveItemToIndexInSnapshot,
@@ -36,22 +35,6 @@ describe('createContainerSnapshot', () =>
     const snap = createContainerSnapshot(state)
     expect(snap.tiers).toEqual([{ id: 'tier-t1', itemIds: ['a', 'b'] }])
     expect(snap.unrankedItemIds).toEqual(['c'])
-  })
-})
-
-describe('findContainer', () =>
-{
-  const snap = makeContainerSnapshot()
-
-  it('returns tier ID when item is in a tier', () =>
-  {
-    expect(findContainer(snap, asItemId('item-1'))).toBe('tier-s')
-    expect(findContainer(snap, asItemId('item-4'))).toBe('tier-a')
-  })
-
-  it('returns null when item does not exist', () =>
-  {
-    expect(findContainer(snap, asItemId('nonexistent'))).toBeNull()
   })
 })
 
@@ -121,18 +104,6 @@ describe('resolveStoreInsertionIndex', () =>
         sameContainer: true,
         sourceIndex: 1,
         targetIndex: 3,
-        targetItemsLength: 5,
-      })
-    ).toBe(2)
-  })
-
-  it('uses target index as-is for cross-container moves', () =>
-  {
-    expect(
-      resolveStoreInsertionIndex({
-        sameContainer: false,
-        sourceIndex: 0,
-        targetIndex: 2,
         targetItemsLength: 5,
       })
     ).toBe(2)

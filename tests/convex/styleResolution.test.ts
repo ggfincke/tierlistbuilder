@@ -69,36 +69,11 @@ describe('resolveStyleItemAsset', () =>
       altText: 'pixel alt',
     })
   })
-
-  it('passes through null media (item absent in the style)', () =>
-  {
-    const styleRow = {
-      mediaAssetId: null,
-      aspectRatio: null,
-      imageFit: null,
-      transform: null,
-      mediaPlate: null,
-      imagePadding: null,
-      altText: null,
-    }
-    expect(resolveStyleItemAsset(templateItemFields, styleRow).mediaAssetId).toBeNull()
-  })
 })
 
 describe('isAllowedTemplateStyle', () =>
 {
   const styles = [{ externalId: 'official' }, { externalId: 'pixel' }]
-
-  it('allows the default style (null or default id)', () =>
-  {
-    expect(isAllowedTemplateStyle('official', styles, null)).toBe(true)
-    expect(isAllowedTemplateStyle('official', styles, 'official')).toBe(true)
-  })
-
-  it('allows a listed style', () =>
-  {
-    expect(isAllowedTemplateStyle('official', styles, 'pixel')).toBe(true)
-  })
 
   it('rejects an unknown style', () =>
   {

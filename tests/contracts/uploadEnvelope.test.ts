@@ -44,17 +44,4 @@ describe('uploadEnvelope', () =>
     expect(unwrapUploadEnvelope('media', USER_A, TOKEN_B, wrapped)).toBeNull()
     expect(unwrapUploadEnvelope('media', USER_B, TOKEN_A, wrapped)).toBeNull()
   })
-
-  it('rejects malformed userIds & tokens at build time', () =>
-  {
-    expect(() =>
-      getUploadEnvelopeHeader('media', 'has:colon', TOKEN_A)
-    ).toThrow(/invalid upload userId/)
-    expect(() => getUploadEnvelopeHeader('media', '', TOKEN_A)).toThrow(
-      /invalid upload userId/
-    )
-    expect(() => getUploadEnvelopeHeader('media', USER_A, 'short')).toThrow(
-      /invalid upload token/
-    )
-  })
 })

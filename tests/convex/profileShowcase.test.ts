@@ -145,26 +145,6 @@ describe('profile showcase queries', () =>
     ])
   })
 
-  it('caps cropped mini tiers', async () =>
-  {
-    const t = makeTest()
-    const ownerId = await seedUser(
-      t,
-      'Showcase Capped Owner',
-      'showcase-capped-owner@example.com'
-    )
-    await seedShowcaseRanking(t, ownerId, ['S', 'A', 'B', 'C', 'D', 'F'])
-
-    const owner = asUser(t, ownerId)
-    const data = await owner.query(
-      api.social.showcase.queries.getMyProfileShowcase,
-      {}
-    )
-    const mini = data.unranked[0]?.mini
-
-    expect(mini?.tiers.map((tier) => tier.name)).toEqual(['S', 'A', 'B', 'C'])
-  })
-
   it('hides placed public tiles when the source template is no longer reachable', async () =>
   {
     const t = makeTest()

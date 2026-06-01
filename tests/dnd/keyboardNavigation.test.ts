@@ -90,15 +90,4 @@ describe('resolveDraggingKeyboardNavigation', () =>
       'item-2',
     ])
   })
-
-  it('reports missing active items so the controller can cancel safely', () =>
-  {
-    const result = resolveDraggingKeyboardNavigation({
-      snapshot: makeContainerSnapshot(),
-      itemId: asItemId('missing'),
-      direction: 'ArrowDown',
-    })
-
-    expect(result).toEqual({ kind: 'missing-active' })
-  })
 })

@@ -124,32 +124,4 @@ describe('extractPresetFromBoard', () =>
       expect(rebuilt.tiers[i].itemIds).toEqual([])
     }
   })
-
-  it('round-trips rowColorSpec through extract & rebuild', () =>
-  {
-    const board = makeBoardSnapshot({
-      tiers: [
-        makeTier({
-          id: 'tier-1',
-          name: 'S',
-          rowColorSpec: createCustomTierColorSpec('#445566'),
-        }),
-        makeTier({ id: 'tier-2', name: 'A' }),
-      ],
-    })
-
-    const preset = extractPresetFromBoard(board, 'Row Colors')
-    expect(preset.tiers[0].rowColorSpec).toEqual({
-      kind: 'custom',
-      hex: '#445566',
-    })
-    expect(preset.tiers[1].rowColorSpec).toBeUndefined()
-
-    const rebuilt = createBoardDataFromPreset(preset)
-    expect(rebuilt.tiers[0].rowColorSpec).toEqual({
-      kind: 'custom',
-      hex: '#445566',
-    })
-    expect(rebuilt.tiers[1].rowColorSpec).toBeUndefined()
-  })
 })

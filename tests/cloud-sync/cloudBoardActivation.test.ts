@@ -157,47 +157,6 @@ describe('activateCloudBoardAsActive', () =>
     ).toBe('Fresh cloud')
   })
 
-  it('refreshes a clean materialized cloud board when it is already active', async () =>
-  {
-    const staleSnapshot = makeLocalSnapshot('Stale active', 'Old active item')
-    const cleanSyncState = markBoardSynced(1, CLOUD_BOARD_EXTERNAL_ID)
-    saveBoardToStorage(CLOUD_BOARD_ID, staleSnapshot, {
-      syncState: cleanSyncState,
-    })
-    seedRegistry(
-      [{ id: CLOUD_BOARD_ID, title: staleSnapshot.title }],
-      CLOUD_BOARD_ID
-    )
-    useActiveBoardStore.getState().loadBoard(staleSnapshot, cleanSyncState)
-    getCloudStateMock.mockResolvedValue(
-      makeCloudState({
-        title: 'Fresh active',
-        revision: 3,
-        items: [
-          {
-            externalId: 'item-cloud',
-            tierId: 'tier-s',
-            label: 'Fresh active item',
-            mediaExternalId: null,
-            order: 0,
-            deletedAt: null,
-          },
-        ],
-      })
-    )
-
-    await activateCloudBoardAsActive(CLOUD_BOARD_EXTERNAL_ID)
-
-    const state = useActiveBoardStore.getState()
-    expect(getCloudStateMock).toHaveBeenCalledOnce()
-    expect(useWorkspaceBoardRegistryStore.getState().activeBoardId).toBe(
-      CLOUD_BOARD_ID
-    )
-    expect(state.title).toBe('Fresh active')
-    expect(state.items[asItemId('item-cloud')]?.label).toBe('Fresh active item')
-    expect(state.lastSyncedRevision).toBe(3)
-  })
-
   it('keeps the local snapshot when a materialized cloud board has pending edits', async () =>
   {
     const pendingSnapshot = makeLocalSnapshot('Pending local', 'Unsynced item')

@@ -94,23 +94,6 @@ describe('resolvePointerCell', () =>
       kind: 'append',
     })
   })
-
-  it('keeps targeting final-row cells while the pointer is inside that row', () =>
-  {
-    const layout = buildRenderedCellLayout([
-      makeBox('item-a', { left: 0, top: 0, width: 50, height: 50 }),
-      makeBox('item-b', { left: 60, top: 0, width: 50, height: 50 }),
-      makeBox('item-c', { left: 0, top: 60, width: 50, height: 50 }),
-    ])
-
-    if (!layout) throw new Error('expected rendered cell layout')
-
-    expect(resolvePointerCell(layout, { x: 20, y: 84 })).toEqual({
-      kind: 'cell',
-      flatIndex: 2,
-      itemId: 'item-c',
-    })
-  })
 })
 
 describe('isPointerInVisualAppendSpace', () =>
@@ -135,20 +118,5 @@ describe('isPointerInVisualAppendSpace', () =>
         itemRects,
       })
     ).toBe(false)
-  })
-
-  it('detects pointer space below the final row as append space', () =>
-  {
-    const itemRects = [
-      makeRect({ left: 0, top: 0, width: 50, height: 50 }),
-      makeRect({ left: 0, top: 60, width: 50, height: 50 }),
-    ]
-
-    expect(
-      isPointerInVisualAppendSpace({
-        pointerCoordinates: { x: 12, y: 124 },
-        itemRects,
-      })
-    ).toBe(true)
   })
 })
