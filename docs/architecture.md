@@ -455,7 +455,7 @@ jobs stay in `marketplace/templates/internal.ts`.
 
 Key boundary: **UI components never call Convex directly**. Every query & mutation flows through a per-feature adapter, platform repository, or auth hook. This keeps wire types, error surfaces, and retry policy out of the UI layer.
 
-Schema (`convex/schema.ts`) defines the app-owned tables alongside `@convex-dev/auth`'s `authTables`:
+Schema (`convex/schema.ts`) is the required `defineSchema()` assembler. Domain table records live under `convex/schema/{workspace,platform,profile,marketplace,seed}.ts` and combine with `@convex-dev/auth`'s `authTables`:
 
 - `users` — extends auth-managed fields w/ app-owned `displayName`, `avatarStorageId`, `tier`, timestamps.
 - `userPreferences` — per-user mirror of `AppPreferences`.

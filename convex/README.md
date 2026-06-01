@@ -101,7 +101,8 @@ convex/
   convex.config.ts    # defineApp() — registers rate-limiter component
   crons.ts            # daily GC: hard-delete expired boards, orphan media, storage, expired shares
   http.ts             # /auth/* HTTP routes
-  schema.ts           # app tables + @convex-dev/auth authTables
+  schema.ts           # defineSchema assembler for app tables + authTables
+  schema/             # per-domain defineTable records
   users.ts            # getMe query
 ```
 
