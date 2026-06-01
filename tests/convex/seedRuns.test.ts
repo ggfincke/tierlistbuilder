@@ -715,6 +715,38 @@ describe('seed run precheck API', () =>
         }
       )
     ).rejects.toThrow(/duplicate seed template externalId/)
+    await expect(
+      t.mutation(
+        internal.marketplace.seed.templates.endpoints.upsertSeedTemplates,
+        buildSeedTemplateInput({
+          runId: 'run-duplicate-style',
+          template: {
+            metadataContentHash: 'meta-duplicate-style',
+            defaultStyleId: 'default',
+            styles: [
+              {
+                externalId: 'default',
+                label: 'Default',
+                order: 0,
+                isDefault: true,
+                coverMediaDedupeHash: null,
+                itemAspectRatio: 1,
+                defaultItemImagePadding: null,
+              },
+              {
+                externalId: 'default',
+                label: 'Default duplicate',
+                order: 1,
+                isDefault: false,
+                coverMediaDedupeHash: null,
+                itemAspectRatio: 1,
+                defaultItemImagePadding: null,
+              },
+            ],
+          },
+        })
+      )
+    ).rejects.toThrow(/duplicate seed template style externalId/)
 
     expect(createdTemplates).toMatchObject({
       created: ['gaming:ssbu-fighters'],
@@ -1092,7 +1124,12 @@ describe('seed run precheck API', () =>
         templateExternalId: 'gaming:ssbu-fighters',
         styleExternalId: 'alt',
         styleItemsContentHash: 'v1:style-items-alt',
-        items: [seedStyleItem('mario')],
+        items: [
+          seedStyleItem('mario', {
+            aspectRatio: 1.5,
+            imagePadding: 0.2,
+          }),
+        ],
       }
     )
     const syncedState = await t.query(

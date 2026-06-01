@@ -1731,6 +1731,175 @@ describe('marketplace template Convex functions', () =>
     expect(storedCounts.card).toMatchObject({ forkCount: 1, viewCount: 0 })
   })
 
+  it('re-points deleted linked items when switching image styles', async () =>
+  {
+    const t = makeTest()
+    const ownerId = await seedUser(t, 'Style Owner', 'style@example.com')
+    const seeded = await t.run(async (ctx) =>
+    {
+      const now = Date.now()
+      const defaultMedia = await seedTileMediaAsset(ctx, {
+        ownerId,
+        externalId: 'media-default-style',
+        dedupeHash: 'hash-default-style',
+        contentHash: 'hash-default-style',
+        createdAt: now,
+      })
+      const altMedia = await seedTileMediaAsset(ctx, {
+        ownerId,
+        externalId: 'media-alt-style',
+        dedupeHash: 'hash-alt-style',
+        contentHash: 'hash-alt-style',
+        createdAt: now,
+      })
+      const templateId = await seedPublishedTemplate(ctx, {
+        authorId: ownerId,
+        slug: 'StyleSw001',
+        title: 'Style Switch Template',
+        itemCount: 1,
+        sizeClass: 'standard',
+        now,
+      })
+      await ctx.db.patch(templateId, { defaultStyleId: 'default' })
+      const templateItemId = await ctx.db.insert('templateItems', {
+        templateId,
+        externalId: 'style-item',
+        label: 'Style Item',
+        backgroundColor: null,
+        mediaPlate: null,
+        altText: 'Default alt',
+        mediaAssetId: defaultMedia.mediaAssetId,
+        order: 0,
+        aspectRatio: 1,
+        imageFit: 'cover',
+        transform: null,
+        imagePadding: 0.1,
+      })
+      await Promise.all([
+        ctx.db.insert('templateStyles', {
+          templateId,
+          externalId: 'default',
+          label: 'Default',
+          order: 0,
+          isDefault: true,
+          coverMediaAssetId: null,
+          coverFraming: null,
+          itemAspectRatio: 1,
+          itemAspectRatioMode: 'manual',
+          defaultItemImageFit: 'cover',
+          defaultItemImagePadding: 0.1,
+          labels: null,
+          createdAt: now,
+          updatedAt: now,
+        }),
+        ctx.db.insert('templateStyles', {
+          templateId,
+          externalId: 'alt',
+          label: 'Alt',
+          order: 1,
+          isDefault: false,
+          coverMediaAssetId: null,
+          coverFraming: null,
+          itemAspectRatio: 1.5,
+          itemAspectRatioMode: 'manual',
+          defaultItemImageFit: 'contain',
+          defaultItemImagePadding: 0.2,
+          labels: null,
+          createdAt: now,
+          updatedAt: now,
+        }),
+        ctx.db.insert('templateItemStyleAssets', {
+          templateId,
+          templateItemId,
+          styleExternalId: 'alt',
+          itemExternalId: 'style-item',
+          mediaAssetId: altMedia.mediaAssetId,
+          aspectRatio: 1.5,
+          imageFit: 'contain',
+          transform: null,
+          mediaPlate: null,
+          imagePadding: 0.2,
+          altText: 'Alt alt',
+        }),
+      ])
+      const boardId = await seedCloudBoard(ctx, {
+        ownerId,
+        externalId: 'board-style-switch',
+        title: 'Style Switch Board',
+        sourceTemplateId: templateId,
+        sourceTemplateTitle: 'Style Switch Template',
+        sourceTemplateCategory: 'gaming',
+        sourceTemplateSizeClass: 'standard',
+        activeItemCount: 0,
+        unrankedItemCount: 0,
+        templateProgressState: 'complete',
+        now,
+      })
+      const deletedAt = now
+      const boardItemId = await ctx.db.insert('boardItems', {
+        boardId,
+        tierId: null,
+        externalId: 'board-style-item',
+        label: 'Style Item',
+        altText: 'Default alt',
+        mediaAssetId: defaultMedia.mediaAssetId,
+        order: 0,
+        deletedAt,
+        aspectRatio: 1,
+        imageFit: 'cover',
+        imagePadding: 0.1,
+        templateItemId,
+        imageSource: 'linked',
+      })
+      return {
+        altMediaAssetId: altMedia.mediaAssetId,
+        boardItemId,
+        deletedAt,
+        templateSlug: 'StyleSw001',
+      }
+    })
+
+    const styledItems = await t.query(
+      api.marketplace.templates.queries.listTemplateItems,
+      {
+        slug: seeded.templateSlug,
+        styleId: 'alt',
+        paginationOpts: { cursor: null, numItems: 10 },
+      }
+    )
+    expect(styledItems.page[0]).toMatchObject({
+      externalId: 'style-item',
+      altText: 'Alt alt',
+      media: {
+        externalId: 'media-alt-style',
+        contentHash: 'hash-alt-style',
+      },
+      aspectRatio: 1.5,
+      imageFit: 'contain',
+      imagePadding: 0.2,
+    })
+
+    await asUser(t, ownerId).mutation(
+      api.workspace.boards.switchImageStyle.switchBoardImageStyle,
+      {
+        boardExternalId: 'board-style-switch',
+        styleId: 'alt',
+      }
+    )
+
+    const updated = await t.run(
+      async (ctx) => await ctx.db.get(seeded.boardItemId)
+    )
+    expect(updated).toMatchObject({
+      mediaAssetId: seeded.altMediaAssetId,
+      deletedAt: seeded.deletedAt,
+      aspectRatio: 1.5,
+      imageFit: 'contain',
+      imagePadding: 0.2,
+      altText: 'Alt alt',
+    })
+  })
+
   it('publishes completed template rankings into queryable surfaces', async () =>
   {
     const t = makeTest()
