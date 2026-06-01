@@ -123,7 +123,7 @@ src/
     ├── board-ui/                    # BoardPrimitives, ItemContent, shared board rendering, cover framing, constants
     ├── catalog/                     # compact count/date/estimate formatters + URL filter helpers
     ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl
-    ├── images/                      # imageStore, imageBlobCache, imagePersistence, imageLoad
+    ├── images/                      # imageBlobStore, imageBlobRefStore, imageUploadIndex, cache/persistence/load
     ├── lib/                         # color, math, fileName, className, pluralize, downloadBlob,
     │                                # browserStorage, logger, urls, typeGuards,
     │                                # asyncMapLimit, binaryCodec, boardSnapshotItems, errors,
@@ -200,7 +200,7 @@ IndexedDB payloads should be wiped by version reset/recreation instead of
 converted forward, while JSON/share import validation should continue rejecting
 malformed or unsupported files.
 
-Local images live in `shared/images/imageStore.ts` as content-addressed blobs.
+Local images live in `shared/images/imageBlobStore.ts` as content-addressed blobs.
 Imported items keep a small display blob plus an optional editor source blob.
 Board saves update board-scoped blob refs; workspace bootstrap reconciles refs
 from all local snapshots and prunes unreferenced blobs after the local image GC

@@ -17,7 +17,7 @@ import {
   disposeImageBlobCache,
   getCachedImageUrl,
 } from '~/shared/images/imageBlobCache'
-import { getBlob } from '~/shared/images/imageStore'
+import { getBlob } from '~/shared/images/imageBlobStore'
 import { mockObjectUrls } from '@tests/shared-lib/objectUrl'
 import { resetBoardStores } from '@tests/shared-lib/boardStores'
 

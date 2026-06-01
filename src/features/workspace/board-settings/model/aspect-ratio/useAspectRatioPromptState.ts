@@ -9,7 +9,7 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { getBlobsBatch } from '~/shared/images/imageStore'
+import { getBlobsBatch } from '~/shared/images/imageBlobStore'
 import { getAutoCropImageRef } from '~/shared/lib/auto-crop/pipeline'
 import { isAbortError } from '~/shared/lib/errors'
 import { logger } from '~/shared/lib/logger'

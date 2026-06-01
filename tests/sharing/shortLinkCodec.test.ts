@@ -13,7 +13,8 @@ import {
 } from '~/shared/sharing/shortLinkCodec'
 import { inflateSnapshotBytes } from '~/shared/sharing/hashShare'
 import * as imagePersistence from '~/shared/images/imagePersistence'
-import * as imageStore from '~/shared/images/imageStore'
+import * as imageBlobStore from '~/shared/images/imageBlobStore'
+import * as imageDb from '~/shared/images/idb/idbDatabase'
 import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
 
 afterEach(() =>
@@ -28,7 +29,7 @@ describe('short-link snapshot codec', () =>
     const blob = new Blob([new Uint8Array([1, 2, 3, 4])], {
       type: 'image/png',
     })
-    const record: imageStore.BlobRecord = {
+    const record: imageBlobStore.BlobRecord = {
       hash: 'img-live',
       mimeType: 'image/png',
       byteSize: blob.size,
@@ -36,9 +37,9 @@ describe('short-link snapshot codec', () =>
       bytes: blob,
     }
     const getBlobsSpy = vi
-      .spyOn(imageStore, 'getBlobsBatch')
+      .spyOn(imageBlobStore, 'getBlobsBatch')
       .mockResolvedValue(new Map([['img-live', record]]))
-    vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(true)
+    vi.spyOn(imageDb, 'probeImageStore').mockResolvedValue(true)
     vi.spyOn(imagePersistence, 'persistPreparedBlobRecords').mockResolvedValue()
 
     const board = makeBoardSnapshot({
@@ -107,7 +108,7 @@ describe('short-link snapshot codec', () =>
   it('rejects oversized inline image candidates before data-url encoding', async () =>
   {
     const tinyBlob = new Blob(['x'], { type: 'image/png' })
-    vi.spyOn(imageStore, 'getBlobsBatch').mockResolvedValue(
+    vi.spyOn(imageBlobStore, 'getBlobsBatch').mockResolvedValue(
       new Map([
         [
           'img-huge',

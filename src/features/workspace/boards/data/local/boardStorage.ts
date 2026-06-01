@@ -24,9 +24,9 @@ import { logger } from '~/shared/lib/logger'
 import { isRecord } from '~/shared/lib/typeGuards'
 import {
   clearBlobRefs,
-  pruneUnreferencedBlobs,
   replaceBlobRefs,
-} from '~/shared/images/imageStore'
+} from '~/shared/images/imageBlobRefStore'
+import { pruneUnreferencedBlobs } from '~/shared/images/imageBlobGc'
 
 import {
   boardStorageKey,

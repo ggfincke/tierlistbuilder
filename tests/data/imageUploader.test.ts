@@ -7,11 +7,11 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { uploadBoardImages } from '~/features/platform/media/imageUploader'
+import { getBlobsBatch } from '~/shared/images/imageBlobStore'
 import {
-  getBlobsBatch,
   getUploadStatusBatch,
   markUploaded,
-} from '~/shared/images/imageStore'
+} from '~/shared/images/imageUploadIndex'
 import {
   getReusableMediaExternalIdsImperative,
   uploadEnvelopedVariants,
@@ -24,8 +24,11 @@ vi.mock('~/features/platform/media/uploadsRepository', () => ({
   uploadEnvelopedVariants: vi.fn(),
 }))
 
-vi.mock('~/shared/images/imageStore', () => ({
+vi.mock('~/shared/images/imageBlobStore', () => ({
   getBlobsBatch: vi.fn(),
+}))
+
+vi.mock('~/shared/images/imageUploadIndex', () => ({
   getUploadStatusBatch: vi.fn(),
   markUploaded: vi.fn(),
 }))

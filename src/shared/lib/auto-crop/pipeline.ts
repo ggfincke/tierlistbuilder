@@ -22,7 +22,7 @@ import {
 } from '@tierlistbuilder/contracts/workspace/imageMath'
 
 import { cacheFreshBlob } from '~/shared/images/imageBlobCache'
-import { getBlob, type BlobRecord } from '~/shared/images/imageStore'
+import { getBlob, type BlobRecord } from '~/shared/images/imageBlobStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isAbortError } from '~/shared/lib/errors'
 import { getPrimaryImageRef } from '~/shared/lib/imageRefs'

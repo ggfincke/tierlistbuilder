@@ -1,13 +1,11 @@
-// tests/data/imageStore.test.ts
-// persistent image-store GC planning
+// tests/data/imageBlobStore.test.ts
+// persistent image blob store & GC planning
 
 import { describe, expect, it } from 'vitest'
-import {
-  putBlobs,
-  resolveUnreferencedBlobHashes,
-} from '~/shared/images/imageStore'
+import { putBlobs } from '~/shared/images/imageBlobStore'
+import { resolveUnreferencedBlobHashes } from '~/shared/images/imageBlobGc'
 
-describe('imageStore GC planning', () =>
+describe('image blob store GC planning', () =>
 {
   it('keeps referenced blobs and unreferenced blobs inside the grace window', () =>
   {

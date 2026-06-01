@@ -49,7 +49,7 @@ import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { logger } from '~/shared/lib/logger'
 import { cacheFreshBlob, warmFromBoard } from '~/shared/images/imageBlobCache'
 import { createBlobRecord } from '~/shared/images/imagePersistence'
-import { putBlob } from '~/shared/images/imageStore'
+import { putBlob } from '~/shared/images/imageBlobStore'
 
 const SOURCE_MEDIA_FETCH_CONCURRENCY = 4
 

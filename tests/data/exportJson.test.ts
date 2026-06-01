@@ -32,7 +32,8 @@ import { MAX_TEMPLATE_TITLE_LENGTH } from '@tierlistbuilder/contracts/marketplac
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import * as imagePersistence from '~/shared/images/imagePersistence'
-import * as imageStore from '~/shared/images/imageStore'
+import * as imageBlobStore from '~/shared/images/imageBlobStore'
+import * as imageDb from '~/shared/images/idb/idbDatabase'
 import * as downloadBlobModule from '~/shared/lib/downloadBlob'
 import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
 import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
@@ -649,14 +650,14 @@ describe('parseBoardJson', () =>
   it.each([
     [
       'IDB probe fails',
-      () => vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(false),
+      () => vi.spyOn(imageDb, 'probeImageStore').mockResolvedValue(false),
       /Image storage is unavailable/i,
     ],
     [
       'persisting inline bytes throws',
       () =>
       {
-        vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(true)
+        vi.spyOn(imageDb, 'probeImageStore').mockResolvedValue(true)
         vi.spyOn(
           imagePersistence,
           'persistPreparedBlobRecords'
@@ -746,7 +747,7 @@ describe('parseBoardJson', () =>
         }),
       },
     })
-    vi.spyOn(imageStore, 'getBlobsBatch').mockResolvedValue(
+    vi.spyOn(imageBlobStore, 'getBlobsBatch').mockResolvedValue(
       new Map([
         ['source-hash', null],
         [
