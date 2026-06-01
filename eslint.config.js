@@ -30,6 +30,33 @@ const sharedBoundaryImportPatterns = [
   ...appImportPatterns,
 ]
 
+const workspaceBoardsDataImportPatterns = [
+  '~/features/workspace/boards/data/**',
+  '../workspace/boards/data/**',
+  '../../workspace/boards/data/**',
+  '../../../workspace/boards/data/**',
+  '../../../../workspace/boards/data/**',
+  '../../../../../workspace/boards/data/**',
+  '../../../../../../workspace/boards/data/**',
+]
+
+const uiDataImportRestriction = {
+  group: ['~/features/**/data/**'],
+  message:
+    'UI/app .tsx files must call model-level facades instead of data modules.',
+}
+
+const appImportRestriction = {
+  group: appImportPatterns,
+  message: 'Feature slices must not import app shell or router code.',
+}
+
+const workspaceBoardsDataImportRestriction = {
+  group: workspaceBoardsDataImportPatterns,
+  message:
+    'External slices must use workspace boards model facades instead of board data modules.',
+}
+
 export default defineConfig([
   // exclude build output & generated code from linting
   globalIgnores([
@@ -98,13 +125,7 @@ export default defineConfig([
       'no-restricted-imports': [
         'error',
         {
-          patterns: [
-            {
-              group: ['~/features/**/data/**'],
-              message:
-                'UI/app .tsx files must call model-level facades instead of data modules.',
-            },
-          ],
+          patterns: [uiDataImportRestriction],
         },
       ],
     },
@@ -115,18 +136,7 @@ export default defineConfig([
       'no-restricted-imports': [
         'error',
         {
-          patterns: [
-            {
-              group: ['~/features/**/data/**'],
-              message:
-                'UI/app .tsx files must call model-level facades instead of data modules.',
-            },
-            {
-              group: appImportPatterns,
-              message:
-                'Feature slices must not import app shell or router code.',
-            },
-          ],
+          patterns: [uiDataImportRestriction, appImportRestriction],
         },
       ],
     },
@@ -137,12 +147,45 @@ export default defineConfig([
       'no-restricted-imports': [
         'error',
         {
+          patterns: [appImportRestriction],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      'src/features/library/**/*.tsx',
+      'src/features/marketplace/**/*.tsx',
+      'src/features/platform/**/*.tsx',
+      'src/features/embed/**/*.tsx',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
           patterns: [
-            {
-              group: appImportPatterns,
-              message:
-                'Feature slices must not import app shell or router code.',
-            },
+            uiDataImportRestriction,
+            appImportRestriction,
+            workspaceBoardsDataImportRestriction,
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      'src/features/library/**/*.ts',
+      'src/features/marketplace/**/*.ts',
+      'src/features/platform/**/*.ts',
+      'src/features/embed/**/*.ts',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            appImportRestriction,
+            workspaceBoardsDataImportRestriction,
           ],
         },
       ],

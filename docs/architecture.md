@@ -383,6 +383,7 @@ Share/export image behavior is intentionally split by carrier:
 - The embed shell resolves shares through `features/platform/share/*`, renders through `shared/board-ui/*`, and never mounts the editable active-board store.
 - Workspace owns activation of cloud-backed boards via `features/workspace/boards/model/cloudBoardActivation.ts`; marketplace/library callers do not reach through workspace persistence internals directly.
 - Workspace exposes publishable-board scanning via `features/workspace/boards/model/usePublishableBoards.ts`; marketplace publish UI does not read board storage directly.
+- Library board rows read and delete through `features/workspace/boards/model/libraryBoardAccess.ts`; library code does not import board storage or cloud repositories directly.
 - UI (`ui/`) → model (`model/`) → data (`data/{local,cloud}/`). Components don't call localStorage or Convex directly — they go through `model/` selectors or `data/*` helpers.
 - Platform sync owns auth/connectivity/status primitives only; app sync composes those primitives with workspace sessions.
 - Per-slice cloud transport (Convex args, mappers) lives in the owning slice. Platform media and share repositories own storage upload URLs, media finalization, and short-link lookups.

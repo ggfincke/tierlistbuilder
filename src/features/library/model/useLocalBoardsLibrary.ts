@@ -20,7 +20,7 @@ import type {
   PaletteId,
   TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
-import { loadBoardFromStorage } from '~/features/workspace/boards/data/local/boardStorage'
+import { readBoardSnapshotForLibrary } from '~/features/workspace/boards/model/libraryBoardAccess'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { getImageRenditionRefs } from '~/shared/lib/imageRefs'
 import { getCachedImageUrl } from '~/shared/images/imageBlobCache'
@@ -120,9 +120,7 @@ const buildCoverItems = (
 // still surface as a row w/ zeroed counts so the board stays openable
 export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
 {
-  const loaded = loadBoardFromStorage(meta.id)
-  const snapshot =
-    loaded.status === 'ok' ? toLocalLibrarySnapshot(loaded.data) : null
+  const snapshot = toLocalLibrarySnapshot(readBoardSnapshotForLibrary(meta.id))
   const tiers = snapshot?.tiers ?? []
   const unrankedItemCount = snapshot?.unrankedItemIds?.length ?? 0
   const rankedItemCount = tiers.reduce(

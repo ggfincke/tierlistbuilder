@@ -9,8 +9,8 @@ import type {
   LibraryBoardListItem,
   SyncState,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { deleteBoardImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { deleteBoardSession } from '~/features/workspace/boards/model/boardSession'
+import { deleteLibraryBoard } from '~/features/workspace/boards/model/libraryBoardAccess'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { toast } from '~/shared/notifications/useToastStore'
 
@@ -81,9 +81,9 @@ export const useDeleteLibraryBoard = (): DeleteLibraryBoardAction =>
         }
         else
         {
-          // cloud-only row — soft-delete via the mutation directly so it
+          // cloud-only row -> soft-delete through the boards facade so it
           // still lands in Recently deleted
-          await deleteBoardImperative({ boardExternalId: target.externalId })
+          await deleteLibraryBoard(target.externalId)
         }
 
         const restorable = target.syncState !== 'localOnly'
