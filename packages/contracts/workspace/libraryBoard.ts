@@ -166,8 +166,8 @@ export interface LibraryBoardCoverItem extends LibraryBoardCoverRenderFields
   label: string | null
   externalId: string
   mediaUrl: string | null
-  // local rows can carry hash-backed media instead of a ready storage URL.
-  // Cover tiles resolve this through the same lazy image cache used by boards.
+  // local rows can carry hash-backed media instead of a ready storage URL
+  // cover tiles resolve this through the same lazy image cache used by boards
   mediaHash?: string
   mediaCloudExternalId?: string
   mediaVariant?: MediaVariantKind

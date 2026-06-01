@@ -10,6 +10,6 @@ export type SettingsTabSlug =
   | 'privacy'
   | 'data'
 
-// React Router resolves the basename, so this remains router-relative.
+// React Router resolves the basename, so this remains router-relative
 export const settingsTabPath = (slug: SettingsTabSlug): string =>
   `${SETTINGS_ROUTE_PATH}/${slug}`
