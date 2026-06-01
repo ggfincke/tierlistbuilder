@@ -1,11 +1,11 @@
-// src/features/marketplace/pages/MarketplaceLayout.tsx
-// marketplace route shell: theme sync, footer, toast container, & live region
+// src/app/shells/MarketplaceLayout.tsx
+// marketplace route shell w/ footer, path scroll reset, & ambient chrome
 
 import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
 
 import { Footer } from '~/features/marketplace/ui/layout/Footer'
-import { AmbientPageShell } from '~/shared/ui/AmbientPageShell'
+import { AmbientPageShell } from '~/app/shells/AmbientPageShell'
 
 export const MarketplaceLayout = () =>
 {
@@ -13,7 +13,7 @@ export const MarketplaceLayout = () =>
   const navType = useNavigationType()
   const previousPathnameRef = useRef(pathname)
 
-  // Scroll path pushes/replaces to top; leave POP, anchors, & search changes alone
+  // Reset path pushes/replaces to top; leave POP, anchors, & search changes alone
   useEffect(() =>
   {
     const pathnameChanged = previousPathnameRef.current !== pathname

@@ -2,7 +2,7 @@
 // /settings route — full-page account settings shell
 
 import { AccountSettingsPage } from '~/features/platform/settings/pages/AccountSettingsPage'
-import { AmbientPageShell } from '~/shared/ui/AmbientPageShell'
+import { AmbientPageShell } from '~/app/shells/AmbientPageShell'
 
 export const SettingsRoute = () => (
   <AmbientPageShell>

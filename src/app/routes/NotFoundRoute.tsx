@@ -3,7 +3,7 @@
 
 import { useLocation } from 'react-router-dom'
 
-import { AmbientPageShell } from '~/shared/ui/AmbientPageShell'
+import { AmbientPageShell } from '~/app/shells/AmbientPageShell'
 import { NotFoundSurface } from '~/shared/ui/NotFoundSurface'
 
 export const NotFoundRoute = () =>

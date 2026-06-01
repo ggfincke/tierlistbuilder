@@ -42,6 +42,8 @@ src/
 │   │   ├── NotFoundRoute.tsx        # 404 fallback
 │   │   └── AppChromeLayout.tsx      # chrome wrapper for app routes
 │   ├── shells/
+│   │   ├── AmbientPageShell.tsx      # ambient route shell, toast host, and live region
+│   │   ├── MarketplaceLayout.tsx     # templates/rankings route wrapper with footer
 │   │   ├── top-nav/                  # fixed global chrome composition, route pills, account menu
 │   │   ├── workspace/               # editable workspace shell, modal layer, export actions
 │   │   └── useModalStack.ts         # keyed modal state helper

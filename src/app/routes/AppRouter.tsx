@@ -43,7 +43,7 @@ const ShowcaseRoute = lazyNamed(
 )
 
 const MarketplaceLayout = lazyNamed(
-  () => import('~/features/marketplace/pages/MarketplaceLayout'),
+  () => import('~/app/shells/MarketplaceLayout'),
   'MarketplaceLayout'
 )
 

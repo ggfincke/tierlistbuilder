@@ -9,6 +9,27 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import prettierConfig from 'eslint-config-prettier'
 import localRules from './eslint-rules/index.js'
 
+const appImportPatterns = [
+  '~/app/**',
+  '../app/**',
+  '../../app/**',
+  '../../../app/**',
+  '../../../../app/**',
+  '../../../../../app/**',
+  '../../../../../../app/**',
+]
+
+const sharedBoundaryImportPatterns = [
+  '~/features/**',
+  '../features/**',
+  '../../features/**',
+  '../../../features/**',
+  '../../../../features/**',
+  '../../../../../features/**',
+  '../../../../../../features/**',
+  ...appImportPatterns,
+]
+
 export default defineConfig([
   // exclude build output & generated code from linting
   globalIgnores([
@@ -82,6 +103,61 @@ export default defineConfig([
               group: ['~/features/**/data/**'],
               message:
                 'UI/app .tsx files must call model-level facades instead of data modules.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['~/features/**/data/**'],
+              message:
+                'UI/app .tsx files must call model-level facades instead of data modules.',
+            },
+            {
+              group: appImportPatterns,
+              message:
+                'Feature slices must not import app shell or router code.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: appImportPatterns,
+              message:
+                'Feature slices must not import app shell or router code.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/shared/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: sharedBoundaryImportPatterns,
+              message: 'Shared modules must stay feature- and app-agnostic.',
             },
           ],
         },

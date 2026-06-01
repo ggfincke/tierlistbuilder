@@ -1,4 +1,4 @@
-// src/shared/ui/AmbientPageShell.tsx
+// src/app/shells/AmbientPageShell.tsx
 // ambient route shell w/ theme sync, toast host, & live region
 
 import type { ReactNode } from 'react'
