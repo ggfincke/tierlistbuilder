@@ -27,6 +27,9 @@ interface UseTemplateOptions
   // criterion the user was looking at when they forked. server validates &
   // discards if it doesn't match an active lane on the source template
   preferredCriterionExternalId?: string
+  // chosen image style (skin) externalId; server validates against the source
+  // template's styles & falls back to the default
+  styleId?: string
 }
 
 interface UseTemplateAction
@@ -66,27 +69,38 @@ export const useUseTemplate = (): UseTemplateAction =>
         return
       }
 
+      // a non-default skin pools server-resident image data, so it resolves
+      // through the authoritative server fork rather than the local-first path
+      const isNonDefaultStyleSelected =
+        !!options?.styleId &&
+        detail.styleOptions.some(
+          (style) => style.externalId === options.styleId && !style.isDefault
+        )
+
       // large templates: queued server-side clone. signed-out viewers can't
-      // fork these locally (storage budget) so we route to a sign-in prompt
-      if (requiresServerQueuedClone(detail.sizeClass))
+      // fork these locally (storage budget) so we route to a sign-in prompt.
+      // non-default skins take the same server path for correct image data
+      if (requiresServerQueuedClone(detail.sizeClass) || isNonDefaultStyleSelected)
       {
         if (!signedIn)
         {
-          toast(
-            `Sign in to fork "${templateTitle}" — large templates only sync to the cloud.`,
-            'info'
-          )
+          const reason = requiresServerQueuedClone(detail.sizeClass)
+            ? 'large templates only sync to the cloud'
+            : 'custom image styles sync to the cloud'
+          toast(`Sign in to fork "${templateTitle}" — ${reason}.`, 'info')
           promptSignIn()
           return
         }
 
         const preferredCriterionExternalId =
           options?.preferredCriterionExternalId
-        const result = await cloneTemplate(
-          preferredCriterionExternalId
-            ? { slug, preferredCriterionExternalId }
-            : { slug }
-        )
+        const result = await cloneTemplate({
+          slug,
+          ...(preferredCriterionExternalId
+            ? { preferredCriterionExternalId }
+            : {}),
+          ...(options?.styleId ? { styleId: options.styleId } : {}),
+        })
         if (result.status === 'jobQueued')
         {
           toast(`Forking "${templateTitle}"…`, 'success')

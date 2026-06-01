@@ -76,6 +76,21 @@ const applySavedTransform = (
   return rest
 }
 
+// a manual recrop makes an item user-owned ('pinned') so a later skin switch
+// leaves it untouched; a reset reverts to 'linked' so it follows the skin again.
+// only the manual single-item editor commit pins -- bulk auto-crop stays linked
+// (re-derivable) so auto-cropping a board doesn't disable skin-switching
+const applyManualTransformPin = (
+  item: TierItem,
+  savedTransform: ItemTransform | undefined
+): TierItem =>
+{
+  const next = applySavedTransform(item, savedTransform)
+  if (savedTransform) return { ...next, imageSource: 'pinned' }
+  const { imageSource: _imageSource, ...rest } = next
+  return rest
+}
+
 export const createAspectRatioActions = (
   set: SliceArgs[0]
 ): AspectRatioActions => ({
@@ -198,7 +213,7 @@ export const createAspectRatioActions = (
           ? nextTransform
           : undefined
       if (isSameItemTransform(item.transform, savedTransform)) return state
-      const nextItem = applySavedTransform(item, savedTransform)
+      const nextItem = applyManualTransformPin(item, savedTransform)
       return withUndo(
         state,
         {

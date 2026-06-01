@@ -8,6 +8,7 @@ import { type MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marke
 import { isTemplateRankingAggregateReady as isAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useSelectedCriterion } from '~/features/marketplace/model/detail/useSelectedCriterion'
+import { useSelectedStyle } from '~/features/marketplace/model/detail/useSelectedStyle'
 import { useRelatedTemplates } from '~/features/marketplace/model/detail/useTemplateDetail'
 import { useTemplateRankingAggregate } from '~/features/marketplace/model/detail/useRankingDetail'
 import { useHeroAggregate } from '~/features/marketplace/model/detail/useHeroAggregate'
@@ -158,6 +159,7 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
   const { criterion, visibleCriteria, setCriterion } = useSelectedCriterion(
     detail.criteria
   )
+  const { styleId, setStyle } = useSelectedStyle(detail.styleOptions)
   const aggregate = useTemplateRankingAggregate(
     detail.slug,
     criterion.externalId
@@ -230,6 +232,9 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
           hasConsensus={hasConsensus}
           rankingCount={rankingCount}
           spreadCounts={spreadCounts ?? undefined}
+          styleOptions={detail.styleOptions}
+          selectedStyleId={styleId}
+          onStyleChange={setStyle}
           rightRail={
             showRail ? (
               <>

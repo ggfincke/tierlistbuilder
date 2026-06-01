@@ -67,6 +67,7 @@ const template: MarketplaceTemplateDetail = {
   rankingCountByCriterion: {},
   suggestedTiers: [],
   labels: null,
+  styleOptions: [],
 }
 
 const item: MarketplaceTemplateItem = {
@@ -110,6 +111,7 @@ const ranking: MarketplaceRankingDetail = {
   updatedAt: 1,
   autoPlate: { mode: 'uniform', uniformColor: '#101010' },
   defaultItemImagePadding: 0.12,
+  activeStyleId: null,
   tiers: [],
   items: [],
 }

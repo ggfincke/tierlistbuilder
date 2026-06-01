@@ -17,7 +17,10 @@ import {
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
-import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
+import type {
+  MarketplaceTemplateDetail,
+  TemplateStyleOption,
+} from '@tierlistbuilder/contracts/marketplace/template'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMeta'
 import {
@@ -40,6 +43,7 @@ import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { Cover } from '../cover/Cover'
 import { MetaPill } from '../meta/MetaPill'
 import { ShareTemplateButton } from './ShareTemplateButton'
+import { TemplateStyleSwitcher } from './TemplateStyleSwitcher'
 import { UseTemplateButton } from '../cards/UseTemplateButton'
 import { IconButton } from '~/shared/ui/IconButton'
 
@@ -61,6 +65,11 @@ interface TemplateHeroProps
     color: string
     count: number
   }>
+  // pre-fork skin switcher state; omit (or single-skin templates) hide it &
+  // the CTA forks the default style
+  styleOptions?: readonly TemplateStyleOption[]
+  selectedStyleId?: string | null
+  onStyleChange?: (styleExternalId: string) => void
   rightRail?: ReactNode | typeof RESERVED_RAIL
 }
 
@@ -192,6 +201,9 @@ export const TemplateHero = ({
   hasConsensus,
   rankingCount,
   spreadCounts,
+  styleOptions,
+  selectedStyleId,
+  onStyleChange,
   rightRail,
 }: TemplateHeroProps) =>
 {
@@ -296,6 +308,14 @@ export const TemplateHero = ({
           </p>
         )}
 
+        {styleOptions && selectedStyleId && onStyleChange && (
+          <TemplateStyleSwitcher
+            styles={styleOptions}
+            activeExternalId={selectedStyleId}
+            onChange={onStyleChange}
+          />
+        )}
+
         <div className="mt-auto pt-6">
           <div className="flex items-center gap-2.5">
             <Avatar
@@ -319,6 +339,7 @@ export const TemplateHero = ({
               templateTitle={template.title}
               access={template.access}
               size="md"
+              styleId={selectedStyleId ?? undefined}
               className="h-11 flex-1 px-5 text-sm"
             />
             <BookmarkButton slug={template.slug} />
