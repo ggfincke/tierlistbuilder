@@ -1,13 +1,13 @@
-// convex/marketplace/seedPipeline/activation.ts
+// convex/marketplace/seed/lib/activation.ts
 // shared activation/rollback logic for seed releases. used both by direct
 // activate calls & rollback retargeting
 
 import { ConvexError } from 'convex/values'
-import type { Doc } from '../../_generated/dataModel'
-import type { MutationCtx } from '../../_generated/server'
+import type { Doc } from '../../../_generated/dataModel'
+import type { MutationCtx } from '../../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { resolveActiveSeedRuns } from './resolvers'
-import { setSeedRunStatus } from './runs'
+import { setSeedRunStatus } from './runRecords'
 import {
   loadSeedTemplatesForRelease,
   publishSeedReleaseTemplates,

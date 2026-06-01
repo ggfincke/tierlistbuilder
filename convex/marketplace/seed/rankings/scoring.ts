@@ -1,4 +1,4 @@
-// convex/marketplace/rankings/seed/scoring.ts
+// convex/marketplace/seed/rankings/scoring.ts
 // deterministic per-profile ranking score & tier-quota math.
 
 // FNV-1a is sync (sha256 is async via Web Crypto); scoring runs item-by-item,
@@ -28,9 +28,8 @@ const fnv1aHash = (value: string): number =>
   return hash >>> 0
 }
 
-// divide by 2^32 (not 2^32-1) so the result stays in [0, 1) — dividing by
-// 0xffffffff lets a max hash land exactly on 1.0 & push downstream floor()s
-// one bucket past their intended range
+// Divide by 2^32 so the result stays in [0, 1).
+// 0xffffffff lets a max hash push floor() one bucket too far.
 export const seedUnitHash = (value: string): number =>
   fnv1aHash(value) / 0x100000000
 

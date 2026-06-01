@@ -1,4 +1,4 @@
-// convex/marketplace/rankings/seed/cleanup.ts
+// convex/marketplace/seed/rankings/cleanup.ts
 // seed cascade deletes. parent row inline (frees seedExternalId/slug);
 // items/tiers via scheduled cascade so cost stays fixed in items count.
 
@@ -18,9 +18,8 @@ export const deleteSeedRankingWithChildren = async (
   ranking: Doc<'publishedRankings'>
 ): Promise<void> =>
 {
-  // schedule children cleanup BEFORE deleting the parent so a crash between
-  // the two leaves the scheduler job intact (the job tolerates a missing
-  // ranking — it just walks the byRanking index).
+  // Schedule child cleanup before deleting the parent.
+  // The job tolerates a missing ranking by walking byRanking.
   await ctx.scheduler.runAfter(
     0,
     internal.marketplace.rankings.maintenance.cascade.cascadeDeleteRanking,
@@ -36,7 +35,7 @@ export const deleteSeedBoardWithChildren = async (
 {
   await ctx.scheduler.runAfter(
     0,
-    internal.marketplace.rankings.seed.cleanup.cascadeSeedBoardChildren,
+    internal.marketplace.seed.rankings.cleanup.cascadeSeedBoardChildren,
     { boardId: board._id }
   )
   await ctx.db.delete(board._id)
@@ -58,7 +57,7 @@ export const cascadeSeedBoardChildren = internalMutation({
       schedule: async (nextArgs) =>
         await ctx.scheduler.runAfter(
           0,
-          internal.marketplace.rankings.seed.cleanup.cascadeSeedBoardChildren,
+          internal.marketplace.seed.rankings.cleanup.cascadeSeedBoardChildren,
           nextArgs
         ),
       parentKey: 'boardId',

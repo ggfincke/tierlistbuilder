@@ -1,4 +1,4 @@
-// convex/marketplace/seedPipeline/validators.ts
+// convex/marketplace/seed/lib/validators.ts
 // Convex object/union validators for seed-pipeline mutations, actions, & queries
 
 import { v } from 'convex/values'
@@ -8,21 +8,21 @@ import {
   itemTransformValidator,
   mediaPlateNullableValidator,
   tierPresetTiersValidator,
-} from '../../lib/validators/common'
+} from '../../../lib/validators/common'
 import {
   imageMimeTypeValidator,
   mediaVariantKindValidator,
-} from '../../lib/validators/platform'
+} from '../../../lib/validators/platform'
 import {
   seedRunStatusValidator,
   seedTemplateReleaseStatusValidator,
-} from '../../lib/validators/seedPipeline'
+} from '../../../lib/validators/seedPipeline'
 import {
   templateCategoryValidator,
   templateCoverFramingValidator,
   templateCriterionStatusValidator,
   templateVisibilityValidator,
-} from '../../lib/validators/marketplace'
+} from '../../../lib/validators/marketplace'
 
 export const seedUploadVariantKindValidator = v.union(
   v.literal('tile'),

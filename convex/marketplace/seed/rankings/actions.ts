@@ -1,4 +1,4 @@
-// convex/marketplace/rankings/seed/actions.ts
+// convex/marketplace/seed/rankings/actions.ts
 // seed-gated writer for release-owned marketplace ranking snapshots
 
 import { ConvexError, v } from 'convex/values'
@@ -14,18 +14,18 @@ import type { Doc } from '../../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { assertNonemptyString } from '../../../lib/assertions'
 import { isConvexWriteThrottleError, sleep } from '../../../lib/retry'
-import { loadSeedTemplateLookupForRelease } from '../../seedPipeline/templates'
+import { loadSeedTemplateLookupForRelease } from '../lib/templates'
 import { resolveActiveTemplateCriterion } from '../../templates/criteria'
 import { loadTemplateItems } from '../../templates/lib/projections'
 import {
   assertSeedReleaseArgs,
   assertSeedRunArgs,
   hasErrorDiagnostics,
-} from '../../seedPipeline/runs'
+} from '../lib/runRecords'
 import {
   queueTemplateRankingAggregateRecompute,
   scheduleTemplateRankingAggregateJobAdmission,
-} from '../aggregate/lib'
+} from '../../rankings/aggregate/lib'
 import {
   seedRankingApplyChunkResultValidator,
   seedRankingAuthorEnsureResultValidator,
@@ -36,12 +36,12 @@ import {
   type SeedRankingPreflightResult,
   type SeedRankingsManifest,
 } from './validators'
-import type { SeedDiagnosticRow } from '../../seedPipeline/types'
+import type { SeedDiagnosticRow } from '../lib/types'
 import {
   seedErrorDiagnostic,
   seedWarningDiagnostic,
   pushCountMismatchDiagnostic,
-} from '../../seedPipeline/diagnostics'
+} from '../lib/diagnostics'
 import { companionBoardSeedId, isSeedRankingAuthorEmail } from './naming'
 import { mapItemsToCuratedTiers } from './curatedResolver'
 import {
@@ -126,13 +126,13 @@ const ensureRankingSeedAuthors = async (
   for (const author of plan.authors)
   {
     const ensured: { created: boolean } = await ctx.runAction(
-      internal.marketplace.seedRuns.ensureSeedAuthor,
+      internal.marketplace.seed.templates.endpoints.ensureSeedAuthor,
       { email: author.email, password: authorPassword }
     )
     if (ensured.created) authorsCreated += 1
     else authorsReused += 1
     const patched: { found: boolean } = await ctx.runMutation(
-      internal.marketplace.templates.seed.patchSeedUserProfileImpl,
+      internal.marketplace.seed.templates.maintenance.patchSeedUserProfileImpl,
       { email: author.email, displayName: author.displayName }
     )
     if (patched.found) authorsPatched += 1
@@ -660,7 +660,7 @@ const runSeedRankingTemplateBatch = async (
   group: SerializedTemplateTaskGroup
 ): Promise<SeedTemplateTaskBatchResult> =>
   await ctx.runMutation(
-    internal.marketplace.rankings.seed.actions
+    internal.marketplace.seed.rankings.actions
       .upsertSeedRankingsForTemplateImpl,
     {
       datasetKey,
@@ -761,7 +761,7 @@ export const cleanupStaleSeedRankings = internalAction({
       } = await runSeedActionWithThrottleRetries(
         () =>
           ctx.runMutation(
-            internal.marketplace.rankings.seed.actions
+            internal.marketplace.seed.rankings.actions
               .deleteStaleSeedRankingRowsImpl,
             {
               datasetKey: args.datasetKey,
@@ -804,7 +804,7 @@ export const ensureSeedRankingAuthors = internalAction({
     assertSeedRunArgs(args)
     assertNonemptyString('authorPassword', args.authorPassword)
     const preflight: SeedRankingPreflightResult = await ctx.runQuery(
-      internal.marketplace.rankings.seed.actions.preflightSeedRankings,
+      internal.marketplace.seed.rankings.actions.preflightSeedRankings,
       {
         datasetKey: args.datasetKey,
         releaseId: args.releaseId,

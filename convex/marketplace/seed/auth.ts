@@ -1,4 +1,4 @@
-// convex/marketplace/seedAuth.ts
+// convex/marketplace/seed/auth.ts
 // shared secret gate for marketplace seed APIs
 
 import { ConvexError } from 'convex/values'

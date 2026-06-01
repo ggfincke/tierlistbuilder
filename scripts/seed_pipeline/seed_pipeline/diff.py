@@ -23,8 +23,8 @@ from .report_layout import append_section, compiled_report_header
 from .template_payloads import build_template_upserts
 
 
-SEED_STATE_FUNCTION = "marketplace/seedRuns:resolveSeedState"
-SEED_MEDIA_BY_HASHES_FUNCTION = "marketplace/seedRuns:resolveSeedMediaByHashes"
+SEED_STATE_FUNCTION = "marketplace/seed/templates/endpoints:resolveSeedState"
+SEED_MEDIA_BY_HASHES_FUNCTION = "marketplace/seed/templates/endpoints:resolveSeedMediaByHashes"
 SEED_STATE_VARIANT_HASH_BATCH_SIZE = 1000
 SEED_STATE_ITEM_BATCH_SIZE = 1500
 SEED_STATE_MEDIA_WORKERS = 4
@@ -270,9 +270,7 @@ def _diff_templates(compiled: JsonObject, state: JsonObject) -> JsonObject:
 		for template in as_list(state.get("templates"))
 		if isinstance(template, dict)
 	}
-	upserts = {
-		template["externalId"]: template for template in build_template_upserts(compiled)
-	}
+	upserts = {template["externalId"]: template for template in build_template_upserts(compiled)}
 	create: list[str] = []
 	update: list[JsonObject] = []
 	unchanged: list[str] = []

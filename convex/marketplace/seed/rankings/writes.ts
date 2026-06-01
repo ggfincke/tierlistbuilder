@@ -1,4 +1,4 @@
-// convex/marketplace/rankings/seed/writes.ts
+// convex/marketplace/seed/rankings/writes.ts
 // seed ranking row write helpers
 
 import { ConvexError } from 'convex/values'
@@ -20,7 +20,7 @@ import {
   normalizeRankingTitle,
   pickRankingRenderFieldsForWrite,
   rankingTopScore,
-} from '../lib'
+} from '../../rankings/lib'
 import {
   deleteSeedBoardWithChildren,
   deleteSeedRankingWithChildren,

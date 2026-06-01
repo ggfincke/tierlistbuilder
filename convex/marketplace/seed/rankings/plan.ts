@@ -1,4 +1,4 @@
-// convex/marketplace/rankings/seed/plan.ts
+// convex/marketplace/seed/rankings/plan.ts
 // builds the manifest-derived ranking seed tasks, authors, lane summaries, &
 // external IDs that the seed workflow consumes
 

@@ -174,7 +174,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
 
 	def test_ranking_routes_are_registered(self) -> None:
 		self.assertEqual(
-			SEED_HTTP_ROUTES[("query", "marketplace/rankings/seed/actions:preflightSeedRankings")],
+			SEED_HTTP_ROUTES[("query", "marketplace/seed/rankings/actions:preflightSeedRankings")],
 			"/api/seed/rankings/preflight",
 		)
 
@@ -215,18 +215,18 @@ class RankingSeedCompilationTests(unittest.TestCase):
 		self.assertEqual(chunks[0]["targets"][0]["templateExternalId"], "one")
 		self.assertEqual(chunks[1]["targets"][0]["templateExternalId"], "two")
 		self.assertEqual(
-			SEED_HTTP_ROUTES[("action", "marketplace/rankings/seed/actions:applySeedRankingChunk")],
+			SEED_HTTP_ROUTES[("action", "marketplace/seed/rankings/actions:applySeedRankingChunk")],
 			"/api/seed/rankings/apply",
 		)
 		self.assertEqual(
 			SEED_HTTP_ROUTES[
-				("action", "marketplace/rankings/seed/actions:cleanupStaleSeedRankings")
+				("action", "marketplace/seed/rankings/actions:cleanupStaleSeedRankings")
 			],
 			"/api/seed/rankings/cleanup-stale",
 		)
 		self.assertEqual(
 			SEED_HTTP_ROUTES[
-				("action", "marketplace/rankings/seed/actions:ensureSeedRankingAuthors")
+				("action", "marketplace/seed/rankings/actions:ensureSeedRankingAuthors")
 			],
 			"/api/seed/rankings/ensure-authors",
 		)
@@ -234,7 +234,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
 			SEED_HTTP_ROUTES[
 				(
 					"mutation",
-					"marketplace/rankings/seed/lifecycle:activateSeedRankings",
+					"marketplace/seed/rankings/lifecycle:activateSeedRankings",
 				)
 			],
 			"/api/seed/rankings/activate",
@@ -243,7 +243,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
 			SEED_HTTP_ROUTES[
 				(
 					"mutation",
-					"marketplace/rankings/seed/lifecycle:queueActiveSeedRankingAggregates",
+					"marketplace/seed/rankings/lifecycle:queueActiveSeedRankingAggregates",
 				)
 			],
 			"/api/seed/rankings/queue-aggregates",

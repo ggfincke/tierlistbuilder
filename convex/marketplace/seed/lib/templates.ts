@@ -1,10 +1,10 @@
-// convex/marketplace/seedPipeline/templates.ts
+// convex/marketplace/seed/lib/templates.ts
 // template-lifecycle helpers: read/normalize/publish/rollback templates &
 // their items for a seed release
 
 import { ConvexError } from 'convex/values'
-import type { Doc, Id } from '../../_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { Doc, Id } from '../../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type {
   SeedTemplateCriterionKey,
@@ -17,29 +17,29 @@ import {
   assertNonemptyString,
   assertPositiveFinite,
   assertPositiveInteger,
-} from '../../lib/assertions'
-import { validateBoardAutoPlateUniformColor } from '../../lib/validators/common'
+} from '../../../lib/assertions'
+import { validateBoardAutoPlateUniformColor } from '../../../lib/validators/common'
 import {
   IMAGE_PADDING_MAX,
   IMAGE_PADDING_MIN,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { SEED_LIMITS } from '../../lib/limits'
+import { SEED_LIMITS } from '../../../lib/limits'
 import {
   adjustPublicTemplateCount,
   patchTemplateAndSyncCard,
   patchTemplateTagRows,
   syncTemplateTagRows,
-} from '../templates/lib/writes'
+} from '../../templates/lib/writes'
 import {
   buildTemplateStateFields,
   isPublicTemplateRow,
-} from '../templates/lib/state'
+} from '../../templates/lib/state'
 import {
   normalizeDescription,
   normalizeTags,
   normalizeTemplateTitle,
   validateTemplateTiers,
-} from '../templates/lib/normalize'
+} from '../../templates/lib/normalize'
 import { resolveSeedMediaAssetIdByDedupeHash } from './media'
 import type { SeedTemplateApplyPatch, SeedTemplateUpsertArg } from './types'
 
@@ -315,9 +315,8 @@ export const rollBackSeedReleaseTemplates = async (
 ): Promise<void> =>
 {
   assertSeedTemplateReadLimit(templates, templates[0]?.seedReleaseId)
-  // adjustPublicTemplateCount writes a shared marketplaceStats row — aggregate
-  // deltas across all templates before issuing the single patch so concurrent
-  // per-template branches don't race on it
+  // adjustPublicTemplateCount writes one shared marketplaceStats row.
+  // Aggregate deltas before the single patch to avoid branch races.
   const deltas = templates
     .filter(isPublicTemplateRow)
     .map((template) => ({ category: template.category, delta: -1 }))

@@ -1,4 +1,4 @@
-// convex/marketplace/rankings/seed/validators.ts
+// convex/marketplace/seed/rankings/validators.ts
 // validators for seed-gated ranking manifests & reports
 
 import { v, type Infer } from 'convex/values'
@@ -9,7 +9,7 @@ import {
 } from '../../../lib/validators/common'
 import { rankingFeaturedBadgeValidator } from '../../../lib/validators/marketplace'
 import { seedRankingReleaseStatusValidator } from '../../../lib/validators/seedPipeline'
-import { seedDiagnosticValidator } from '../../seedPipeline/validators'
+import { seedDiagnosticValidator } from '../lib/validators'
 import type {
   SeedCuratedRanking as SeedCuratedRankingContract,
   SeedRankingLane as SeedRankingLaneContract,

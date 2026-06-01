@@ -1,6 +1,6 @@
-// convex/marketplace/seedPipeline/storageUploads.ts
-// internal Convex API for the seedRunStorageUploads registry — tracks per-run
-// _storage blobs so cleanup can drop abandoned ones
+// convex/marketplace/seed/lib/storageUploads.ts
+// internal Convex API for the seedRunStorageUploads registry
+// tracks per-run _storage blobs for abandoned-run cleanup
 
 import { ConvexError, v } from 'convex/values'
 import {
@@ -9,14 +9,14 @@ import {
   internalQuery,
   type MutationCtx,
   type QueryCtx,
-} from '../../_generated/server'
-import type { Doc, Id } from '../../_generated/dataModel'
-import { internal } from '../../_generated/api'
+} from '../../../_generated/server'
+import type { Doc, Id } from '../../../_generated/dataModel'
+import { internal } from '../../../_generated/api'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { assertCountRange } from '../../lib/assertions'
-import { SEED_LIMITS } from '../../lib/limits'
+import { assertCountRange } from '../../../lib/assertions'
+import { SEED_LIMITS } from '../../../lib/limits'
 import { cleanupStorageIds } from './media'
-import { assertSeedRunArgs, loadSeedRunOrThrow } from './runs'
+import { assertSeedRunArgs, loadSeedRunOrThrow } from './runRecords'
 import type { SeedCleanupResult, SeedRegisterUploadsResult } from './types'
 
 type StorageUploadDoc = Doc<'seedRunStorageUploads'>
@@ -254,8 +254,7 @@ export const cleanupAbandonedSeedRun = internalAction({
       SEED_LIMITS.storageIdsPerCleanup
     )
     const { eligible, skippedStorageIds } = await ctx.runQuery(
-      internal.marketplace.seedPipeline.storageUploads
-        .resolveSeedCleanupStorageIds,
+      internal.marketplace.seed.lib.storageUploads.resolveSeedCleanupStorageIds,
       args
     )
     const eligibleStorageIds = eligible.map((row) => row.storageId)
@@ -273,7 +272,7 @@ export const cleanupAbandonedSeedRun = internalAction({
     if (rowIdsToMark.length > 0)
     {
       await ctx.runMutation(
-        internal.marketplace.seedPipeline.storageUploads
+        internal.marketplace.seed.lib.storageUploads
           .markSeedUploadedStorageIdsCleaned,
         { rowIds: rowIdsToMark }
       )

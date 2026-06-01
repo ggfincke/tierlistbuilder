@@ -42,7 +42,7 @@ import { publishRankingCore } from '../marketplace/rankings/public/mutations'
 import {
   deleteSeedBoardWithChildren,
   deleteSeedRankingWithChildren,
-} from '../marketplace/rankings/seed/cleanup'
+} from '../marketplace/seed/rankings/cleanup'
 import { deleteShowcaseWithChildren } from '../platform/showcase/internal'
 import { requireDevSampleSeedAuthorized } from './seedGate'
 
@@ -388,7 +388,7 @@ const materializeAndPublishSample = async (
   const seedExternalId = `tlotl:${template.slug}:${candidate.criterionExternalId}`
   const seedContentHash = `${DATASET_KEY}:${RELEASE_ID}:${template._id}:${candidate.criterionExternalId}`
 
-  // 1. board row — fully ranked (unrankedItemCount 0) so publish accepts it
+  // 1. board row -> fully ranked so publish accepts it.
   const boardExternalId = generateBoardId()
   const boardId = await ctx.db.insert('boards', {
     externalId: boardExternalId,
@@ -663,8 +663,8 @@ export const seedSamplePublishedRankingsForUser = internalMutation({
     const requestedCount = normalizeCount(args.count)
     const user = await findUserByEmail(ctx, targetEmail)
     const handleAssigned = await seedTargetProfile(ctx, user)
-    // always purge the prior dataset first so the seed is idempotent — re-runs
-    // can't leave duplicate rankings/boards behind (each sample is a fresh board)
+    // Always purge the prior dataset first.
+    // Re-runs can't leave duplicate rankings/boards behind.
     const deleted = await deleteExistingSamples(ctx, user._id)
     const candidates = await loadCandidates(ctx, user._id, requestedCount)
     const rankings: SeededRankingSummary[] = []

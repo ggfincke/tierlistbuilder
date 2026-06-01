@@ -1,4 +1,4 @@
-// convex/marketplace/rankings/seed/rows.ts
+// convex/marketplace/seed/rankings/rows.ts
 // shared seed-owned ranking row predicates & indexed lookups
 
 import { ConvexError } from 'convex/values'

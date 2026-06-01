@@ -1,4 +1,4 @@
-// convex/marketplace/rankings/seed/curatedResolver.ts
+// convex/marketplace/seed/rankings/curatedResolver.ts
 // resolve curated ranking labels against a template's items, validate tier
 // shape, & return RankedSeedItem rows ready for insertSeedRanking.
 

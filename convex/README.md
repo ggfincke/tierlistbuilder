@@ -91,6 +91,7 @@ convex/
     preferences/      # userPreferences get/upsert
     shortLinks/       # share-link slug resolution, listing, mutations, TTL sweeper
   marketplace/
+    seed/             # seed HTTP endpoint refs, shared seed lib, ranking seed jobs
     templates/        # public templates, job lifecycle, gallery reads, clone-to-board
     rankings/         # published ranking snapshots and remix-to-board
   workspace/

@@ -14,7 +14,7 @@ from .manifest import JsonObject, read_json, write_json
 from .progress import ProgressLogger
 
 
-SEED_BEGIN_FUNCTION = "marketplace/seedRuns:beginSeedRun"
+SEED_BEGIN_FUNCTION = "marketplace/seed/templates/endpoints:beginSeedRun"
 
 
 @dataclass(frozen=True)

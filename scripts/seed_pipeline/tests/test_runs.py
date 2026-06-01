@@ -220,19 +220,19 @@ class SeedRunPayloadTests(unittest.TestCase):
 			args
 			for client in clients
 			for function_path, args in client.mutations
-			if function_path == "marketplace/seedRuns:activateSeedRelease"
+			if function_path == "marketplace/seed/templates/endpoints:activateSeedRelease"
 		][0]
 		sync_args = [
 			args
 			for client in clients
 			for function_path, args in client.mutations
-			if function_path == "marketplace/seedRuns:syncSeedTemplateItems"
+			if function_path == "marketplace/seed/templates/endpoints:syncSeedTemplateItems"
 		][0]
 		criteria_args = [
 			args
 			for client in clients
 			for function_path, args in client.mutations
-			if function_path == "marketplace/seedRuns:upsertSeedCriteria"
+			if function_path == "marketplace/seed/templates/endpoints:upsertSeedCriteria"
 		][0]
 		self.assertEqual(checkpoint["previousActiveReleaseId"], "old-release")
 		self.assertEqual(activate_args["previousReleaseId"], "old-release")
@@ -312,9 +312,9 @@ class FakeSeedClient:
 
 	def mutation(self, function_path: str, args: dict[str, object]) -> dict[str, object]:
 		self.mutations.append((function_path, args))
-		if function_path == "marketplace/seedRuns:beginSeedRun":
+		if function_path == "marketplace/seed/templates/endpoints:beginSeedRun":
 			return {"run": {"runId": args["runId"], "status": "building"}}
-		if function_path == "marketplace/seedRuns:verifySeedReleaseChunk":
+		if function_path == "marketplace/seed/templates/endpoints:verifySeedReleaseChunk":
 			template_external_ids = args["templateExternalIds"]
 			return {
 				"diagnostics": [],
@@ -324,9 +324,9 @@ class FakeSeedClient:
 					"criterionCount": 0,
 				},
 			}
-		if function_path == "marketplace/seedRuns:completeSeedReleaseVerification":
+		if function_path == "marketplace/seed/templates/endpoints:completeSeedReleaseVerification":
 			return {"verified": True, "diagnostics": []}
-		if function_path == "marketplace/seedRuns:activateSeedRelease":
+		if function_path == "marketplace/seed/templates/endpoints:activateSeedRelease":
 			return {
 				"activeReleaseId": args["releaseId"],
 				"previousReleaseId": args["previousReleaseId"],

@@ -1,4 +1,4 @@
-// convex/marketplace/seedRuns.ts
+// convex/marketplace/seed/templates/endpoints.ts
 // internal Convex API used by the Python seed HTTP endpoints
 
 import { ConvexError, v } from 'convex/values'
@@ -7,9 +7,9 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
-} from '../_generated/server'
-import type { Doc, Id } from '../_generated/dataModel'
-import { api, internal } from '../_generated/api'
+} from '../../../_generated/server'
+import type { Doc, Id } from '../../../_generated/dataModel'
+import { api, internal } from '../../../_generated/api'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import type {
@@ -38,16 +38,16 @@ import {
   assertPositiveFinite,
   assertPositiveInteger,
   assertUniqueValues,
-} from '../lib/assertions'
+} from '../../../lib/assertions'
 import {
   getItemTransformBoundsViolation,
   IMAGE_PADDING_MAX,
   IMAGE_PADDING_MIN,
   type ItemTransformBoundsViolation,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { valuesEqual } from '../lib/equality'
-import { validateHexColor } from '../lib/hexColor'
-import { SEED_LIMITS, SEED_UPLOAD_URL_TTL_MS } from '../lib/limits'
+import { valuesEqual } from '../../../lib/equality'
+import { validateHexColor } from '../../../lib/hexColor'
+import { SEED_LIMITS, SEED_UPLOAD_URL_TTL_MS } from '../../../lib/limits'
 import {
   adjustPublicTemplateCount,
   allocateTemplateSlug,
@@ -55,22 +55,22 @@ import {
   patchTemplateAndSyncCard,
   syncTemplateTagRows,
   writeTemplateCard,
-} from './templates/lib/writes'
+} from '../../templates/lib/writes'
 import {
   buildDefaultTemplateCriteria,
   validateTemplateCriteria,
-} from './templates/criteria'
-import { activateSeedReleaseInternal } from './seedPipeline/activation'
+} from '../../templates/criteria'
+import { activateSeedReleaseInternal } from '../lib/activation'
 import {
   appendExpectedTotalsDiagnostics,
   appendReleaseTemplateScopeDiagnostics,
   buildSeedReleaseDiagnosticsForTemplates,
-} from './seedPipeline/diagnostics'
+} from '../lib/diagnostics'
 import {
   buildSeedMediaAssetIdByDedupeHashCache,
   finalizeSeedMediaAsset,
   resolveSeedMediaAssetIdByDedupeHash,
-} from './seedPipeline/media'
+} from '../lib/media'
 import {
   resolveActiveReleaseIds,
   resolveCriteria,
@@ -78,7 +78,7 @@ import {
   resolveMediaForAuthor,
   resolveTemplates,
   toResolvedTemplate,
-} from './seedPipeline/resolvers'
+} from '../lib/resolvers'
 import {
   assertBatchSize,
   assertSeedCompiledTotals,
@@ -90,7 +90,7 @@ import {
   loadSeedRunOrThrow,
   setSeedRunStatus,
   summarizeRun,
-} from './seedPipeline/runs'
+} from '../lib/runRecords'
 import {
   groupByTemplateExternalId,
   buildSeedTemplateLifecycleFields,
@@ -100,14 +100,14 @@ import {
   seedTemplateApplyGateChanged,
   toSeedCriterionKey,
   toSeedItemKey,
-} from './seedPipeline/templates'
+} from '../lib/templates'
 import type {
   SeedCriterionUpsertArg,
   SeedFinalizedMediaRow,
   SeedItemUpsertArg,
   SeedResolveStateResult,
   SeedTemplateUpsertArg,
-} from './seedPipeline/types'
+} from '../lib/types'
 import {
   resolveStateArgsValidator,
   resolveStateOutputValidator,
@@ -126,7 +126,7 @@ import {
   seedUploadUrlValidator,
   seedUploadVariantRequestValidator,
   seedUploadedMediaAssetValidator,
-} from './seedPipeline/validators'
+} from '../lib/validators'
 
 const seedReleaseDiagnosticTotalsValidator = v.object({
   templateCount: v.number(),
@@ -173,7 +173,7 @@ export const ensureSeedAuthor = internalAction({
     assertNonemptyString('email', args.email)
     assertNonemptyString('password', args.password)
     const existing = await ctx.runQuery(
-      internal.marketplace.templates.seed.getSeedUserStatusImpl,
+      internal.marketplace.seed.templates.maintenance.getSeedUserStatusImpl,
       { email: args.email }
     )
     if (existing.accountExists)
@@ -345,7 +345,7 @@ export const finalizeSeedUploadedMedia = internalAction({
       SEED_LIMITS.mediaAssetsPerFinalize
     )
     const authorId: Id<'users'> | null = await ctx.runQuery(
-      internal.marketplace.seedRuns.findSeedAuthorIdByEmail,
+      internal.marketplace.seed.templates.endpoints.findSeedAuthorIdByEmail,
       { email: args.authorEmail }
     )
     if (!authorId)
@@ -365,7 +365,7 @@ export const finalizeSeedUploadedMedia = internalAction({
       rejected.push(...result.rejected)
     }
     await ctx.runMutation(
-      internal.marketplace.seedPipeline.storageUploads
+      internal.marketplace.seed.lib.storageUploads
         .markSeedUploadedStorageIdsResolved,
       {
         datasetKey: args.datasetKey,
@@ -946,9 +946,8 @@ export const completeSeedReleaseVerification = internalMutation({
       args.expectedTotals
     )
     const verified = !hasErrorDiagnostics(diagnostics)
-    // a re-verify of an already-active release shouldn't demote its run record
-    // back to 'verified' or 'failed' — those would mis-report the release as
-    // not-yet-active. only transition pre-activation runs
+    // Re-verify of active release must not demote its run record.
+    // Only transition pre-activation runs.
     if (run.status !== 'active')
     {
       await setSeedRunStatus(

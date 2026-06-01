@@ -423,7 +423,7 @@ Types that only live in memory stay in the frontend tree, collocated w/ the stor
 
 ## Backend
 
-The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{account,media,preferences,profile,showcase,shortLinks}`, and `marketplace/{templates,rankings}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
+The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{account,media,preferences,profile,showcase,shortLinks}`, and `marketplace/{seed,templates,rankings}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
 
 Convex validators are exposed through domain entrypoints under
 `convex/lib/validators/{common,workspace,platform,marketplace,seedPipeline}.ts`.
@@ -435,7 +435,8 @@ Marketplace ranking backend files are grouped by workflow:
 
 - `marketplace/rankings/public/` — public queries and mutations.
 - `marketplace/rankings/aggregate/` — aggregate computation helpers and scheduled jobs.
-- `marketplace/rankings/seed/` — seed manifest validators, planning, scoring, task resolution, row writes, lifecycle, cleanup, and seed actions.
+- `marketplace/seed/rankings/` — seed manifest validators, planning, scoring, task resolution, row writes, lifecycle, cleanup, and seed actions.
+- `marketplace/seed/lib/` — seed run records, media, templates, diagnostics, and shared validators.
 - `marketplace/rankings/maintenance/` — owner/data cascade jobs.
 
 Marketplace template helpers are split by responsibility under

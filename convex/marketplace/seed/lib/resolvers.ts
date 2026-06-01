@@ -1,15 +1,15 @@
-// convex/marketplace/seedPipeline/resolvers.ts
+// convex/marketplace/seed/lib/resolvers.ts
 // read-only resolvers backing the resolveSeedState query: load templates,
 // items, criteria, & media for an author + manifest scope
 
-import type { Doc, Id } from '../../_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { Doc, Id } from '../../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../../_generated/server'
 import type {
   SeedResolvedCriterion,
   SeedResolvedItem,
   SeedResolvedMedia,
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
-import { SEED_LIMITS } from '../../lib/limits'
+import { SEED_LIMITS } from '../../../lib/limits'
 import { loadOwnedSeedMediaVariantLookup } from './mediaLookup'
 import { loadSeedTemplateLookupForRelease } from './templates'
 import type { SeedResolvedTemplateRow } from './types'

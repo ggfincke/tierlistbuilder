@@ -1,27 +1,27 @@
-// convex/marketplace/seedPipeline/media.ts
+// convex/marketplace/seed/lib/media.ts
 // finalize/validate/cleanup helpers for seed-uploaded media variants
 
 import { ConvexError } from 'convex/values'
-import type { ActionCtx, MutationCtx } from '../../_generated/server'
-import type { Id } from '../../_generated/dataModel'
-import { internal } from '../../_generated/api'
+import type { ActionCtx, MutationCtx } from '../../../_generated/server'
+import type { Id } from '../../../_generated/dataModel'
+import { internal } from '../../../_generated/api'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import type { SeedRejectedUpload } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import {
   assertNonemptyString,
   assertPositiveInteger,
-} from '../../lib/assertions'
+} from '../../../lib/assertions'
 import {
   assertValidVariantRequest,
   computeVariantDedupeHash,
-} from '../../lib/mediaVariants'
-import { parseUploadedImageMetadata } from '../../lib/imageValidation'
-import { sha256Hex } from '../../lib/sha256'
+} from '../../../lib/mediaVariants'
+import { parseUploadedImageMetadata } from '../../../lib/imageValidation'
+import { sha256Hex } from '../../../lib/sha256'
 import {
   deleteStorageSilently,
   storageSizeExceedsLimit,
-} from '../../lib/storage'
+} from '../../../lib/storage'
 import type {
   SeedFinalizedMediaRow,
   SeedStorageCleanupCounts,
@@ -262,7 +262,8 @@ export const finalizeSeedMediaAsset = async (
   const dedupeHash = computeVariantDedupeHash(verified)
   const existing: { mediaAssetId: Id<'mediaAssets'> } | null =
     await ctx.runQuery(
-      internal.marketplace.seedRuns.findSeedMediaByOwnerAndDedupeHash,
+      internal.marketplace.seed.templates.endpoints
+        .findSeedMediaByOwnerAndDedupeHash,
       {
         ownerId: authorId,
         dedupeHash,

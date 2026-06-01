@@ -61,7 +61,7 @@ const setTemplateCriteria = async (
   criteria: MarketplaceTemplateCriterion[] = TEST_CRITERIA
 ) =>
   await t.mutation(
-    internal.marketplace.templates.seed.setTemplateCriteriaImpl,
+    internal.marketplace.seed.templates.maintenance.setTemplateCriteriaImpl,
     { slug, criteria }
   )
 
@@ -1949,7 +1949,10 @@ describe('marketplace template Convex functions', () =>
     })
 
     await expect(
-      t.action(internal.marketplace.templates.seed.wipeSeededDataBatch, {})
+      t.action(
+        internal.marketplace.seed.templates.maintenance.wipeSeededDataBatch,
+        {}
+      )
     ).resolves.toEqual({
       templatesDeleted: 1,
       itemsDeleted: 260,

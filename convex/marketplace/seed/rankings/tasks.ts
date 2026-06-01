@@ -1,4 +1,4 @@
-// convex/marketplace/rankings/seed/tasks.ts
+// convex/marketplace/seed/rankings/tasks.ts
 // seed ranking apply-task serialization & resolution
 
 import { ConvexError, v } from 'convex/values'

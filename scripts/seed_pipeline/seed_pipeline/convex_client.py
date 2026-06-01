@@ -40,80 +40,86 @@ CONVEX_WRITE_RATE_ERROR_MARKERS: tuple[str, ...] = (
 )
 
 SEED_HTTP_ROUTES = {
-	("query", "marketplace/seedRuns:resolveSeedState"): "/api/seed/state",
+	("query", "marketplace/seed/templates/endpoints:resolveSeedState"): "/api/seed/state",
 	(
 		"query",
-		"marketplace/seedRuns:resolveSeedMediaByHashes",
+		"marketplace/seed/templates/endpoints:resolveSeedMediaByHashes",
 	): "/api/seed/media-by-hashes",
-	("query", "marketplace/seedRuns:getSeedRunStatus"): "/api/seed/status",
-	("mutation", "marketplace/seedRuns:beginSeedRun"): "/api/seed/begin",
+	("query", "marketplace/seed/templates/endpoints:getSeedRunStatus"): "/api/seed/status",
+	("mutation", "marketplace/seed/templates/endpoints:beginSeedRun"): "/api/seed/begin",
 	(
 		"mutation",
-		"marketplace/seedRuns:generateSeedUploadUrls",
+		"marketplace/seed/templates/endpoints:generateSeedUploadUrls",
 	): "/api/seed/upload-urls",
 	(
 		"mutation",
-		"marketplace/seedPipeline/storageUploads:registerSeedUploadedStorageIds",
+		"marketplace/seed/lib/storageUploads:registerSeedUploadedStorageIds",
 	): "/api/seed/register-uploads",
-	("mutation", "marketplace/seedRuns:upsertSeedTemplates"): "/api/seed/upsert-templates",
 	(
 		"mutation",
-		"marketplace/seedRuns:syncSeedTemplateItems",
+		"marketplace/seed/templates/endpoints:upsertSeedTemplates",
+	): "/api/seed/upsert-templates",
+	(
+		"mutation",
+		"marketplace/seed/templates/endpoints:syncSeedTemplateItems",
 	): "/api/seed/sync-template-items",
-	("mutation", "marketplace/seedRuns:upsertSeedCriteria"): "/api/seed/upsert-criteria",
 	(
 		"mutation",
-		"marketplace/seedRuns:verifySeedReleaseChunk",
+		"marketplace/seed/templates/endpoints:upsertSeedCriteria",
+	): "/api/seed/upsert-criteria",
+	(
+		"mutation",
+		"marketplace/seed/templates/endpoints:verifySeedReleaseChunk",
 	): "/api/seed/verify-chunk",
 	(
 		"mutation",
-		"marketplace/seedRuns:completeSeedReleaseVerification",
+		"marketplace/seed/templates/endpoints:completeSeedReleaseVerification",
 	): "/api/seed/complete-verification",
-	("mutation", "marketplace/seedRuns:activateSeedRelease"): "/api/seed/activate",
-	("mutation", "marketplace/seedRuns:rollbackSeedRelease"): "/api/seed/rollback",
+	("mutation", "marketplace/seed/templates/endpoints:activateSeedRelease"): "/api/seed/activate",
+	("mutation", "marketplace/seed/templates/endpoints:rollbackSeedRelease"): "/api/seed/rollback",
 	(
 		"query",
-		"marketplace/rankings/seed/actions:preflightSeedRankings",
+		"marketplace/seed/rankings/actions:preflightSeedRankings",
 	): "/api/seed/rankings/preflight",
 	(
 		"query",
-		"marketplace/rankings/seed/actions:verifySeedRankings",
+		"marketplace/seed/rankings/actions:verifySeedRankings",
 	): "/api/seed/rankings/verify",
 	(
 		"mutation",
-		"marketplace/rankings/seed/lifecycle:activateSeedRankings",
+		"marketplace/seed/rankings/lifecycle:activateSeedRankings",
 	): "/api/seed/rankings/activate",
 	(
 		"mutation",
-		"marketplace/rankings/seed/lifecycle:queueActiveSeedRankingAggregates",
+		"marketplace/seed/rankings/lifecycle:queueActiveSeedRankingAggregates",
 	): "/api/seed/rankings/queue-aggregates",
 	(
 		"mutation",
-		"marketplace/rankings/seed/lifecycle:rollbackSeedRankings",
+		"marketplace/seed/rankings/lifecycle:rollbackSeedRankings",
 	): "/api/seed/rankings/rollback",
 	(
 		"action",
-		"marketplace/rankings/seed/actions:ensureSeedRankingAuthors",
+		"marketplace/seed/rankings/actions:ensureSeedRankingAuthors",
 	): "/api/seed/rankings/ensure-authors",
 	(
 		"action",
-		"marketplace/seedRuns:ensureSeedAuthor",
+		"marketplace/seed/templates/endpoints:ensureSeedAuthor",
 	): "/api/seed/ensure-author",
 	(
 		"action",
-		"marketplace/seedRuns:finalizeSeedUploadedMedia",
+		"marketplace/seed/templates/endpoints:finalizeSeedUploadedMedia",
 	): "/api/seed/finalize-media",
 	(
 		"action",
-		"marketplace/rankings/seed/actions:applySeedRankingChunk",
+		"marketplace/seed/rankings/actions:applySeedRankingChunk",
 	): "/api/seed/rankings/apply",
 	(
 		"action",
-		"marketplace/rankings/seed/actions:cleanupStaleSeedRankings",
+		"marketplace/seed/rankings/actions:cleanupStaleSeedRankings",
 	): "/api/seed/rankings/cleanup-stale",
 	(
 		"action",
-		"marketplace/seedPipeline/storageUploads:cleanupAbandonedSeedRun",
+		"marketplace/seed/lib/storageUploads:cleanupAbandonedSeedRun",
 	): "/api/seed/cleanup",
 	("action", "dev/reset:wipeDeployment"): "/api/dev/reset",
 }
@@ -302,11 +308,7 @@ def read_seed_settings(
 
 
 def resolve_seed_secret(env: Mapping[str, str], explicit: str | None = None) -> str | None:
-	return (
-		explicit
-		or os.environ.get(CONVEX_SEED_SECRET_ENV)
-		or env.get(CONVEX_SEED_SECRET_ENV)
-	)
+	return explicit or os.environ.get(CONVEX_SEED_SECRET_ENV) or env.get(CONVEX_SEED_SECRET_ENV)
 
 
 def resolve_seed_author_password(env: Mapping[str, str]) -> str | None:

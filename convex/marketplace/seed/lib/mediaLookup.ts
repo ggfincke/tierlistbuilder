@@ -1,9 +1,9 @@
-// convex/marketplace/seedPipeline/mediaLookup.ts
+// convex/marketplace/seed/lib/mediaLookup.ts
 // shared owner-scoped content-hash lookup for seed media variants
 
-import type { Doc, Id } from '../../_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { SEED_LIMITS } from '../../lib/limits'
+import type { Doc, Id } from '../../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../../_generated/server'
+import { SEED_LIMITS } from '../../../lib/limits'
 
 type SeedMediaLookupCtx = QueryCtx | MutationCtx
 

@@ -44,20 +44,22 @@ from .template_payloads import (
 )
 
 
-SEED_ENSURE_AUTHOR_FUNCTION = "marketplace/seedRuns:ensureSeedAuthor"
-SEED_UPLOAD_URLS_FUNCTION = "marketplace/seedRuns:generateSeedUploadUrls"
+SEED_ENSURE_AUTHOR_FUNCTION = "marketplace/seed/templates/endpoints:ensureSeedAuthor"
+SEED_UPLOAD_URLS_FUNCTION = "marketplace/seed/templates/endpoints:generateSeedUploadUrls"
 SEED_REGISTER_UPLOADS_FUNCTION = (
-	"marketplace/seedPipeline/storageUploads:registerSeedUploadedStorageIds"
+	"marketplace/seed/lib/storageUploads:registerSeedUploadedStorageIds"
 )
-SEED_FINALIZE_MEDIA_FUNCTION = "marketplace/seedRuns:finalizeSeedUploadedMedia"
-SEED_CLEANUP_FUNCTION = "marketplace/seedPipeline/storageUploads:cleanupAbandonedSeedRun"
-SEED_UPSERT_TEMPLATES_FUNCTION = "marketplace/seedRuns:upsertSeedTemplates"
-SEED_SYNC_TEMPLATE_ITEMS_FUNCTION = "marketplace/seedRuns:syncSeedTemplateItems"
-SEED_UPSERT_CRITERIA_FUNCTION = "marketplace/seedRuns:upsertSeedCriteria"
-SEED_VERIFY_CHUNK_FUNCTION = "marketplace/seedRuns:verifySeedReleaseChunk"
-SEED_COMPLETE_VERIFICATION_FUNCTION = "marketplace/seedRuns:completeSeedReleaseVerification"
-SEED_ACTIVATE_FUNCTION = "marketplace/seedRuns:activateSeedRelease"
-SEED_ROLLBACK_FUNCTION = "marketplace/seedRuns:rollbackSeedRelease"
+SEED_FINALIZE_MEDIA_FUNCTION = "marketplace/seed/templates/endpoints:finalizeSeedUploadedMedia"
+SEED_CLEANUP_FUNCTION = "marketplace/seed/lib/storageUploads:cleanupAbandonedSeedRun"
+SEED_UPSERT_TEMPLATES_FUNCTION = "marketplace/seed/templates/endpoints:upsertSeedTemplates"
+SEED_SYNC_TEMPLATE_ITEMS_FUNCTION = "marketplace/seed/templates/endpoints:syncSeedTemplateItems"
+SEED_UPSERT_CRITERIA_FUNCTION = "marketplace/seed/templates/endpoints:upsertSeedCriteria"
+SEED_VERIFY_CHUNK_FUNCTION = "marketplace/seed/templates/endpoints:verifySeedReleaseChunk"
+SEED_COMPLETE_VERIFICATION_FUNCTION = (
+	"marketplace/seed/templates/endpoints:completeSeedReleaseVerification"
+)
+SEED_ACTIVATE_FUNCTION = "marketplace/seed/templates/endpoints:activateSeedRelease"
+SEED_ROLLBACK_FUNCTION = "marketplace/seed/templates/endpoints:rollbackSeedRelease"
 
 TEMPLATE_BATCH_SIZE = 128
 ITEM_BATCH_SIZE = 4096
@@ -70,6 +72,7 @@ VERIFY_ITEM_READ_BATCH_SIZE = 1500
 # from a single Convex storage URL; small pool keeps RTT-bound uploads parallel
 # without overwhelming the deployment
 UPLOAD_WORKERS = 8
+
 
 def upload_seed_manifest(
 	manifest_path: Path,
@@ -352,9 +355,7 @@ def build_criterion_upserts(compiled: JsonObject) -> list[JsonObject]:
 					"status": criterion["status"],
 				}
 			)
-		content_hash = criteria_content_hash(
-			str(template["externalId"]), template_criteria
-		)
+		content_hash = criteria_content_hash(str(template["externalId"]), template_criteria)
 		upserts.extend(
 			{
 				**criterion,

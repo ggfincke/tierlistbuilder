@@ -1,7 +1,7 @@
-// convex/marketplace/seedPipeline/types.ts
+// convex/marketplace/seed/lib/types.ts
 // shared TS types for seed-pipeline modules
 
-import type { Doc, Id } from '../../_generated/dataModel'
+import type { Doc, Id } from '../../../_generated/dataModel'
 import type {
   SeedCleanupOutput,
   SeedCriterionUpsert,

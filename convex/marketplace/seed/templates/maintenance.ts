@@ -1,4 +1,4 @@
-// convex/marketplace/templates/seed.ts
+// convex/marketplace/seed/templates/maintenance.ts
 // seed-gated template maintenance helpers for tests & local repair
 
 import { ConvexError, v, type Infer } from 'convex/values'
@@ -7,20 +7,20 @@ import {
   internalMutation,
   internalQuery,
   type MutationCtx,
-} from '../../_generated/server'
-import { internal } from '../../_generated/api'
-import type { Doc } from '../../_generated/dataModel'
+} from '../../../_generated/server'
+import { internal } from '../../../_generated/api'
+import type { Doc } from '../../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
-import { BATCH_LIMITS } from '../../lib/limits'
-import { findTemplateBySlug } from '../../lib/marketplaceLookups'
-import { templateCriteriaValidator } from '../../lib/validators/marketplace'
+import { BATCH_LIMITS } from '../../../lib/limits'
+import { findTemplateBySlug } from '../../../lib/marketplaceLookups'
+import { templateCriteriaValidator } from '../../../lib/validators/marketplace'
 import {
   findTemplateCardByTemplateId,
   findTemplateStatsByTemplateId,
   requireTemplateStats,
-} from './lib/projections'
-import { MARKETPLACE_STATS_KEY } from './lib/trending'
+} from '../../templates/lib/projections'
+import { MARKETPLACE_STATS_KEY } from '../../templates/lib/trending'
 import {
   markTemplateUnpublished,
   patchTemplateAndSyncCard,
@@ -28,7 +28,7 @@ import {
   syncTemplateTagRows,
   upsertMarketplaceStats,
   writeTemplateCard,
-} from './lib/writes'
+} from '../../templates/lib/writes'
 
 const FEATURED_TEMPLATE_SCAN_CAP = BATCH_LIMITS.featuredTemplateScan
 
@@ -132,7 +132,7 @@ export const patchSeedUserProfileImpl = internalMutation({
   },
 })
 
-// dev-only — set the featuredRank on a single template by slug. rank=null
+// dev-only: set the featuredRank on a single template by slug. rank=null
 // removes it from the featured rail. used by scripts to curate the homepage
 // hero/trending/curated trio w/o a re-seed
 export const setTemplateFeaturedRank = internalMutation({
@@ -252,9 +252,8 @@ export const setFeaturedTrioByExternalIdsImpl = internalMutation({
         message: `cannot promote more than ${FEATURED_TEMPLATE_SCAN_CAP} templates at once`,
       })
     }
-    // resolve & validate every requested template up-front so a missing one
-    // aborts the call before any patches land. seed externalIds are scoped
-    // by (datasetKey, releaseId) — composite index keeps this an O(N) walk
+    // Resolve every requested template before any patches land.
+    // Composite release index keeps this an O(N) walk.
     const resolved: { externalId: string; template: Doc<'templates'> }[] = []
     for (const externalId of args.externalIds)
     {
@@ -315,9 +314,8 @@ export const setFeaturedTrioByExternalIdsImpl = internalMutation({
   },
 })
 
-// dev-only — rebuild marketplaceStats counters from current card rows.
-// run after introducing the per-category breakdown so the existing dataset
-// reflects in the gallery chips & the "By category" rail without a re-seed
+// dev-only: rebuild marketplaceStats counters from current card rows.
+// Use after per-category breakdown changes to avoid a re-seed.
 export const recomputeMarketplaceStatsImpl = internalMutation({
   args: {},
   returns: v.object({
@@ -419,7 +417,8 @@ export const recomputeTemplateTags = internalAction({
         tagsInserted: number
         tagsDeleted: number
       } = await ctx.runMutation(
-        internal.marketplace.templates.seed.recomputeTemplateTagsImpl,
+        internal.marketplace.seed.templates.maintenance
+          .recomputeTemplateTagsImpl,
         { cursor }
       )
       templatesScanned += result.templatesScanned
@@ -432,9 +431,8 @@ export const recomputeTemplateTags = internalAction({
   },
 })
 
-// dev-only — rebuild templateCards rows for every template; delete stale
-// rows whose template was removed. paginated through two phases so a large
-// dev dataset doesn't trip the 4096-read mutation cap.
+// dev-only: rebuild templateCards rows for every template.
+// Two phases avoid the mutation read cap.
 const recomputePhaseValidator = v.union(
   v.literal('cleanStaleCards'),
   v.literal('syncCards')
@@ -519,7 +517,8 @@ export const recomputeTemplateCards = internalAction({
           cardsDeleted: number
           templatesScanned: number
         } = await ctx.runMutation(
-          internal.marketplace.templates.seed.recomputeTemplateCardsBatchImpl,
+          internal.marketplace.seed.templates.maintenance
+            .recomputeTemplateCardsBatchImpl,
           { cursor, phase }
         )
         cardsDeleted += result.cardsDeleted
@@ -542,9 +541,8 @@ export const startTemplateCardRankingCountBackfill = internalAction({
     ),
 })
 
-// dev-only — paginated batch wipe of seeded marketplace data. keep batches
-// below the 4096-read txn cap; action loops phases & skips identity/auth
-// tables
+// dev-only: wipe seeded marketplace data in bounded batches.
+// Action loops phases & skips identity/auth tables.
 const WIPE_CHILD_ROW_BATCH = BATCH_LIMITS.cascadeDelete
 
 const wipePhaseValidator = v.union(
@@ -741,7 +739,8 @@ export const wipeSeededDataBatch = internalAction({
       while (true)
       {
         const result = await ctx.runMutation(
-          internal.marketplace.templates.seed.wipeSeededDataBatchImpl,
+          internal.marketplace.seed.templates.maintenance
+            .wipeSeededDataBatchImpl,
           { phase }
         )
         for (const key of NUMERIC_WIPE_KEYS)

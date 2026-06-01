@@ -1,11 +1,11 @@
-// convex/marketplace/seedPipeline/diagnostics.ts
+// convex/marketplace/seed/lib/diagnostics.ts
 // release-verify diagnostics: per-template parallel reads check cover/items/
 // item-media presence & flag mismatches against expected totals
 
-import type { MutationCtx } from '../../_generated/server'
-import type { Doc } from '../../_generated/dataModel'
+import type { MutationCtx } from '../../../_generated/server'
+import type { Doc } from '../../../_generated/dataModel'
 import type { SeedTemplateReleaseStatus } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
-import { SEED_LIMITS } from '../../lib/limits'
+import { SEED_LIMITS } from '../../../lib/limits'
 import type { SeedDiagnosticRow } from './types'
 import { loadSeedTemplateLookupForRelease } from './templates'
 

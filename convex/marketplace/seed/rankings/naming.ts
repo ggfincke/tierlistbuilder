@@ -1,8 +1,8 @@
-// convex/marketplace/rankings/seed/naming.ts
+// convex/marketplace/seed/rankings/naming.ts
 // typed external-id format for seed-owned ranking & companion-board rows.
 
-// on-disk shape: `<kind-prefix>:<tpl>:<crit>:<seed-kind>:<stable-key>` —
-// callers route through these helpers so the format isn't redrawn as a raw string.
+// On-disk shape is `<kind-prefix>:<tpl>:<crit>:<seed-kind>:<stable-key>`.
+// Callers route through these helpers instead of redrawing the raw string.
 
 import { ConvexError } from 'convex/values'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'

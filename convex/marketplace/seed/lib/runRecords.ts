@@ -1,17 +1,17 @@
-// convex/marketplace/seedPipeline/runs.ts
+// convex/marketplace/seed/lib/runRecords.ts
 // run-record helpers: load/summarize/transition seedRuns rows; small input
 // assertions reused across public surfaces
 
 import { ConvexError } from 'convex/values'
-import type { Doc, Id } from '../../_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { Doc, Id } from '../../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { SeedRunSummary } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import {
   assertNonemptyString,
   assertNonnegativeInteger,
-} from '../../lib/assertions'
-import { SEED_LIMITS } from '../../lib/limits'
+} from '../../../lib/assertions'
+import { SEED_LIMITS } from '../../../lib/limits'
 import type { SeedDiagnosticRow } from './types'
 
 export const assertBatchSize = (name: string, count: number): void =>

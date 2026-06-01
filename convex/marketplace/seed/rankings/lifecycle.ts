@@ -1,4 +1,4 @@
-// convex/marketplace/rankings/seed/lifecycle.ts
+// convex/marketplace/seed/rankings/lifecycle.ts
 // release activation & rollback for seed-owned ranking rows
 
 import { ConvexError, v } from 'convex/values'
@@ -8,8 +8,8 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { SeedRankingReleaseStatus } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import { assertNonemptyString } from '../../../lib/assertions'
 import { BATCH_LIMITS } from '../../../lib/limits'
-import { assertSeedReleaseArgs } from '../../seedPipeline/runs'
-import { queueTemplateRankingAggregateRecomputesForRankings } from '../aggregate/lib'
+import { assertSeedReleaseArgs } from '../lib/runRecords'
+import { queueTemplateRankingAggregateRecomputesForRankings } from '../../rankings/aggregate/lib'
 import {
   seedRankingActivationResultValidator,
   type SeedRankingActivationResult,
@@ -35,9 +35,8 @@ const loadSeedRankingsForReleaseStatus = async (
   return rows
 }
 
-// discover ranking rows currently marked active in any release other than
-// the target. independent of seedRuns state — template activation flips
-// seedRuns to rolled_back BEFORE ranking activation runs
+// Discover active ranking rows in any release except target.
+// Template activation flips seedRuns before ranking activation runs.
 const loadActiveSeedRankingsExcept = async (
   ctx: MutationCtx,
   datasetKey: string,
@@ -243,9 +242,8 @@ export const activateSeedRankings = internalMutation({
   },
 })
 
-// rollback is "make the target release the sole active one" — same contract
-// as activate, but the caller has signaled intent that the current active is
-// being intentionally replaced rather than promoted
+// Rollback makes target release the sole active one.
+// Caller intends replacement rather than promotion.
 export const rollbackSeedRankings = internalMutation({
   args: {
     datasetKey: v.string(),
