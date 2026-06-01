@@ -1,4 +1,4 @@
-// src/shared/board-ui/mosaicGridDims.ts
+// src/shared/board-ui/mosaic/mosaicGridDims.ts
 // grid sizing helpers for mosaic covers (marketplace cards & library boards)
 
 const DIM_CAP = 16

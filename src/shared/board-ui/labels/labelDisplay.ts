@@ -1,4 +1,4 @@
-// src/shared/board-ui/labelDisplay.ts
+// src/shared/board-ui/labels/labelDisplay.ts
 // resolves per-tile label rendering settings against board & global defaults
 
 import type {
@@ -41,7 +41,7 @@ const resolveFontSizePx = (
   globalFont: number
 ): number =>
 {
-  // explicit pixel size wins, layered like everything else (item > board > global)
+  // explicit px size wins by layer: item > board > global
   const itemPx = clampFontSizePx(itemFont)
   if (itemPx !== undefined) return itemPx
   const boardPx = clampFontSizePx(boardFont)
@@ -64,8 +64,7 @@ const resolvePlacement = (
 ): LabelPlacement =>
   itemPlacement ?? boardPlacement ?? placementFromMode(globalMode)
 
-// returns null when the label should not render — either text is empty or
-// every override layer resolves to invisible
+// null means no label: empty text or invisible resolved layer
 export const resolveLabelDisplay = (
   input: ResolveInput
 ): ResolvedLabelDisplay | null =>
@@ -114,8 +113,7 @@ export const resolveItemLabel = (
     globalLabelDefaults,
   })
 
-// resolved settings ignoring the item text — used by Edit Images preview &
-// the per-tile defaults reflected in modal controls
+// resolve settings w/o item text for previews & modal defaults
 export const resolveLabelLayout = (
   input: Omit<ResolveInput, 'itemLabel'>
 ): { visible: boolean } & Omit<ResolvedLabelDisplay, 'text'> => ({

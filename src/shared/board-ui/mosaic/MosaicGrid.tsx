@@ -1,6 +1,5 @@
-// src/shared/board-ui/MosaicGrid.tsx
-// generic tile-grid — fixed cellAspect cells laid from the top-left that fill
-// the container, clipping only the right/bottom overflow; big lists downsample
+// src/shared/board-ui/mosaic/MosaicGrid.tsx
+// generic tile-grid w/ fixed-aspect cells & clipped overflow
 
 import {
   useLayoutEffect,
@@ -21,7 +20,7 @@ interface MosaicGridProps<T>
   maxSlots: number
   // item slot aspect (w/h); steers cols/rows so cells render near it
   cellAspect: number
-  // must return a keyed element — it becomes a direct grid cell
+  // returned keyed element becomes a direct grid cell
   renderTile: (item: T, index: number) => ReactNode
   // extra classes on the matte-backed frame (defaults to a full-bleed cover)
   className?: string
@@ -57,8 +56,7 @@ const useElementAspect = (
   return aspect
 }
 
-// pick `count` items at evenly-spaced indices, preserving original order — a
-// representative cross-section of the list without shuffling
+// sample evenly-spaced items while preserving order
 const sampleItems = <T,>(items: readonly T[], count: number): readonly T[] =>
 {
   if (items.length <= count) return items

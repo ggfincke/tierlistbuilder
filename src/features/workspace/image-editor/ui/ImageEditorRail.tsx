@@ -17,7 +17,7 @@ import {
   itemHasAspectMismatch,
 } from '~/shared/board-ui/aspectRatio'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { resolveLabelLayout } from '~/shared/board-ui/labelDisplay'
+import { resolveLabelLayout } from '~/shared/board-ui/labels/labelDisplay'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import {
   boundedAspectSize,

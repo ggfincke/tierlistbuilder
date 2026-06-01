@@ -1,4 +1,4 @@
-// src/shared/board-ui/labelBandVariant.ts
+// src/shared/board-ui/labels/labelBandVariant.ts
 // resolves caption-band geometry for label-aware auto-crop.
 
 import type {
@@ -8,7 +8,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 
-import { resolveItemLabel } from '~/shared/board-ui/labelDisplay'
+import { resolveItemLabel } from '~/shared/board-ui/labels/labelDisplay'
 
 // font family can change caption line-height; keep it in the variant key
 export interface LabelBandVariant

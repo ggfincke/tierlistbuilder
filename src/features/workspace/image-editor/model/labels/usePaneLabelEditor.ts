@@ -17,7 +17,7 @@ import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import {
   resolveLabelLayout,
   type ResolvedLabelDisplay,
-} from '~/shared/board-ui/labelDisplay'
+} from '~/shared/board-ui/labels/labelDisplay'
 import { CANVAS_BOUND } from '~/features/workspace/image-editor/lib/imageEditorGeometry'
 import { LABEL_FONT_LABELS } from '~/features/workspace/image-editor/lib/labelEditorOptions'
 

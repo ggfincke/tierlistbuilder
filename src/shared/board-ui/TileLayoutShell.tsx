@@ -3,8 +3,8 @@
 
 import { type ReactNode, type Ref } from 'react'
 
-import { CaptionStrip } from '~/shared/board-ui/labelBlocks'
-import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { CaptionStrip } from '~/shared/board-ui/labels/labelBlocks'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
 
 interface TileLayoutShellProps
 {

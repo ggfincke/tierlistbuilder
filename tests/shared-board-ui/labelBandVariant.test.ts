@@ -11,7 +11,7 @@ import {
 import {
   getItemLabelBandVariant,
   labelBandVariantKey,
-} from '~/shared/board-ui/labelBandVariant'
+} from '~/shared/board-ui/labels/labelBandVariant'
 
 const globalLabelDefaults: GlobalLabelDefaults = {
   showLabels: true,

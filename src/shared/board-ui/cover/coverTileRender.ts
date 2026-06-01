@@ -1,13 +1,12 @@
-// src/shared/board-ui/coverTileRender.ts
-// resolve a cover tile's plate/fit/padding the way the board renders the item —
-// shared by the marketplace & library mosaics so both surfaces frame alike
+// src/shared/board-ui/cover/coverTileRender.ts
+// resolve cover tile plate/fit/padding for marketplace & library mosaics
 
 import type {
   BoardAutoPlateSettings,
   ImageFit,
   MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { getEffectiveImageFit, getEffectiveImagePadding } from './aspectRatio'
+import { getEffectiveImageFit, getEffectiveImagePadding } from '../aspectRatio'
 import { resolveItemBackdrop } from './mediaPlate'
 
 interface CoverTileRenderItem
@@ -38,8 +37,7 @@ export const resolveCoverTileRender = (
 ): CoverTileRender =>
 {
   const backgroundColor = resolveItemBackdrop(item, ctx.autoPlate)
-  // a plate means the image floats on it (logos) — contain so it's shown whole,
-  // never cropped, regardless of the cell aspect
+  // plate-backed images use contain so logos render whole
   const fit: ImageFit =
     backgroundColor != null
       ? 'contain'

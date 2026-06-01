@@ -8,10 +8,10 @@ import type {
   LabelPlacement,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { PlateInsetFrame } from '~/shared/board-ui/PlateInsetFrame'
-import { CaptionStrip as SharedCaptionStrip } from '~/shared/board-ui/labelBlocks'
+import { PlateInsetFrame } from '~/shared/board-ui/cover/PlateInsetFrame'
+import { CaptionStrip as SharedCaptionStrip } from '~/shared/board-ui/labels/labelBlocks'
 import { SnapGuide } from '~/shared/board-ui/SnapGuide'
 import { DraggableLabelOverlay } from '~/features/workspace/image-editor/ui/DraggableLabelOverlay'
 

@@ -1,4 +1,4 @@
-// src/shared/board-ui/labelOverrides.ts
+// src/shared/board-ui/labels/labelOverrides.ts
 // shared helpers for tracking & clearing per-item label overrides
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'

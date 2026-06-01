@@ -10,7 +10,7 @@ import { ASPECT_RATIO_PRESETS } from '@tierlistbuilder/contracts/workspace/aspec
 
 import { formatAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { ITEM_LONG_EDGE_PX } from '~/shared/board-ui/constants'
-import { resolveEffectiveShowLabels } from '~/shared/board-ui/labelSettings'
+import { resolveEffectiveShowLabels } from '~/shared/board-ui/labels/labelSettings'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { DialogActions } from '~/shared/overlay/DialogActions'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'

@@ -4,8 +4,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 
 import { placementFromMode } from '@tierlistbuilder/contracts/workspace/board'
-import type { LabelBandVariant } from '~/shared/board-ui/labelBandVariant'
-import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import type { LabelBandVariant } from '~/shared/board-ui/labels/labelBandVariant'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
 import { TileLayoutShell } from '~/shared/board-ui/TileLayoutShell'
 import { useMeasuredElementSize } from '~/features/workspace/image-editor/lib/useMeasuredElementSize'
 

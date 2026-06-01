@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
-import { withBoardShowLabels } from '~/shared/board-ui/labelSettings'
+import { withBoardShowLabels } from '~/shared/board-ui/labels/labelSettings'
 
 interface UseAutoCropAfterLabelsChangeInput
 {

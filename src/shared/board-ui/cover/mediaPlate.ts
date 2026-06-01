@@ -1,4 +1,4 @@
-// src/shared/board-ui/mediaPlate.ts
+// src/shared/board-ui/cover/mediaPlate.ts
 // resolve the backdrop behind an item image: a per-item background wins, else
 // the board's auto-plate layer fills in (colors resolve to live theme tokens)
 

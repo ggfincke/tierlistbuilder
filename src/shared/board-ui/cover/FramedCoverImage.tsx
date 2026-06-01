@@ -1,4 +1,4 @@
-// src/shared/board-ui/FramedCoverImage.tsx
+// src/shared/board-ui/cover/FramedCoverImage.tsx
 // renders a cover image inside a surface container, applying a per-surface
 // frame so the chosen rect object-covers the container
 
@@ -9,9 +9,9 @@ import type { CoverFrame } from '@tierlistbuilder/contracts/lib/coverMedia'
 import type {
   MediaDecoding,
   MediaLoading,
-} from '~/shared/board-ui/mediaImageAttrs'
-import { coverFramePlacementStyle } from '~/shared/board-ui/coverFramingStyles'
-import { computeFramedPlacement } from '~/shared/board-ui/coverFramingPlacement'
+} from '~/shared/board-ui/cover/mediaImageAttrs'
+import { coverFramePlacementStyle } from '~/shared/board-ui/cover/coverFramingStyles'
+import { computeFramedPlacement } from '~/shared/board-ui/cover/coverFramingPlacement'
 
 interface FramedCoverImageProps
 {

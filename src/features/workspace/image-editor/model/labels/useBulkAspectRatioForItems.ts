@@ -12,7 +12,7 @@ import type {
 import {
   getItemLabelBandVariant,
   type LabelBandVariant,
-} from '~/shared/board-ui/labelBandVariant'
+} from '~/shared/board-ui/labels/labelBandVariant'
 import { useLabelAwareEffectiveAspect } from '~/features/workspace/image-editor/model/labels/useLabelAwareEffectiveAspect'
 
 interface UseBulkAspectRatioForItemsInput

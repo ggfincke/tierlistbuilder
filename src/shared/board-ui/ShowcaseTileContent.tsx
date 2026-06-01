@@ -11,7 +11,7 @@ import type {
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { getTextColor } from '~/shared/lib/color'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
-import { resolveItemBackdrop } from '~/shared/board-ui/mediaPlate'
+import { resolveItemBackdrop } from '~/shared/board-ui/cover/mediaPlate'
 
 interface ShowcaseTileContentProps
 {

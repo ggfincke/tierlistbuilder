@@ -11,11 +11,11 @@ import type {
   TemplateCoverItem,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { FramedCoverImage } from '~/shared/board-ui/FramedCoverImage'
+import { FramedCoverImage } from '~/shared/board-ui/cover/FramedCoverImage'
 import type {
   MediaDecoding,
   MediaLoading,
-} from '~/shared/board-ui/mediaImageAttrs'
+} from '~/shared/board-ui/cover/mediaImageAttrs'
 import { InitialsGrid } from '../discovery/InitialsGrid'
 import { MediaMatteFrame } from '../cover/MediaMatteFrame'
 import { Mosaic, type MosaicDensity } from '../discovery/Mosaic'

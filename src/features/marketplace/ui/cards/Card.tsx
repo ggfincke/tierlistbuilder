@@ -25,7 +25,7 @@ import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMet
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { CHUNKY_SHADOW_ACCENT_STATIC } from '~/shared/ui/chunkyShadow'
 import { Avatar } from '~/shared/ui/Avatar'
-import type { MediaLoading } from '~/shared/board-ui/mediaImageAttrs'
+import type { MediaLoading } from '~/shared/board-ui/cover/mediaImageAttrs'
 import {
   InlineCardStat,
   OverlayChip,

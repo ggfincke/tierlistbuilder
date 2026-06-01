@@ -10,8 +10,8 @@ import {
 } from 'react'
 
 import type { LabelOverlayPlacement } from '@tierlistbuilder/contracts/workspace/board'
-import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
-import { OverlayLabelBlock as SharedOverlayLabelBlock } from '~/shared/board-ui/labelBlocks'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
+import { OverlayLabelBlock as SharedOverlayLabelBlock } from '~/shared/board-ui/labels/labelBlocks'
 import { clamp } from '~/shared/lib/math'
 import {
   applyAxisSnap,

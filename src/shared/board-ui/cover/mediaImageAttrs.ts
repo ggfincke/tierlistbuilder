@@ -1,4 +1,4 @@
-// src/shared/board-ui/mediaImageAttrs.ts
+// src/shared/board-ui/cover/mediaImageAttrs.ts
 // image loading attributes shared by cover & board media renderers
 
 export type MediaLoading = 'eager' | 'lazy'

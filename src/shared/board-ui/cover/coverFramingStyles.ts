@@ -1,9 +1,9 @@
-// src/shared/board-ui/coverFramingStyles.ts
+// src/shared/board-ui/cover/coverFramingStyles.ts
 // cover framing CSS helpers shared by cover preview surfaces
 
 import type { CSSProperties } from 'react'
 
-import type { CoverFramePlacement } from '~/shared/board-ui/coverFramingPlacement'
+import type { CoverFramePlacement } from '~/shared/board-ui/cover/coverFramingPlacement'
 
 export const coverFramePlacementStyle = (
   placement: CoverFramePlacement

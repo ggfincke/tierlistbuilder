@@ -1,4 +1,4 @@
-// src/shared/board-ui/coverFramingPlacement.ts
+// src/shared/board-ui/cover/coverFramingPlacement.ts
 // shared math for placing a cover image inside a surface container so the
 // stored frame fills the container w/ object-cover semantics
 

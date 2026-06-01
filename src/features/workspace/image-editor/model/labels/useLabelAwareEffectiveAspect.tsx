@@ -8,7 +8,7 @@ import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import {
   labelBandVariantKey,
   type LabelBandVariant,
-} from '~/shared/board-ui/labelBandVariant'
+} from '~/shared/board-ui/labels/labelBandVariant'
 import { LabelAwareAspectMeasurementNodes } from '~/features/workspace/image-editor/model/labels/LabelAwareEffectiveAspectMeasurements'
 
 // covers ascenders/descenders while staying short enough to avoid wrapping

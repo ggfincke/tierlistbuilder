@@ -1,6 +1,5 @@
-// src/shared/board-ui/labelBlocksStyle.ts
-// shared style helpers for label rendering primitives — kept separate from
-// labelBlocks.tsx so fast-refresh stays component-only
+// src/shared/board-ui/labels/labelBlocksStyle.ts
+// shared style helpers kept separate so fast-refresh stays component-only
 
 import type { CSSProperties } from 'react'
 
@@ -8,7 +7,7 @@ import { TEXT_STYLES } from '~/shared/theme/textStyles'
 import type { LabelTextColor } from '@tierlistbuilder/contracts/workspace/board'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
-import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
 
 export const LABEL_SCRIM_CLASS = {
   none: '',
@@ -22,9 +21,7 @@ export const LABEL_SCRIM_TEXT_CLASS = {
   light: 'text-[rgb(20,20,20)]',
 } as const
 
-// overlay text color palette — 'auto' inherits the scrim text color (white
-// on dark/none, black on light). other values force an explicit hex via
-// inline style so the scrim text class color is overridden cleanly
+// 'auto' inherits scrim text color; other values force explicit hex
 const LABEL_TEXT_COLOR_HEX: Record<LabelTextColor, string | undefined> = {
   auto: undefined,
   white: '#ffffff',
@@ -87,8 +84,7 @@ export const captionPaddingStyle = createCachedPaddingStyle(0.35, 0.12)
 
 export const overlayPaddingStyle = createCachedPaddingStyle(0.4, 0.15)
 
-// inline font override — undefined textStyleId inherits from the parent
-// (page-level font) so callers without a per-label override don't reset
+// undefined textStyleId inherits the page font
 export const labelFontStyle = (
   textStyleId: ResolvedLabelDisplay['textStyleId']
 ): CSSProperties | undefined =>

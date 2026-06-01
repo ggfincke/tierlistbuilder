@@ -11,7 +11,7 @@ import type {
 import {
   resolveItemLabel,
   resolveLabelDisplay,
-} from '~/shared/board-ui/labelDisplay'
+} from '~/shared/board-ui/labels/labelDisplay'
 
 const globalLabelDefaults: GlobalLabelDefaults = {
   showLabels: true,

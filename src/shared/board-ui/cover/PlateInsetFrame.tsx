@@ -1,4 +1,4 @@
-// src/shared/board-ui/PlateInsetFrame.tsx
+// src/shared/board-ui/cover/PlateInsetFrame.tsx
 // floats its child off the cell edge by `padding` (fraction per edge) so a
 // surrounding plate/backdrop shows through the margin (no-op at padding <= 0)
 

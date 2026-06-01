@@ -9,15 +9,15 @@ import {
   type ItemTransform,
   type TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { resolveLabelLayout } from '~/shared/board-ui/labelDisplay'
+import { resolveLabelLayout } from '~/shared/board-ui/labels/labelDisplay'
 import {
   collectLabelOptionClearEntries,
   type LabelOptionsClearEntry,
-} from '~/shared/board-ui/labelOverrides'
+} from '~/shared/board-ui/labels/labelOverrides'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import type { PendingImageEditorPaneEdit } from '~/features/workspace/image-editor/model/pendingImageEdit'
 
-export type { LabelOptionsClearEntry } from '~/shared/board-ui/labelOverrides'
+export type { LabelOptionsClearEntry } from '~/shared/board-ui/labels/labelOverrides'
 
 interface ApplyLabelToAllPlan
 {

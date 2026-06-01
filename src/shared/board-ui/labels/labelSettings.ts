@@ -1,4 +1,4 @@
-// src/shared/board-ui/labelSettings.ts
+// src/shared/board-ui/labels/labelSettings.ts
 // shared board-label setting helpers used by editor & settings UI
 
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'

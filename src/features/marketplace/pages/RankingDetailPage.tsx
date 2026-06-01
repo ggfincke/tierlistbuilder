@@ -15,7 +15,7 @@ import type { BoardAutoPlateSettings } from '@tierlistbuilder/contracts/workspac
 import { majorityAspectRatio } from '@tierlistbuilder/contracts/workspace/aspectRatio'
 
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { resolveLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { getTextColor } from '~/shared/lib/color'
 import { useRankingDetailRoute } from '~/features/marketplace/model/detail/useMarketplaceDetailRoute'

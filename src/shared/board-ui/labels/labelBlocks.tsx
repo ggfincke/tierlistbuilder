@@ -1,6 +1,5 @@
-// src/shared/board-ui/labelBlocks.tsx
-// shared label rendering primitives — used by ItemContent (grid/board tiles)
-// & the image editor preview so the visual stays pixel-identical between them
+// src/shared/board-ui/labels/labelBlocks.tsx
+// shared label primitives for board tiles & image editor preview
 
 import type { CSSProperties } from 'react'
 
@@ -11,14 +10,13 @@ import {
   captionPaddingStyle,
   labelFontStyle,
   overlayPaddingStyle,
-} from '~/shared/board-ui/labelBlocksStyle'
-import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
+} from '~/shared/board-ui/labels/labelBlocksStyle'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labels/labelDisplay'
 
 interface OverlayLabelBlockProps
 {
   display: ResolvedLabelDisplay
-  // when true the block accepts pointer events & shows a grab cursor — used
-  // by the image editor's draggable preview. defaults to false (read-only)
+  // enable pointer events & grab cursor for draggable editor previews
   interactive?: boolean
   // optional outer wrapper styles & event handlers for the draggable preview
   extraStyle?: CSSProperties
@@ -31,9 +29,7 @@ interface OverlayLabelBlockProps
   tabIndex?: number
 }
 
-// content-sized absolutely-positioned block centered on the placement anchor.
-// width: max-content sizes to natural caption width — without it, overflow-wrap:
-// anywhere collapses the box to one character (min-content). maxWidth caps growth
+// max-content preserves natural caption width; maxWidth caps growth
 export const OverlayLabelBlock = ({
   display,
   interactive = false,

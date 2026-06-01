@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { isEmptyItemLabelOptions } from '@tierlistbuilder/contracts/workspace/board'
-import { resolveEffectiveShowLabels } from '~/shared/board-ui/labelSettings'
+import { resolveEffectiveShowLabels } from '~/shared/board-ui/labels/labelSettings'
 import {
   getBoardItemAspectRatio,
   getEffectiveImageFit,

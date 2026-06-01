@@ -25,7 +25,7 @@ import {
 } from '@tierlistbuilder/contracts/lib/coverMedia'
 import { AUTO_PLATE_UNIFORM_DARK_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 
-import { computeFramedPlacement } from '../src/shared/board-ui/coverFramingPlacement'
+import { computeFramedPlacement } from '../src/shared/board-ui/cover/coverFramingPlacement'
 
 interface ParsedArgs
 {

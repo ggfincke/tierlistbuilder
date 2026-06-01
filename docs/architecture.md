@@ -121,7 +121,10 @@ src/
 └── shared/
     ├── a11y/                        # announce() module, LiveRegion component
     ├── board-data/                  # default board, snapshot normalizer, JSON/wire parsers
-    ├── board-ui/                    # BoardPrimitives, ItemContent, shared board rendering, cover framing, constants
+    ├── board-ui/                    # BoardPrimitives, ItemContent, shared board rendering, constants
+    │   ├── cover/                   # cover framing, media plates, image attrs
+    │   ├── labels/                  # label resolution, overrides, band variants, blocks
+    │   └── mosaic/                  # cover mosaic grid components & geometry
     ├── catalog/                     # compact count/date/estimate formatters + URL filter helpers
     ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl
     ├── images/                      # imageBlobStore, imageBlobRefStore, imageUploadIndex, cache/persistence/load

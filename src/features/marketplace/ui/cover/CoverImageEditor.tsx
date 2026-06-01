@@ -27,7 +27,7 @@ import {
   cropAreaToFrame,
   frameToCropArea,
 } from '~/features/marketplace/model/cover/coverFrameArea'
-import { computeFramedPlacement } from '~/shared/board-ui/coverFramingPlacement'
+import { computeFramedPlacement } from '~/shared/board-ui/cover/coverFramingPlacement'
 import { SnapGuide } from '~/shared/board-ui/SnapGuide'
 import { useCoverFramingPicker } from '~/features/marketplace/model/cover/useCoverFramingPicker'
 import { applyAxisSnap } from '~/shared/lib/axisSnap'
@@ -39,7 +39,7 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
-import { coverFramePlacementStyle } from '~/shared/board-ui/coverFramingStyles'
+import { coverFramePlacementStyle } from '~/shared/board-ui/cover/coverFramingStyles'
 
 interface SourceMeta
 {

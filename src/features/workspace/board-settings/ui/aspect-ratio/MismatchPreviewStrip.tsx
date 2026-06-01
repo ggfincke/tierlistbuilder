@@ -14,7 +14,7 @@ import type {
 import { getEffectiveImageFit } from '~/shared/board-ui/aspectRatio'
 import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { resolveItemLabel } from '~/shared/board-ui/labelDisplay'
+import { resolveItemLabel } from '~/shared/board-ui/labels/labelDisplay'
 
 export const MISMATCH_THUMBNAIL_PREVIEW_LIMIT = 4
 

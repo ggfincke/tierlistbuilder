@@ -25,7 +25,7 @@ import {
   getEffectiveImageFit,
   getPaddingFrameScale,
 } from '~/shared/board-ui/aspectRatio'
-import { resolveItemBackdrop } from '~/shared/board-ui/mediaPlate'
+import { resolveItemBackdrop } from '~/shared/board-ui/cover/mediaPlate'
 import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
 import { useImageUrlChain } from '~/shared/hooks/useImageUrl'
 import { getImageRenditionRefs } from '~/shared/lib/imageRefs'
