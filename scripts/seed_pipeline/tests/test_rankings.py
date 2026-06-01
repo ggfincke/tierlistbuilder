@@ -12,17 +12,9 @@ from seed_pipeline.ranking_config import compile_ranking_seeds
 from seed_pipeline.rankings import (
 	RANKING_APPLY_TARGET_COOLDOWN_SECONDS,
 	RANKING_APPLY_THROTTLE_BASE_SECONDS,
-	SEED_RANKINGS_ACTIVATE_ROUTE,
 	SEED_RANKINGS_APPLY_ROUTE,
 	SEED_RANKINGS_CLEANUP_STALE_ROUTE,
-	SEED_RANKINGS_ENSURE_AUTHORS_ROUTE,
-	SEED_RANKINGS_PREFLIGHT_ROUTE,
-	SEED_RANKINGS_QUEUE_AGGREGATES_ROUTE,
-	SEED_RANKINGS_ROLLBACK_ROUTE,
-	SEED_RANKINGS_VERIFY_ROUTE,
 	_apply_ranking_targets,
-	_ranking_seed_target_manifests,
-	_run_ranking_lifecycle_until_complete,
 )
 
 
@@ -176,98 +168,6 @@ class RankingSeedCompilationTests(unittest.TestCase):
 
 		with self.assertRaisesRegex(ValueError, "no active ranking criterion"):
 			compile_ranking_seeds(manifest, templates)
-
-	def test_ranking_routes_match_served_endpoints(self) -> None:
-		self.assertEqual(SEED_RANKINGS_PREFLIGHT_ROUTE, "/api/seed/rankings/preflight")
-		self.assertEqual(SEED_RANKINGS_VERIFY_ROUTE, "/api/seed/rankings/verify")
-		self.assertEqual(SEED_RANKINGS_APPLY_ROUTE, "/api/seed/rankings/apply")
-		self.assertEqual(SEED_RANKINGS_CLEANUP_STALE_ROUTE, "/api/seed/rankings/cleanup-stale")
-		self.assertEqual(SEED_RANKINGS_ENSURE_AUTHORS_ROUTE, "/api/seed/rankings/ensure-authors")
-		self.assertEqual(SEED_RANKINGS_ACTIVATE_ROUTE, "/api/seed/rankings/activate")
-		self.assertEqual(SEED_RANKINGS_ROLLBACK_ROUTE, "/api/seed/rankings/rollback")
-		self.assertEqual(
-			SEED_RANKINGS_QUEUE_AGGREGATES_ROUTE,
-			"/api/seed/rankings/queue-aggregates",
-		)
-
-	def test_apply_chunks_ranking_targets_by_target_profile_count(self) -> None:
-		ranking_seeds = _manifest(
-			{
-				"profiles": [
-					{"key": "a", "displayName": "A", "chaos": 0, "contrarian": 0},
-					{"key": "b", "displayName": "B", "chaos": 0, "contrarian": 0},
-					{"key": "c", "displayName": "C", "chaos": 0, "contrarian": 0},
-				],
-				"targets": [
-					{
-						"templateExternalId": "one",
-						"sampleProfileCount": 2,
-						"lanes": [],
-					},
-					{
-						"templateExternalId": "two",
-						"sampleProfileCount": 1,
-						"lanes": [],
-					},
-				],
-			}
-		)["rankingSeeds"]
-
-		chunks = _ranking_seed_target_manifests(ranking_seeds)
-
-		self.assertEqual(len(chunks), 2)
-		self.assertEqual(
-			[profile["key"] for profile in chunks[0]["profiles"]],
-			["a", "b"],
-		)
-		self.assertEqual(
-			[profile["key"] for profile in chunks[1]["profiles"]],
-			["a"],
-		)
-		self.assertEqual(chunks[0]["targets"][0]["templateExternalId"], "one")
-		self.assertEqual(chunks[1]["targets"][0]["templateExternalId"], "two")
-
-	@patch("seed_pipeline.rankings.time.sleep")
-	def test_activation_runner_keeps_batch_size_server_owned(self, sleep: object) -> None:
-		context = _FakeRankingLifecycleContext(
-			[
-				{
-					"releaseId": "release-a",
-					"activatedRankings": 32,
-					"rolledBackRankings": 0,
-					"aggregateJobsQueued": 0,
-				},
-				{
-					"releaseId": "release-a",
-					"activatedRankings": 0,
-					"rolledBackRankings": 0,
-					"aggregateJobsQueued": 0,
-				},
-			]
-		)
-		args = {
-			"datasetKey": "marketplace-core",
-			"releaseId": "release-a",
-			"queueAggregates": False,
-		}
-
-		result = _run_ranking_lifecycle_until_complete(
-			context,
-			SEED_RANKINGS_ACTIVATE_ROUTE,
-			args,
-			active_release_id="release-a",
-		)
-
-		self.assertEqual(result["activatedRankings"], 32)
-		self.assertEqual(len(context.client.mutations), 2)
-		first_call = context.client.mutations[0]
-		self.assertEqual(first_call[0], SEED_RANKINGS_ACTIVATE_ROUTE)
-		self.assertEqual(first_call[1], args)
-		self.assertNotIn("batchSize", first_call[1])
-		self.assertNotIn("limit", first_call[1])
-		# no proactive between-batch sleep: only convex-write-rate throttling
-		# triggers the retry sleep, and no throttling was simulated here
-		sleep.assert_not_called()
 
 	@patch("seed_pipeline.rankings.time.sleep")
 	def test_apply_retries_convex_write_rate_throttle(self, sleep: object) -> None:

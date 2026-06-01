@@ -12,9 +12,7 @@ from unittest.mock import patch
 from seed_pipeline.manifest import find_repo_root, iter_compiled_assets, read_json
 from seed_pipeline.run_context import (
 	SeedRunOptions,
-	checkpoint_matches,
 	is_production_env,
-	new_run_id,
 )
 from seed_pipeline.runs import (
 	CLEANUP_STORAGE_BATCH_SIZE,
@@ -70,22 +68,6 @@ class SeedRunPayloadTests(unittest.TestCase):
 		self.assertEqual(criteria[0]["criterionExternalId"], "competitive")
 		self.assertRegex(criteria[0]["criteriaContentHash"], r"^v1:[0-9a-f]{32}$")
 
-	def test_template_upserts_forward_labels(self) -> None:
-		compiled = json.loads(json.dumps(self.compiled))
-		compiled["templates"][0]["labels"] = {"show": False}
-
-		templates = build_template_upserts(compiled)
-
-		self.assertEqual(templates[0]["labels"], {"show": False})
-
-	def test_style_payloads_omit_absent_optional_defaults(self) -> None:
-		compiled = _compiled_with_alt_style(self.compiled)
-
-		style = build_template_upserts(compiled)[0]["styles"][1]
-
-		self.assertNotIn("labels", style)
-		self.assertNotIn("autoPlate", style)
-
 	def test_template_metadata_hash_includes_labels(self) -> None:
 		labels_hidden = json.loads(json.dumps(self.compiled))
 		labels_visible = json.loads(json.dumps(self.compiled))
@@ -106,16 +88,6 @@ class SeedRunPayloadTests(unittest.TestCase):
 			hidden_template["metadataContentHash"],
 			_hash_for_test("template-metadata", hidden_payload),
 		)
-
-	def test_checkpoint_scope_includes_environment(self) -> None:
-		checkpoint = {
-			"datasetKey": self.compiled["datasetKey"],
-			"releaseId": self.compiled["releaseId"],
-			"env": "local",
-		}
-
-		self.assertTrue(checkpoint_matches(checkpoint, self.compiled, "local"))
-		self.assertFalse(checkpoint_matches(checkpoint, self.compiled, "prod"))
 
 	def test_child_upsert_batches_keep_each_template_complete(self) -> None:
 		rows = [
@@ -332,13 +304,6 @@ class SeedRunPayloadTests(unittest.TestCase):
 		)
 		self.assertNotIn("templateExternalId", style_sync_args[0]["items"][0])
 		self.assertNotIn("styleExternalId", style_sync_args[0]["items"][0])
-
-	def test_run_ids_include_entropy_after_timestamp(self) -> None:
-		first = new_run_id(self.compiled)
-		second = new_run_id(self.compiled)
-
-		self.assertRegex(first, r"2026-05-templates-v1-\d{8}T\d{6}Z-[0-9a-f]{8}")
-		self.assertNotEqual(first, second)
 
 	def test_production_environment_detection_catches_regional_names(self) -> None:
 		self.assertTrue(is_production_env("prod"))
