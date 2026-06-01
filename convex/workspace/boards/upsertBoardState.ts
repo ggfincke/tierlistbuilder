@@ -27,6 +27,10 @@ import {
   findTemplateBySlug,
 } from '../../lib/marketplaceLookups'
 import { loadTemplateItems } from '../../marketplace/templates/lib/projections'
+import {
+  loadTemplateStyles,
+  resolveEffectiveStyleId,
+} from '../../marketplace/templates/lib/styles'
 import { incrementTemplateForkStatsById } from '../../marketplace/templates/lib/writes'
 import { findActiveTemplateCriterion } from '../../marketplace/templates/criteria'
 import { rankingTopScore } from '../../marketplace/rankings/lib'
@@ -49,6 +53,7 @@ import { memoizePromise } from '../../lib/cache'
 import {
   boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
+  itemImageSourceValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
   mediaPlateValidator,
@@ -129,6 +134,7 @@ const wireItemValidator = v.object({
   imagePadding: v.optional(v.number()),
   labelOptions: v.optional(itemLabelOptionsValidator),
   sourceTemplateItemExternalId: v.optional(v.string()),
+  imageSource: v.optional(itemImageSourceValidator),
 })
 
 // board-level aspect-ratio args — validators match CloudBoardAspectRatioFields
@@ -152,6 +158,9 @@ const boardStyleOverrideValidators = {
   pageBackground: v.optional(v.string()),
   labels: v.optional(boardLabelSettingsValidator),
   autoPlate: v.optional(boardAutoPlateSettingsValidator),
+  // active image style (skin) externalId; absent -> template default. validated
+  // against the source template's styles server-side in resolveBoardImageStyleId
+  imageStyleId: v.optional(v.string()),
 }
 
 // source-fork identity carried by locally-created forks/remixes — only
@@ -183,6 +192,7 @@ interface UpsertArgs
   pageBackground?: string
   labels?: BoardLabelSettings
   autoPlate?: BoardAutoPlateSettings
+  imageStyleId?: string
   sourceTemplateId?: string
   sourceRankingId?: string
   sourceTemplateTitle?: string
@@ -435,6 +445,23 @@ const resolveSourceRankingBySlug = async (
   return await findRankingBySlug(ctx, slug)
 }
 
+// coerce a client-supplied imageStyleId to a style that actually belongs to the
+// board's source template (falls back to the template default / null). only
+// touches the DB when a non-empty id is supplied, so normal syncs stay cheap
+const resolveBoardImageStyleId = async (
+  ctx: MutationCtx,
+  sourceTemplateId: Id<'templates'> | null,
+  requestedStyleId: string | undefined
+): Promise<string | null> =>
+{
+  if (!requestedStyleId) return null
+  if (sourceTemplateId === null) return null
+  const template = await ctx.db.get(sourceTemplateId)
+  if (!template) return null
+  const styles = await loadTemplateStyles(ctx, sourceTemplateId)
+  return resolveEffectiveStyleId(template, styles, requestedStyleId)
+}
+
 const ensureBoard = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
@@ -464,6 +491,11 @@ const ensureBoard = async (
     ])
     const now = Date.now()
     const writeFields = normalizeBoardWriteFields(args)
+    const imageStyleId = await resolveBoardImageStyleId(
+      ctx,
+      sourceTemplate?._id ?? null,
+      args.imageStyleId
+    )
     const boardId = await ctx.db.insert('boards', {
       externalId: args.boardExternalId,
       ownerId: userId,
@@ -473,6 +505,7 @@ const ensureBoard = async (
       deletedAt: null,
       revision: 0,
       ...writeFields,
+      imageStyleId,
       // Prefer resolved server rows; when a row disappeared after a local fork,
       // keep the client title inside the grouped attribution object.
       sourceTemplate: boardSourceTemplateFromMaybeTemplate(
@@ -853,10 +886,16 @@ const applyBoardState = async (
     board.defaultItemImageFit !== writeFields.defaultItemImageFit ||
     (board.defaultItemImagePadding ?? null) !==
       writeFields.defaultItemImagePadding
+  const resolvedImageStyleId = await resolveBoardImageStyleId(
+    ctx,
+    getBoardSourceTemplateId(board),
+    args.imageStyleId
+  )
   const styleOverrideChanged =
     board.paletteId !== writeFields.paletteId ||
     board.textStyleId !== writeFields.textStyleId ||
     board.pageBackground !== writeFields.pageBackground ||
+    (board.imageStyleId ?? null) !== resolvedImageStyleId ||
     !boardLabelSettingsEqual(board.labels, writeFields.labels) ||
     !boardAutoPlateSettingsEqual(board.autoPlate, writeFields.autoPlate)
   const templateProgressState = resolveTemplateProgressState(
@@ -887,6 +926,7 @@ const applyBoardState = async (
     updatedAt: Date.now(),
     revision: newRevision,
     ...writeFields,
+    imageStyleId: resolvedImageStyleId,
     activeItemCount: progressCounts.activeItemCount,
     unrankedItemCount: progressCounts.unrankedItemCount,
     templateProgressState,
