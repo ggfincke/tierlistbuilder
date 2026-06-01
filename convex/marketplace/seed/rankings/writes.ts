@@ -151,7 +151,7 @@ const buildSeedRankingContentHash = (
   tierEntries: readonly SeedRankingTierEntry[]
 ): Promise<string> =>
   seedContentHash('ranking-snapshot', {
-    version: 3,
+    version: 4,
     rankingItemShape: 'template-item-snapshot',
     ranking: {
       seedExternalId: args.seedExternalId,
@@ -170,6 +170,8 @@ const buildSeedRankingContentHash = (
       description: normalized.rankingDescription,
       itemCount: args.rankedItems.length,
       tierCount: args.tiers.length,
+      // seed rankings always render the canonical default skin
+      activeStyleId: null,
       viewCount: normalized.viewCount,
       featuredRank: args.featuredRank,
       featuredBadge: args.featuredBadge,
@@ -372,6 +374,8 @@ export const insertSeedRanking = async (
     supersededByRankingId: null,
     itemCount: args.rankedItems.length,
     tierCount: tierEntries.length,
+    // seed rankings are authored against canonical default-skin template items
+    activeStyleId: null,
     remixCount: 0,
     viewCount,
     topScore: rankingTopScore({ viewCount, remixCount: 0 }),

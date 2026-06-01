@@ -40,6 +40,10 @@ import {
   buildBoardItemInsertFromTemplateItem,
   buildTemplateItemInsert,
 } from './lib/board'
+import {
+  resolveStyleItemAsset,
+  resolveStyleItemAssetForItem,
+} from './lib/styles'
 import { buildTemplateStateFields, isPublishedTemplateRow } from './lib/state'
 import {
   calculateTemplateTrendingScore,
@@ -270,7 +274,7 @@ export const processTemplatePublishJob = internalMutation({
   },
 })
 
-const buildCloneBoardSummary = async (
+export const buildCloneBoardSummary = async (
   ctx: MutationCtx,
   boardId: Id<'boards'>
 ) =>
@@ -351,9 +355,33 @@ export const processTemplateCloneJob = internalMutation({
         cursor: job.nextCursor,
       })
 
+    // resolve each item's image for the board's active style. default style ->
+    // null lookup -> the template item's own image (no extra read)
+    const effectiveStyleId = board.imageStyleId ?? null
+    const resolvedByExternalId = new Map(
+      await Promise.all(
+        page.page.map(async (item) =>
+        {
+          const styleAssetRow = await resolveStyleItemAssetForItem(
+            ctx,
+            template._id,
+            effectiveStyleId,
+            item.externalId,
+            template.defaultStyleId ?? null
+          )
+          return [
+            item.externalId,
+            resolveStyleItemAsset(item, styleAssetRow),
+          ] as const
+        })
+      )
+    )
+
     const hasReadyTiles = await allMediaAssetsHaveReadyTileVariants(
       ctx,
-      page.page.map((item) => item.mediaAssetId)
+      page.page.map(
+        (item) => resolvedByExternalId.get(item.externalId)?.mediaAssetId ?? null
+      )
     )
     if (!hasReadyTiles)
     {
@@ -378,7 +406,12 @@ export const processTemplateCloneJob = internalMutation({
         .map(({ item }) =>
           ctx.db.insert(
             'boardItems',
-            buildBoardItemInsertFromTemplateItem(board._id, item)
+            buildBoardItemInsertFromTemplateItem(
+              board._id,
+              item,
+              undefined,
+              resolvedByExternalId.get(item.externalId)
+            )
           )
         )
     )

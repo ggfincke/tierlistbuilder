@@ -21,6 +21,7 @@ import type {
   MarketplaceTemplateSummary,
   TemplateAuthor,
   TemplateCoverItem,
+  TemplateStyleOption,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
 import {
@@ -41,6 +42,7 @@ import {
 import { buildSearchText, failState } from './normalize'
 import { getTemplateAccessState, isPublishedTemplateRow } from './state'
 import { resolveTemplateCriteria } from '../criteria'
+import { isDefaultStyleId, loadTemplateStyles } from './styles'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -646,6 +648,38 @@ export const toTemplateBase = async (
   }
 }
 
+// selectable image styles for the picker. each previewUrl prefers the style's
+// own cover, falling back to a representative template tile. single-skin
+// templates have no style rows -> empty array, so the UI suppresses the picker
+export const toTemplateStyleOptions = async (
+  ctx: DbCtx,
+  template: Doc<'templates'>,
+  fallbackPreviewUrl: string | null,
+  cache?: TemplateProjectionCache
+): Promise<TemplateStyleOption[]> =>
+{
+  const styles = await loadTemplateStyles(ctx, template._id)
+  if (styles.length === 0) return []
+  const defaultStyleId = template.defaultStyleId ?? null
+  return await Promise.all(
+    styles.map(async (style) =>
+    {
+      const cover = await toTemplateMediaRef(
+        ctx,
+        style.coverMediaAssetId,
+        'tile',
+        cache
+      )
+      return {
+        externalId: style.externalId,
+        label: style.label,
+        previewUrl: cover?.url ?? fallbackPreviewUrl,
+        isDefault: isDefaultStyleId(defaultStyleId, style.externalId),
+      }
+    })
+  )
+}
+
 export const toTemplateDetail = async (
   ctx: DbCtx,
   template: Doc<'templates'>,
@@ -661,6 +695,12 @@ export const toTemplateDetail = async (
       : loadCoverItems(ctx, template, { cache, kind: 'tile' }),
     loadRankingCountByCriterion(ctx, template._id, criteria),
   ])
+  const styleOptions = await toTemplateStyleOptions(
+    ctx,
+    template,
+    base.coverMedia?.url ?? coverItems[0]?.media.url ?? null,
+    cache
+  )
 
   return {
     ...base,
@@ -680,6 +720,7 @@ export const toTemplateDetail = async (
     rankingCountByCriterion,
     suggestedTiers: template.suggestedTiers,
     labels: template.labels ?? null,
+    styleOptions,
   }
 }
 

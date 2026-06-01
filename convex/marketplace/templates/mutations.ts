@@ -63,6 +63,12 @@ import {
   templateTitleToBoardTitle,
 } from './lib/board'
 import {
+  isDefaultStyleId,
+  loadStyleItemAssets,
+  loadTemplateStyles,
+  resolveEffectiveStyleId,
+} from './lib/styles'
+import {
   DEFAULT_TEMPLATE_TIERS,
   normalizeCreditLine,
   normalizeDescription,
@@ -549,6 +555,8 @@ export const useTemplate = mutation({
     title: v.optional(v.string()),
     tierSelection: v.optional(templateTierSelectionValidator),
     preferredCriterionExternalId: v.optional(v.string()),
+    // chosen image style (skin) externalId; absent/unknown -> template default
+    styleId: v.optional(v.union(v.string(), v.null())),
   },
   returns: marketplaceTemplateUseResultValidator,
   handler: async (ctx, args): Promise<MarketplaceTemplateUseResult> =>
@@ -588,6 +596,12 @@ export const useTemplate = mutation({
       template,
       args.preferredCriterionExternalId
     )?.externalId
+    const styles = await loadTemplateStyles(ctx, template._id)
+    const effectiveStyleId = resolveEffectiveStyleId(
+      template,
+      styles,
+      args.styleId
+    )
     if (template.itemCount > MAX_STANDARD_CLOUD_BOARD_ITEMS)
     {
       return await queueLargeTemplateClone(
@@ -596,7 +610,8 @@ export const useTemplate = mutation({
         template,
         boardTitle,
         tiers,
-        preferredCriterionExternalId
+        preferredCriterionExternalId,
+        effectiveStyleId
       )
     }
 
@@ -614,6 +629,16 @@ export const useTemplate = mutation({
 
     const boardExternalId = generateBoardId()
     const now = Date.now()
+    // non-default style supplies the board framing defaults + per-item images
+    const styleRow = isDefaultStyleId(template.defaultStyleId, effectiveStyleId)
+      ? null
+      : (styles.find((style) => style.externalId === effectiveStyleId) ?? null)
+    const styleAssets = await loadStyleItemAssets(
+      ctx,
+      template._id,
+      effectiveStyleId,
+      template.defaultStyleId ?? null
+    )
     const boardId = await ctx.db.insert('boards', {
       externalId: boardExternalId,
       ownerId: userId,
@@ -625,6 +650,8 @@ export const useTemplate = mutation({
         forkCounted: true,
         itemCount: templateItems.length,
         now,
+        imageStyleId: effectiveStyleId,
+        style: styleRow,
       }),
     })
 
@@ -632,7 +659,8 @@ export const useTemplate = mutation({
     const summaryItems = await insertBoardItemsFromTemplate(
       ctx,
       boardId,
-      templateItems
+      templateItems,
+      styleAssets
     )
     await ctx.db.patch(boardId, {
       librarySummary: buildBoardLibrarySummary({

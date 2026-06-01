@@ -281,6 +281,9 @@ export const toRankingDetail = async (
     // so legibility/layout fixes reach every published ranking without re-publish
     autoPlate: sourceTemplate?.autoPlate ?? null,
     defaultItemImagePadding: sourceTemplate?.defaultItemImagePadding ?? null,
+    // image style the author published in; null when the source template is
+    // single-skin or the board used the default
+    activeStyleId: ranking.activeStyleId ?? null,
     tiers: tiers.map(toRankingTier),
     items: await Promise.all(
       items.map((item) => toRankingItem(ctx, item, cache))

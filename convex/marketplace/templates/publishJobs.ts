@@ -28,6 +28,7 @@ import {
   insertTemplateWithStatsAndCard,
 } from './lib/writes'
 import { insertBoardTiers } from './lib/board'
+import { isDefaultStyleId, loadTemplateStyleRow } from './lib/styles'
 import { tiersFromBoardRows, validateTemplateTiers } from './lib/normalize'
 import {
   buildTemplateInsertFields,
@@ -207,7 +208,8 @@ export const queueLargeTemplateClone = async (
   template: Doc<'templates'>,
   title: string,
   tiers: readonly TierPresetTier[],
-  preferredCriterionExternalId: string | undefined
+  preferredCriterionExternalId: string | undefined,
+  effectiveStyleId: string | null = null
 ): Promise<MarketplaceTemplateUseResult> =>
 {
   const existingJob = await findActiveCloneJobForTemplate(
@@ -223,6 +225,11 @@ export const queueLargeTemplateClone = async (
     })
   }
 
+  // non-default style supplies the board's framing defaults; the clone worker
+  // resolves each item's style image via board.imageStyleId
+  const styleRow = isDefaultStyleId(template.defaultStyleId, effectiveStyleId)
+    ? null
+    : await loadTemplateStyleRow(ctx, template._id, effectiveStyleId)
   const boardExternalId = generateBoardId()
   const now = Date.now()
   const boardId = await ctx.db.insert('boards', {
@@ -236,6 +243,8 @@ export const queueLargeTemplateClone = async (
       forkCounted: false,
       materializationState: 'clonePending',
       now,
+      imageStyleId: effectiveStyleId,
+      style: styleRow,
     }),
   })
   await insertBoardTiers(ctx, boardId, tiers)

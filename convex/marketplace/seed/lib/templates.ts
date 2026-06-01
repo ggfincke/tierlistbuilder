@@ -203,6 +203,7 @@ export const normalizeSeedTemplateUpsert = (
     itemAspectRatioMode: 'manual',
     defaultItemImageFit: 'cover',
     defaultItemImagePadding: template.defaultItemImagePadding,
+    defaultStyleId: template.defaultStyleId ?? null,
     itemCount: template.itemCount,
     labels: template.labels ?? null,
     autoPlate: template.autoPlate,

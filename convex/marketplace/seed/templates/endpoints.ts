@@ -7,6 +7,7 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  type MutationCtx,
 } from '../../../_generated/server'
 import type { Doc, Id } from '../../../_generated/dataModel'
 import { api, internal } from '../../../_generated/api'
@@ -23,8 +24,11 @@ import type {
   SeedRollbackReleaseOutput,
   SeedRunStatusOutput,
   SeedSyncTemplateItemsOutput,
+  SeedSyncTemplateStyleItemsOutput,
   SeedTemplateCriterionKey,
   SeedTemplateItemKey,
+  SeedTemplateStyle,
+  SeedTemplateStyleItemKey,
   SeedTemplateUpsertOutput,
   SeedUploadUrl,
   SeedUploadVariantRequest,
@@ -106,6 +110,7 @@ import type {
   SeedFinalizedMediaRow,
   SeedItemUpsertArg,
   SeedResolveStateResult,
+  SeedTemplateStyleItemUpsertArg,
   SeedTemplateUpsertArg,
 } from '../lib/types'
 import {
@@ -118,6 +123,8 @@ import {
   seedFinalizedMediaValidator,
   seedItemUpsertValidator,
   seedSyncTemplateItemsOutputValidator,
+  seedSyncTemplateStyleItemsOutputValidator,
+  seedTemplateStyleItemUpsertValidator,
   seedRejectedUploadValidator,
   seedResolvedMediaValidator,
   seedRunSummaryValidator,
@@ -387,6 +394,82 @@ const seedItemTransformBoundsMessage = (
     ? `item.transform.${violation.field} must be within [${violation.min}, ${violation.max}]`
     : `item.transform.${violation.field} must be ${violation.bound === 'min' ? '>=' : '<='} ${violation.bound === 'min' ? violation.min : violation.max}`
 
+// upsert the per-template image style (skin) rows & prune any dropped style.
+// the default style's per-item images stay on templateItems; non-default style
+// item assets sync separately via syncSeedTemplateStyleItems
+const syncSeedTemplateStyleRows = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>,
+  datasetKey: string,
+  releaseId: string,
+  styles: readonly SeedTemplateStyle[],
+  mediaAssetCache: ReadonlyMap<string, Id<'mediaAssets'>>,
+  now: number
+): Promise<void> =>
+{
+  const existing = await ctx.db
+    .query('templateStyles')
+    .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
+    .take(SEED_LIMITS.stylesPerTemplate + 1)
+  if (existing.length > SEED_LIMITS.stylesPerTemplate)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'seed template style count exceeds apply limit',
+    })
+  }
+  const existingByExternalId = new Map(
+    existing.map((style) => [style.externalId, style])
+  )
+  const seen = new Set<string>()
+  for (const style of styles)
+  {
+    assertNonemptyString('styleExternalId', style.externalId)
+    seen.add(style.externalId)
+    const coverMediaAssetId = style.coverMediaDedupeHash
+      ? resolveSeedMediaAssetIdByDedupeHash(
+          mediaAssetCache,
+          style.coverMediaDedupeHash
+        )
+      : null
+    const fields = {
+      label: style.label,
+      order: style.order,
+      isDefault: style.isDefault,
+      coverMediaAssetId,
+      coverFraming: null,
+      itemAspectRatio: style.itemAspectRatio,
+      itemAspectRatioMode: 'manual' as const,
+      defaultItemImageFit: null,
+      defaultItemImagePadding: style.defaultItemImagePadding,
+      labels: style.labels ?? null,
+      autoPlate: style.autoPlate,
+      seedDatasetKey: datasetKey,
+      seedReleaseId: releaseId,
+      updatedAt: now,
+    }
+    const row = existingByExternalId.get(style.externalId)
+    if (!row)
+    {
+      await ctx.db.insert('templateStyles', {
+        templateId,
+        externalId: style.externalId,
+        ...fields,
+        createdAt: now,
+      })
+    }
+    else
+    {
+      await ctx.db.patch(row._id, fields)
+    }
+  }
+  await Promise.all(
+    existing
+      .filter((style) => !seen.has(style.externalId))
+      .map((style) => ctx.db.delete(style._id))
+  )
+}
+
 export const upsertSeedTemplates = internalMutation({
   args: {
     datasetKey: v.string(),
@@ -431,10 +514,15 @@ export const upsertSeedTemplates = internalMutation({
     const coverDedupeHashes = (args.templates as SeedTemplateUpsertArg[])
       .map((template) => template.coverMediaDedupeHash)
       .filter((hash): hash is string => hash !== null)
+    // style cover media resolves through the same author-scoped cache
+    const styleCoverDedupeHashes = (args.templates as SeedTemplateUpsertArg[])
+      .flatMap((template) => template.styles ?? [])
+      .map((style) => style.coverMediaDedupeHash)
+      .filter((hash): hash is string => hash !== null)
     const mediaAssetCache = await buildSeedMediaAssetIdByDedupeHashCache(
       ctx,
       authorId,
-      coverDedupeHashes
+      [...coverDedupeHashes, ...styleCoverDedupeHashes]
     )
     const { byExternalId: existingByExternalId } =
       await loadSeedTemplateLookupForRelease(
@@ -487,6 +575,7 @@ export const upsertSeedTemplates = internalMutation({
           itemAspectRatioMode: patch.itemAspectRatioMode,
           defaultItemImageFit: patch.defaultItemImageFit,
           defaultItemImagePadding: patch.defaultItemImagePadding,
+          defaultStyleId: patch.defaultStyleId,
           labels: patch.labels,
           autoPlate: patch.autoPlate,
           seedDatasetKey: args.datasetKey,
@@ -512,6 +601,18 @@ export const upsertSeedTemplates = internalMutation({
         await syncTemplateTagRows(ctx, row)
         await writeTemplateCard(ctx, row, stats)
         pushPublicTemplateTransition(publicTemplateDeltas, null, row)
+        if (template.styles)
+        {
+          await syncSeedTemplateStyleRows(
+            ctx,
+            templateId,
+            args.datasetKey,
+            args.releaseId,
+            template.styles,
+            mediaAssetCache,
+            now
+          )
+        }
         created.push(template.externalId)
         continue
       }
@@ -527,6 +628,18 @@ export const upsertSeedTemplates = internalMutation({
       })
       await syncTemplateTagRows(ctx, nextTemplate)
       pushPublicTemplateTransition(publicTemplateDeltas, existing, nextTemplate)
+      if (template.styles)
+      {
+        await syncSeedTemplateStyleRows(
+          ctx,
+          existing._id,
+          args.datasetKey,
+          args.releaseId,
+          template.styles,
+          mediaAssetCache,
+          now
+        )
+      }
       updated.push(template.externalId)
     }
     await adjustPublicTemplateCount(ctx, publicTemplateDeltas)
@@ -733,6 +846,196 @@ export const syncSeedTemplateItems = internalMutation({
       })
     }
     return { created, updated, moved, unchanged, deleted }
+  },
+})
+
+export const syncSeedTemplateStyleItems = internalMutation({
+  args: {
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    templateExternalId: v.string(),
+    styleExternalId: v.string(),
+    items: v.array(seedTemplateStyleItemUpsertValidator),
+  },
+  returns: seedSyncTemplateStyleItemsOutputValidator,
+  handler: async (ctx, args): Promise<SeedSyncTemplateStyleItemsOutput> =>
+  {
+    assertSeedRunArgs(args)
+    assertNonemptyString('templateExternalId', args.templateExternalId)
+    assertNonemptyString('styleExternalId', args.styleExternalId)
+    assertCountRange(
+      'items',
+      args.items.length,
+      1,
+      SEED_LIMITS.styleItemUpsertsPerCall
+    )
+    assertUniqueValues(
+      'seed style item key',
+      args.items.map((item) => item.itemExternalId)
+    )
+
+    const created: SeedTemplateStyleItemKey[] = []
+    const updated: SeedTemplateStyleItemKey[] = []
+    const unchanged: SeedTemplateStyleItemKey[] = []
+    const deleted: SeedTemplateStyleItemKey[] = []
+
+    const { byExternalId: templatesByExternalId } =
+      await loadSeedTemplateLookupForRelease(
+        ctx,
+        args.datasetKey,
+        args.releaseId
+      )
+    const template = templatesByExternalId.get(args.templateExternalId)
+    if (!template)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `seed template not found: ${args.templateExternalId}`,
+      })
+    }
+
+    // resolve item externalId -> templateItemId (the style asset's join key)
+    const templateItems = await ctx.db
+      .query('templateItems')
+      .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+      .take(SEED_LIMITS.itemsPerTemplate + 1)
+    if (templateItems.length > SEED_LIMITS.itemsPerTemplate)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: 'seed template item count exceeds apply limit',
+      })
+    }
+    const templateItemIdByExternalId = new Map(
+      templateItems.map((item) => [item.externalId, item._id])
+    )
+
+    const styleMediaCache = await buildSeedMediaAssetIdByDedupeHashCache(
+      ctx,
+      template.authorId,
+      (args.items as SeedTemplateStyleItemUpsertArg[])
+        .map((item) => item.mediaDedupeHash)
+        .filter((hash): hash is string => hash !== null)
+    )
+    const existingRows = await ctx.db
+      .query('templateItemStyleAssets')
+      .withIndex('byTemplateStyleAndItem', (q) =>
+        q
+          .eq('templateId', template._id)
+          .eq('styleExternalId', args.styleExternalId)
+      )
+      .take(SEED_LIMITS.itemsPerTemplate + 1)
+    if (existingRows.length > SEED_LIMITS.itemsPerTemplate)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: 'seed style asset count exceeds apply limit',
+      })
+    }
+    const existingByItemExternalId = new Map(
+      existingRows.map((row) => [row.itemExternalId, row])
+    )
+
+    const seen = new Set<string>()
+    for (const item of args.items as SeedTemplateStyleItemUpsertArg[])
+    {
+      assertNonemptyString('itemExternalId', item.itemExternalId)
+      if (item.aspectRatio !== null)
+      {
+        assertPositiveFinite('aspectRatio', item.aspectRatio)
+      }
+      if (item.imagePadding !== null)
+      {
+        assertFiniteRange(
+          'item.imagePadding',
+          item.imagePadding,
+          IMAGE_PADDING_MIN,
+          IMAGE_PADDING_MAX
+        )
+      }
+      if (item.transform !== null)
+      {
+        const violation = getItemTransformBoundsViolation(item.transform)
+        if (violation)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidInput,
+            message: seedItemTransformBoundsMessage(violation),
+          })
+        }
+      }
+      const templateItemId = templateItemIdByExternalId.get(item.itemExternalId)
+      if (!templateItemId)
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.notFound,
+          message: `seed style item references unknown template item: ${item.itemExternalId}`,
+        })
+      }
+      seen.add(item.itemExternalId)
+      const key: SeedTemplateStyleItemKey = {
+        templateExternalId: args.templateExternalId,
+        styleExternalId: args.styleExternalId,
+        itemExternalId: item.itemExternalId,
+      }
+      const mediaAssetId = item.mediaDedupeHash
+        ? resolveSeedMediaAssetIdByDedupeHash(
+            styleMediaCache,
+            item.mediaDedupeHash
+          )
+        : null
+      const fields = {
+        templateItemId,
+        mediaAssetId,
+        aspectRatio: item.aspectRatio,
+        imageFit: null,
+        transform: item.transform,
+        mediaPlate: item.mediaPlate ?? null,
+        imagePadding: item.imagePadding,
+        altText: null,
+      }
+      const existing = existingByItemExternalId.get(item.itemExternalId) ?? null
+      if (!existing)
+      {
+        await ctx.db.insert('templateItemStyleAssets', {
+          templateId: template._id,
+          styleExternalId: args.styleExternalId,
+          itemExternalId: item.itemExternalId,
+          ...fields,
+        })
+        created.push(key)
+        continue
+      }
+      const contentChanged =
+        existing.templateItemId !== fields.templateItemId ||
+        existing.mediaAssetId !== fields.mediaAssetId ||
+        existing.aspectRatio !== fields.aspectRatio ||
+        existing.imageFit !== fields.imageFit ||
+        (existing.mediaPlate ?? null) !== fields.mediaPlate ||
+        existing.imagePadding !== fields.imagePadding ||
+        !valuesEqual(existing.transform, fields.transform)
+      if (!contentChanged)
+      {
+        unchanged.push(key)
+        continue
+      }
+      await ctx.db.patch(existing._id, fields)
+      updated.push(key)
+    }
+
+    const rowsToDelete = existingRows.filter(
+      (row) => !seen.has(row.itemExternalId)
+    )
+    await Promise.all(rowsToDelete.map((row) => ctx.db.delete(row._id)))
+    deleted.push(
+      ...rowsToDelete.map((row) => ({
+        templateExternalId: args.templateExternalId,
+        styleExternalId: args.styleExternalId,
+        itemExternalId: row.itemExternalId,
+      }))
+    )
+    return { created, updated, unchanged, deleted }
   },
 })
 

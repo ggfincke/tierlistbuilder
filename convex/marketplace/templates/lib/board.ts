@@ -13,6 +13,7 @@ import { pickCoverRenderFields } from '@tierlistbuilder/contracts/workspace/libr
 
 import { loadTileStorageId } from '../../../lib/mediaVariants'
 import type { BoardLibrarySummaryItem } from '../../../workspace/boards/librarySummary'
+import { resolveStyleItemAsset, type StyleResolvedAsset } from './styles'
 
 export const templateTitleToBoardTitle = (title: string): string =>
   title.trim() || DEFAULT_BOARD_TITLE
@@ -36,25 +37,29 @@ export const insertBoardTiers = async (
     )
   )
 
+// build a board item from a template item, resolving the active style's image
+// fields (default style -> the template item's own image). label/background stay
+// style-invariant on the template item
 export const buildBoardItemInsertFromTemplateItem = (
   boardId: Id<'boards'>,
   item: Doc<'templateItems'>,
-  externalId: string = generateItemId()
+  externalId: string = generateItemId(),
+  resolved: StyleResolvedAsset = resolveStyleItemAsset(item, null)
 ) => ({
   boardId,
   tierId: null,
   externalId,
   label: item.label ?? undefined,
   backgroundColor: item.backgroundColor ?? undefined,
-  mediaPlate: item.mediaPlate ?? undefined,
+  mediaPlate: resolved.mediaPlate ?? undefined,
   altText: item.altText ?? undefined,
-  mediaAssetId: item.mediaAssetId,
+  mediaAssetId: resolved.mediaAssetId,
   order: item.order,
   deletedAt: null,
-  aspectRatio: item.aspectRatio ?? undefined,
-  imageFit: item.imageFit ?? undefined,
-  transform: item.transform ?? undefined,
-  imagePadding: item.imagePadding ?? undefined,
+  aspectRatio: resolved.aspectRatio ?? undefined,
+  imageFit: resolved.imageFit ?? undefined,
+  transform: resolved.transform ?? undefined,
+  imagePadding: resolved.imagePadding ?? undefined,
   templateItemId: item._id,
 })
 
@@ -80,19 +85,32 @@ export const buildTemplateItemInsert = (
 export const insertBoardItemsFromTemplate = async (
   ctx: MutationCtx,
   boardId: Id<'boards'>,
-  templateItems: readonly Doc<'templateItems'>[]
+  templateItems: readonly Doc<'templateItems'>[],
+  styleAssets: ReadonlyMap<
+    string,
+    Doc<'templateItemStyleAssets'>
+  > = new Map()
 ): Promise<BoardLibrarySummaryItem[]> =>
 {
   const rows = await Promise.all(
     templateItems.map(async (item) =>
     {
-      const storageId = item.mediaAssetId
-        ? await loadTileStorageId(ctx, item.mediaAssetId)
+      const resolved = resolveStyleItemAsset(
+        item,
+        styleAssets.get(item.externalId) ?? null
+      )
+      const storageId = resolved.mediaAssetId
+        ? await loadTileStorageId(ctx, resolved.mediaAssetId)
         : null
       const externalId = generateItemId()
 
       return {
-        insert: buildBoardItemInsertFromTemplateItem(boardId, item, externalId),
+        insert: buildBoardItemInsertFromTemplateItem(
+          boardId,
+          item,
+          externalId,
+          resolved
+        ),
         summary: {
           tierKey: null,
           externalId,
@@ -100,7 +118,14 @@ export const insertBoardItemsFromTemplate = async (
           storageId,
           order: item.order,
           deletedAt: null,
-          ...pickCoverRenderFields(item),
+          ...pickCoverRenderFields({
+            backgroundColor: item.backgroundColor,
+            mediaPlate: resolved.mediaPlate,
+            aspectRatio: resolved.aspectRatio,
+            imageFit: resolved.imageFit,
+            transform: resolved.transform,
+            imagePadding: resolved.imagePadding,
+          }),
         },
       }
     })
