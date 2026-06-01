@@ -52,7 +52,8 @@ export const buildBoardItemInsertFromTemplateItem = (
   label: item.label ?? undefined,
   backgroundColor: item.backgroundColor ?? undefined,
   mediaPlate: resolved.mediaPlate ?? undefined,
-  altText: item.altText ?? undefined,
+  // alt text is per-style (resolver falls back to the template item for default)
+  altText: resolved.altText ?? undefined,
   mediaAssetId: resolved.mediaAssetId,
   order: item.order,
   deletedAt: null,

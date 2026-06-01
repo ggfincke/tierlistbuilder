@@ -66,6 +66,7 @@ export const seedResolvedTemplateValidator = v.object({
   itemAspectRatio: v.union(v.number(), v.null()),
   metadataContentHash: v.union(v.string(), v.null()),
   itemsContentHash: v.union(v.string(), v.null()),
+  styleItemsContentHash: v.union(v.string(), v.null()),
   criteriaContentHash: v.union(v.string(), v.null()),
 })
 

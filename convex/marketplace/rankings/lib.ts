@@ -30,6 +30,7 @@ import {
   toTemplateAuthor,
   toTemplateMediaRef,
 } from '../templates/lib/projections'
+import { loadTemplateStyleRow } from '../templates/lib/styles'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -268,19 +269,27 @@ export const toRankingDetail = async (
 ): Promise<MarketplaceRankingDetail> =>
 {
   const cache = createTemplateProjectionCache()
-  const [summary, tiers, items, sourceTemplate] = await Promise.all([
-    toRankingSummary(ctx, ranking, cache),
-    loadRankingTiers(ctx, ranking._id),
-    loadRankingItems(ctx, ranking._id),
-    ctx.db.get(ranking.sourceTemplateId),
-  ])
+  const [summary, tiers, items, sourceTemplate, activeStyle] = await Promise.all(
+    [
+      toRankingSummary(ctx, ranking, cache),
+      loadRankingTiers(ctx, ranking._id),
+      loadRankingItems(ctx, ranking._id),
+      ctx.db.get(ranking.sourceTemplateId),
+      // the skin the ranking was published in owns its board-level display
+      // policy; null styleId (single-skin / default) -> falls back to template
+      loadTemplateStyleRow(ctx, ranking.sourceTemplateId, ranking.activeStyleId),
+    ]
+  )
+
+  // pull display policy (backdrop + plate inset) live so legibility/layout fixes
+  // reach every published ranking w/o re-publish; the active skin wins over the
+  // canonical-default template when the ranking was published on a non-default skin
+  const renderSource = activeStyle ?? sourceTemplate
 
   return {
     ...summary,
-    // pull display policy (backdrop + plate inset) from the live source template
-    // so legibility/layout fixes reach every published ranking without re-publish
-    autoPlate: sourceTemplate?.autoPlate ?? null,
-    defaultItemImagePadding: sourceTemplate?.defaultItemImagePadding ?? null,
+    autoPlate: renderSource?.autoPlate ?? null,
+    defaultItemImagePadding: renderSource?.defaultItemImagePadding ?? null,
     // image style the author published in; null when the source template is
     // single-skin or the board used the default
     activeStyleId: ranking.activeStyleId ?? null,
