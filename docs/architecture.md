@@ -435,7 +435,7 @@ Marketplace ranking backend files are grouped by workflow:
 
 - `marketplace/rankings/public/` — public queries and mutations.
 - `marketplace/rankings/aggregate/` — aggregate computation helpers and scheduled jobs.
-- `marketplace/rankings/seed/` — seed manifest validators, planning, scoring, lifecycle, cleanup, and seed actions.
+- `marketplace/rankings/seed/` — seed manifest validators, planning, scoring, task resolution, row writes, lifecycle, cleanup, and seed actions.
 - `marketplace/rankings/maintenance/` — owner/data cascade jobs.
 
 Marketplace template helpers are split by responsibility under
