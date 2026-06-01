@@ -21,7 +21,7 @@
 ## Directory Structure
 
 The codebase is organized into three top-level frontend layers: `app/`
-(bootstrap & routing), `features/{workspace,platform,marketplace,library,embed}/*`
+(bootstrap & routing), `features/{workspace,platform,social,marketplace,library,embed}/*`
 (per-slice feature code), and `shared/*` (cross-feature primitives).
 Cross-runtime wire types live in the top-level `packages/contracts/` workspace
 package.
@@ -384,6 +384,8 @@ Share/export image behavior is intentionally split by carrier:
 
 ## Boundary Rules
 
+- Directories under `src/` use lowercase/kebab-case segments. `convex/` keeps
+  camelCase function namespaces where they map to generated API paths.
 - `shared/*` must not import from `features/*`. Shared code is framework-only and feature-agnostic.
 - `shared/board-data/*`, `shared/board-ui/*`, `shared/sharing/*`, and `shared/routes/*` are the neutral homes for current board snapshot, rendering, share-codec, and route-path helpers.
 - The embed shell resolves shares through `features/platform/share/*`, renders through `shared/board-ui/*`, and never mounts the editable active-board store.

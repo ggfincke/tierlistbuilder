@@ -14,6 +14,7 @@ import type * as dev_autoCrop from "../dev/autoCrop.js";
 import type * as dev_reset from "../dev/reset.js";
 import type * as dev_resetLock from "../dev/resetLock.js";
 import type * as dev_seedGate from "../dev/seedGate.js";
+import type * as dev_setPlan from "../dev/setPlan.js";
 import type * as dev_tlotlSeed from "../dev/tlotlSeed.js";
 import type * as http from "../http.js";
 import type * as lib_assertions from "../lib/assertions.js";
@@ -145,6 +146,7 @@ declare const fullApi: ApiFromModules<{
   "dev/reset": typeof dev_reset;
   "dev/resetLock": typeof dev_resetLock;
   "dev/seedGate": typeof dev_seedGate;
+  "dev/setPlan": typeof dev_setPlan;
   "dev/tlotlSeed": typeof dev_tlotlSeed;
   http: typeof http;
   "lib/assertions": typeof lib_assertions;
