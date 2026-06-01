@@ -14,7 +14,7 @@ from .manifest import JsonObject, read_json, write_json
 from .progress import ProgressLogger
 
 
-SEED_BEGIN_FUNCTION = "marketplace/seed/templates/endpoints:beginSeedRun"
+SEED_BEGIN_ROUTE = "/api/seed/begin"
 
 
 @dataclass(frozen=True)
@@ -101,7 +101,7 @@ def begin_seed_run(context: SeedRunContext) -> None:
 		f"{totals['variantCount']} image variants"
 	)
 	result = context.client.mutation(
-		SEED_BEGIN_FUNCTION,
+		SEED_BEGIN_ROUTE,
 		{
 			**run_request(context),
 			"templateCount": totals["templateCount"],

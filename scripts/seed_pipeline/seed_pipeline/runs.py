@@ -44,22 +44,18 @@ from .template_payloads import (
 )
 
 
-SEED_ENSURE_AUTHOR_FUNCTION = "marketplace/seed/templates/endpoints:ensureSeedAuthor"
-SEED_UPLOAD_URLS_FUNCTION = "marketplace/seed/templates/endpoints:generateSeedUploadUrls"
-SEED_REGISTER_UPLOADS_FUNCTION = (
-	"marketplace/seed/lib/storageUploads:registerSeedUploadedStorageIds"
-)
-SEED_FINALIZE_MEDIA_FUNCTION = "marketplace/seed/templates/endpoints:finalizeSeedUploadedMedia"
-SEED_CLEANUP_FUNCTION = "marketplace/seed/lib/storageUploads:cleanupAbandonedSeedRun"
-SEED_UPSERT_TEMPLATES_FUNCTION = "marketplace/seed/templates/endpoints:upsertSeedTemplates"
-SEED_SYNC_TEMPLATE_ITEMS_FUNCTION = "marketplace/seed/templates/endpoints:syncSeedTemplateItems"
-SEED_UPSERT_CRITERIA_FUNCTION = "marketplace/seed/templates/endpoints:upsertSeedCriteria"
-SEED_VERIFY_CHUNK_FUNCTION = "marketplace/seed/templates/endpoints:verifySeedReleaseChunk"
-SEED_COMPLETE_VERIFICATION_FUNCTION = (
-	"marketplace/seed/templates/endpoints:completeSeedReleaseVerification"
-)
-SEED_ACTIVATE_FUNCTION = "marketplace/seed/templates/endpoints:activateSeedRelease"
-SEED_ROLLBACK_FUNCTION = "marketplace/seed/templates/endpoints:rollbackSeedRelease"
+SEED_ENSURE_AUTHOR_ROUTE = "/api/seed/ensure-author"
+SEED_UPLOAD_URLS_ROUTE = "/api/seed/upload-urls"
+SEED_REGISTER_UPLOADS_ROUTE = "/api/seed/register-uploads"
+SEED_FINALIZE_MEDIA_ROUTE = "/api/seed/finalize-media"
+SEED_CLEANUP_ROUTE = "/api/seed/cleanup"
+SEED_UPSERT_TEMPLATES_ROUTE = "/api/seed/upsert-templates"
+SEED_SYNC_TEMPLATE_ITEMS_ROUTE = "/api/seed/sync-template-items"
+SEED_UPSERT_CRITERIA_ROUTE = "/api/seed/upsert-criteria"
+SEED_VERIFY_CHUNK_ROUTE = "/api/seed/verify-chunk"
+SEED_COMPLETE_VERIFICATION_ROUTE = "/api/seed/complete-verification"
+SEED_ACTIVATE_ROUTE = "/api/seed/activate"
+SEED_ROLLBACK_ROUTE = "/api/seed/rollback"
 
 TEMPLATE_BATCH_SIZE = 128
 ITEM_BATCH_SIZE = 4096
@@ -160,7 +156,7 @@ def _activate_seed_context(context: SeedRunContext, options: SeedRunOptions) -> 
 		f"(previous: {previous_release_id or 'none'})"
 	)
 	result = context.client.mutation(
-		SEED_ACTIVATE_FUNCTION,
+		SEED_ACTIVATE_ROUTE,
 		{
 			**run_request(context),
 			"previousReleaseId": previous_release_id,
@@ -186,7 +182,7 @@ def rollback_seed_manifest(
 		msg = "rollback requires --target-release-id"
 		raise RuntimeError(msg)
 	result = context.client.mutation(
-		SEED_ROLLBACK_FUNCTION,
+		SEED_ROLLBACK_ROUTE,
 		{
 			**run_request(context),
 			"targetReleaseId": options.target_release_id,
@@ -220,7 +216,7 @@ def cleanup_seed_manifest(
 		for index, chunk in enumerate(batches, start=1):
 			context.progress.count("cleanup batches", index, len(batches))
 			result = context.client.action(
-				SEED_CLEANUP_FUNCTION,
+				SEED_CLEANUP_ROUTE,
 				{**run_request(context), "storageIds": chunk},
 			)
 			cleaned.extend(result.get("cleanedStorageIds", []))
@@ -465,7 +461,7 @@ def _ensure_seed_author(context: SeedRunContext) -> None:
 		raise RuntimeError(msg)
 	context.progress.log(f"ensuring seed author exists: {context.compiled['authorEmail']}")
 	context.client.action(
-		SEED_ENSURE_AUTHOR_FUNCTION,
+		SEED_ENSURE_AUTHOR_ROUTE,
 		{
 			"email": context.compiled["authorEmail"],
 			"password": author_password,
@@ -508,7 +504,7 @@ def _verify_seed_release(context: SeedRunContext) -> JsonObject:
 			suffix=f"{len(chunk)} templates",
 		)
 		result = context.client.mutation(
-			SEED_VERIFY_CHUNK_FUNCTION,
+			SEED_VERIFY_CHUNK_ROUTE,
 			{
 				**run_request(context),
 				"templateExternalIds": [template["externalId"] for template in chunk],
@@ -531,7 +527,7 @@ def _verify_seed_release(context: SeedRunContext) -> JsonObject:
 		f"{len(diagnostics)} diagnostics"
 	)
 	return context.client.mutation(
-		SEED_COMPLETE_VERIFICATION_FUNCTION,
+		SEED_COMPLETE_VERIFICATION_ROUTE,
 		{
 			**run_request(context),
 			"expectedTotals": context.compiled["totals"],
@@ -625,7 +621,7 @@ def _generate_upload_urls(context: SeedRunContext, variants: list[JsonObject]) -
 	for index, chunk in enumerate(batches, start=1):
 		context.progress.count("upload URL batches", index, len(batches))
 		result = context.client.mutation(
-			SEED_UPLOAD_URLS_FUNCTION,
+			SEED_UPLOAD_URLS_ROUTE,
 			{
 				**run_request(context),
 				"variants": [
@@ -648,7 +644,7 @@ def _register_uploaded_storage_ids(context: SeedRunContext, storage_ids: list[st
 	for index, chunk in enumerate(batches, start=1):
 		context.progress.count("register upload batches", index, len(batches))
 		context.client.mutation(
-			SEED_REGISTER_UPLOADS_FUNCTION,
+			SEED_REGISTER_UPLOADS_ROUTE,
 			{**run_request(context), "storageIds": chunk},
 		)
 
@@ -664,7 +660,7 @@ def _finalize_uploaded_assets(
 		context.progress.count("finalize asset batches", index, len(batches))
 		# server reopens blobs, verifies metadata, then owns or deletes storage IDs
 		result = context.client.action(
-			SEED_FINALIZE_MEDIA_FUNCTION,
+			SEED_FINALIZE_MEDIA_ROUTE,
 			{
 				**run_request(context),
 				"authorEmail": context.compiled["authorEmail"],
@@ -711,7 +707,7 @@ def _upsert_templates(context: SeedRunContext) -> list[JsonObject]:
 		)
 		results.append(
 			context.client.mutation(
-				SEED_UPSERT_TEMPLATES_FUNCTION,
+				SEED_UPSERT_TEMPLATES_ROUTE,
 				{
 					**run_request(context),
 					"authorEmail": context.compiled["authorEmail"],
@@ -743,7 +739,7 @@ def _upsert_items(context: SeedRunContext, diff: JsonObject | None = None) -> li
 		]
 		results.append(
 			context.client.mutation(
-				SEED_SYNC_TEMPLATE_ITEMS_FUNCTION,
+				SEED_SYNC_TEMPLATE_ITEMS_ROUTE,
 				{
 					**run_request(context),
 					"templateExternalId": template_external_id,
@@ -777,7 +773,7 @@ def _upsert_criteria(context: SeedRunContext, diff: JsonObject | None = None) ->
 		)
 		results.append(
 			context.client.mutation(
-				SEED_UPSERT_CRITERIA_FUNCTION,
+				SEED_UPSERT_CRITERIA_ROUTE,
 				{
 					**run_request(context),
 					"forceTemplateExternalIds": force_template_external_ids,

@@ -9,8 +9,8 @@ import unittest
 from unittest.mock import patch
 
 from seed_pipeline.diff import (
-	SEED_MEDIA_BY_HASHES_FUNCTION,
-	SEED_STATE_FUNCTION,
+	SEED_MEDIA_BY_HASHES_ROUTE,
+	SEED_STATE_ROUTE,
 	build_seed_diff,
 	build_state_headline_request,
 	build_state_items_request,
@@ -56,9 +56,9 @@ class SeedDiffTests(unittest.TestCase):
 			def __init__(self) -> None:
 				self.calls: list[tuple[str, dict[str, object]]] = []
 
-			def query(self, function_path: str, args: dict[str, object]) -> dict[str, object]:
-				self.calls.append((function_path, args))
-				if function_path == SEED_STATE_FUNCTION:
+			def query(self, route: str, args: dict[str, object]) -> dict[str, object]:
+				self.calls.append((route, args))
+				if route == SEED_STATE_ROUTE:
 					return {
 						"activeReleaseId": None,
 						"templates": [],
@@ -66,7 +66,7 @@ class SeedDiffTests(unittest.TestCase):
 						"criteria": [],
 						"media": [{"mediaDedupeHash": "ignored"}],
 					}
-				if function_path == SEED_MEDIA_BY_HASHES_FUNCTION:
+				if route == SEED_MEDIA_BY_HASHES_ROUTE:
 					return {
 						"media": [
 							{
@@ -76,18 +76,18 @@ class SeedDiffTests(unittest.TestCase):
 							for content_hash in args["variantHashes"]
 						]
 					}
-				raise AssertionError(function_path)
+				raise AssertionError(route)
 
 		client = FakeClient()
 		with patch("seed_pipeline.diff.SEED_STATE_VARIANT_HASH_BATCH_SIZE", 2):
 			state = resolve_seed_state(client, self.compiled)
 
-		self.assertEqual(client.calls[0][0], SEED_STATE_FUNCTION)
+		self.assertEqual(client.calls[0][0], SEED_STATE_ROUTE)
 		self.assertEqual(client.calls[0][1]["variantHashes"], [])
 		media_calls = [
 			args
-			for function_path, args in client.calls
-			if function_path == SEED_MEDIA_BY_HASHES_FUNCTION
+			for route, args in client.calls
+			if route == SEED_MEDIA_BY_HASHES_ROUTE
 		]
 		self.assertEqual([len(args["variantHashes"]) for args in media_calls], [2, 2, 2])
 		self.assertEqual(len(state["media"]), 6)
@@ -99,8 +99,8 @@ class SeedDiffTests(unittest.TestCase):
 				self.max_active = 0
 				self.lock = threading.Lock()
 
-			def query(self, function_path: str, args: dict[str, object]) -> dict[str, object]:
-				if function_path == SEED_STATE_FUNCTION:
+			def query(self, route: str, args: dict[str, object]) -> dict[str, object]:
+				if route == SEED_STATE_ROUTE:
 					return {
 						"activeReleaseId": None,
 						"templates": [],
@@ -108,8 +108,8 @@ class SeedDiffTests(unittest.TestCase):
 						"criteria": [],
 						"media": [],
 					}
-				if function_path != SEED_MEDIA_BY_HASHES_FUNCTION:
-					raise AssertionError(function_path)
+				if route != SEED_MEDIA_BY_HASHES_ROUTE:
+					raise AssertionError(route)
 				with self.lock:
 					self.active += 1
 					self.max_active = max(self.max_active, self.active)
@@ -140,12 +140,12 @@ class SeedDiffTests(unittest.TestCase):
 			def __init__(self) -> None:
 				self.calls: list[tuple[str, dict[str, object]]] = []
 
-			def query(self, function_path: str, args: dict[str, object]) -> dict[str, object]:
-				self.calls.append((function_path, args))
-				if function_path == SEED_MEDIA_BY_HASHES_FUNCTION:
+			def query(self, route: str, args: dict[str, object]) -> dict[str, object]:
+				self.calls.append((route, args))
+				if route == SEED_MEDIA_BY_HASHES_ROUTE:
 					return {"media": []}
-				if function_path != SEED_STATE_FUNCTION:
-					raise AssertionError(function_path)
+				if route != SEED_STATE_ROUTE:
+					raise AssertionError(route)
 				items = [
 					{
 						"templateExternalId": entry["templateExternalId"],
@@ -167,8 +167,8 @@ class SeedDiffTests(unittest.TestCase):
 
 		item_state_calls = [
 			args
-			for function_path, args in client.calls
-			if function_path == SEED_STATE_FUNCTION and args["itemExternalIds"]
+			for route, args in client.calls
+			if route == SEED_STATE_ROUTE and args["itemExternalIds"]
 		]
 		self.assertGreater(len(item_state_calls), 1)
 		all_template_ids = [

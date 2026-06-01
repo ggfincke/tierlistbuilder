@@ -84,8 +84,8 @@ class DevResetUrlTests(unittest.TestCase):
 			def __init__(self, settings: object) -> None:
 				self.settings = settings
 
-			def action(self, function_path: str, args: dict[str, object]) -> dict[str, object]:
-				calls.append((self.settings, function_path, args))
+			def action(self, route: str, args: dict[str, object]) -> dict[str, object]:
+				calls.append((self.settings, route, args))
 				return {
 					"deploymentMarker": "127.0.0.1:3211",
 					"deletedStorageBlobs": 0,
@@ -106,8 +106,8 @@ class DevResetUrlTests(unittest.TestCase):
 		):
 			self.assertEqual(dev_reset.main(), 0)
 
-		settings, function_path, args = calls[0]
-		self.assertEqual(function_path, dev_reset.RESET_FUNCTION)
+		settings, route, args = calls[0]
+		self.assertEqual(route, dev_reset.RESET_ROUTE)
 		self.assertEqual(args["confirm"], "RESET-127.0.0.1:3211")
 		self.assertIsNone(getattr(settings, "author_password"))
 

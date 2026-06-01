@@ -6,15 +6,20 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from seed_pipeline.convex_client import ConvexClientError, SEED_HTTP_ROUTES
+from seed_pipeline.convex_client import ConvexClientError
 from seed_pipeline.concurrency import run_in_parallel
 from seed_pipeline.ranking_config import compile_ranking_seeds
 from seed_pipeline.rankings import (
 	RANKING_APPLY_TARGET_COOLDOWN_SECONDS,
 	RANKING_APPLY_THROTTLE_BASE_SECONDS,
-	SEED_RANKINGS_ACTIVATE_FUNCTION,
-	SEED_RANKINGS_APPLY_FUNCTION,
-	SEED_RANKINGS_CLEANUP_STALE_FUNCTION,
+	SEED_RANKINGS_ACTIVATE_ROUTE,
+	SEED_RANKINGS_APPLY_ROUTE,
+	SEED_RANKINGS_CLEANUP_STALE_ROUTE,
+	SEED_RANKINGS_ENSURE_AUTHORS_ROUTE,
+	SEED_RANKINGS_PREFLIGHT_ROUTE,
+	SEED_RANKINGS_QUEUE_AGGREGATES_ROUTE,
+	SEED_RANKINGS_ROLLBACK_ROUTE,
+	SEED_RANKINGS_VERIFY_ROUTE,
 	_apply_ranking_targets,
 	_ranking_seed_target_manifests,
 	_run_ranking_lifecycle_until_complete,
@@ -172,10 +177,17 @@ class RankingSeedCompilationTests(unittest.TestCase):
 		with self.assertRaisesRegex(ValueError, "no active ranking criterion"):
 			compile_ranking_seeds(manifest, templates)
 
-	def test_ranking_routes_are_registered(self) -> None:
+	def test_ranking_routes_match_served_endpoints(self) -> None:
+		self.assertEqual(SEED_RANKINGS_PREFLIGHT_ROUTE, "/api/seed/rankings/preflight")
+		self.assertEqual(SEED_RANKINGS_VERIFY_ROUTE, "/api/seed/rankings/verify")
+		self.assertEqual(SEED_RANKINGS_APPLY_ROUTE, "/api/seed/rankings/apply")
+		self.assertEqual(SEED_RANKINGS_CLEANUP_STALE_ROUTE, "/api/seed/rankings/cleanup-stale")
+		self.assertEqual(SEED_RANKINGS_ENSURE_AUTHORS_ROUTE, "/api/seed/rankings/ensure-authors")
+		self.assertEqual(SEED_RANKINGS_ACTIVATE_ROUTE, "/api/seed/rankings/activate")
+		self.assertEqual(SEED_RANKINGS_ROLLBACK_ROUTE, "/api/seed/rankings/rollback")
 		self.assertEqual(
-			SEED_HTTP_ROUTES[("query", "marketplace/seed/rankings/actions:preflightSeedRankings")],
-			"/api/seed/rankings/preflight",
+			SEED_RANKINGS_QUEUE_AGGREGATES_ROUTE,
+			"/api/seed/rankings/queue-aggregates",
 		)
 
 	def test_apply_chunks_ranking_targets_by_target_profile_count(self) -> None:
@@ -214,40 +226,6 @@ class RankingSeedCompilationTests(unittest.TestCase):
 		)
 		self.assertEqual(chunks[0]["targets"][0]["templateExternalId"], "one")
 		self.assertEqual(chunks[1]["targets"][0]["templateExternalId"], "two")
-		self.assertEqual(
-			SEED_HTTP_ROUTES[("action", "marketplace/seed/rankings/actions:applySeedRankingChunk")],
-			"/api/seed/rankings/apply",
-		)
-		self.assertEqual(
-			SEED_HTTP_ROUTES[
-				("action", "marketplace/seed/rankings/actions:cleanupStaleSeedRankings")
-			],
-			"/api/seed/rankings/cleanup-stale",
-		)
-		self.assertEqual(
-			SEED_HTTP_ROUTES[
-				("action", "marketplace/seed/rankings/actions:ensureSeedRankingAuthors")
-			],
-			"/api/seed/rankings/ensure-authors",
-		)
-		self.assertEqual(
-			SEED_HTTP_ROUTES[
-				(
-					"mutation",
-					"marketplace/seed/rankings/lifecycle:activateSeedRankings",
-				)
-			],
-			"/api/seed/rankings/activate",
-		)
-		self.assertEqual(
-			SEED_HTTP_ROUTES[
-				(
-					"mutation",
-					"marketplace/seed/rankings/lifecycle:queueActiveSeedRankingAggregates",
-				)
-			],
-			"/api/seed/rankings/queue-aggregates",
-		)
 
 	@patch("seed_pipeline.rankings.time.sleep")
 	def test_activation_runner_keeps_batch_size_server_owned(self, sleep: object) -> None:
@@ -275,7 +253,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
 
 		result = _run_ranking_lifecycle_until_complete(
 			context,
-			SEED_RANKINGS_ACTIVATE_FUNCTION,
+			SEED_RANKINGS_ACTIVATE_ROUTE,
 			args,
 			active_release_id="release-a",
 		)
@@ -283,7 +261,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
 		self.assertEqual(result["activatedRankings"], 32)
 		self.assertEqual(len(context.client.mutations), 2)
 		first_call = context.client.mutations[0]
-		self.assertEqual(first_call[0], SEED_RANKINGS_ACTIVATE_FUNCTION)
+		self.assertEqual(first_call[0], SEED_RANKINGS_ACTIVATE_ROUTE)
 		self.assertEqual(first_call[1], args)
 		self.assertNotIn("batchSize", first_call[1])
 		self.assertNotIn("limit", first_call[1])
@@ -347,12 +325,12 @@ class RankingSeedCompilationTests(unittest.TestCase):
 		self.assertEqual(result["rankingsCleaned"], 2)
 		self.assertEqual(result["boardsCleaned"], 2)
 		self.assertEqual(len(context.client.actions), 3)
-		for function_path, payload in context.client.actions[:2]:
-			self.assertEqual(function_path, SEED_RANKINGS_APPLY_FUNCTION)
+		for route, payload in context.client.actions[:2]:
+			self.assertEqual(route, SEED_RANKINGS_APPLY_ROUTE)
 			self.assertNotIn("batchSize", payload)
 			self.assertNotIn("limit", payload)
 		cleanup_function, cleanup_payload = context.client.actions[2]
-		self.assertEqual(cleanup_function, SEED_RANKINGS_CLEANUP_STALE_FUNCTION)
+		self.assertEqual(cleanup_function, SEED_RANKINGS_CLEANUP_STALE_ROUTE)
 		self.assertEqual(cleanup_payload["rankingSeeds"], ranking_seeds)
 		sleep.assert_called_once_with(RANKING_APPLY_THROTTLE_BASE_SECONDS)
 		self.assertTrue(
@@ -419,11 +397,11 @@ class RankingSeedCompilationTests(unittest.TestCase):
 		)
 
 		self.assertEqual(
-			[function_path for function_path, _payload in context.client.actions],
+			[route for route, _payload in context.client.actions],
 			[
-				SEED_RANKINGS_APPLY_FUNCTION,
-				SEED_RANKINGS_APPLY_FUNCTION,
-				SEED_RANKINGS_CLEANUP_STALE_FUNCTION,
+				SEED_RANKINGS_APPLY_ROUTE,
+				SEED_RANKINGS_APPLY_ROUTE,
+				SEED_RANKINGS_CLEANUP_STALE_ROUTE,
 			],
 		)
 		sleep.assert_called_once_with(RANKING_APPLY_TARGET_COOLDOWN_SECONDS)
@@ -518,8 +496,8 @@ class _FakeRankingLifecycleClient:
 		self.responses = list(responses)
 		self.mutations: list[tuple[str, dict[str, object]]] = []
 
-	def mutation(self, function_path: str, args: dict[str, object]) -> dict[str, object]:
-		self.mutations.append((function_path, dict(args)))
+	def mutation(self, route: str, args: dict[str, object]) -> dict[str, object]:
+		self.mutations.append((route, dict(args)))
 		if not self.responses:
 			raise AssertionError("unexpected mutation call")
 		return self.responses.pop(0)
@@ -548,8 +526,8 @@ class _FakeRankingApplyClient:
 		self.responses = list(responses)
 		self.actions: list[tuple[str, dict[str, object]]] = []
 
-	def action(self, function_path: str, args: dict[str, object]) -> dict[str, object]:
-		self.actions.append((function_path, dict(args)))
+	def action(self, route: str, args: dict[str, object]) -> dict[str, object]:
+		self.actions.append((route, dict(args)))
 		if not self.responses:
 			raise AssertionError("unexpected action call")
 		response = self.responses.pop(0)
