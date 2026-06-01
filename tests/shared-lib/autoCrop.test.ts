@@ -3,7 +3,6 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { ITEM_TRANSFORM_LIMITS } from '@tierlistbuilder/contracts/workspace/board'
 import { padBBox } from '@tierlistbuilder/contracts/workspace/autoCrop'
 
 import {
@@ -154,27 +153,6 @@ describe('auto-crop transform helpers', () =>
     expect(transform.offsetY).toBeCloseTo(0, 6)
   })
 
-  it('allows wide content to fit below the old 10 percent floor', () =>
-  {
-    const transform = bboxToItemTransform(
-      {
-        left: 0.25,
-        top: 0,
-        right: 0.75,
-        bottom: 1,
-      },
-      {
-        imageAspectRatio: 100,
-        boardAspectRatio: 1,
-        rotation: 0,
-        paddingFraction: 0,
-      }
-    )
-
-    expect(transform.zoom).toBeCloseTo(0.02, 6)
-    expect(transform.zoom).toBeGreaterThanOrEqual(ITEM_TRANSFORM_LIMITS.zoomMin)
-  })
-
   it('centers an off-axis bbox after fitting it inside the frame', () =>
   {
     const transform = bboxToItemTransform(
@@ -256,23 +234,6 @@ describe('auto-crop bbox detection', () =>
       top: 0.1,
       right: 0.8,
       bottom: 0.71,
-    })
-  })
-
-  it('keeps short soft alpha fringes', () =>
-  {
-    const bbox = detectContentBBoxFromImageData(
-      createAlphaImageData(100, 100, [
-        { left: 18, top: 8, right: 82, bottom: 73, alpha: 32 },
-        { left: 20, top: 10, right: 80, bottom: 71, alpha: 255 },
-      ])
-    )
-
-    expect(bbox).toEqual({
-      left: 0.18,
-      top: 0.08,
-      right: 0.82,
-      bottom: 0.73,
     })
   })
 

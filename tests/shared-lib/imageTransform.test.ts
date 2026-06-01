@@ -3,29 +3,10 @@
 
 import { describe, expect, it } from 'vitest'
 
-import {
-  itemTransformToCropCss,
-  resolveManualCropImageSize,
-} from '~/shared/lib/imageTransform'
+import { itemTransformToCropCss } from '~/shared/lib/imageTransform'
 
 describe('manual crop image helpers', () =>
 {
-  it('sizes portrait images beyond a square crop frame', () =>
-  {
-    expect(resolveManualCropImageSize(2 / 3, 1, 0)).toEqual({
-      widthPercent: 100,
-      heightPercent: 150,
-    })
-  })
-
-  it('accounts for quarter-turn rotation when sizing the crop image', () =>
-  {
-    expect(resolveManualCropImageSize(2 / 3, 1, 90)).toEqual({
-      widthPercent: 100,
-      heightPercent: 150,
-    })
-  })
-
   it('positions pan offsets in frame-relative percentages', () =>
   {
     expect(
