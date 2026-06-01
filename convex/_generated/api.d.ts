@@ -92,6 +92,12 @@ import type * as marketplace_templates_mutations from "../marketplace/templates/
 import type * as marketplace_templates_publishJobs from "../marketplace/templates/publishJobs.js";
 import type * as marketplace_templates_queries from "../marketplace/templates/queries.js";
 import type * as marketplace_templates_seed from "../marketplace/templates/seed.js";
+import type * as platform_account_avatar from "../platform/account/avatar.js";
+import type * as platform_account_cardSync from "../platform/account/cardSync.js";
+import type * as platform_account_cascadeDelete from "../platform/account/cascadeDelete.js";
+import type * as platform_account_password from "../platform/account/password.js";
+import type * as platform_account_profile from "../platform/account/profile.js";
+import type * as platform_account_sessions from "../platform/account/sessions.js";
 import type * as platform_media_internal from "../platform/media/internal.js";
 import type * as platform_media_queries from "../platform/media/queries.js";
 import type * as platform_media_uploads from "../platform/media/uploads.js";
@@ -217,6 +223,12 @@ declare const fullApi: ApiFromModules<{
   "marketplace/templates/publishJobs": typeof marketplace_templates_publishJobs;
   "marketplace/templates/queries": typeof marketplace_templates_queries;
   "marketplace/templates/seed": typeof marketplace_templates_seed;
+  "platform/account/avatar": typeof platform_account_avatar;
+  "platform/account/cardSync": typeof platform_account_cardSync;
+  "platform/account/cascadeDelete": typeof platform_account_cascadeDelete;
+  "platform/account/password": typeof platform_account_password;
+  "platform/account/profile": typeof platform_account_profile;
+  "platform/account/sessions": typeof platform_account_sessions;
   "platform/media/internal": typeof platform_media_internal;
   "platform/media/queries": typeof platform_media_queries;
   "platform/media/uploads": typeof platform_media_uploads;

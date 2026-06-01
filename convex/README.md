@@ -86,6 +86,7 @@ convex/
     userUpsert.ts     # populates app-owned user fields on first sign-in
     validators/       # v.object() shapes mirroring packages/contracts (common, platform, workspace, marketplace, seedPipeline)
   platform/
+    account/          # profile, sessions, avatar, password, account deletion
     media/            # mediaAssets uploads (signed envelopes), queries, GC
     preferences/      # userPreferences get/upsert
     shortLinks/       # share-link slug resolution, listing, mutations, TTL sweeper
@@ -103,7 +104,7 @@ convex/
   http.ts             # /auth/* HTTP routes
   schema.ts           # defineSchema assembler for app tables + authTables
   schema/             # per-domain defineTable records
-  users.ts            # getMe query
+  users.ts            # compatibility exports for api.users.* paths
 ```
 
 ## Adding a new function

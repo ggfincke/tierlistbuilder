@@ -4,7 +4,7 @@ Auth slice — wraps `@convex-dev/auth` for the workspace UI.
 
 ## Layout
 
-- `model/useAuthSession.ts` — combines `useConvexAuth()` w/ `api.users.index.getMe` into a single discriminated session state. The only place UI components should reach for auth state.
+- `model/useAuthSession.ts` — combines `useConvexAuth()` w/ `api.users.getMe` into a single discriminated session state. The only place UI components should reach for auth state.
 - `model/useAuthActions.ts` — re-exports `signIn`/`signOut` from `@convex-dev/auth/react` so UI components can stay agnostic of the underlying provider package.
 - `model/useAccountMutations.ts` — typed mutation adapters for profile updates, sign-out-everywhere, and account deletion so account UI does not import Convex references directly.
 - `model/userIdentity.ts` — pure helper for deriving a stable per-user string ID (used as the IndexedDB upload-index partition key & as the cloud-merge "which user is this" cache key).
