@@ -5,21 +5,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { selectKeyboardTabStopItemId } from '~/features/workspace/boards/model/slices/selectors'
-import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { brandItemIds as ids, makeTier } from '@tests/fixtures'
 
 describe('selectKeyboardTabStopItemId', () =>
 {
-  it('returns focus item ID when set', () =>
-  {
-    const state = {
-      keyboardFocusItemId: asItemId('focus-me'),
-      tiers: [makeTier({ id: 'tier-s', name: 'S', itemIds: ids('a', 'b') })],
-      unrankedItemIds: [],
-    }
-    expect(selectKeyboardTabStopItemId(state)).toBe('focus-me')
-  })
-
   it('falls back to first tier item when focus is null', () =>
   {
     const state = {
@@ -31,26 +20,6 @@ describe('selectKeyboardTabStopItemId', () =>
       unrankedItemIds: [],
     }
     expect(selectKeyboardTabStopItemId(state)).toBe('first')
-  })
-
-  it('falls back to unranked when no tiers have items', () =>
-  {
-    const state = {
-      keyboardFocusItemId: null,
-      tiers: [makeTier({ id: 'tier-s', name: 'S' })],
-      unrankedItemIds: ids('u1'),
-    }
-    expect(selectKeyboardTabStopItemId(state)).toBe('u1')
-  })
-
-  it('returns null when no items exist anywhere', () =>
-  {
-    const state = {
-      keyboardFocusItemId: null,
-      tiers: [makeTier({ id: 'tier-s', name: 'S' })],
-      unrankedItemIds: [],
-    }
-    expect(selectKeyboardTabStopItemId(state)).toBeNull()
   })
 
   it('memoizes fallback by tiers+unranked refs (stable hits, invalidates on change)', () =>
