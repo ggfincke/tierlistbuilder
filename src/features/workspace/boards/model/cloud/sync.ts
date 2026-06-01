@@ -1,5 +1,5 @@
-// src/features/workspace/boards/model/sync.ts
-// helpers around the BoardSyncState contract — empty value, normalize, & post-flush marker
+// src/features/workspace/boards/model/cloud/sync.ts
+// helpers around the BoardSyncState contract: empty value, normalize, & post-flush marker
 
 import type { BoardSyncState } from '@tierlistbuilder/contracts/workspace/boardSync'
 import {
@@ -17,7 +17,7 @@ export const EMPTY_BOARD_SYNC_STATE: BoardSyncState = {
   pendingSyncOwnerUserId: null,
 }
 
-// fresh sync state after a successful cloud push or pull — pinned revision &
+// fresh sync state after a successful cloud push or pull: pinned revision &
 // external id w/ pending marker cleared. used wherever a flush/pull settles
 export const markBoardSynced = (
   revision: number,

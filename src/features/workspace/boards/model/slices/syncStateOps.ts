@@ -1,7 +1,7 @@
 // src/features/workspace/boards/model/slices/syncStateOps.ts
 // sync-state helpers for the active board data slice
 
-import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
+import type { BoardSyncState } from '~/features/workspace/boards/model/cloud/sync'
 
 export type BoardSyncStatePatch = Partial<BoardSyncState>
 

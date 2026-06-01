@@ -11,7 +11,7 @@ import {
   loadAllTemplateItemsImperative,
   useUseTemplateMutation,
 } from '~/features/marketplace/data/templatesRepository'
-import { importCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
+import { importCloudBoardAsActive } from '~/features/workspace/boards/model/cloud/cloudBoardActivation'
 import { createLocalBoardFromTemplate } from '~/features/workspace/boards/model/localBoardFork'
 import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
 import {

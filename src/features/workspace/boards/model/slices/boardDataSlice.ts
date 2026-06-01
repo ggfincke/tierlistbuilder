@@ -2,7 +2,7 @@
 // board data slice composition for snapshot state & domain action groups
 
 import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
-import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
+import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/cloud/sync'
 import { createAspectRatioActions } from '~/features/workspace/boards/model/slices/board-data-actions/aspectRatioActions'
 import { createDeletedItemActions } from '~/features/workspace/boards/model/slices/board-data-actions/deletedItemActions'
 import { createItemActions } from '~/features/workspace/boards/model/slices/board-data-actions/itemActions'

@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/deletedBoardSession.ts
+// src/features/workspace/boards/model/cloud/deletedBoardSession.ts
 // model facade for cloud-backed recently deleted board actions
 
 import { asBoardId } from '@tierlistbuilder/contracts/lib/ids'
@@ -14,7 +14,7 @@ import {
 } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { serverStateToSnapshot } from '~/features/workspace/boards/data/cloud/boardMapper'
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
-import { markBoardSynced } from '~/features/workspace/boards/model/sync'
+import { markBoardSynced } from '~/features/workspace/boards/model/cloud/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { RestoreBoardError } from '~/features/platform/sync/lib/errors'
 

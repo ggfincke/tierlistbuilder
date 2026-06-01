@@ -11,7 +11,7 @@ import {
   EMPTY_BOARD_SYNC_STATE,
   markBoardPendingSync,
   type BoardSyncState,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { resumePendingSyncs } from '~/features/workspace/sync/pendingSyncRecovery'
 import { makeBoardMeta, makeBoardSnapshot } from '@tests/fixtures'

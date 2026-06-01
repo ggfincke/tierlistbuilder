@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/boardConflictQueueStore.ts
+// src/features/workspace/boards/model/cloud/boardConflictQueueStore.ts
 // queue of unresolved cloud-sync conflicts for the resolver modal
 
 import { create } from 'zustand'

@@ -10,7 +10,7 @@ import {
   isBoardPendingSyncOwnedBy,
   markBoardPendingSync,
   type BoardSyncState,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import {
   announceBoardLock,
   getPeerLockRemainingMs,

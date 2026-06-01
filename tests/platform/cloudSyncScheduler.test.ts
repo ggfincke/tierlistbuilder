@@ -9,7 +9,7 @@ import {
   type FlushResult,
   type PendingBoardSync,
 } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
-import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
+import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/cloud/sync'
 import { flushPromises } from '@tests/shared-lib/async'
 import { makeBoardSnapshot } from '@tests/fixtures'
 

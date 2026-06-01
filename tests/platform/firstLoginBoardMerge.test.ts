@@ -8,7 +8,7 @@ import {
   runFirstLoginBoardMerge,
   type FirstLoginBoardMergeDeps,
 } from '~/features/workspace/boards/data/cloud/firstLoginBoardMerge'
-import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
+import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/cloud/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { makeBoardMeta, makeBoardSnapshot } from '@tests/fixtures'
 

@@ -1,13 +1,13 @@
 // src/features/workspace/boards/model/slices/board-data-actions/lifecycleActions.ts
 // board data lifecycle actions for sync state, runtime errors, reset, & load
 
-import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
+import type { BoardSyncState } from '~/features/workspace/boards/model/cloud/sync'
 import { createFreshRuntimeState } from '~/features/workspace/boards/model/runtime'
 import { resetBoardData } from '~/shared/board-data/boardSnapshot'
 import {
   EMPTY_BOARD_SYNC_STATE,
   extractBoardSyncState,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import { countActiveItems } from '~/features/workspace/boards/model/slices/helpers'
 import { createBoardSyncStatePatch } from '~/features/workspace/boards/model/slices/syncStateOps'
 import type {

@@ -5,7 +5,7 @@ import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useRemixTemplateConsensusMutation } from '~/features/marketplace/data/rankingsRepository'
-import { importCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
+import { importCloudBoardAsActive } from '~/features/workspace/boards/model/cloud/cloudBoardActivation'
 import {
   useSignedInMarketplaceAction,
   useVoidRun,

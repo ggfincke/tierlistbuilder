@@ -15,11 +15,11 @@ import {
   loadBoardFromStorage,
   saveBoardToStorage,
 } from '~/features/workspace/boards/data/local/boardStorage'
-import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
+import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloud/cloudBoardActivation'
 import {
   EMPTY_BOARD_SYNC_STATE,
   markBoardSynced,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'

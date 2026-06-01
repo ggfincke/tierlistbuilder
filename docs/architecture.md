@@ -384,7 +384,7 @@ Share/export image behavior is intentionally split by carrier:
 - `shared/*` must not import from `features/*`. Shared code is framework-only and feature-agnostic.
 - `shared/board-data/*`, `shared/board-ui/*`, `shared/sharing/*`, and `shared/routes/*` are the neutral homes for current board snapshot, rendering, share-codec, and route-path helpers.
 - The embed shell resolves shares through `features/platform/share/*`, renders through `shared/board-ui/*`, and never mounts the editable active-board store.
-- Workspace owns activation of cloud-backed boards via `features/workspace/boards/model/cloudBoardActivation.ts`; marketplace/library callers do not reach through workspace persistence internals directly.
+- Workspace owns activation of cloud-backed boards via `features/workspace/boards/model/cloud/cloudBoardActivation.ts`; marketplace/library callers do not reach through workspace persistence internals directly.
 - Workspace exposes publishable-board scanning via `features/workspace/boards/model/usePublishableBoards.ts`; marketplace publish UI does not read board storage directly.
 - Library board rows read and delete through `features/workspace/boards/model/libraryBoardAccess.ts`; library code does not import board storage or cloud repositories directly.
 - UI (`ui/`) → model (`model/`) → data (`data/{local,cloud}/`). Components don't call localStorage or Convex directly — they go through `model/` selectors or `data/*` helpers.

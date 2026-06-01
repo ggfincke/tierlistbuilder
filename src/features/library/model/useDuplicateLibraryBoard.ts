@@ -6,7 +6,7 @@ import { useCallback } from 'react'
 
 import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
-import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
+import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloud/cloudBoardActivation'
 import { duplicateBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useSyncOwnerUserId } from '~/features/platform/auth/model/useSyncOwnerUserId'

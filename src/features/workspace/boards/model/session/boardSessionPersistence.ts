@@ -17,7 +17,7 @@ import {
   EMPTY_BOARD_SYNC_STATE,
   extractBoardSyncState,
   type BoardSyncState,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'

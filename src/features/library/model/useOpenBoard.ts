@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
+import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloud/cloudBoardActivation'
 import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'

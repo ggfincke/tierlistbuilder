@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/boardConflictResolution.ts
+// src/features/workspace/boards/model/cloud/boardConflictResolution.ts
 // model actions for resolving board cloud-sync conflicts
 
 import type {
@@ -21,7 +21,7 @@ import {
   persistBoardSyncState,
   renameBoardSession,
 } from '~/features/workspace/boards/model/boardSession'
-import { markBoardSynced } from '~/features/workspace/boards/model/sync'
+import { markBoardSynced } from '~/features/workspace/boards/model/cloud/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { toast } from '~/shared/notifications/useToastStore'
 import { formatError } from '~/shared/lib/errors'

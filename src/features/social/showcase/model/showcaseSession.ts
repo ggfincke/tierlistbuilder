@@ -14,7 +14,7 @@ import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import {
   extractBoardSyncState,
   type BoardSyncState,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 
 interface StashedBoard
 {

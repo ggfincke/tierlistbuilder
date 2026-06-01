@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/cloudBoardActivation.ts
+// src/features/workspace/boards/model/cloud/cloudBoardActivation.ts
 // activates cloud-backed boards in the local workspace session
 
 import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
@@ -11,7 +11,7 @@ import {
 import {
   extractBoardSyncState,
   markBoardSynced,
-} from '~/features/workspace/boards/model/sync'
+} from '~/features/workspace/boards/model/cloud/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'

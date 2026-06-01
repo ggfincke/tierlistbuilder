@@ -5,7 +5,7 @@ import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import type { MarketplaceTemplateDraft } from '@tierlistbuilder/contracts/marketplace/template'
-import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
+import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloud/cloudBoardActivation'
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
