@@ -15,8 +15,8 @@ import {
   rotateImageEditorWorkingTransform,
   setImageEditorDisplayZoom,
   zoomImageEditorTransformAtPoint,
-} from '~/features/workspace/imageEditor/lib/imageEditorTransformOps'
-import { syncImageEditorTransformDraftState } from '~/features/workspace/imageEditor/model/transform/imageEditorTransformDraftState'
+} from '~/features/workspace/image-editor/lib/imageEditorTransformOps'
+import { syncImageEditorTransformDraftState } from '~/features/workspace/image-editor/model/transform/imageEditorTransformDraftState'
 
 const transform = (overrides: Partial<ItemTransform> = {}): ItemTransform => ({
   ...ITEM_TRANSFORM_IDENTITY,

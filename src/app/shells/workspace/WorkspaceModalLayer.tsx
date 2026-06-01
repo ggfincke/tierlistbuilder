@@ -10,11 +10,11 @@ import type { ExportStatus } from '~/features/workspace/export/model/useExportCo
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { AspectRatioIssueModal } from '~/features/workspace/settings/ui/aspect-ratio/AspectRatioIssueModal'
-import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import { useImageEditorStore } from '~/features/workspace/image-editor/model/useImageEditorStore'
 import {
   loadImageEditorModal,
   preloadImageEditorModal,
-} from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
+} from '~/features/workspace/image-editor/ui/loadImageEditorModal'
 import { loadPublishModal } from '~/features/marketplace/ui/publish/loadPublishModal'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
 import { lazyNamed } from '~/shared/lib/lazyNamed'

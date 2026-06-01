@@ -38,7 +38,7 @@ import { NumberStepper } from '~/shared/ui/NumberStepper'
 import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
 import { SettingRow } from '~/shared/ui/settings/SettingRow'
 import { Toggle } from '~/shared/ui/settings/Toggle'
-import { PLACEMENT_MODE_LABELS_SHORT } from '~/features/workspace/imageEditor/lib/labelEditorOptions'
+import { PLACEMENT_MODE_LABELS_SHORT } from '~/features/workspace/image-editor/lib/labelEditorOptions'
 
 const CAPTION_PLACEMENT_OPTIONS = (
   Object.keys(PLACEMENT_MODE_LABELS_SHORT) as LabelPlacementMode[]

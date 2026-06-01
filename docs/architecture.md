@@ -64,7 +64,7 @@ src/
 │   │       ├── modals/              # board conflict and recently deleted dialogs
 │   │       └── drag-overlay/        # dnd-kit overlay renderers
 │   ├── export/{lib,model,ui}        # PNG/JPEG/WebP/PDF/JSON export + preview + progress
-│   ├── imageEditor/
+│   ├── image-editor/
 │   │   ├── lib/                     # crop geometry, label options, & measurement helpers
 │   │   ├── model/
 │   │   │   ├── transform/           # transform drafts, pan, wheel zoom, arrow nudge, selected-item handlers

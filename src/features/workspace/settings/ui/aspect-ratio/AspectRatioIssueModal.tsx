@@ -25,8 +25,8 @@ import {
 } from '~/features/workspace/settings/model/aspect-ratio/aspectRatioPromptSnapshot'
 import { useAspectRatioPromptState } from '~/features/workspace/settings/model/aspect-ratio/useAspectRatioPromptState'
 import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/aspect-ratio/useBoardAspectRatioPicker'
-import { useAutoCropAfterLabelsChange } from '~/features/workspace/imageEditor/model/auto-crop/useAutoCropAfterLabelsChange'
-import { useBulkAspectRatioForItems } from '~/features/workspace/imageEditor/model/labels/useBulkAspectRatioForItems'
+import { useAutoCropAfterLabelsChange } from '~/features/workspace/image-editor/model/auto-crop/useAutoCropAfterLabelsChange'
+import { useBulkAspectRatioForItems } from '~/features/workspace/image-editor/model/labels/useBulkAspectRatioForItems'
 import { AspectRatioTiles } from '~/features/workspace/settings/ui/aspect-ratio/AspectRatioTiles'
 import { BulkFitSegmentedControl } from '~/features/workspace/settings/ui/aspect-ratio/BulkFitSegmentedControl'
 import {

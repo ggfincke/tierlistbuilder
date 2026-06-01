@@ -16,8 +16,8 @@ import {
   groupMismatchedItems,
   type MismatchGroup,
 } from '~/shared/board-ui/aspectRatio'
-import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
-import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
+import { useImageEditorStore } from '~/features/workspace/image-editor/model/useImageEditorStore'
+import { preloadImageEditorModal } from '~/features/workspace/image-editor/ui/loadImageEditorModal'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import { formatCountedWord } from '~/shared/lib/pluralize'
