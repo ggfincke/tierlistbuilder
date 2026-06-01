@@ -159,6 +159,11 @@ const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
   ['/api/seed/cleanup', 'action', storageUploads.cleanupAbandonedSeedRun],
   ['/api/seed/upsert-templates', 'mutation', seedRuns.upsertSeedTemplates],
   ['/api/seed/sync-template-items', 'mutation', seedRuns.syncSeedTemplateItems],
+  [
+    '/api/seed/sync-template-style-items',
+    'mutation',
+    seedRuns.syncSeedTemplateStyleItems,
+  ],
   ['/api/seed/upsert-criteria', 'mutation', seedRuns.upsertSeedCriteria],
   ['/api/seed/verify-chunk', 'mutation', seedRuns.verifySeedReleaseChunk],
   [
