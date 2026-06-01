@@ -12,12 +12,14 @@ import {
   type TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
 import {
+  ITEM_IMAGE_SOURCES,
   LABEL_SCRIMS,
   LABEL_TEXT_COLORS,
   MEDIA_PLATES,
   type BoardAutoPlateSettings,
   type BoardLabelSettings,
   type ImageFit,
+  type ItemImageSource,
   type ItemLabelOptions,
   type ItemTransform,
   type LabelPlacement,
@@ -63,6 +65,8 @@ export const mediaPlateNullableValidator = v.union(
   mediaPlateValidator,
   v.null()
 )
+
+export const itemImageSourceValidator = literalUnion(ITEM_IMAGE_SOURCES)
 
 export const tierColorSpecValidator = v.union(
   v.object({
@@ -148,6 +152,17 @@ export const optionalItemRenderFields = {
   aspectRatio: v.optional(v.number()),
 }
 
+// per-(style,item) image-override render fields; mirrors templateItems' item
+// render fields so a non-default style's asset row can't drift from the default
+export const styleItemRenderFields = {
+  mediaPlate: v.optional(mediaPlateNullableValidator),
+  altText: v.union(v.string(), v.null()),
+  aspectRatio: v.union(v.number(), v.null()),
+  imageFit: imageFitNullableValidator,
+  transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
+}
+
 export const validateBoardAutoPlateUniformColor = (
   autoPlate: BoardAutoPlateSettings | undefined | null
 ): void =>
@@ -164,6 +179,9 @@ export type _ImageFitExact = _Assert<
 >
 export type _MediaPlateExact = _Assert<
   _Exact<MediaPlate, Infer<typeof mediaPlateValidator>>
+>
+export type _ItemImageSourceExact = _Assert<
+  _Exact<ItemImageSource, Infer<typeof itemImageSourceValidator>>
 >
 export type _TierColorSpecExact = _Assert<
   _Exact<TierColorSpec, Infer<typeof tierColorSpecValidator>>

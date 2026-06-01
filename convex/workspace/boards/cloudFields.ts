@@ -57,6 +57,11 @@ export const buildForkedBoardInsert = (
       unrankedItemCount: number
     }
     materializationState?: Doc<'boards'>['materializationState']
+    // active image style externalId; null/absent -> template default style
+    imageStyleId?: string | null
+    // when a non-default style is forked, its render defaults override the
+    // template's so the board frames the skin's art correctly
+    style?: Doc<'templateStyles'> | null
   }
 ): ForkedBoardInsert =>
 {
@@ -65,6 +70,9 @@ export const buildForkedBoardInsert = (
     activeItemCount: itemCount,
     unrankedItemCount: itemCount,
   }
+  // a non-default style supplies its own framing defaults; default style forks
+  // inherit the template's
+  const renderSource = options.style ?? template
 
   return {
     title: options.title,
@@ -77,16 +85,17 @@ export const buildForkedBoardInsert = (
     forkCounted: options.forkCounted,
     ...buildFreshBoardCloudFields(options.now),
     materializationState: options.materializationState ?? 'ready',
-    itemAspectRatio: template.itemAspectRatio ?? null,
-    itemAspectRatioMode: template.itemAspectRatioMode ?? null,
+    imageStyleId: options.imageStyleId ?? null,
+    itemAspectRatio: renderSource.itemAspectRatio ?? null,
+    itemAspectRatioMode: renderSource.itemAspectRatioMode ?? null,
     aspectRatioPromptDismissed: false,
-    defaultItemImageFit: template.defaultItemImageFit ?? null,
-    defaultItemImagePadding: template.defaultItemImagePadding ?? null,
+    defaultItemImageFit: renderSource.defaultItemImageFit ?? null,
+    defaultItemImagePadding: renderSource.defaultItemImagePadding ?? null,
     paletteId: null,
     textStyleId: null,
     pageBackground: null,
-    labels: template.labels ?? null,
-    autoPlate: template.autoPlate,
+    labels: renderSource.labels ?? null,
+    autoPlate: renderSource.autoPlate,
     ...progressCounts,
     templateProgressState: resolveTemplateProgressState(
       template._id,

@@ -16,6 +16,7 @@ import {
 import {
   boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
+  itemImageSourceValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
   mediaPlateValidator,
@@ -107,6 +108,9 @@ export const workspaceTables = {
     labels: v.union(boardLabelSettingsValidator, v.null()),
     // per-board logo backdrop; absent -> On+Auto default
     autoPlate: v.optional(boardAutoPlateSettingsValidator),
+    // active image style (skin) externalId; absent/null -> source template
+    // default style. set at fork time & on a live skin switch
+    imageStyleId: v.optional(v.union(v.string(), v.null())),
     seedDatasetKey: v.union(v.string(), v.null()),
     seedReleaseId: v.union(v.string(), v.null()),
     seedExternalId: v.union(v.string(), v.null()),
@@ -173,6 +177,9 @@ export const workspaceTables = {
     labelOptions: v.optional(itemLabelOptionsValidator),
     // source marketplace item for future aggregate-ranking features
     templateItemId: v.optional(v.id('templateItems')),
+    // whether this item's image follows the active board style ('linked', the
+    // default) or is user-owned ('pinned'); pinned survives a skin switch
+    imageSource: v.optional(itemImageSourceValidator),
   })
     .index('byBoardAndTier', ['boardId', 'tierId', 'order'])
     .index('byBoardDeletedAtOrder', ['boardId', 'deletedAt', 'order'])

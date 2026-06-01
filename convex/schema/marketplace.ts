@@ -23,8 +23,10 @@ import {
 import {
   boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
+  imageFitNullableValidator,
   itemTransformValidator,
   mediaPlateNullableValidator,
+  styleItemRenderFields,
   tierColorSpecValidator,
   tierPresetTiersValidator,
 } from '../lib/validators/common'
@@ -92,6 +94,9 @@ export const marketplaceTables = {
     labels: v.union(boardLabelSettingsValidator, v.null()),
     // per-board logo backdrop pinned at publish; absent -> On+Auto default
     autoPlate: v.optional(boardAutoPlateSettingsValidator),
+    // externalId of the default image style; null/absent -> single-skin
+    // template. the default style's images live on templateItems
+    defaultStyleId: v.optional(v.union(v.string(), v.null())),
     // seed identity fields let Python diff/upsert by stable external IDs
     // while user-published templates continue to omit them
     seedDatasetKey: v.optional(v.string()),
@@ -312,6 +317,56 @@ export const marketplaceTables = {
     .index('byTemplate', ['templateId', 'order'])
     .index('byTemplateAndExternalId', ['templateId', 'externalId'])
     .index('byMedia', ['mediaAssetId']),
+  // per-template image style (skin). exactly one isDefault row per template;
+  // the default style's images live on templateItems (not duplicated here)
+  templateStyles: defineTable({
+    templateId: v.id('templates'),
+    externalId: v.string(),
+    label: v.string(),
+    order: v.number(),
+    isDefault: v.boolean(),
+    coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    coverFraming: v.union(templateCoverFramingValidator, v.null()),
+    // per-style render defaults a forked board inherits when this style is
+    // active; mirror the template board-level defaults so a skin can pin framing
+    itemAspectRatio: v.union(v.number(), v.null()),
+    itemAspectRatioMode: v.union(
+      v.literal('auto'),
+      v.literal('manual'),
+      v.null()
+    ),
+    defaultItemImageFit: imageFitNullableValidator,
+    defaultItemImagePadding: v.union(v.number(), v.null()),
+    labels: v.union(boardLabelSettingsValidator, v.null()),
+    autoPlate: v.optional(boardAutoPlateSettingsValidator),
+    seedDatasetKey: v.optional(v.string()),
+    seedReleaseId: v.optional(v.string()),
+    seedStylesContentHash: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('byTemplate', ['templateId', 'order'])
+    .index('byTemplateAndExternalId', ['templateId', 'externalId'])
+    .index('byCoverMedia', ['coverMediaAssetId']),
+  // per-(style, item) image override. only non-default styles get rows here;
+  // mediaAssetId null marks an item absent in this style. joined to a board
+  // item via templateItemId at fork/switch time
+  templateItemStyleAssets: defineTable({
+    templateId: v.id('templates'),
+    templateItemId: v.id('templateItems'),
+    styleExternalId: v.string(),
+    itemExternalId: v.string(),
+    mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    ...styleItemRenderFields,
+    seedContentHash: v.optional(v.string()),
+  })
+    .index('byTemplateStyleAndItem', [
+      'templateId',
+      'styleExternalId',
+      'itemExternalId',
+    ])
+    .index('byTemplateItem', ['templateItemId'])
+    .index('byMedia', ['mediaAssetId']),
   publishedRankings: defineTable({
     slug: v.string(),
     ownerId: v.id('users'),
@@ -352,6 +407,10 @@ export const marketplaceTables = {
     seedCuratedExternalId: v.union(v.string(), v.null()),
     seedReleaseStatus: v.union(seedRankingReleaseStatusValidator, v.null()),
     seedContentHash: v.optional(v.string()),
+    // image style (skin) externalId the author published in; null/absent ->
+    // source template default. snapshotted so the shared ranking renders in the
+    // author's chosen skin
+    activeStyleId: v.optional(v.union(v.string(), v.null())),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
