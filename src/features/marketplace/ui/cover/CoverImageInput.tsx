@@ -6,7 +6,8 @@ import { Crop, ImagePlus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { SUPPORTED_IMAGE_MIME_TYPES } from '@tierlistbuilder/contracts/platform/media'
-import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/lib/coverMedia'
+
 import { validateImageFile } from '~/features/platform/media/imageFileValidation'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 

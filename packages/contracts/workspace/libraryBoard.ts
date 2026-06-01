@@ -4,11 +4,9 @@
 import { clamp } from '../lib/math'
 import type { PaletteId, TierColorSpec } from '../lib/theme'
 import type { TemplateCategory } from '../marketplace/category'
-import type {
-  TemplateCoverFraming,
-  TemplateMediaRef,
-  TemplateSizeClass,
-} from '../marketplace/template'
+import type { TemplateCoverFraming, TemplateMediaRef } from '../lib/coverMedia'
+import type { TemplateSizeClass } from '../marketplace/template'
+
 import type { MediaVariantKind } from '../platform/media'
 import type { ShowcaseMiniSnapshot } from '../social/showcase'
 import type {

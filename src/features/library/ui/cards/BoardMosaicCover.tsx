@@ -11,7 +11,8 @@ import type { LibraryBoardCoverItem } from '@tierlistbuilder/contracts/workspace
 import type {
   TemplateCoverFraming,
   TemplateMediaRef,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
+
 import type { ShowcaseMiniSnapshot } from '@tierlistbuilder/contracts/social/showcase'
 
 import { externalIdToCode } from '~/shared/lib/initials'

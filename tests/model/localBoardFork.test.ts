@@ -2,11 +2,12 @@
 // local marketplace fork media hydration for signed-out rendering
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { TemplateMediaRef } from '@tierlistbuilder/contracts/lib/coverMedia'
 import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateItem,
-  TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
+
 import type { MarketplaceRankingDetail } from '@tierlistbuilder/contracts/marketplace/ranking'
 import {
   createLocalBoardFromRanking,

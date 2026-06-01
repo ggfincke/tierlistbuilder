@@ -2,6 +2,7 @@
 // serializable board contract — persisted per board & exchanged across import/export
 
 import type { BoardId, ItemId, TierId } from '../lib/ids'
+import type { TemplateCoverFraming, TemplateMediaRef } from '../lib/coverMedia'
 import type { PaletteId, TextStyleId, TierColorSpec } from '../lib/theme'
 import { clamp } from '../lib/math'
 import { isFiniteNumber } from '../lib/typeGuards'
@@ -540,10 +541,8 @@ interface BoardSnapshotBase
   sourceRankingTitle?: string
   // local-only source template cover metadata for pre-sync fork cards. cloud
   // library rows rehydrate this from the source template instead.
-  sourceTemplateCoverMedia?: import('../marketplace/template').TemplateMediaRef
-  sourceTemplateCoverFraming?:
-    | import('../marketplace/template').TemplateCoverFraming
-    | null
+  sourceTemplateCoverMedia?: TemplateMediaRef
+  sourceTemplateCoverFraming?: TemplateCoverFraming | null
   // criterion/lane the user started from when forking a template or remixing a
   // ranking. the server validates it against the source template on first sync.
   preferredCriterionExternalId?: string

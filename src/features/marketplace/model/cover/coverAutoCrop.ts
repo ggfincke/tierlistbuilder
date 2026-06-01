@@ -15,7 +15,7 @@ import {
   type CoverFrame,
   type CoverSurface,
   type TemplateCoverFraming,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
 
 import { scanBlobForAutoCrop } from '~/shared/lib/auto-crop/pipeline'
 import { createScanCache } from '~/shared/lib/auto-crop/scanCache'

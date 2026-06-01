@@ -3,6 +3,7 @@
 
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
+import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/lib/coverMedia'
 import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateDraftListResult,
@@ -14,12 +15,12 @@ import type {
   MarketplaceTemplateListResult,
   MarketplaceTemplatePublishResult,
   MarketplaceTemplateUseResult,
-  TemplateCoverFraming,
   TemplateGalleryRail,
   TemplateListSort,
   TemplateUseTierSelection,
   TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
+
 import { DEFAULT_TEMPLATE_ITEM_PAGE_SIZE } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import { getConvexClient } from '~/features/platform/sync/lib/convexClient'

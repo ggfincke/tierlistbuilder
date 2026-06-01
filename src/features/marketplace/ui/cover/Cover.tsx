@@ -4,8 +4,10 @@
 
 import type {
   CoverSurface,
-  MarketplaceTemplateSummary,
   TemplateCoverFraming,
+} from '@tierlistbuilder/contracts/lib/coverMedia'
+import type {
+  MarketplaceTemplateSummary,
   TemplateCoverItem,
 } from '@tierlistbuilder/contracts/marketplace/template'
 

@@ -11,7 +11,8 @@ import {
   isValidCoverFrame,
   type CoverFrame,
   type TemplateCoverFraming,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
+
 import { failInput } from '../../../lib/text'
 import { findOwnedMediaAssetByExternalId } from '../../../lib/permissions'
 import { buildDefaultTemplateCriteria } from '../criteria'

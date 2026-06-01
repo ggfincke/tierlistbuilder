@@ -17,7 +17,7 @@ import {
   type CoverFrame,
   type CoverSurface,
   type TemplateCoverFraming,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
 
 import {
   bboxToCoverFraming,

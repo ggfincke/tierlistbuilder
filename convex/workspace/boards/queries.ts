@@ -20,7 +20,8 @@ import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/ca
 import type {
   TemplateCoverFraming,
   TemplateMediaRef,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
+
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import {

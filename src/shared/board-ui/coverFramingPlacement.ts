@@ -5,7 +5,8 @@
 import {
   FULL_COVER_FRAME,
   type CoverFrame,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
+
 import { isPositiveFiniteNumber } from '@tierlistbuilder/contracts/lib/typeGuards'
 
 export interface CoverFramePlacement

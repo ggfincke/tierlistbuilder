@@ -1,7 +1,7 @@
 // src/features/marketplace/model/cover/coverFrameArea.ts
 // convert cropper percentage areas to stored cover-frame fractions
 
-import type { CoverFrame } from '@tierlistbuilder/contracts/marketplace/template'
+import type { CoverFrame } from '@tierlistbuilder/contracts/lib/coverMedia'
 
 export interface CropPercentageArea
 {

@@ -4,7 +4,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 
-import type { CoverFrame } from '@tierlistbuilder/contracts/marketplace/template'
+import type { CoverFrame } from '@tierlistbuilder/contracts/lib/coverMedia'
 
 import type {
   MediaDecoding,

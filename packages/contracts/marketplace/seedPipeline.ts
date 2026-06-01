@@ -3,7 +3,9 @@
 
 import type { TemplateCategory } from './category'
 import type { RankingFeaturedBadge } from './ranking'
-import type { TemplateCoverFraming, TemplateVisibility } from './template'
+import type { TemplateCoverFraming } from '../lib/coverMedia'
+import type { TemplateVisibility } from './template'
+
 import type { MarketplaceTemplateCriterion } from './templateCriterion'
 import type {
   MediaVariantKind,

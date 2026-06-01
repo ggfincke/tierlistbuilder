@@ -405,7 +405,7 @@ Anything that crosses a process boundary — localStorage, JSON exports, share l
 
 - `lib/ids.ts` — `BoardId`, `TierId`, `PresetId`, `UserPresetId`, `BuiltinPresetId` template-literal brands; `ItemId` is a nominal brand w/ `asItemId()` cast at trust boundaries. `generate*` ID factories shared across frontend & Convex.
 - `lib/theme.ts`, `lib/themeDefinition.ts`, `lib/hexColor.ts` — theme, palette, text-style, and hex-color primitives.
-- `lib/math.ts`, `lib/pagination.ts`, `lib/publicTier.ts`, `lib/strings.ts`, `lib/typeGuards.ts`, `lib/sha256.ts` — shared runtime primitives used across domains and runtimes.
+- `lib/coverMedia.ts`, `lib/math.ts`, `lib/pagination.ts`, `lib/publicTier.ts`, `lib/strings.ts`, `lib/typeGuards.ts`, `lib/sha256.ts` — shared runtime primitives used across domains and runtimes.
 - `marketplace/category.ts` and `marketplace/templateCriterion.ts` — template category and criterion taxonomies shared by contracts, Convex validators, and UI filters.
 - `marketplace/template.ts`, `marketplace/ranking.ts`, `marketplace/rankingAggregate.ts`, `marketplace/seedPipeline.ts` — public template/ranking read models, aggregate payloads, publish/remix contracts, and seed ingest wire types.
 - `platform/preferences.ts` — `AppPreferences`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.

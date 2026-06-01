@@ -12,8 +12,8 @@ import {
 import { memo, type ComponentType, type SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 
+import type { CoverSurface } from '@tierlistbuilder/contracts/lib/coverMedia'
 import type {
-  CoverSurface,
   MarketplaceTemplateSummary,
   TemplateCardAccessState,
 } from '@tierlistbuilder/contracts/marketplace/template'

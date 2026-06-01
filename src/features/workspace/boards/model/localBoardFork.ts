@@ -23,11 +23,12 @@ import type {
   ItemTransform,
   MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { TemplateMediaRef } from '@tierlistbuilder/contracts/lib/coverMedia'
 import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateItem,
-  TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
+
 import type {
   MarketplaceRankingDetail,
   MarketplaceRankingItem,

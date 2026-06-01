@@ -5,10 +5,8 @@ import type { TierColorSpec } from '../lib/theme'
 import type { PublicTierRow } from '../lib/publicTier'
 import type { BoardAutoPlateSettings } from '../workspace/board'
 import { DEFAULT_SE_TIERS } from '../workspace/tierPreset'
-import type {
-  MarketplaceItemRenderFields,
-  TemplateMediaRef,
-} from '../marketplace/template'
+import type { TemplateMediaRef } from '../lib/coverMedia'
+import type { MarketplaceItemRenderFields } from '../marketplace/template'
 
 // caps: keep the showcase legible & the public read query bounded
 export const MAX_SHOWCASE_TIERS = 8

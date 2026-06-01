@@ -9,14 +9,15 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { generateBoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/lib/coverMedia'
 import {
   ACTIVE_TEMPLATE_JOB_STATUSES,
   MAX_TEMPLATE_COVER_ITEMS,
   isFinishedTemplateJobStatus,
   type MarketplaceTemplatePublishResult,
   type MarketplaceTemplateUseResult,
-  type TemplateCoverFraming,
 } from '@tierlistbuilder/contracts/marketplace/template'
+
 import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { requireCurrentUserId } from '../../lib/auth'
 import { firstActiveStatusRow } from '../../lib/jobs'

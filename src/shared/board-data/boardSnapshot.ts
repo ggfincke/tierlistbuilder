@@ -19,7 +19,8 @@ import {
   type CoverFrame,
   type TemplateCoverFraming,
   type TemplateMediaRef,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/lib/coverMedia'
+
 import {
   asItemId,
   generateTierId,
