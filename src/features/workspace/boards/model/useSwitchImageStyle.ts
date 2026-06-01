@@ -1,7 +1,6 @@
 // src/features/workspace/boards/model/useSwitchImageStyle.ts
-// live image-style (skin) switch for the active board. skins re-point pooled,
-// server-resident item images, so the switch is cloud-authoritative: it runs
-// the server mutation then re-materializes the snapshot
+// live image-style (skin) switch for the active board. skins re-point pooled, server-resident
+// item images, so it's cloud-authoritative: run the server mutation then re-materialize the snapshot
 
 import { useCallback, useRef, useState } from 'react'
 

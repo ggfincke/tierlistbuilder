@@ -80,10 +80,9 @@ export const switchBoardImageStyle = mutation({
       styles,
       board.imageStyleId ?? undefined
     )
-    // a stored id that no longer names a live style (style removed by reseed) is
-    // a dead pointer: items still show the old skin while currentStyleId resolves
-    // to default. force the switch through so selecting default actually repairs
-    // the board instead of hitting the no-op below
+    // a stored id that no longer names a live style (removed by reseed) is a dead
+    // pointer: items still show the old skin while currentStyleId resolves to default.
+    // force the switch through so selecting default repairs the board vs the no-op below
     const storedStyleIsStale =
       board.imageStyleId != null &&
       !isAllowedTemplateStyle(

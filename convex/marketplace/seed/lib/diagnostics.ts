@@ -262,7 +262,10 @@ export const buildSeedReleaseDiagnosticsForTemplates = async (
     for (const style of styles)
     {
       const stylePath = `${templatePath}.styles[${style.externalId}]`
-      if (style.coverMediaAssetId !== null && !(await ctx.db.get(style.coverMediaAssetId)))
+      if (
+        style.coverMediaAssetId !== null &&
+        !(await ctx.db.get(style.coverMediaAssetId))
+      )
       {
         diagnostics.push(
           seedErrorDiagnostic(
@@ -278,7 +281,9 @@ export const buildSeedReleaseDiagnosticsForTemplates = async (
       const assets = await ctx.db
         .query('templateItemStyleAssets')
         .withIndex('byTemplateStyleAndItem', (q) =>
-          q.eq('templateId', template._id).eq('styleExternalId', style.externalId)
+          q
+            .eq('templateId', template._id)
+            .eq('styleExternalId', style.externalId)
         )
         .take(SEED_LIMITS.itemsPerTemplate + 1)
       if (assets.length === 0)

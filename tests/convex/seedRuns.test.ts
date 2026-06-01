@@ -1816,5 +1816,4 @@ describe('seed run precheck API', () =>
     expect(cleanup.skippedStorageIds).toEqual([badStorageId])
     await expectStorageMissing(t, abandonedStorageId)
   })
-
 })

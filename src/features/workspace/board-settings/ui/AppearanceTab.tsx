@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useSwitchImageStyle } from '~/features/workspace/boards/model/useSwitchImageStyle'
-import { useTemplateBySlug } from '~/features/marketplace/data/templatesRepository'
+import { useTemplateBySlug } from '~/features/marketplace/model/detail/useTemplateDetail'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { THEMES } from '~/shared/theme/tokens'

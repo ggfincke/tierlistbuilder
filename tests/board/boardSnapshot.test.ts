@@ -237,7 +237,6 @@ describe('normalizeBoardSnapshot', () =>
     expect(result.itemAspectRatio).toBe(4)
     expect(result.items[id].aspectRatio).toBe(100)
   })
-
 })
 
 describe('normalizeCanonicalTierColorSpec', () =>

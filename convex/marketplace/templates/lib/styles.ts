@@ -1,7 +1,6 @@
 // convex/marketplace/templates/lib/styles.ts
-// image-style resolution: the single source of style precedence used by fork,
-// live-switch, & publish. the default style reads templateItems; non-default
-// styles read templateItemStyleAssets
+// image-style resolution: single source of style precedence for fork, live-switch, & publish.
+// default style reads templateItems; non-default styles read templateItemStyleAssets
 
 import { ConvexError } from 'convex/values'
 import type { MutationCtx, QueryCtx } from '../../../_generated/server'

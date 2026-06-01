@@ -2,11 +2,7 @@
 // hex/rgb parsing, contrast picking, & input validation
 
 import { describe, it, expect } from 'vitest'
-import {
-  hexToRgbColor,
-  rgbToHexColor,
-  getTextColor,
-} from '~/shared/lib/color'
+import { hexToRgbColor, rgbToHexColor, getTextColor } from '~/shared/lib/color'
 
 describe('color helpers', () =>
 {

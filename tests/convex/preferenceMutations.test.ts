@@ -49,9 +49,7 @@ const makePreferences = (
 
 describe('preference mutations', () =>
 {
-  it.each([
-    ['above the maximum', EXPORT_ITEMS_PER_ROW_MAX + 1],
-  ])(
+  it.each([['above the maximum', EXPORT_ITEMS_PER_ROW_MAX + 1]])(
     'rejects exportItemsPerRow when it is %s',
     async (_, exportItemsPerRow) =>
     {
