@@ -82,10 +82,12 @@ import type * as marketplace_templates_internal from "../marketplace/templates/i
 import type * as marketplace_templates_lib_board from "../marketplace/templates/lib/board.js";
 import type * as marketplace_templates_lib_normalize from "../marketplace/templates/lib/normalize.js";
 import type * as marketplace_templates_lib_projections from "../marketplace/templates/lib/projections.js";
+import type * as marketplace_templates_lib_publishing from "../marketplace/templates/lib/publishing.js";
 import type * as marketplace_templates_lib_state from "../marketplace/templates/lib/state.js";
 import type * as marketplace_templates_lib_trending from "../marketplace/templates/lib/trending.js";
 import type * as marketplace_templates_lib_writes from "../marketplace/templates/lib/writes.js";
 import type * as marketplace_templates_mutations from "../marketplace/templates/mutations.js";
+import type * as marketplace_templates_publishJobs from "../marketplace/templates/publishJobs.js";
 import type * as marketplace_templates_queries from "../marketplace/templates/queries.js";
 import type * as marketplace_templates_seed from "../marketplace/templates/seed.js";
 import type * as platform_media_internal from "../platform/media/internal.js";
@@ -198,10 +200,12 @@ declare const fullApi: ApiFromModules<{
   "marketplace/templates/lib/board": typeof marketplace_templates_lib_board;
   "marketplace/templates/lib/normalize": typeof marketplace_templates_lib_normalize;
   "marketplace/templates/lib/projections": typeof marketplace_templates_lib_projections;
+  "marketplace/templates/lib/publishing": typeof marketplace_templates_lib_publishing;
   "marketplace/templates/lib/state": typeof marketplace_templates_lib_state;
   "marketplace/templates/lib/trending": typeof marketplace_templates_lib_trending;
   "marketplace/templates/lib/writes": typeof marketplace_templates_lib_writes;
   "marketplace/templates/mutations": typeof marketplace_templates_mutations;
+  "marketplace/templates/publishJobs": typeof marketplace_templates_publishJobs;
   "marketplace/templates/queries": typeof marketplace_templates_queries;
   "marketplace/templates/seed": typeof marketplace_templates_seed;
   "platform/media/internal": typeof platform_media_internal;

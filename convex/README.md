@@ -90,7 +90,7 @@ convex/
     preferences/      # userPreferences get/upsert
     shortLinks/       # share-link slug resolution, listing, mutations, TTL sweeper
   marketplace/
-    templates/        # public template publishing, gallery reads, clone-to-board
+    templates/        # public templates, job lifecycle, gallery reads, clone-to-board
     rankings/         # published ranking snapshots and remix-to-board
   workspace/
     boards/           # boards CRUD + cascade delete + upsertBoardState

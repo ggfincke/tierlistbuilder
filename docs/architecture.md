@@ -444,9 +444,14 @@ Marketplace template helpers are split by responsibility under
 - `normalize.ts` — input normalization, validation, defaults.
 - `trending.ts` — trending-score math, metric-day bucketing, projection cache.
 - `state.ts` — publication/access-state predicates & state-field builders.
+- `publishing.ts` — shared publish insert fields, cover-frame validation, and cover-item shaping.
 - `board.ts` — template-to-board tier/item materialization.
 - `projections.ts` — read-side projections: media/author/item loaders, stats reads, & summary/detail/draft/card shaping.
 - `writes.ts` — table writes & lifecycle: stats/cards/tags writes, publication-state mutations, deletes, & slug allocation.
+
+Template publish/clone job mutations live in
+`marketplace/templates/publishJobs.ts`; the scheduled processors and cascade
+jobs stay in `marketplace/templates/internal.ts`.
 
 Key boundary: **UI components never call Convex directly**. Every query & mutation flows through a per-feature adapter, platform repository, or auth hook. This keeps wire types, error surfaces, and retry policy out of the UI layer.
 
