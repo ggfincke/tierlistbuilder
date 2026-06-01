@@ -14,7 +14,7 @@ type PublicProfileResult =
 export const usePublicProfile = (handle: string): PublicProfileResult =>
 {
   const profile = useQuery(
-    api.platform.profile.getPublicProfileByHandle,
+    api.platform.profile.queries.getPublicProfileByHandle,
     handle ? { handle } : 'skip'
   )
 

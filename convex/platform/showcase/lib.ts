@@ -1,15 +1,8 @@
-// convex/platform/showcase.ts
-// tlotl profile showcase reads & writes — owner edit-state, save, & the public
-// read-only projection built from the owner's published-ranking lanes
+// convex/platform/showcase/lib.ts
+// profile-showcase read models, projections, & save helpers
 
-import { v, type Infer } from 'convex/values'
-import {
-  mutation,
-  query,
-  type MutationCtx,
-  type QueryCtx,
-} from '../_generated/server'
-import type { Doc, Id } from '../_generated/dataModel'
+import { type MutationCtx, type QueryCtx } from '../../_generated/server'
+import type { Doc, Id } from '../../_generated/dataModel'
 import {
   DEFAULT_SHOWCASE_TIERS,
   MAX_SHOWCASE_PLACED_ITEMS,
@@ -30,30 +23,21 @@ import {
   MAX_TIER_DESCRIPTION_LEN,
   MAX_TIER_NAME_LEN,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { getCurrentUserId, requireCurrentUserId } from '../lib/auth'
-import {
-  boardAutoPlateSettingsValidator,
-  tierColorSpecValidator,
-} from '../lib/validators/common'
-import {
-  marketplaceItemRenderFields,
-  templateMediaRefValidator,
-} from '../lib/validators/marketplace'
 import {
   createTemplateProjectionCache,
   type TemplateProjectionCache,
-} from '../marketplace/templates/lib/trending'
-import { toTemplateMediaRefWithFallback } from '../marketplace/templates/lib/projections'
+} from '../../marketplace/templates/lib/trending'
+import { toTemplateMediaRefWithFallback } from '../../marketplace/templates/lib/projections'
 import {
   isPublicRankingRow,
   loadRankingItems,
   loadRankingTiers,
   toRankingItemRenderFields,
-} from '../marketplace/rankings/lib'
+} from '../../marketplace/rankings/lib'
 import {
   isPublishedTemplateRow,
   isPublicTemplateRow,
-} from '../marketplace/templates/lib/state'
+} from '../../marketplace/templates/lib/state'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -65,107 +49,6 @@ const SHOWCASE_BOARD_SCAN_LIMIT = 300
 // always full; pool lanes past the remaining budget render cheap covers (each
 // gains its mini once dragged into a tier), keeping the read bounded at scale
 const SHOWCASE_EDITOR_MINI_BUDGET = 80
-
-const showcaseTierValidator = v.object({
-  externalId: v.string(),
-  name: v.string(),
-  description: v.union(v.string(), v.null()),
-  colorSpec: tierColorSpecValidator,
-  rowColorSpec: v.union(tierColorSpecValidator, v.null()),
-  order: v.number(),
-})
-
-const showcaseMiniItemValidator = v.object(marketplaceItemRenderFields)
-
-const showcaseMiniTierValidator = v.object({
-  name: v.string(),
-  colorSpec: tierColorSpecValidator,
-  rowColorSpec: v.union(tierColorSpecValidator, v.null()),
-  items: v.array(showcaseMiniItemValidator),
-})
-
-// exported so the library row validator can reuse the same mini shape
-export const showcaseMiniSnapshotValidator = v.object({
-  tiers: v.array(showcaseMiniTierValidator),
-  itemAspectRatio: v.union(v.number(), v.null()),
-  autoPlate: v.union(boardAutoPlateSettingsValidator, v.null()),
-})
-
-const showcaseRankingTileValidator = v.object({
-  boardExternalId: v.string(),
-  rankingSlug: v.string(),
-  title: v.string(),
-  cover: v.union(templateMediaRefValidator, v.null()),
-  mini: v.union(showcaseMiniSnapshotValidator, v.null()),
-})
-
-const showcasePlacedTileValidator = v.object({
-  ...showcaseRankingTileValidator.fields,
-  tierExternalId: v.string(),
-  order: v.number(),
-})
-
-const profileShowcaseEditDataValidator = v.object({
-  tiers: v.array(showcaseTierValidator),
-  placed: v.array(showcasePlacedTileValidator),
-  unranked: v.array(showcaseRankingTileValidator),
-})
-
-const publicProfileShowcaseTierValidator = v.object({
-  ...showcaseTierValidator.fields,
-  tiles: v.array(showcaseRankingTileValidator),
-})
-
-export const publicProfileShowcaseValidator = v.object({
-  tiers: v.array(publicProfileShowcaseTierValidator),
-  placedCount: v.number(),
-})
-
-const showcasePlacementInputValidator = v.object({
-  tierExternalId: v.string(),
-  boardExternalId: v.string(),
-  order: v.number(),
-})
-
-const profileShowcaseSaveInputValidator = v.object({
-  tiers: v.array(showcaseTierValidator),
-  placements: v.array(showcasePlacementInputValidator),
-})
-
-// drift guards: contract types & runtime validators must stay identical — same
-// bidirectional Infer pattern as getMe / getPublicProfileByHandle
-type _EditDataMatches =
-  ProfileShowcaseEditData extends Infer<typeof profileShowcaseEditDataValidator>
-    ? Infer<
-        typeof profileShowcaseEditDataValidator
-      > extends ProfileShowcaseEditData
-      ? true
-      : false
-    : false
-const _editDataCheck: _EditDataMatches = true
-void _editDataCheck
-
-type _PublicMatches =
-  PublicProfileShowcase extends Infer<typeof publicProfileShowcaseValidator>
-    ? Infer<typeof publicProfileShowcaseValidator> extends PublicProfileShowcase
-      ? true
-      : false
-    : false
-const _publicCheck: _PublicMatches = true
-void _publicCheck
-
-type _SaveMatches =
-  ProfileShowcaseSaveInput extends Infer<
-    typeof profileShowcaseSaveInputValidator
-  >
-    ? Infer<
-        typeof profileShowcaseSaveInputValidator
-      > extends ProfileShowcaseSaveInput
-      ? true
-      : false
-    : false
-const _saveCheck: _SaveMatches = true
-void _saveCheck
 
 const findShowcase = async (
   ctx: DbCtx,
@@ -200,28 +83,6 @@ const loadShowcasePlacements = async (
     .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
     .take(MAX_SHOWCASE_PLACED_ITEMS + 1)
   return rows.sort((a, b) => a.order - b.order)
-}
-
-export const deleteShowcaseWithChildren = async (
-  ctx: MutationCtx,
-  showcaseId: Id<'profileShowcases'>
-): Promise<void> =>
-{
-  const [items, tiers] = await Promise.all([
-    ctx.db
-      .query('profileShowcaseItems')
-      .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
-      .take(MAX_SHOWCASE_PLACED_ITEMS + 1),
-    ctx.db
-      .query('profileShowcaseTiers')
-      .withIndex('byShowcase', (q) => q.eq('showcaseId', showcaseId))
-      .take(MAX_SHOWCASE_TIERS + 1),
-  ])
-  await Promise.all([
-    ...items.map((item) => ctx.db.delete(item._id)),
-    ...tiers.map((tier) => ctx.db.delete(tier._id)),
-  ])
-  await ctx.db.delete(showcaseId)
 }
 
 const toShowcaseTier = (tier: Doc<'profileShowcaseTiers'>): ShowcaseTier => ({
@@ -461,7 +322,7 @@ const buildBoardTile = async (
   }
 }
 
-const buildEditData = async (
+export const buildEditData = async (
   ctx: DbCtx,
   ownerId: Id<'users'>
 ): Promise<ProfileShowcaseEditData> =>
@@ -718,67 +579,40 @@ const replaceShowcasePlacements = async (
   )
 }
 
-// owner-only edit-state for the showcase editor. signed-out callers get the
-// starter shell so the editor renders before auth resolves
-export const getMyProfileShowcase = query({
-  args: {},
-  returns: profileShowcaseEditDataValidator,
-  handler: async (ctx): Promise<ProfileShowcaseEditData> =>
+export const saveProfileShowcaseForUser = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  input: ProfileShowcaseSaveInput
+): Promise<void> =>
+{
+  const showcaseId = await getOrCreateShowcaseId(ctx, userId)
+
+  const tiers = normalizeShowcaseTiers(input.tiers)
+  const tierIds = new Set(tiers.map((tier) => tier.externalId))
+  const boardRankings = await loadOwnerPublicBoardRankings(ctx, userId)
+  // resolve boards already placed but outside the bounded pool scan so a valid
+  // placement on an older board isn't purged on save (mirrors the read paths)
+  const existingPlacements = await loadShowcasePlacements(ctx, showcaseId)
+  await augmentWithPlacedBoards(ctx, userId, boardRankings, existingPlacements)
+  const boardIdByExternalId = new Map<string, Id<'boards'>>()
+  for (const entry of boardRankings.values())
   {
-    const userId = await getCurrentUserId(ctx)
-    if (!userId)
-    {
-      return {
-        tiers: DEFAULT_SHOWCASE_TIERS,
-        placed: [],
-        unranked: [],
-      }
-    }
-    return await buildEditData(ctx, userId)
-  },
-})
+    boardIdByExternalId.set(entry.board.externalId, entry.board._id)
+  }
+  const placements = normalizeShowcasePlacements(
+    input.placements,
+    tierIds,
+    boardIdByExternalId
+  )
 
-export const saveProfileShowcase = mutation({
-  args: profileShowcaseSaveInputValidator.fields,
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> =>
-  {
-    const userId = await requireCurrentUserId(ctx)
-    const showcaseId = await getOrCreateShowcaseId(ctx, userId)
-
-    const tiers = normalizeShowcaseTiers(args.tiers)
-    const tierIds = new Set(tiers.map((tier) => tier.externalId))
-    const boardRankings = await loadOwnerPublicBoardRankings(ctx, userId)
-    // resolve boards already placed but outside the bounded pool scan so a valid
-    // placement on an older board isn't purged on save (mirrors the read paths)
-    const existingPlacements = await loadShowcasePlacements(ctx, showcaseId)
-    await augmentWithPlacedBoards(
-      ctx,
-      userId,
-      boardRankings,
-      existingPlacements
-    )
-    const boardIdByExternalId = new Map<string, Id<'boards'>>()
-    for (const entry of boardRankings.values())
-    {
-      boardIdByExternalId.set(entry.board.externalId, entry.board._id)
-    }
-    const placements = normalizeShowcasePlacements(
-      args.placements,
-      tierIds,
-      boardIdByExternalId
-    )
-
-    await replaceShowcaseTiers(ctx, showcaseId, tiers)
-    await replaceShowcasePlacements(
-      ctx,
-      showcaseId,
-      placements,
-      existingPlacements
-    )
-    await ctx.db.patch(showcaseId, {
-      updatedAt: Date.now(),
-    })
-    return null
-  },
-})
+  await replaceShowcaseTiers(ctx, showcaseId, tiers)
+  await replaceShowcasePlacements(
+    ctx,
+    showcaseId,
+    placements,
+    existingPlacements
+  )
+  await ctx.db.patch(showcaseId, {
+    updatedAt: Date.now(),
+  })
+}

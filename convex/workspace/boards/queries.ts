@@ -38,7 +38,7 @@ import {
   type TemplateProjectionCache,
 } from '../../marketplace/templates/lib/trending'
 import { toTemplateMediaRefWithFallback } from '../../marketplace/templates/lib/projections'
-import { buildMiniSnapshot } from '../../platform/showcase'
+import { buildMiniSnapshot } from '../../platform/showcase/lib'
 import {
   isPublishedTemplateRow,
   isPublicTemplateRow,

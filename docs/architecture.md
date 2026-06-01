@@ -423,7 +423,7 @@ Types that only live in memory stay in the frontend tree, collocated w/ the stor
 
 ## Backend
 
-The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{media,preferences,shortLinks}`, and `marketplace/{templates,rankings}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
+The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{media,preferences,profile,showcase,shortLinks}`, and `marketplace/{templates,rankings}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
 
 Convex validators are exposed through domain entrypoints under
 `convex/lib/validators/{common,workspace,platform,marketplace,seedPipeline}.ts`.

@@ -37,8 +37,13 @@ interface UseShowcaseEditorResult
 
 export const useShowcaseEditor = (): UseShowcaseEditorResult =>
 {
-  const editData = useQuery(api.platform.showcase.getMyProfileShowcase, {})
-  const saveShowcase = useMutation(api.platform.showcase.saveProfileShowcase)
+  const editData = useQuery(
+    api.platform.showcase.queries.getMyProfileShowcase,
+    {}
+  )
+  const saveShowcase = useMutation(
+    api.platform.showcase.mutations.saveProfileShowcase
+  )
 
   // recomputing tiles on reactive editData updates is cheap; the store loads
   // once below so in-progress edits are not clobbered

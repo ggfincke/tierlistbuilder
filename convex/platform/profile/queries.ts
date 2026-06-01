@@ -1,15 +1,16 @@
-// convex/platform/profile.ts
-// public profile reads (/u/:handle) — identity, tlotl showcase, & authored templates
+// convex/platform/profile/queries.ts
+// public profile reads: identity, tlotl showcase, & authored templates
 
 import { v, type Infer } from 'convex/values'
-import { query, type QueryCtx } from '../_generated/server'
-import type { Id } from '../_generated/dataModel'
+import { query, type QueryCtx } from '../../_generated/server'
+import type { Id } from '../../_generated/dataModel'
 import type { PublicUserProfile } from '@tierlistbuilder/contracts/platform/profile'
-import { marketplaceTemplateSummaryValidator } from '../lib/validators/marketplace'
-import { resolveUserAvatarUrl } from '../lib/avatar'
-import { toTemplateCardSummary } from '../marketplace/templates/lib/projections'
-import { createTemplateProjectionCache } from '../marketplace/templates/lib/trending'
-import { buildPublicShowcase, publicProfileShowcaseValidator } from './showcase'
+import { marketplaceTemplateSummaryValidator } from '../../lib/validators/marketplace'
+import { resolveUserAvatarUrl } from '../../lib/avatar'
+import { toTemplateCardSummary } from '../../marketplace/templates/lib/projections'
+import { createTemplateProjectionCache } from '../../marketplace/templates/lib/trending'
+import { buildPublicShowcase } from '../showcase/lib'
+import { publicProfileShowcaseValidator } from '../showcase/validators'
 
 type ProjectionCache = ReturnType<typeof createTemplateProjectionCache>
 
@@ -31,8 +32,7 @@ const publicUserProfileValidator = v.object({
   hasMoreTemplates: v.boolean(),
 })
 
-// drift guard: PublicUserProfile (TS contract) & the runtime validator must
-// stay structurally identical — same pattern as getMe in users.ts
+// drift guard: PublicUserProfile contract & validator stay identical
 type _PublicUserProfileMatchesValidator =
   PublicUserProfile extends Infer<typeof publicUserProfileValidator>
     ? Infer<typeof publicUserProfileValidator> extends PublicUserProfile

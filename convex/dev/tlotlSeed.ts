@@ -43,7 +43,7 @@ import {
   deleteSeedBoardWithChildren,
   deleteSeedRankingWithChildren,
 } from '../marketplace/rankings/seed/cleanup'
-import { deleteShowcaseWithChildren } from '../platform/showcase'
+import { deleteShowcaseWithChildren } from '../platform/showcase/internal'
 import { requireDevSampleSeedAuthorized } from './seedGate'
 
 const TARGET_EMAIL = 'tterrag456@gmail.com'

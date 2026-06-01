@@ -57,7 +57,7 @@ import {
   deleteMediaAssetWithVariants,
   hasMediaAssetReferences,
 } from './platform/media/internal'
-import { deleteShowcaseWithChildren } from './platform/showcase'
+import { deleteShowcaseWithChildren } from './platform/showcase/internal'
 import { deleteStorageSilently } from './lib/storage'
 import { loadVerifiedEnvelopeImage } from './lib/uploadedImage'
 
