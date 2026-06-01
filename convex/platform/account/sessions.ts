@@ -12,8 +12,8 @@ import {
   scheduleAuthSessionCleanup,
 } from './cascadeDelete'
 
-// Account UI session cap; higher than normal device counts.
-// Keeps listSessions bounded.
+// account UI session cap; higher than normal device counts
+// keeps listSessions bounded
 const SESSION_LIST_LIMIT = 50
 
 const publicUserSessionValidator = v.object({
@@ -75,8 +75,8 @@ export const revokeSession = mutation({
       return { revokedCurrent: false }
     }
     const currentSessionId = await getAuthSessionId(ctx)
-    // Delete the row inline so revocation takes effect immediately.
-    // Scheduled cleanup only drains child refresh tokens.
+    // delete the row inline so revocation takes effect immediately
+    // scheduled cleanup only drains child refresh tokens
     await ctx.db.delete(args.sessionId)
     await ctx.scheduler.runAfter(
       0,

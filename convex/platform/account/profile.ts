@@ -40,9 +40,9 @@ const userPrivacySettingsValidator = v.object({
   allowAiTraining: v.boolean(),
 })
 
-// Public getMe projection excludes operator diagnostics & auth internals.
-// _id is a plain string because contracts can't depend on Convex Id brands.
-// Treat it as an opaque identifier after projection.
+// public getMe projection excludes operator diagnostics & auth internals
+// _id is a plain string because contracts can't depend on Convex Id brands
+// treat it as an opaque identifier after projection
 const publicUserMeValidator = v.object({
   _id: v.string(),
   email: v.union(v.string(), v.null()),
@@ -61,8 +61,8 @@ const publicUserMeValidator = v.object({
   privacy: userPrivacySettingsValidator,
 })
 
-// Keep TS contract & runtime validator structurally identical.
-// Changing one without the other fails compilation.
+// keep TS contract & runtime validator structurally identical
+// changing one w/o the other fails compilation
 type _PublicUserMeMatchesValidator =
   PublicUserMe extends Infer<typeof publicUserMeValidator>
     ? Infer<typeof publicUserMeValidator> extends PublicUserMe

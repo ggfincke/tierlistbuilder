@@ -28,7 +28,7 @@ import { deleteShowcaseWithChildren } from '../../social/showcase/internal'
 
 const CASCADE_PAGE_SIZE = BATCH_LIMITS.cascadeDelete
 
-// Schedule caller account deletion through bounded auth + owned-data phases.
+// schedule caller account deletion through bounded auth + owned-data phases
 export const deleteAccount = mutation({
   args: {},
   returns: v.null(),
@@ -68,8 +68,8 @@ const authSessionCleanupModeValidator = literalUnion(AUTH_SESSION_CLEANUP_MODES)
 export type AuthSessionCleanupMode = (typeof AUTH_SESSION_CLEANUP_MODES)[number]
 type SchedulerCtx = Pick<MutationCtx, 'scheduler'>
 
-// Drain revoked session refresh tokens in bounded pages.
-// revokeSession already deleted the parent session row.
+// drain revoked session refresh tokens in bounded pages
+// revokeSession already deleted the parent session row
 export const cleanupRevokedSessionTokens = internalMutation({
   args: {
     sessionId: v.id('authSessions'),
@@ -259,8 +259,8 @@ export const cascadeDeleteUserData = internalMutation({
   },
 })
 
-// Shared step for signOutEverywhere + deleteAccount cascade entry.
-// Reschedules cleanupAuthSessions until mode-specific completion.
+// shared step for signOutEverywhere + deleteAccount cascade entry
+// reschedules cleanupAuthSessions until mode-specific completion
 const runAuthSessionCleanup = async (
   ctx: MutationCtx,
   userId: Id<'users'>,

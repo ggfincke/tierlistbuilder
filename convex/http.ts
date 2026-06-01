@@ -15,7 +15,7 @@ import {
 
 const http = httpRouter()
 
-// Register auth routes required by @convex-dev/auth callbacks.
+// register /auth/* routes required by @convex-dev/auth for OAuth callbacks
 auth.addHttpRoutes(http)
 
 const seedJsonResponse = (status: number, body: unknown): Response =>

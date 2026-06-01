@@ -48,8 +48,8 @@ export const changePassword = action({
       })
     }
 
-    // Password changes invalidate every other session.
-    // Missing session id must abort before touching credentials.
+    // password changes invalidate every other session
+    // missing session id must abort before touching credentials
     const currentSessionId = await getAuthSessionId(ctx)
     if (!currentSessionId)
     {
@@ -75,8 +75,8 @@ export const changePassword = action({
     }
     catch (error)
     {
-      // retrieveAccount throws Error(reason) & shares sign-in rate limiting.
-      // Surface expected failures distinctly; rethrow unknown errors.
+      // retrieveAccount throws Error(reason) & shares sign-in rate limiting
+      // surface expected failures distinctly; rethrow unknown errors
       const reason = error instanceof Error ? error.message : ''
       if (reason === 'TooManyFailedAttempts')
       {
