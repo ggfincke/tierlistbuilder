@@ -52,6 +52,7 @@ import type * as marketplace_rankings_aggregate_jobs from "../marketplace/rankin
 import type * as marketplace_rankings_aggregate_lib from "../marketplace/rankings/aggregate/lib.js";
 import type * as marketplace_rankings_lib from "../marketplace/rankings/lib.js";
 import type * as marketplace_rankings_maintenance_cascade from "../marketplace/rankings/maintenance/cascade.js";
+import type * as marketplace_rankings_public_aggregateQueries from "../marketplace/rankings/public/aggregateQueries.js";
 import type * as marketplace_rankings_public_mutations from "../marketplace/rankings/public/mutations.js";
 import type * as marketplace_rankings_public_queries from "../marketplace/rankings/public/queries.js";
 import type * as marketplace_rankings_seed_actions from "../marketplace/rankings/seed/actions.js";
@@ -167,6 +168,7 @@ declare const fullApi: ApiFromModules<{
   "marketplace/rankings/aggregate/lib": typeof marketplace_rankings_aggregate_lib;
   "marketplace/rankings/lib": typeof marketplace_rankings_lib;
   "marketplace/rankings/maintenance/cascade": typeof marketplace_rankings_maintenance_cascade;
+  "marketplace/rankings/public/aggregateQueries": typeof marketplace_rankings_public_aggregateQueries;
   "marketplace/rankings/public/mutations": typeof marketplace_rankings_public_mutations;
   "marketplace/rankings/public/queries": typeof marketplace_rankings_public_queries;
   "marketplace/rankings/seed/actions": typeof marketplace_rankings_seed_actions;
