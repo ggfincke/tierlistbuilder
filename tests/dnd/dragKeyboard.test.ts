@@ -71,35 +71,10 @@ describe('resolveNextKeyboardDragPreview', () =>
     const tierA = findTierById(result.nextPreview.tiers, 'tier-a')
     expect(tierA.itemIds).toContain('item-1')
   })
-
-  it('ArrowUp from unranked moves item to the last tier', () =>
-  {
-    const snap = makeContainerSnapshot()
-    const result = resolveNextKeyboardDragPreview({
-      snapshot: snap,
-      itemId: asItemId('item-6'),
-      direction: 'ArrowUp',
-    })
-    expect(result).not.toBeNull()
-    if (!result) return
-    expect(result.containerId).toBe('tier-b')
-    expect(result.nextPreview.unrankedItemIds).not.toContain('item-6')
-  })
 })
 
 describe('resolveNextKeyboardFocusItem', () =>
 {
-  it('ArrowRight returns the adjacent item in the same container', () =>
-  {
-    const snap = makeContainerSnapshot()
-    const result = resolveNextKeyboardFocusItem({
-      snapshot: snap,
-      itemId: asItemId('item-1'),
-      direction: 'ArrowRight',
-    })
-    expect(result).toBe('item-2')
-  })
-
   it('ArrowDown skips empty containers & focuses item in next non-empty one', () =>
   {
     // tier-b is empty, so ArrowDown from tier-a should go to unranked

@@ -17,7 +17,7 @@ import {
   SEED_SECRET_ENV,
 } from '../../convex/marketplace/seed/auth'
 import { writeTemplateCard } from '@convex/marketplace/templates/lib/writes'
-import { buildFreshBoardCloudFields } from '@convex/workspace/boards/cloudFields'
+import { buildCloudBoardDefaults } from '@convex/workspace/boards/cloudFields'
 import {
   boardSourceTemplateFromTemplate,
   EMPTY_BOARD_SOURCE_RANKING,
@@ -453,7 +453,7 @@ export const seedCloudBoard = async (
     sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
     forkCounted: Boolean(args.sourceTemplateId),
     preferredCriterionExternalId: null,
-    ...buildFreshBoardCloudFields(now),
+    ...buildCloudBoardDefaults(now),
     materializationState: 'ready',
     activeItemCount: args.activeItemCount ?? 0,
     unrankedItemCount: args.unrankedItemCount ?? 0,

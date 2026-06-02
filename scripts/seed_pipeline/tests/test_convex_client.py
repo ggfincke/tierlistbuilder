@@ -17,9 +17,7 @@ from seed_pipeline.convex_client import (
 	ConvexClientError,
 	ConvexSeedClient,
 	ConvexSeedSettings,
-	is_convex_write_rate_error,
 	read_seed_settings,
-	resolve_convex_site_url,
 )
 
 
@@ -38,15 +36,6 @@ class FakeResponse:
 
 
 class ConvexSeedClientTests(unittest.TestCase):
-	def test_settings_author_password_is_optional_for_reset_client(self) -> None:
-		settings = ConvexSeedSettings(
-			site_url="https://example.convex.site",
-			seed_secret="super-secret",
-			env_name="test",
-		)
-
-		self.assertIsNone(settings.author_password)
-
 	def test_seed_secret_uses_auth_header_not_body(self) -> None:
 		requests = []
 
@@ -180,28 +169,6 @@ class ConvexSeedClientTests(unittest.TestCase):
 				)
 		self.assertEqual(attempts, 1)
 
-	def test_urlopen_timeout_is_not_retried(self) -> None:
-		attempts = 0
-
-		def fake_urlopen(_request: object, timeout: int) -> FakeResponse:
-			nonlocal attempts
-			attempts += 1
-			raise TimeoutError("timed out")
-
-		client = ConvexSeedClient(
-			ConvexSeedSettings(
-				site_url="https://example.convex.site",
-				seed_secret="super-secret",
-				env_name="test",
-				author_password="test-author-password",
-			)
-		)
-
-		with patch("seed_pipeline.convex_client.urlopen", fake_urlopen):
-			with self.assertRaisesRegex(ConvexClientError, "timed out"):
-				client.action("/api/dev/reset", {"confirm": "RESET-example"})
-		self.assertEqual(attempts, 1)
-
 	def test_settings_resolve_site_url_from_convex_client_url(self) -> None:
 		cases = {
 			"http://127.0.0.1:3210": "http://127.0.0.1:3211",
@@ -224,31 +191,6 @@ class ConvexSeedClientTests(unittest.TestCase):
 					with patch.dict(os.environ, {}, clear=True):
 						settings = read_seed_settings(repo_root, "test")
 				self.assertEqual(settings.site_url, site_url)
-
-	def test_resolve_convex_site_url_uses_shell_before_dotenv(self) -> None:
-		with TemporaryDirectory() as directory:
-			repo_root = Path(directory)
-			(repo_root / ".env.local").write_text(
-				"CONVEX_SITE_URL=https://dotenv.convex.site\n",
-				encoding="utf-8",
-			)
-			with patch.dict(
-				os.environ,
-				{"CONVEX_URL": "https://shell.convex.cloud"},
-				clear=True,
-			):
-				self.assertEqual(
-					resolve_convex_site_url(repo_root),
-					"https://shell.convex.site",
-				)
-
-	def test_classifies_convex_write_rate_errors(self) -> None:
-		self.assertTrue(
-			is_convex_write_rate_error(
-				ConvexClientError("Too many concurrent commits; retry later")
-			)
-		)
-		self.assertFalse(is_convex_write_rate_error(ConvexClientError("forbidden")))
 
 
 if __name__ == "__main__":

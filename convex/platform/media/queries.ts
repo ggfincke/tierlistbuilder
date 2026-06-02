@@ -269,7 +269,37 @@ const isMediaReferencedByTemplate = async (
         .paginate({ cursor, numItems }),
     rowMatches: (template) => template.publicationState === 'published',
   })
-  return coverResult === 'matched'
+  if (coverResult === 'matched') return true
+  if (coverResult === 'budgetExhausted') return false
+
+  // non-default skin images & covers live only on the style tables; a published
+  // template's style assets are readable like its template-item assets
+  const styleItemResult = await scanReferencesWithBudget({
+    budget,
+    loadPage: async (cursor, numItems) =>
+      await ctx.db
+        .query('templateItemStyleAssets')
+        .withIndex('byMedia', (q) => q.eq('mediaAssetId', assetId))
+        .paginate({ cursor, numItems }),
+    parentIds: (rows) => rows.map((row) => row.templateId),
+    loadParent: async (templateId) => await ctx.db.get(templateId),
+    parentMatches: (template) => template?.publicationState === 'published',
+  })
+  if (styleItemResult === 'matched') return true
+  if (styleItemResult === 'budgetExhausted') return false
+
+  const styleCoverResult = await scanReferencesWithBudget({
+    budget,
+    loadPage: async (cursor, numItems) =>
+      await ctx.db
+        .query('templateStyles')
+        .withIndex('byCoverMedia', (q) => q.eq('coverMediaAssetId', assetId))
+        .paginate({ cursor, numItems }),
+    parentIds: (rows) => rows.map((row) => row.templateId),
+    loadParent: async (templateId) => await ctx.db.get(templateId),
+    parentMatches: (template) => template?.publicationState === 'published',
+  })
+  return styleCoverResult === 'matched'
 }
 
 const isMediaReferencedByPublishedRanking = async (

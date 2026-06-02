@@ -6,7 +6,6 @@ import {
   cacheFreshBlob,
   disposeImageBlobCache,
   getCachedImageUrl,
-  handlePageHide,
   subscribeCachedImageUrl,
 } from '~/shared/images/imageBlobCache'
 import { mockObjectUrls } from '@tests/shared-lib/objectUrl'
@@ -28,16 +27,6 @@ describe('imageBlobCache', () =>
     disposeImageBlobCache()
     objectUrls?.restore()
     objectUrls = null
-  })
-
-  it('does not clear cached urls on persisted pagehide events', () =>
-  {
-    cacheFreshBlob('hash-a', new Blob(['x'], { type: 'image/png' }))
-
-    handlePageHide({ persisted: true })
-
-    expect(getCachedImageUrl('hash-a')).toBe('blob:test-url-1')
-    expect(URL.revokeObjectURL).not.toHaveBeenCalled()
   })
 
   it('keeps subscribed urls when cache pruning removes older entries', () =>

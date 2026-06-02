@@ -330,7 +330,7 @@ export const disposeImageBlobCache = (): void =>
   listeners.clear()
 }
 
-export const handlePageHide = (
+const handlePageHide = (
   event: Pick<PageTransitionEvent, 'persisted'>
 ): void =>
 {

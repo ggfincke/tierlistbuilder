@@ -22,7 +22,7 @@ export const MAX_TIER_DESCRIPTION_LEN = 500
 // item text caps shared by local import & cloud sync. Convex also caps total
 // document size, but these field-level limits keep malformed local JSON from
 // persisting megabyte strings into browser storage first
-export const MAX_BOARD_ITEM_LABEL_LEN = 200
+const MAX_BOARD_ITEM_LABEL_LEN = 200
 const MAX_BOARD_ITEM_ALT_TEXT_LEN = 500
 const MAX_BOARD_ITEM_NOTES_LEN = 2000
 const MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN = 32
@@ -82,6 +82,12 @@ export const normalizeImagePadding = (value: unknown): number | undefined =>
 // one; absent -> no plate. resolved to a theme/user color via --t-media-plate-*
 export const MEDIA_PLATES = ['light', 'dark'] as const
 export type MediaPlate = (typeof MEDIA_PLATES)[number]
+
+// origin of a board item's current image. 'linked' follows the active board
+// image style & re-points on a skin switch; 'pinned' is user-owned (imported
+// or manually recropped) & is never touched by a switch. absent -> 'linked'
+export const ITEM_IMAGE_SOURCES = ['linked', 'pinned'] as const
+export type ItemImageSource = (typeof ITEM_IMAGE_SOURCES)[number]
 
 // per-board backdrop behind transparent logos. 'off' plates nothing; 'auto'
 // plates only low-contrast logos (per-item MediaPlate) w/ a theme shade;
@@ -489,6 +495,9 @@ export interface TierItem
   // locally. first cloud sync resolves it to boardItems.templateItemId so the
   // board can publish rankings against its source template.
   sourceTemplateItemExternalId?: string
+  // whether this item's image follows the active board image style ('linked')
+  // or is user-owned ('pinned'); absent -> 'linked'. see ItemImageSource
+  imageSource?: ItemImageSource
   // set only on profile-showcase items — marks this tile as a published-ranking
   // lane. absent on every normal board item. see ShowcaseItemRef
   showcaseRanking?: ShowcaseItemRef
@@ -546,6 +555,9 @@ interface BoardSnapshotBase
   // criterion/lane the user started from when forking a template or remixing a
   // ranking. the server validates it against the source template on first sync.
   preferredCriterionExternalId?: string
+  // active board image style (skin) externalId; absent -> source template
+  // default style. drives which per-item images the board renders
+  imageStyleId?: string
 }
 
 // full serializable board snapshot — persisted per board & exchanged across import/export

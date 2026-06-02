@@ -19,6 +19,9 @@ interface UseTemplateButtonProps
   access?: TemplateCardAccessState
   size?: 'sm' | 'md'
   preferredCriterionExternalId?: string
+  // chosen image style (skin) externalId; threads into the fork so the new
+  // board materializes in that skin
+  styleId?: string
   // pass to make the button stretch in flex layouts (eg the detail-page CTA
   // cluster where it sits next to a fixed-width share button)
   className?: string
@@ -30,6 +33,7 @@ export const UseTemplateButton = ({
   access = 'usable',
   size = 'md',
   preferredCriterionExternalId,
+  styleId,
   className,
 }: UseTemplateButtonProps) =>
 {
@@ -43,7 +47,9 @@ export const UseTemplateButton = ({
       type="button"
       size={size}
       disabled={isPending || blocked}
-      onClick={() => run(slug, templateTitle, { preferredCriterionExternalId })}
+      onClick={() =>
+        run(slug, templateTitle, { preferredCriterionExternalId, styleId })
+      }
       className={className}
       title={meta.ctaTooltip ?? undefined}
     >

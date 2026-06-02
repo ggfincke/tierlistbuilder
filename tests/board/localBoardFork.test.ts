@@ -67,6 +67,7 @@ const template: MarketplaceTemplateDetail = {
   rankingCountByCriterion: {},
   suggestedTiers: [],
   labels: null,
+  styleOptions: [],
 }
 
 const item: MarketplaceTemplateItem = {
@@ -109,7 +110,16 @@ const ranking: MarketplaceRankingDetail = {
   createdAt: 1,
   updatedAt: 1,
   autoPlate: { mode: 'uniform', uniformColor: '#101010' },
+  itemAspectRatio: 16 / 9,
+  itemAspectRatioMode: 'manual',
+  defaultItemImageFit: 'contain',
   defaultItemImagePadding: 0.12,
+  labels: {
+    show: true,
+    placement: { mode: 'captionBelow' },
+    fontSizePx: 18,
+  },
+  activeStyleId: 'alt-style',
   tiers: [],
   items: [],
 }
@@ -186,7 +196,7 @@ describe('createLocalBoardFromRanking', () =>
     resetStores()
   })
 
-  it('preserves the ranking source template backdrop policy', async () =>
+  it('preserves the ranking source template style policy', async () =>
   {
     const boardId = await createLocalBoardFromRanking({
       ranking,
@@ -202,5 +212,64 @@ describe('createLocalBoardFromRanking', () =>
     expect(
       stored.status === 'ok' ? stored.data.defaultItemImagePadding : undefined
     ).toBe(ranking.defaultItemImagePadding)
+    expect(
+      stored.status === 'ok' ? stored.data.itemAspectRatio : undefined
+    ).toBe(ranking.itemAspectRatio)
+    expect(
+      stored.status === 'ok' ? stored.data.itemAspectRatioMode : undefined
+    ).toBe(ranking.itemAspectRatioMode)
+    expect(
+      stored.status === 'ok' ? stored.data.defaultItemImageFit : undefined
+    ).toBe(ranking.defaultItemImageFit)
+    expect(stored.status === 'ok' ? stored.data.labels : undefined).toEqual(
+      ranking.labels
+    )
+    expect(stored.status === 'ok' ? stored.data.imageStyleId : undefined).toBe(
+      ranking.activeStyleId
+    )
+  })
+
+  it('materializes missing ranking items from the active style item set', async () =>
+  {
+    const styledMedia = {
+      ...media,
+      externalId: 'media-alt-style',
+      contentHash: 'hash-alt-style',
+      url: 'https://cdn.test/template-item-alt.png',
+    }
+    const body = new Blob([new Uint8Array([4, 5, 6])], { type: 'image/png' })
+    const fetchMock = vi.fn(async () => new Response(body, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const boardId = await createLocalBoardFromRanking({
+      ranking,
+      templateItems: [
+        {
+          ...item,
+          media: styledMedia,
+          aspectRatio: 1.5,
+          imageFit: 'contain',
+          imagePadding: 0.22,
+        },
+      ],
+      markPendingSync: false,
+    })
+
+    const stored = loadBoardFromStorage(boardId)
+    expect(stored.status).toBe('ok')
+    expect(fetchMock).toHaveBeenCalledWith(styledMedia.url)
+    const storedItem = Object.values(
+      stored.status === 'ok' ? (stored.data.items ?? {}) : {}
+    )[0]
+    expect(storedItem).toMatchObject({
+      sourceTemplateItemExternalId: item.externalId,
+      imageRef: {
+        hash: styledMedia.contentHash,
+        cloudMediaExternalId: styledMedia.externalId,
+      },
+      aspectRatio: 1.5,
+      imageFit: 'contain',
+      imagePadding: 0.22,
+    })
   })
 })

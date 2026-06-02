@@ -7,6 +7,7 @@ import type {
   CloudBoardTierWire as WireTier,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type {
+  ItemImageSource,
   ItemLabelOptions,
   ItemTransform,
   MediaPlate,
@@ -54,6 +55,7 @@ export interface ItemDiff
     imagePadding?: number
     labelOptions?: ItemLabelOptions
     templateItemId?: Id<'templateItems'>
+    imageSource?: ItemImageSource
   }>
   patch: Array<{
     id: Id<'boardItems'>
@@ -133,6 +135,12 @@ const buildItemPatchFields = (
   if (!itemLabelOptionsEqual(server.labelOptions, wire.labelOptions))
   {
     fields.labelOptions = wire.labelOptions
+  }
+  // pin state ('pinned' user-owned vs 'linked' follows the skin). plain optional
+  // scalar both sides -> direct compare, like altText/notes
+  if (server.imageSource !== wire.imageSource)
+  {
+    fields.imageSource = wire.imageSource
   }
   if (media.has && server.mediaAssetId !== media.resolved)
   {
@@ -261,6 +269,7 @@ export const diffItems = (
         transform: wire.transform,
         imagePadding: wire.imagePadding,
         labelOptions: wire.labelOptions,
+        imageSource: wire.imageSource,
         ...(resolvedTemplateItemId
           ? { templateItemId: resolvedTemplateItemId }
           : {}),
@@ -303,6 +312,7 @@ export const diffItems = (
           transform: wire.transform,
           imagePadding: wire.imagePadding,
           labelOptions: wire.labelOptions,
+          imageSource: wire.imageSource,
           ...(resolvedTemplateItemId
             ? { templateItemId: resolvedTemplateItemId }
             : {}),

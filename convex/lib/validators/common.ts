@@ -3,6 +3,7 @@
 
 import type { Infer, Validator } from 'convex/values'
 import { v } from 'convex/values'
+import { assertFiniteRange, assertPositiveFinite } from '../assertions'
 import { validateHexColor } from '../hexColor'
 import {
   PALETTE_IDS,
@@ -12,12 +13,16 @@ import {
   type TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
 import {
+  ITEM_IMAGE_SOURCES,
   LABEL_SCRIMS,
   LABEL_TEXT_COLORS,
   MEDIA_PLATES,
+  IMAGE_PADDING_MAX,
+  IMAGE_PADDING_MIN,
   type BoardAutoPlateSettings,
   type BoardLabelSettings,
   type ImageFit,
+  type ItemImageSource,
   type ItemLabelOptions,
   type ItemTransform,
   type LabelPlacement,
@@ -25,6 +30,10 @@ import {
   type LabelTextColor,
   type MediaPlate,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  BOARD_ITEM_ASPECT_RATIO_MAX,
+  BOARD_ITEM_ASPECT_RATIO_MIN,
+} from '@tierlistbuilder/contracts/workspace/aspectRatio'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 
 export type _Assert<T extends true> = T
@@ -58,11 +67,19 @@ export const imageFitValidator = v.union(
 )
 export const imageFitNullableValidator = v.union(imageFitValidator, v.null())
 
+export const itemAspectRatioModeNullableValidator = v.union(
+  v.literal('auto'),
+  v.literal('manual'),
+  v.null()
+)
+
 export const mediaPlateValidator = literalUnion(MEDIA_PLATES)
 export const mediaPlateNullableValidator = v.union(
   mediaPlateValidator,
   v.null()
 )
+
+export const itemImageSourceValidator = literalUnion(ITEM_IMAGE_SOURCES)
 
 export const tierColorSpecValidator = v.union(
   v.object({
@@ -139,6 +156,20 @@ export const boardAutoPlateSettingsValidator = v.union(
   })
 )
 
+export const templateRenderFieldValidators = {
+  itemAspectRatio: v.union(v.number(), v.null()),
+  itemAspectRatioMode: itemAspectRatioModeNullableValidator,
+  defaultItemImageFit: imageFitNullableValidator,
+  defaultItemImagePadding: v.union(v.number(), v.null()),
+  labels: v.union(boardLabelSettingsValidator, v.null()),
+  autoPlate: v.optional(boardAutoPlateSettingsValidator),
+}
+
+export const boardRenderFieldValidators = {
+  ...templateRenderFieldValidators,
+  defaultItemImagePadding: v.optional(v.union(v.number(), v.null())),
+}
+
 export const optionalItemRenderFields = {
   imageFit: v.optional(imageFitValidator),
   imagePadding: v.optional(v.number()),
@@ -146,6 +177,49 @@ export const optionalItemRenderFields = {
   mediaPlate: v.optional(mediaPlateValidator),
   transform: v.optional(itemTransformValidator),
   aspectRatio: v.optional(v.number()),
+}
+
+// per-(style,item) image-override render fields; mirrors templateItems' item
+// render fields so a non-default style's asset row can't drift from the default
+export const styleItemRenderFields = {
+  mediaPlate: v.optional(mediaPlateNullableValidator),
+  altText: v.union(v.string(), v.null()),
+  aspectRatio: v.union(v.number(), v.null()),
+  imageFit: imageFitNullableValidator,
+  transform: v.union(itemTransformValidator, v.null()),
+  imagePadding: v.union(v.number(), v.null()),
+}
+
+export const validateImagePadding = (
+  padding: number | null | undefined,
+  field: string
+): void =>
+{
+  if (padding == null) return
+  assertFiniteRange(field, padding, IMAGE_PADDING_MIN, IMAGE_PADDING_MAX)
+}
+
+export const validateBoardAspectRatio = (
+  aspectRatio: number | null | undefined,
+  field: string
+): void =>
+{
+  if (aspectRatio == null) return
+  assertFiniteRange(
+    field,
+    aspectRatio,
+    BOARD_ITEM_ASPECT_RATIO_MIN,
+    BOARD_ITEM_ASPECT_RATIO_MAX
+  )
+}
+
+export const validateNaturalAspectRatio = (
+  aspectRatio: number | null | undefined,
+  field: string
+): void =>
+{
+  if (aspectRatio == null) return
+  assertPositiveFinite(field, aspectRatio)
 }
 
 export const validateBoardAutoPlateUniformColor = (
@@ -164,6 +238,9 @@ export type _ImageFitExact = _Assert<
 >
 export type _MediaPlateExact = _Assert<
   _Exact<MediaPlate, Infer<typeof mediaPlateValidator>>
+>
+export type _ItemImageSourceExact = _Assert<
+  _Exact<ItemImageSource, Infer<typeof itemImageSourceValidator>>
 >
 export type _TierColorSpecExact = _Assert<
   _Exact<TierColorSpec, Infer<typeof tierColorSpecValidator>>

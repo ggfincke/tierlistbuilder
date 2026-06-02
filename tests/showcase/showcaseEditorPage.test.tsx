@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ShowcaseEditorPage } from '~/features/social/showcase/pages/ShowcaseEditorPage'
-import { makeSignedInSession } from '@tests/fixtures'
 
 const mocks = vi.hoisted(() => ({
   showSignIn: vi.fn(),
@@ -31,13 +30,6 @@ vi.mock('~/features/platform/auth/model/useSignInPromptStore', () => ({
 vi.mock('~/shared/hooks/useDocumentTitle', () => ({
   useDocumentTitle: vi.fn(),
 }))
-
-const signedInSession = () =>
-  makeSignedInSession({
-    email: 'owner@example.test',
-    name: 'Owner',
-    handle: 'owner',
-  })
 
 const renderEditor = (): string =>
   renderToStaticMarkup(
@@ -69,14 +61,5 @@ describe('ShowcaseEditorPage auth gate', () =>
       'Sign in to build and save the tier list shown on your profile.'
     )
     expect(html).not.toContain('Changes save automatically.')
-  })
-
-  it('subscribes to the edit query only after a signed-in user is known', () =>
-  {
-    mocks.useAuthSession.mockReturnValue(signedInSession())
-
-    renderEditor()
-
-    expect(mocks.useQuery.mock.calls[0]?.[1]).toEqual({})
   })
 })

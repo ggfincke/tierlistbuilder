@@ -64,6 +64,12 @@ import {
 import { getTemplateAccessState } from './lib/state'
 import { getBoardSourceTemplateId } from '../../workspace/boards/sourceFields'
 import { failInput } from '../../lib/text'
+import {
+  loadStyleItemAssets,
+  loadTemplateStyles,
+  resolveEffectiveStyleId,
+  resolveStyleItemAsset,
+} from './lib/styles'
 
 const listCategoryArg = v.optional(v.union(templateCategoryValidator, v.null()))
 
@@ -616,6 +622,7 @@ export const getTemplateBySlug = query({
 export const listTemplateItems = query({
   args: {
     slug: v.string(),
+    styleId: v.optional(v.union(v.string(), v.null())),
     paginationOpts: paginationOptsValidator,
   },
   returns: marketplaceTemplateItemsResultValidator,
@@ -638,10 +645,32 @@ export const listTemplateItems = query({
         numItems: normalizeTemplateItemPageSize(args.paginationOpts.numItems),
       })
     const cache = createTemplateProjectionCache()
+    const styles = args.styleId
+      ? await loadTemplateStyles(ctx, template._id)
+      : []
+    const effectiveStyleId = args.styleId
+      ? resolveEffectiveStyleId(template, styles, args.styleId)
+      : null
+    const styleAssets = await loadStyleItemAssets(
+      ctx,
+      template._id,
+      effectiveStyleId,
+      template.defaultStyleId ?? null
+    )
     return {
       ...result,
       page: await Promise.all(
-        result.page.map((item) => toTemplateItem(ctx, item, cache))
+        result.page.map((item) =>
+          toTemplateItem(
+            ctx,
+            item,
+            cache,
+            resolveStyleItemAsset(
+              item,
+              styleAssets.get(item.externalId) ?? null
+            )
+          )
+        )
       ),
     }
   },

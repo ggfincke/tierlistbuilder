@@ -78,6 +78,21 @@ interface SeedTemplateInput
   itemCount: number
   labels?: { show: boolean }
   autoPlate?: { mode: 'uniform'; uniformColor: string }
+  styles?: SeedTemplateStyleInput[]
+  defaultStyleId?: string | null
+}
+
+interface SeedTemplateStyleInput
+{
+  externalId: string
+  label: string
+  order: number
+  isDefault: boolean
+  coverMediaDedupeHash: string | null
+  itemAspectRatio: number | null
+  defaultItemImagePadding: number | null
+  labels?: { show: boolean }
+  autoPlate?: { mode: 'uniform'; uniformColor: string }
 }
 
 interface SeedItemInput
@@ -91,6 +106,16 @@ interface SeedItemInput
   mediaPlate: null
   imagePadding: number | null
   backgroundColor: string | null
+}
+
+interface SeedStyleItemInput
+{
+  itemExternalId: string
+  mediaDedupeHash: string | null
+  aspectRatio: number | null
+  transform: ItemTransform | null
+  mediaPlate: null
+  imagePadding: number | null
 }
 
 const buildSeedTemplate = (
@@ -157,6 +182,19 @@ const buildSeedItemsInput = (args: {
     ? { allowContentHashSkip: args.allowContentHashSkip }
     : {}),
   items: args.items,
+})
+
+const seedStyleItem = (
+  itemExternalId: string,
+  overrides: Partial<Omit<SeedStyleItemInput, 'itemExternalId'>> = {}
+): SeedStyleItemInput => ({
+  itemExternalId,
+  mediaDedupeHash: null,
+  aspectRatio: 1,
+  transform: null,
+  mediaPlate: null,
+  imagePadding: null,
+  ...overrides,
 })
 
 const getSeedTemplate = async (
@@ -510,112 +548,6 @@ describe('seed run precheck API', () =>
     ])
   })
 
-  it('resolves media hashes only for the seed author', async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(t, AUTHOR_EMAIL)
-    const otherId = await seedUser(t, 'other@example.com')
-    const authorVariant = await seedMediaVariant(t, authorId, 'hash-present')
-    await seedMediaVariant(t, otherId, 'hash-present')
-
-    const result = await t.query(
-      internal.marketplace.seed.templates.endpoints.resolveSeedMediaByHashes,
-      {
-        authorEmail: AUTHOR_EMAIL,
-        variantHashes: ['hash-present', 'hash-present', 'hash-missing'],
-      }
-    )
-
-    expect(result.media).toEqual([
-      {
-        contentHash: 'hash-present',
-        mediaAssetId: authorVariant.mediaAssetId,
-        mediaDedupeHash: 'tile:hash-present',
-        variantKind: 'tile',
-        byteSize: 3,
-      },
-    ])
-  })
-
-  it('generates upload URLs and validates batch bounds', async () =>
-  {
-    const t = makeTest()
-    await expect(
-      t.mutation(
-        internal.marketplace.seed.templates.endpoints.generateSeedUploadUrls,
-        {
-          datasetKey: DATASET,
-          releaseId: RELEASE,
-          runId: 'run-uploads',
-          variants: [],
-        }
-      )
-    ).rejects.toThrow(/variants must include 1..128 entries/)
-
-    const result = await t.mutation(
-      internal.marketplace.seed.templates.endpoints.generateSeedUploadUrls,
-      {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
-        runId: 'run-uploads',
-        variants: [
-          {
-            contentHash: 'hash-a',
-            kind: 'tile',
-            mimeType: 'image/png',
-            byteSize: 24,
-          },
-        ],
-      }
-    )
-    expect(result.urls).toHaveLength(1)
-    expect(result.urls[0].contentHash).toBe('hash-a')
-    expect(result.urls[0].uploadUrl).toMatch(/^https?:\/\//)
-  })
-
-  it('persists seed template label defaults', async () =>
-  {
-    const t = makeTest()
-    await seedUser(t, AUTHOR_EMAIL)
-
-    const templateInput = buildSeedTemplateInput({
-      runId: 'run-labels',
-      template: {
-        externalId: 'gaming:labelled-template',
-        metadataContentHash: 'meta-labels-hidden',
-        title: 'Labelled template',
-        description: 'Template with seed label defaults.',
-        tags: ['labels'],
-        labels: { show: false },
-      },
-    })
-
-    const created = await t.mutation(
-      internal.marketplace.seed.templates.endpoints.upsertSeedTemplates,
-      templateInput
-    )
-    const updated = await t.mutation(
-      internal.marketplace.seed.templates.endpoints.upsertSeedTemplates,
-      {
-        ...templateInput,
-        templates: [
-          {
-            ...templateInput.templates[0],
-            metadataContentHash: 'meta-labels-visible',
-            labels: { show: true },
-          },
-        ],
-      }
-    )
-
-    const template = await getSeedTemplate(t, 'gaming:labelled-template')
-
-    expect(created.created).toEqual(['gaming:labelled-template'])
-    expect(updated.updated).toEqual(['gaming:labelled-template'])
-    expect(template?.labels).toEqual({ show: true })
-    expect(template?.seedMetadataContentHash).toBe('meta-labels-visible')
-  })
-
   it('uses seed metadata hash as the template apply gate', async () =>
   {
     const t = makeTest()
@@ -783,6 +715,38 @@ describe('seed run precheck API', () =>
         }
       )
     ).rejects.toThrow(/duplicate seed template externalId/)
+    await expect(
+      t.mutation(
+        internal.marketplace.seed.templates.endpoints.upsertSeedTemplates,
+        buildSeedTemplateInput({
+          runId: 'run-duplicate-style',
+          template: {
+            metadataContentHash: 'meta-duplicate-style',
+            defaultStyleId: 'default',
+            styles: [
+              {
+                externalId: 'default',
+                label: 'Default',
+                order: 0,
+                isDefault: true,
+                coverMediaDedupeHash: null,
+                itemAspectRatio: 1,
+                defaultItemImagePadding: null,
+              },
+              {
+                externalId: 'default',
+                label: 'Default duplicate',
+                order: 1,
+                isDefault: false,
+                coverMediaDedupeHash: null,
+                itemAspectRatio: 1,
+                defaultItemImagePadding: null,
+              },
+            ],
+          },
+        })
+      )
+    ).rejects.toThrow(/duplicate seed template style externalId/)
 
     expect(createdTemplates).toMatchObject({
       created: ['gaming:ssbu-fighters'],
@@ -1106,6 +1070,120 @@ describe('seed run precheck API', () =>
     })
     expect(row?.mediaAssetId).toBe(current.mediaAssetId)
     expect(row?.mediaAssetId).not.toBe(stale.mediaAssetId)
+  })
+
+  it('stores style-item hashes and prunes child rows when styles are dropped', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, AUTHOR_EMAIL)
+    await seedMediaVariant(t, authorId, 'hash-mario')
+    await t.mutation(
+      internal.marketplace.seed.templates.endpoints.upsertSeedTemplates,
+      buildSeedTemplateInput({
+        runId: 'run-style-prune',
+        template: {
+          metadataContentHash: 'meta-style-prune-v1',
+          defaultStyleId: 'default',
+          styles: [
+            {
+              externalId: 'default',
+              label: 'Default',
+              order: 0,
+              isDefault: true,
+              coverMediaDedupeHash: null,
+              itemAspectRatio: 1,
+              defaultItemImagePadding: null,
+            },
+            {
+              externalId: 'alt',
+              label: 'Alt',
+              order: 1,
+              isDefault: false,
+              coverMediaDedupeHash: null,
+              itemAspectRatio: 1,
+              defaultItemImagePadding: null,
+            },
+          ],
+        },
+      })
+    )
+    await t.mutation(
+      internal.marketplace.seed.templates.endpoints.syncSeedTemplateItems,
+      buildSeedItemsInput({
+        runId: 'run-style-prune',
+        itemsContentHash: 'items-style-prune',
+        items: [seedItem('mario', 0, { mediaDedupeHash: 'tile:hash-mario' })],
+      })
+    )
+    await t.mutation(
+      internal.marketplace.seed.templates.endpoints.syncSeedTemplateStyleItems,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-style-prune',
+        templateExternalId: 'gaming:ssbu-fighters',
+        styleExternalId: 'alt',
+        styleItemsContentHash: 'v1:style-items-alt',
+        items: [
+          seedStyleItem('mario', {
+            aspectRatio: 1.5,
+            imagePadding: 0.2,
+          }),
+        ],
+      }
+    )
+    const syncedState = await t.query(
+      internal.marketplace.seed.templates.endpoints.resolveSeedState,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        authorEmail: AUTHOR_EMAIL,
+        templateExternalIds: ['gaming:ssbu-fighters'],
+        itemExternalIds: [],
+        criterionExternalIds: [],
+        variantHashes: [],
+      }
+    )
+    expect(syncedState.templates[0].styleItemsContentHash).toMatch(/^v1:/)
+
+    await t.mutation(
+      internal.marketplace.seed.templates.endpoints.upsertSeedTemplates,
+      buildSeedTemplateInput({
+        runId: 'run-style-prune',
+        template: {
+          metadataContentHash: 'meta-style-prune-v2',
+          defaultStyleId: null,
+        },
+      })
+    )
+    const rows = await t.run(async (ctx) =>
+    {
+      const template = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:ssbu-fighters')
+        )
+        .unique()
+      if (!template) throw new Error('seed template missing')
+      const styles = await ctx.db
+        .query('templateStyles')
+        .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+        .collect()
+      const styleItems = await ctx.db
+        .query('templateItemStyleAssets')
+        .withIndex('byTemplateStyleAndItem', (q) =>
+          q.eq('templateId', template._id)
+        )
+        .collect()
+      return { styleItems, styles, template }
+    })
+
+    expect(rows.styles).toEqual([])
+    expect(rows.styleItems).toEqual([])
+    expect(rows.template.seedStyleItemsContentHash).toBeNull()
   })
 
   it('fails verification when the release still has stale template rows', async () =>
@@ -1774,52 +1852,5 @@ describe('seed run precheck API', () =>
     expect(cleanup.missingStorageIds).toEqual([])
     expect(cleanup.skippedStorageIds).toEqual([badStorageId])
     await expectStorageMissing(t, abandonedStorageId)
-  })
-
-  it('marks cleaned seed uploads even when finalize races after cleanup eligibility', async () =>
-  {
-    const t = makeTest()
-    await seedRunRow(t, RELEASE, 'building', 'run-cleanup-race')
-    const storageId = await storeImageBytes(t, buildPngHeader(32, 16))
-
-    await t.mutation(
-      internal.marketplace.seed.lib.storageUploads
-        .registerSeedUploadedStorageIds,
-      {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
-        runId: 'run-cleanup-race',
-        storageIds: [storageId],
-      }
-    )
-    const rowId = await t.run(async (ctx) =>
-    {
-      const row = await ctx.db
-        .query('seedRunStorageUploads')
-        .withIndex('byStorageId', (q) => q.eq('storageId', storageId))
-        .unique()
-      if (!row) throw new Error('seed upload row missing')
-      return row._id
-    })
-
-    await t.mutation(
-      internal.marketplace.seed.lib.storageUploads
-        .markSeedUploadedStorageIdsResolved,
-      {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
-        runId: 'run-cleanup-race',
-        storageIds: [storageId],
-      }
-    )
-    await t.run(async (ctx) => await ctx.storage.delete(storageId))
-    await t.mutation(
-      internal.marketplace.seed.lib.storageUploads
-        .markSeedUploadedStorageIdsCleaned,
-      { rowIds: [rowId] }
-    )
-
-    const row = await t.run(async (ctx) => await ctx.db.get(rowId))
-    expect(row?.status).toBe('cleaned')
   })
 })

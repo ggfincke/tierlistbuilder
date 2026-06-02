@@ -39,6 +39,7 @@ import type * as lib_seedContentHash from "../lib/seedContentHash.js";
 import type * as lib_sha256 from "../lib/sha256.js";
 import type * as lib_storage from "../lib/storage.js";
 import type * as lib_templateProgress from "../lib/templateProgress.js";
+import type * as lib_templates_renderFields from "../lib/templates/renderFields.js";
 import type * as lib_text from "../lib/text.js";
 import type * as lib_uploadToken from "../lib/uploadToken.js";
 import type * as lib_uploadedImage from "../lib/uploadedImage.js";
@@ -88,6 +89,7 @@ import type * as marketplace_templates_lib_normalize from "../marketplace/templa
 import type * as marketplace_templates_lib_projections from "../marketplace/templates/lib/projections.js";
 import type * as marketplace_templates_lib_publishing from "../marketplace/templates/lib/publishing.js";
 import type * as marketplace_templates_lib_state from "../marketplace/templates/lib/state.js";
+import type * as marketplace_templates_lib_styles from "../marketplace/templates/lib/styles.js";
 import type * as marketplace_templates_lib_trending from "../marketplace/templates/lib/trending.js";
 import type * as marketplace_templates_lib_writes from "../marketplace/templates/lib/writes.js";
 import type * as marketplace_templates_mutations from "../marketplace/templates/mutations.js";
@@ -126,6 +128,7 @@ import type * as workspace_boards_librarySummary from "../workspace/boards/libra
 import type * as workspace_boards_mutations from "../workspace/boards/mutations.js";
 import type * as workspace_boards_queries from "../workspace/boards/queries.js";
 import type * as workspace_boards_sourceFields from "../workspace/boards/sourceFields.js";
+import type * as workspace_boards_switchImageStyle from "../workspace/boards/switchImageStyle.js";
 import type * as workspace_boards_upsertBoardState from "../workspace/boards/upsertBoardState.js";
 import type * as workspace_sync_boardReconciler from "../workspace/sync/boardReconciler.js";
 import type * as workspace_sync_boardStateLoader from "../workspace/sync/boardStateLoader.js";
@@ -171,6 +174,7 @@ declare const fullApi: ApiFromModules<{
   "lib/sha256": typeof lib_sha256;
   "lib/storage": typeof lib_storage;
   "lib/templateProgress": typeof lib_templateProgress;
+  "lib/templates/renderFields": typeof lib_templates_renderFields;
   "lib/text": typeof lib_text;
   "lib/uploadToken": typeof lib_uploadToken;
   "lib/uploadedImage": typeof lib_uploadedImage;
@@ -220,6 +224,7 @@ declare const fullApi: ApiFromModules<{
   "marketplace/templates/lib/projections": typeof marketplace_templates_lib_projections;
   "marketplace/templates/lib/publishing": typeof marketplace_templates_lib_publishing;
   "marketplace/templates/lib/state": typeof marketplace_templates_lib_state;
+  "marketplace/templates/lib/styles": typeof marketplace_templates_lib_styles;
   "marketplace/templates/lib/trending": typeof marketplace_templates_lib_trending;
   "marketplace/templates/lib/writes": typeof marketplace_templates_lib_writes;
   "marketplace/templates/mutations": typeof marketplace_templates_mutations;
@@ -258,6 +263,7 @@ declare const fullApi: ApiFromModules<{
   "workspace/boards/mutations": typeof workspace_boards_mutations;
   "workspace/boards/queries": typeof workspace_boards_queries;
   "workspace/boards/sourceFields": typeof workspace_boards_sourceFields;
+  "workspace/boards/switchImageStyle": typeof workspace_boards_switchImageStyle;
   "workspace/boards/upsertBoardState": typeof workspace_boards_upsertBoardState;
   "workspace/sync/boardReconciler": typeof workspace_sync_boardReconciler;
   "workspace/sync/boardStateLoader": typeof workspace_sync_boardStateLoader;

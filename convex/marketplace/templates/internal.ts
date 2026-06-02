@@ -40,6 +40,10 @@ import {
   buildBoardItemInsertFromTemplateItem,
   buildTemplateItemInsert,
 } from './lib/board'
+import {
+  resolveStyleItemAsset,
+  resolveStyleItemAssetForItem,
+} from './lib/styles'
 import { buildTemplateStateFields, isPublishedTemplateRow } from './lib/state'
 import {
   calculateTemplateTrendingScore,
@@ -51,6 +55,8 @@ import {
 
 const cascadePhaseValidator = v.union(
   v.literal('items'),
+  v.literal('styleItems'),
+  v.literal('styles'),
   v.literal('tags'),
   v.literal('bookmarks'),
   v.literal('aggregateItems')
@@ -270,7 +276,7 @@ export const processTemplatePublishJob = internalMutation({
   },
 })
 
-const buildCloneBoardSummary = async (
+export const buildCloneBoardSummary = async (
   ctx: MutationCtx,
   boardId: Id<'boards'>
 ) =>
@@ -351,9 +357,34 @@ export const processTemplateCloneJob = internalMutation({
         cursor: job.nextCursor,
       })
 
+    // resolve each item's image for the board's active style. default style ->
+    // null lookup -> the template item's own image (no extra read)
+    const effectiveStyleId = board.imageStyleId ?? null
+    const resolvedByExternalId = new Map(
+      await Promise.all(
+        page.page.map(async (item) =>
+        {
+          const styleAssetRow = await resolveStyleItemAssetForItem(
+            ctx,
+            template._id,
+            effectiveStyleId,
+            item.externalId,
+            template.defaultStyleId ?? null
+          )
+          return [
+            item.externalId,
+            resolveStyleItemAsset(item, styleAssetRow),
+          ] as const
+        })
+      )
+    )
+
     const hasReadyTiles = await allMediaAssetsHaveReadyTileVariants(
       ctx,
-      page.page.map((item) => item.mediaAssetId)
+      page.page.map(
+        (item) =>
+          resolvedByExternalId.get(item.externalId)?.mediaAssetId ?? null
+      )
     )
     if (!hasReadyTiles)
     {
@@ -378,7 +409,12 @@ export const processTemplateCloneJob = internalMutation({
         .map(({ item }) =>
           ctx.db.insert(
             'boardItems',
-            buildBoardItemInsertFromTemplateItem(board._id, item)
+            buildBoardItemInsertFromTemplateItem(
+              board._id,
+              item,
+              undefined,
+              resolvedByExternalId.get(item.externalId)
+            )
           )
         )
     )
@@ -467,6 +503,34 @@ export const cascadeDeleteTemplate = internalMutation({
           page: async (cursor) =>
             await ctx.db
               .query('templateItems')
+              .withIndex('byTemplate', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          // non-default skins' per-item assets; left dangling otherwise they
+          // pin their media forever (the orphan GC now counts style refs)
+          phase: 'styleItems',
+          page: async (cursor) =>
+            await ctx.db
+              .query('templateItemStyleAssets')
+              .withIndex('byTemplateStyleAndItem', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          phase: 'styles',
+          page: async (cursor) =>
+            await ctx.db
+              .query('templateStyles')
               .withIndex('byTemplate', (q) =>
                 q.eq('templateId', args.templateId)
               )

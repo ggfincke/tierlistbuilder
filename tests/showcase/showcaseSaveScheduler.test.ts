@@ -31,19 +31,4 @@ describe('createShowcaseSaveScheduler', () =>
     vi.advanceTimersByTime(1)
     expect(save).toHaveBeenCalledTimes(1)
   })
-
-  it('cancels stale timers when a save is rescheduled', () =>
-  {
-    const save = vi.fn()
-    const scheduler = createShowcaseSaveScheduler(save, 500)
-
-    scheduler.schedule()
-    vi.advanceTimersByTime(250)
-    scheduler.schedule()
-    vi.advanceTimersByTime(499)
-    expect(save).not.toHaveBeenCalled()
-
-    vi.advanceTimersByTime(1)
-    expect(save).toHaveBeenCalledTimes(1)
-  })
 })

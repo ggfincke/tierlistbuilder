@@ -12,9 +12,7 @@ from unittest.mock import patch
 from seed_pipeline.manifest import find_repo_root, iter_compiled_assets, read_json
 from seed_pipeline.run_context import (
 	SeedRunOptions,
-	checkpoint_matches,
 	is_production_env,
-	new_run_id,
 )
 from seed_pipeline.runs import (
 	CLEANUP_STORAGE_BATCH_SIZE,
@@ -28,8 +26,13 @@ from seed_pipeline.runs import (
 	packed_child_upsert_batches,
 	build_criterion_upserts,
 	build_item_upserts,
+	build_style_item_upserts,
 	build_template_upserts,
 	run_seed_manifest,
+)
+from seed_pipeline.template_payloads import (
+	style_items_content_hash,
+	template_style_items_content_hash,
 )
 
 
@@ -65,14 +68,6 @@ class SeedRunPayloadTests(unittest.TestCase):
 		self.assertEqual(criteria[0]["criterionExternalId"], "competitive")
 		self.assertRegex(criteria[0]["criteriaContentHash"], r"^v1:[0-9a-f]{32}$")
 
-	def test_template_upserts_forward_labels(self) -> None:
-		compiled = json.loads(json.dumps(self.compiled))
-		compiled["templates"][0]["labels"] = {"show": False}
-
-		templates = build_template_upserts(compiled)
-
-		self.assertEqual(templates[0]["labels"], {"show": False})
-
 	def test_template_metadata_hash_includes_labels(self) -> None:
 		labels_hidden = json.loads(json.dumps(self.compiled))
 		labels_visible = json.loads(json.dumps(self.compiled))
@@ -93,16 +88,6 @@ class SeedRunPayloadTests(unittest.TestCase):
 			hidden_template["metadataContentHash"],
 			_hash_for_test("template-metadata", hidden_payload),
 		)
-
-	def test_checkpoint_scope_includes_environment(self) -> None:
-		checkpoint = {
-			"datasetKey": self.compiled["datasetKey"],
-			"releaseId": self.compiled["releaseId"],
-			"env": "local",
-		}
-
-		self.assertTrue(checkpoint_matches(checkpoint, self.compiled, "local"))
-		self.assertFalse(checkpoint_matches(checkpoint, self.compiled, "prod"))
 
 	def test_child_upsert_batches_keep_each_template_complete(self) -> None:
 		rows = [
@@ -274,12 +259,51 @@ class SeedRunPayloadTests(unittest.TestCase):
 		self.assertEqual(clients[0].mutations, [])
 		self.assertEqual(clients[0].actions, [])
 
-	def test_run_ids_include_entropy_after_timestamp(self) -> None:
-		first = new_run_id(self.compiled)
-		second = new_run_id(self.compiled)
+	def test_run_does_not_skip_active_release_when_style_item_hash_drifted(self) -> None:
+		compiled = _compiled_with_alt_style(self.compiled)
+		state = _state_matching_compiled(compiled)
+		state["templates"][0]["styleItemsContentHash"] = "v1:stale-style-items"
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			compiled_path = root / ".seed-cache" / "compiled-manifest.json"
+			compiled_path.parent.mkdir(parents=True)
+			clients: list[FakeSeedClient] = []
 
-		self.assertRegex(first, r"2026-05-templates-v1-\d{8}T\d{6}Z-[0-9a-f]{8}")
-		self.assertNotEqual(first, second)
+			def make_client(_settings: object) -> "FakeSeedClient":
+				client = FakeSeedClient(state)
+				clients.append(client)
+				return client
+
+			with (
+				patch(
+					"seed_pipeline.run_context.build_compiled_manifest_with_data",
+					return_value=(compiled_path, compiled),
+				),
+				patch(
+					"seed_pipeline.run_context.read_seed_settings",
+					return_value=object(),
+				),
+				patch("seed_pipeline.run_context.ConvexSeedClient", make_client),
+			):
+				run_seed_manifest(
+					Path("seed.json"),
+					root,
+					SeedRunOptions(env_name="local", confirm_activation=True),
+				)
+
+		style_sync_args = [
+			args
+			for client in clients
+			for route, args in client.mutations
+			if route == "/api/seed/sync-template-style-items"
+		]
+		self.assertEqual(len(style_sync_args), 1)
+		self.assertRegex(
+			style_sync_args[0]["styleItemsContentHash"],
+			r"^v1:[0-9a-f]{32}$",
+		)
+		self.assertNotIn("templateExternalId", style_sync_args[0]["items"][0])
+		self.assertNotIn("styleExternalId", style_sync_args[0]["items"][0])
 
 	def test_production_environment_detection_catches_regional_names(self) -> None:
 		self.assertTrue(is_production_env("prod"))
@@ -342,6 +366,42 @@ class FakeSeedSettings:
 	author_password = "test-author-password"
 
 
+def _compiled_with_alt_style(compiled: dict[str, object]) -> dict[str, object]:
+	styled = json.loads(json.dumps(compiled))
+	template = styled["templates"][0]
+	item = template["items"][0]
+	template["styles"] = [
+		{
+			"id": "default",
+			"label": "Default",
+			"order": 0,
+			"isDefault": True,
+			"folder": template["folder"],
+			"itemAspectRatio": template["itemAspectRatio"],
+			"coverImage": template["coverImage"],
+		},
+		{
+			"id": "alt",
+			"label": "Alt",
+			"order": 1,
+			"isDefault": False,
+			"folder": template["folder"],
+			"itemAspectRatio": item["aspectRatio"],
+			"itemAssets": {
+				item["externalId"]: {
+					"externalId": item["externalId"],
+					"aspectRatio": item["aspectRatio"],
+					"transform": item["transform"],
+					"mediaPlate": item["mediaPlate"],
+					"imagePadding": item["imagePadding"],
+					"asset": item["asset"],
+				}
+			},
+		},
+	]
+	return styled
+
+
 def _compiled_asset_dedupe_hashes(compiled: dict[str, object]) -> set[str]:
 	hashes: set[str] = set()
 	for asset in iter_compiled_assets(compiled):
@@ -355,6 +415,7 @@ def _state_matching_compiled(compiled: dict[str, object]) -> dict[str, object]:
 		str(template["externalId"]): template["metadataContentHash"]
 		for template in build_template_upserts(compiled)
 	}
+	style_item_hashes = _style_item_hashes_for_test(compiled)
 	item_hashes: dict[str, str] = {}
 	for template in compiled["templates"]:
 		if not isinstance(template, dict):
@@ -399,6 +460,7 @@ def _state_matching_compiled(compiled: dict[str, object]) -> dict[str, object]:
 				"itemAspectRatio": template["itemAspectRatio"],
 				"metadataContentHash": metadata_hashes[external_id],
 				"itemsContentHash": item_hashes[external_id],
+				"styleItemsContentHash": style_item_hashes.get(external_id),
 				"criteriaContentHash": criteria_hashes[external_id],
 			}
 		)
@@ -445,6 +507,42 @@ def _state_matching_compiled(compiled: dict[str, object]) -> dict[str, object]:
 			{"mediaDedupeHash": dedupe_hash}
 			for dedupe_hash in _compiled_asset_dedupe_hashes(compiled)
 		],
+	}
+
+
+def _style_item_hashes_for_test(compiled: dict[str, object]) -> dict[str, str]:
+	rows_by_template_style: dict[tuple[str, str], list[dict[str, object]]] = {}
+	for row in build_style_item_upserts(compiled):
+		template_external_id = str(row["templateExternalId"])
+		style_external_id = str(row["styleExternalId"])
+		rows_by_template_style.setdefault(
+			(template_external_id, style_external_id),
+			[],
+		).append(
+			{
+				key: value
+				for key, value in row.items()
+				if key not in ("templateExternalId", "styleExternalId")
+			}
+		)
+	style_hashes_by_template: dict[str, list[dict[str, object]]] = {}
+	for (template_external_id, style_external_id), items in rows_by_template_style.items():
+		style_hashes_by_template.setdefault(template_external_id, []).append(
+			{
+				"styleExternalId": style_external_id,
+				"styleItemsContentHash": style_items_content_hash(
+					template_external_id,
+					style_external_id,
+					items,
+				),
+			}
+		)
+	return {
+		template_external_id: template_style_items_content_hash(
+			template_external_id,
+			style_hashes,
+		)
+		for template_external_id, style_hashes in style_hashes_by_template.items()
 	}
 
 

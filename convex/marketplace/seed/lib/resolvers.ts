@@ -28,6 +28,7 @@ export const toResolvedTemplate = (
   itemAspectRatio: template.itemAspectRatio ?? null,
   metadataContentHash: template.seedMetadataContentHash ?? null,
   itemsContentHash: template.seedItemsContentHash ?? null,
+  styleItemsContentHash: template.seedStyleItemsContentHash ?? null,
   criteriaContentHash: template.seedCriteriaContentHash ?? null,
 })
 

@@ -409,6 +409,9 @@ export const publishRankingCore = async (
     supersededByRankingId: null,
     itemCount: rankingItems.length,
     tierCount: serverTiers.length,
+    // freeze the author's active skin at publish; item images already snapshot
+    // it via pickRankingRenderFieldsForWrite, so this is provenance/label only
+    activeStyleId: board.imageStyleId ?? null,
     remixCount: 0,
     viewCount: 0,
     topScore: 0,

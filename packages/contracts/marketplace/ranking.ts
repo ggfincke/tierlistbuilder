@@ -2,8 +2,11 @@
 // public ranking contracts shared by Convex & future marketplace UI
 
 import { generateBase62Slug, isBase62Slug } from '../lib/ids'
-import type { BoardAutoPlateSettings } from '../workspace/board'
-import type { MarketplaceItemRenderFields, TemplateAuthor } from './template'
+import type {
+  MarketplaceItemRenderFields,
+  TemplateAuthor,
+  TemplateRenderSettings,
+} from './template'
 import type { TemplateCategory } from './category'
 import type { PaginationResult } from '../lib/pagination'
 import type { PublicTierRow } from '../lib/publicTier'
@@ -111,12 +114,12 @@ export interface MarketplaceRankingItem extends MarketplaceItemRenderFields
   tierExternalId: string | null
 }
 
-export interface MarketplaceRankingDetail extends MarketplaceRankingSummary
-{
-  // display policy joined live from the source template (not snapshotted) so
-  // legibility/layout fixes reach published rankings without a re-publish
-  autoPlate: BoardAutoPlateSettings | null
-  defaultItemImagePadding: number | null
+export interface MarketplaceRankingDetail
+  extends MarketplaceRankingSummary, TemplateRenderSettings
+  {
+  // image style (skin) externalId the author published in; null when the source
+  // template has no styles or the board used the default
+  activeStyleId: string | null
   tiers: MarketplaceRankingTier[]
   items: MarketplaceRankingItem[]
 }

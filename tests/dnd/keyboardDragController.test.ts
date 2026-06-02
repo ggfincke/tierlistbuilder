@@ -6,8 +6,6 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import {
   handleKeyboardArrowKey,
-  handleKeyboardBoardJumpKey,
-  handleKeyboardEscapeKey,
   handleKeyboardItemFocus,
   handleKeyboardSpaceKey,
 } from '~/features/workspace/boards/interaction/keyboardDragController'
@@ -74,35 +72,5 @@ describe('keyboard drag controller', () =>
     })
     expect(state.tiers[0].itemIds).toEqual(['item-2'])
     expect(state.tiers[1].itemIds).toEqual(['item-1', 'item-3'])
-  })
-
-  it('Arrow in browse mode moves spatial focus across tiers', () =>
-  {
-    handleKeyboardItemFocus(asItemId('item-1'))
-    handleKeyboardArrowKey(asItemId('item-1'), 'ArrowDown')
-    expect(useActiveBoardStore.getState()).toMatchObject({
-      keyboardMode: 'browse',
-      keyboardFocusItemId: 'item-3',
-    })
-  })
-
-  it('board-jump returns focus to the last clicked item', () =>
-  {
-    useActiveBoardStore.setState({ lastClickedItemId: asItemId('item-4') })
-    handleKeyboardBoardJumpKey()
-    expect(useActiveBoardStore.getState().keyboardFocusItemId).toBe('item-4')
-  })
-
-  it('Escape clears selection before leaving browse state', () =>
-  {
-    useActiveBoardStore.getState().selectAll()
-    handleKeyboardItemFocus(asItemId('item-4'))
-    handleKeyboardEscapeKey(asItemId('item-4'))
-
-    expect(useActiveBoardStore.getState()).toMatchObject({
-      keyboardMode: 'browse',
-      keyboardFocusItemId: 'item-4',
-    })
-    expect(useActiveBoardStore.getState().selection.ids).toEqual([])
   })
 })

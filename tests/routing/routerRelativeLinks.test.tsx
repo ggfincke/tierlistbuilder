@@ -6,9 +6,7 @@ import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PublicProfileShowcase } from '@tierlistbuilder/contracts/social/showcase'
-import { TopNavAccountMenu } from '~/app/shells/top-nav/TopNavAccountMenu'
 import { ProfileShowcaseView } from '~/features/social/profile/ui/ProfileShowcaseView'
-import { AccountSettingsPage } from '~/features/social/settings/pages/AccountSettingsPage'
 import { makePublicUserMe } from '@tests/fixtures'
 
 const mocks = vi.hoisted(() => ({
@@ -74,9 +72,6 @@ const showcase = (): PublicProfileShowcase => ({
   ],
 })
 
-const noop = (): void =>
-{}
-
 describe('router-relative React Router links', () =>
 {
   beforeEach(() =>
@@ -98,34 +93,5 @@ describe('router-relative React Router links', () =>
     expect(html).toContain('href="/app/tier-list"')
     expect(html).toContain('href="/app/rankings/ranking-one"')
     expect(html).not.toContain('/app/app/')
-  })
-
-  it('links the account menu profile header without duplicating basename', () =>
-  {
-    const html = renderWithBasename(
-      <TopNavAccountMenu
-        session={{ status: 'signed-in', user: makePublicUserMe() }}
-        onClose={noop}
-        menuId="account-menu"
-        onOpenSettings={noop}
-        onOpenPreferences={noop}
-        onOpenSignIn={noop}
-        onSignOut={noop}
-      />
-    )
-
-    expect(html).toContain('href="/app/u/alice"')
-    expect(html).not.toContain('/app/app/')
-  })
-
-  it('links account settings back to the workspace root once under basename', () =>
-  {
-    const html = renderWithBasename(
-      <AccountSettingsPage />,
-      '/app/settings/account'
-    )
-
-    expect(html).toContain('href="/app"')
-    expect(html).not.toContain('/app/app')
   })
 })

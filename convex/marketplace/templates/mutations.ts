@@ -9,7 +9,6 @@ import { generateBoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import {
-  MAX_TEMPLATE_COVER_ITEMS,
   isTemplateSlug,
   type MarketplaceTemplatePublishResult,
   type MarketplaceTemplateUseResult,
@@ -63,6 +62,11 @@ import {
   templateTitleToBoardTitle,
 } from './lib/board'
 import {
+  loadTemplateStyles,
+  resolveEffectiveStyleId,
+  resolveStyleAndAssets,
+} from './lib/styles'
+import {
   DEFAULT_TEMPLATE_TIERS,
   normalizeCreditLine,
   normalizeDescription,
@@ -76,12 +80,11 @@ import { findActiveTemplateCriterion } from './criteria'
 import { buildBoardLibrarySummary } from '../../workspace/boards/librarySummary'
 import { buildForkedBoardInsert } from '../../workspace/boards/cloudFields'
 import {
+  buildCoverItemsFromBoardItems,
   buildTemplateInsertFields,
   coverFramingsEqual,
-  isMediaBackedBoardItem,
   resolveCoverFraming,
   resolveCoverMediaId,
-  toTemplateCoverItem,
 } from './lib/publishing'
 import {
   queueLargeTemplateClone,
@@ -215,10 +218,7 @@ export const publishFromBoard = mutation({
     }
     await assertCanPublishTemplate(ctx, userId, activeItems.length)
 
-    const coverItems = activeItems
-      .filter(isMediaBackedBoardItem)
-      .slice(0, MAX_TEMPLATE_COVER_ITEMS)
-      .map(toTemplateCoverItem)
+    const coverItems = buildCoverItemsFromBoardItems(activeItems)
     const coverMediaAssetId = await resolveCoverMediaId(
       ctx,
       userId,
@@ -549,6 +549,8 @@ export const useTemplate = mutation({
     title: v.optional(v.string()),
     tierSelection: v.optional(templateTierSelectionValidator),
     preferredCriterionExternalId: v.optional(v.string()),
+    // chosen image style (skin) externalId; absent/unknown -> template default
+    styleId: v.optional(v.union(v.string(), v.null())),
   },
   returns: marketplaceTemplateUseResultValidator,
   handler: async (ctx, args): Promise<MarketplaceTemplateUseResult> =>
@@ -588,6 +590,12 @@ export const useTemplate = mutation({
       template,
       args.preferredCriterionExternalId
     )?.externalId
+    const styles = await loadTemplateStyles(ctx, template._id)
+    const effectiveStyleId = resolveEffectiveStyleId(
+      template,
+      styles,
+      args.styleId
+    )
     if (template.itemCount > MAX_STANDARD_CLOUD_BOARD_ITEMS)
     {
       return await queueLargeTemplateClone(
@@ -596,7 +604,8 @@ export const useTemplate = mutation({
         template,
         boardTitle,
         tiers,
-        preferredCriterionExternalId
+        preferredCriterionExternalId,
+        effectiveStyleId
       )
     }
 
@@ -614,6 +623,12 @@ export const useTemplate = mutation({
 
     const boardExternalId = generateBoardId()
     const now = Date.now()
+    const { styleRow, styleAssets } = await resolveStyleAndAssets(
+      ctx,
+      template,
+      styles,
+      effectiveStyleId
+    )
     const boardId = await ctx.db.insert('boards', {
       externalId: boardExternalId,
       ownerId: userId,
@@ -625,6 +640,8 @@ export const useTemplate = mutation({
         forkCounted: true,
         itemCount: templateItems.length,
         now,
+        imageStyleId: effectiveStyleId,
+        style: styleRow,
       }),
     })
 
@@ -632,7 +649,8 @@ export const useTemplate = mutation({
     const summaryItems = await insertBoardItemsFromTemplate(
       ctx,
       boardId,
-      templateItems
+      templateItems,
+      styleAssets
     )
     await ctx.db.patch(boardId, {
       librarySummary: buildBoardLibrarySummary({

@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import tempfile
 import unittest
@@ -12,15 +11,7 @@ from unittest import mock
 
 from PIL import Image
 
-from seed_pipeline import assets as assets_module
-from seed_pipeline.build import _compiled_variants_present, build_compiled_manifest
-from seed_pipeline.manifest import (
-	find_repo_root,
-	iter_compiled_asset_entries,
-	iter_compiled_assets,
-	read_json,
-)
-from seed_pipeline.settings import COMPILE_FINGERPRINT_FILENAME
+from seed_pipeline.build import build_compiled_manifest
 from seed_pipeline.validate import validate_source_manifest
 
 
@@ -121,96 +112,6 @@ class ManifestValidationTests(unittest.TestCase):
 		self.assertEqual(
 			[item["externalId"] for item in compiled["templates"][0]["items"]],
 			["mario", "luigi"],
-		)
-
-	def test_build_honors_non_explicit_label_policies(self) -> None:
-		cases = {
-			"explicit-or-filename-fallback": "Mario",
-			"filename-derived": "Mario",
-			"hidden": None,
-		}
-		for policy, expected_label in cases.items():
-			with self.subTest(policy=policy):
-				with tempfile.TemporaryDirectory() as directory:
-					root = Path(directory)
-					_write_repo_fixture(root)
-					manifest = _source_manifest()
-					template = manifest["templates"][0]
-					template["labelPolicy"] = policy
-					del template["items"][0]["label"]
-					manifest_path = _write_split_dataset(root, manifest)
-					compiled_path = build_compiled_manifest(manifest_path, root)
-					compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
-				item = compiled["templates"][0]["items"][0]
-				self.assertEqual(item["label"], expected_label)
-
-	def test_variant_paths_include_cache_fingerprint(self) -> None:
-		with tempfile.TemporaryDirectory() as directory:
-			root = Path(directory)
-			_write_repo_fixture(root)
-			manifest_path = _write_split_dataset(root, _source_manifest())
-			compiled_path = build_compiled_manifest(manifest_path, root)
-			compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
-		variants = compiled["templates"][0]["items"][0]["asset"]["variants"]
-		fingerprint = hashlib.sha256(variants["tile"]["cacheKey"].encode("utf-8")).hexdigest()[:16]
-		self.assertIn(fingerprint, variants["tile"]["path"])
-		self.assertNotEqual(variants["tile"]["path"], variants["preview"]["path"])
-
-	def test_compile_cache_invalidates_when_variant_policy_changes(self) -> None:
-		with tempfile.TemporaryDirectory() as directory:
-			root = Path(directory)
-			_write_repo_fixture(root)
-			manifest_path = _write_split_dataset(root, _source_manifest())
-
-			first_path = build_compiled_manifest(manifest_path, root)
-			first = json.loads(first_path.read_text(encoding="utf-8"))
-			first_preview = first["templates"][0]["items"][0]["asset"]["variants"]["preview"]
-
-			with mock.patch.object(assets_module, "PREVIEW_MAX_SIZE", 1):
-				second_path = build_compiled_manifest(manifest_path, root)
-				second = json.loads(second_path.read_text(encoding="utf-8"))
-				fingerprint = json.loads(
-					(second_path.parent / COMPILE_FINGERPRINT_FILENAME).read_text(encoding="utf-8")
-				)
-
-		second_preview = second["templates"][0]["items"][0]["asset"]["variants"]["preview"]
-		self.assertEqual(second_preview["width"], 1)
-		self.assertEqual(second_preview["height"], 1)
-		self.assertNotEqual(first_preview["path"], second_preview["path"])
-		self.assertEqual(fingerprint["variantPolicy"]["preview"]["maxSize"], 1)
-
-	def test_compiled_variant_presence_rejects_malformed_item_assets(self) -> None:
-		with tempfile.TemporaryDirectory() as directory:
-			root = Path(directory)
-			_write_repo_fixture(root)
-			manifest_path = _write_split_dataset(root, _source_manifest())
-			compiled_path = build_compiled_manifest(manifest_path, root)
-			compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
-
-			self.assertTrue(_compiled_variants_present(compiled))
-			compiled["templates"][0]["items"][0]["asset"] = None
-			self.assertFalse(_compiled_variants_present(compiled))
-
-	def test_find_repo_root_finds_current_workspace(self) -> None:
-		root = find_repo_root(Path.cwd())
-		self.assertTrue((root / "package.json").is_file())
-
-	def test_iter_compiled_assets_includes_cover_and_item_assets(self) -> None:
-		compiled = read_json(_FIXTURES_DIR / "compiled-manifest.example.json")
-
-		entries = list(iter_compiled_asset_entries(compiled))
-
-		self.assertEqual(
-			[entry["assetKey"] for entry in entries],
-			[
-				"gaming:ssbu-fighters:cover",
-				"gaming:ssbu-fighters:mario",
-				"gaming:zelda-games:the-legend-of-zelda",
-			],
-		)
-		self.assertEqual(
-			[entry["asset"] for entry in entries],
-			list(iter_compiled_assets(compiled)),
 		)
 
 

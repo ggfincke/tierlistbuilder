@@ -464,9 +464,22 @@ export const createLocalBoardFromRanking = async (
     sourceRankingId: ranking.slug,
     sourceTemplateTitle: ranking.template.title,
     sourceRankingTitle: ranking.title,
+    ...(ranking.itemAspectRatio !== null
+      ? { itemAspectRatio: ranking.itemAspectRatio }
+      : {}),
+    ...(ranking.itemAspectRatioMode !== null
+      ? { itemAspectRatioMode: ranking.itemAspectRatioMode }
+      : {}),
+    ...(ranking.defaultItemImageFit !== null
+      ? { defaultItemImageFit: ranking.defaultItemImageFit }
+      : {}),
     ...(ranking.autoPlate !== null ? { autoPlate: ranking.autoPlate } : {}),
     ...(ranking.defaultItemImagePadding !== null
       ? { defaultItemImagePadding: ranking.defaultItemImagePadding }
+      : {}),
+    ...(ranking.labels !== null ? { labels: ranking.labels } : {}),
+    ...(ranking.activeStyleId !== null
+      ? { imageStyleId: ranking.activeStyleId }
       : {}),
     preferredCriterionExternalId: ranking.criterion.externalId,
   }

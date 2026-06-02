@@ -94,8 +94,51 @@ def _semantic_diagnostics(manifest: JsonObject, repo_root: Path) -> list[Validat
 		# so we skip a redundant directory check and go straight to criteria/items
 		_check_criteria(template, template_path, diagnostics)
 		_check_items(template, folder, repo_root, template_path, diagnostics)
+		_check_styles(template, repo_root, template_path, diagnostics)
 	_check_ranking_seeds(manifest, templates, diagnostics)
 	return diagnostics
+
+
+def _check_styles(
+	template: dict[str, Any],
+	repo_root: Path,
+	template_path: str,
+	diagnostics: list[ValidationDiagnostic],
+) -> None:
+	styles = as_list(template.get("styles"))
+	if not styles:
+		return
+	seen: set[str] = set()
+	default_count = 0
+	items = as_list(template.get("items"))
+	for index, style in enumerate(styles):
+		path = f"{template_path}.styles[{index}]"
+		if not isinstance(style, dict):
+			continue
+		style_id = as_str(style.get("id"))
+		if style_id in seen:
+			diagnostics.append(_error("duplicateStyleId", path, style_id))
+		seen.add(style_id)
+		if style.get("isDefault") is True:
+			default_count += 1
+			# the default style reuses the template folder + items, already checked
+			continue
+		folder = repo_root / as_str(style.get("folder"))
+		for item_index, item in enumerate(items):
+			if not isinstance(item, dict):
+				continue
+			image = as_str(item.get("image"))
+			_check_source_image(
+				folder / image,
+				f"{path}.items[{item_index}].image",
+				diagnostics,
+				repo_root,
+			)
+	# every skinned template needs exactly one default skin for the picker fallback
+	if default_count != 1:
+		diagnostics.append(
+			_error("invalidDefaultStyleCount", f"{template_path}.styles", str(default_count))
+		)
 
 
 def _check_ranking_seeds(

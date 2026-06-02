@@ -17,6 +17,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   AUTO_PLATE_MODES,
+  ITEM_IMAGE_SOURCES,
   ITEM_TRANSFORM_IDENTITY,
   ITEM_TRANSFORM_LIMITS,
   LABEL_SCRIMS,
@@ -233,4 +234,6 @@ export const assignNormalizedItemScalars = (
   {
     item.sourceTemplateItemExternalId = sourceTemplateItemExternalId
   }
+  const imageSource = normalizeEnum(raw.imageSource, ITEM_IMAGE_SOURCES)
+  if (imageSource !== undefined) item.imageSource = imageSource
 }

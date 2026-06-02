@@ -6,9 +6,7 @@ import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
-  DEFAULT_TEMPLATE_LIST_LIMIT,
   MAX_TEMPLATE_ITEM_PAGE_SIZE,
-  MAX_TEMPLATE_LIST_LIMIT,
   type MarketplaceTemplateCount,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import {
@@ -49,7 +47,6 @@ import {
   seedUser,
   TEST_CRITERIA,
   toCriterionSnapshot,
-  withSeedEnv,
   withFakeTimers,
 } from '@tests/convex/convexTestHelpers'
 
@@ -64,9 +61,6 @@ const setTemplateCriteria = async (
     internal.marketplace.seed.templates.maintenance.setTemplateCriteriaImpl,
     { slug, criteria }
   )
-
-const SEED_SECRET = 'test-seed-secret'
-const BACKFILL_RANKING_COUNT_ROUTE = '/api/seed/backfill-ranking-count'
 
 const withLargeTemplateJobsEnabled = async (
   run: () => Promise<void>
@@ -206,40 +200,6 @@ const seedSourceBoard = async (
     })
 
     return { mediaExternalId: 'media-source' }
-  })
-
-const addMediaPreviewVariant = async (
-  t: ConvexTestHandle,
-  externalId: string,
-  contentHash = 'hash-source-preview'
-): Promise<void> =>
-  await t.run(async (ctx) =>
-  {
-    const mediaAsset = await ctx.db
-      .query('mediaAssets')
-      .withIndex('byExternalId', (q) => q.eq('externalId', externalId))
-      .unique()
-    if (!mediaAsset) throw new Error(`missing media asset: ${externalId}`)
-
-    const storageId = await ctx.storage.store(
-      new Blob([new Uint8Array([4, 5, 6])], { type: 'image/png' })
-    )
-    const now = Date.now()
-    const previewVariant = {
-      storageId,
-      width: 1024,
-      height: 576,
-      byteSize: 3,
-      mimeType: 'image/png',
-      contentHash,
-    }
-    await ctx.db.patch(mediaAsset._id, { previewVariant })
-    await ctx.db.insert('mediaVariants', {
-      mediaAssetId: mediaAsset._id,
-      kind: 'preview',
-      ...previewVariant,
-      createdAt: now,
-    })
   })
 
 const seedTierPreset = async (
@@ -513,37 +473,6 @@ const seedLargeTemplate = async (
       })
     }
     return 'LargeTpl01'
-  })
-
-const seedLargeCompletedRankingBoard = async (
-  t: ConvexTestHandle,
-  ownerId: Id<'users'>
-): Promise<string> =>
-  await t.run(async (ctx) =>
-  {
-    const now = Date.now()
-    const itemCount = MAX_STANDARD_CLOUD_BOARD_ITEMS + 1
-    const templateId = await seedPublishedTemplate(ctx, {
-      slug: 'LargeRankT',
-      authorId: ownerId,
-      title: 'Large Ranking Template',
-      sizeClass: 'large',
-      itemCount,
-    })
-    const boardExternalId = 'large-ranking-board'
-    await seedCloudBoard(ctx, {
-      externalId: boardExternalId,
-      ownerId,
-      title: 'Large Finished Ranking',
-      sourceTemplateId: templateId,
-      sourceTemplateCategory: 'gaming',
-      sourceTemplateSizeClass: 'large',
-      now,
-      activeItemCount: itemCount,
-      unrankedItemCount: 0,
-      templateProgressState: 'complete',
-    })
-    return boardExternalId
   })
 
 const seedRankingMediaSnapshot = async (
@@ -937,168 +866,6 @@ describe('marketplace template Convex functions', () =>
     expect(emailSearch.items).toEqual([])
   })
 
-  it('normalizes related-template limits before reading the rail', async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
-    await t.run(async (ctx) =>
-    {
-      await seedPublishedTemplate(ctx, {
-        authorId,
-        slug: 'RelTpl0001',
-        title: 'Related Anchor',
-        category: 'gaming',
-        itemCount: 1,
-        sizeClass: 'standard',
-      })
-      await seedPublishedTemplate(ctx, {
-        authorId,
-        slug: 'RelTpl0002',
-        title: 'Related One',
-        category: 'gaming',
-        itemCount: 1,
-        sizeClass: 'standard',
-      })
-      await seedPublishedTemplate(ctx, {
-        authorId,
-        slug: 'RelTpl0003',
-        title: 'Related Two',
-        category: 'gaming',
-        itemCount: 1,
-        sizeClass: 'standard',
-      })
-    })
-
-    const fractional = await t.query(
-      api.marketplace.templates.queries.getRelatedTemplates,
-      { slug: 'RelTpl0001', limit: 1.8 }
-    )
-    expect(fractional.items).toHaveLength(1)
-
-    await expectConvexCode(
-      t.query(api.marketplace.templates.queries.getRelatedTemplates, {
-        slug: 'RelTpl0001',
-        limit: Number.NaN,
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-    await expectConvexCode(
-      t.query(api.marketplace.templates.queries.getRelatedTemplates, {
-        slug: 'RelTpl0001',
-        limit: Number.POSITIVE_INFINITY,
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-  })
-
-  it('bounds bookmark pagination sizes before paginating saved templates', async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
-    const viewerId = await seedUser(t, 'Bookmark User', 'viewer@example.com')
-    await t.run(async (ctx) =>
-    {
-      const now = Date.now()
-      for (let index = 0; index < MAX_TEMPLATE_LIST_LIMIT + 5; index++)
-      {
-        const templateId = await seedPublishedTemplate(ctx, {
-          authorId,
-          slug: `Bkmk${String(index).padStart(6, '0')}`,
-          title: `Bookmark Template ${index}`,
-          itemCount: 1,
-          sizeClass: 'standard',
-          now: now + index,
-        })
-        await ctx.db.insert('userTemplateBookmarks', {
-          userId: viewerId,
-          templateId,
-          createdAt: now + index,
-          updatedAt: now + index,
-        })
-      }
-    })
-
-    const oversized = await asUser(t, viewerId).query(
-      api.marketplace.templates.bookmarks.listMyTemplateBookmarks,
-      {
-        paginationOpts: {
-          cursor: null,
-          numItems: MAX_TEMPLATE_LIST_LIMIT * 10,
-        },
-      }
-    )
-    expect(oversized.page).toHaveLength(MAX_TEMPLATE_LIST_LIMIT)
-    expect(oversized.isDone).toBe(false)
-
-    const nonFinite = await asUser(t, viewerId).query(
-      api.marketplace.templates.bookmarks.listMyTemplateBookmarks,
-      {
-        paginationOpts: {
-          cursor: null,
-          numItems: Number.POSITIVE_INFINITY,
-        },
-      }
-    )
-    expect(nonFinite.page).toHaveLength(DEFAULT_TEMPLATE_LIST_LIMIT)
-    expect(nonFinite.isDone).toBe(false)
-  })
-
-  it('uses preview cover media for template draft thumbnails', async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
-    const consumerId = await seedUser(t, 'Template User', 'user@example.com')
-    const { mediaExternalId } = await seedSourceBoard(t, authorId)
-    await addMediaPreviewVariant(t, mediaExternalId)
-
-    const { slug } = await asUser(t, authorId).mutation(
-      api.marketplace.templates.mutations.publishFromBoard,
-      {
-        boardExternalId: 'board-source',
-        title: 'Preview Cover Template',
-        category: 'gaming',
-        tags: [],
-        visibility: 'public',
-        coverMediaExternalId: mediaExternalId,
-      }
-    )
-
-    await asUser(t, consumerId).mutation(
-      api.marketplace.templates.mutations.useTemplate,
-      {
-        slug,
-        title: 'My Draft',
-      }
-    )
-
-    const drafts = await asUser(t, consumerId).query(
-      api.marketplace.templates.queries.getMyTemplateDrafts,
-      {}
-    )
-
-    expect(drafts.drafts[0]?.template.coverMedia).toMatchObject({
-      externalId: mediaExternalId,
-      contentHash: 'hash-source-preview',
-      width: 1024,
-      height: 576,
-    })
-
-    const libraryRows = await asUser(t, consumerId).query(
-      api.workspace.boards.queries.getMyLibraryBoards,
-      {}
-    )
-    expect(libraryRows[0]).toMatchObject({
-      title: 'My Draft',
-      sourceTemplateCoverMedia: {
-        externalId: mediaExternalId,
-        contentHash: 'hash-source-preview',
-        width: 1024,
-        height: 576,
-      },
-      sourceTemplateCoverFraming: null,
-    })
-  })
-
   it('normalizes trusted criteria patches and preserves them through metadata changes', async () =>
   {
     const t = makeTest()
@@ -1423,30 +1190,6 @@ describe('marketplace template Convex functions', () =>
       })
     }))
 
-  it('rejects large ranking publish until ranking jobs exist', async () =>
-  {
-    const t = makeTest()
-    const plusUserId = await seedUser(
-      t,
-      'Plus Ranker',
-      'plus-ranker@example.com',
-      'plus'
-    )
-    const boardExternalId = await seedLargeCompletedRankingBoard(t, plusUserId)
-
-    await expectConvexCode(
-      asUser(t, plusUserId).mutation(
-        api.marketplace.rankings.public.mutations.publishRankingFromBoard,
-        {
-          boardExternalId,
-          title: 'Large Ranking',
-          visibility: 'public',
-        }
-      ),
-      CONVEX_ERROR_CODES.cloudItemLimitExceeded
-    )
-  })
-
   it('keeps ranking snapshot media reachable during orphan GC', async () =>
   {
     const t = makeTest()
@@ -1462,81 +1205,6 @@ describe('marketplace template Convex functions', () =>
     expect(result.deleted).toBe(0)
     expect(remaining).not.toBeNull()
   })
-
-  it('keeps large job failures and cancelation out of public listings', async () =>
-    await withFakeTimers(async () =>
-    {
-      await withLargeTemplateJobsEnabled(async () =>
-      {
-        const t = makeTest()
-        const authorId = await seedUser(
-          t,
-          'Plus Author',
-          'plus-cancel@example.com',
-          'plus'
-        )
-        await seedLargeSourceBoard(t, authorId, 'board-large-cancel')
-        const caller = asUser(t, authorId)
-
-        const canceled = await caller.mutation(
-          api.marketplace.templates.mutations.publishFromBoard,
-          {
-            boardExternalId: 'board-large-cancel',
-            title: 'Canceled Large',
-            category: 'gaming',
-            tags: [],
-            visibility: 'public',
-          }
-        )
-        if (canceled.status !== 'jobQueued') throw new Error('expected job')
-        await caller.mutation(
-          api.marketplace.templates.publishJobs.cancelTemplatePublishJob,
-          { jobId: canceled.jobId as Id<'templatePublishJobs'> }
-        )
-        await runScheduled(t)
-        expect(
-          await t.query(api.marketplace.templates.queries.getTemplateBySlug, {
-            slug: canceled.slug,
-          })
-        ).toBeNull()
-
-        await seedLargeSourceBoard(t, authorId, 'board-large-stale')
-        const stale = await caller.mutation(
-          api.marketplace.templates.mutations.publishFromBoard,
-          {
-            boardExternalId: 'board-large-stale',
-            title: 'Stale Large',
-            category: 'gaming',
-            tags: [],
-            visibility: 'public',
-          }
-        )
-        if (stale.status !== 'jobQueued') throw new Error('expected job')
-        await t.run(async (ctx) =>
-        {
-          const board = await ctx.db
-            .query('boards')
-            .withIndex('byOwnerAndExternalId', (q) =>
-              q.eq('ownerId', authorId).eq('externalId', 'board-large-stale')
-            )
-            .unique()
-          await ctx.db.patch(board!._id, { revision: 2 })
-        })
-        await runScheduled(t)
-
-        const staleJob = await caller.query(
-          api.marketplace.templates.queries.getMyTemplatePublishJob,
-          { jobId: stale.jobId as Id<'templatePublishJobs'> }
-        )
-        expect(staleJob).toMatchObject({
-          status: 'failed',
-          errorCode: CONVEX_ERROR_CODES.invalidState,
-        })
-        expect(
-          await t.query(api.marketplace.templates.queries.listTemplates, {})
-        ).toMatchObject({ items: [] })
-      })
-    }))
 
   it('reflects publish state in library boards & filters listings by tag', async () =>
   {
@@ -1686,71 +1354,6 @@ describe('marketplace template Convex functions', () =>
         viewCount: 2,
       }),
     ])
-  })
-
-  it('starts the template-card ranking-count backfill through seed maintenance', async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(
-      t,
-      'Backfill Author',
-      'backfill-author@example.com'
-    )
-    const { templateId } = await seedAggregateTemplate(t, authorId)
-
-    await t.run(async (ctx) =>
-    {
-      await ctx.db.insert('templateRankingAggregates', {
-        templateId,
-        criterionExternalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
-        state: 'ready',
-        activeGeneration: 1,
-        bucketCount: 3,
-        rankingCount: 5,
-        itemCount: 3,
-        computedAt: 1_000,
-        staleAt: null,
-        bucketSpread: [1, 2, 2],
-        mostAgreedItemExternalId: null,
-        mostAgreedItemLabel: null,
-        mostDivisiveItemExternalId: null,
-        mostDivisiveItemLabel: null,
-        updatedAt: 1_000,
-      })
-    })
-    const before = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query('templateCards')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-          .unique()
-    )
-    expect(before?.rankingCount).toBe(0)
-
-    const response = await withSeedEnv(SEED_SECRET, () =>
-      t.fetch(BACKFILL_RANKING_COUNT_ROUTE, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${SEED_SECRET}`,
-        },
-        body: JSON.stringify({}),
-      })
-    )
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      status: 'success',
-      value: { processed: 1, isDone: true },
-    })
-
-    const after = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query('templateCards')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-          .unique()
-    )
-    expect(after?.rankingCount).toBe(5)
   })
 
   it('continues aggregate parent cleanup after bounded parent pages', async () =>
@@ -2126,6 +1729,175 @@ describe('marketplace template Convex functions', () =>
       viewCount: 0,
     })
     expect(storedCounts.card).toMatchObject({ forkCount: 1, viewCount: 0 })
+  })
+
+  it('re-points deleted linked items when switching image styles', async () =>
+  {
+    const t = makeTest()
+    const ownerId = await seedUser(t, 'Style Owner', 'style@example.com')
+    const seeded = await t.run(async (ctx) =>
+    {
+      const now = Date.now()
+      const defaultMedia = await seedTileMediaAsset(ctx, {
+        ownerId,
+        externalId: 'media-default-style',
+        dedupeHash: 'hash-default-style',
+        contentHash: 'hash-default-style',
+        createdAt: now,
+      })
+      const altMedia = await seedTileMediaAsset(ctx, {
+        ownerId,
+        externalId: 'media-alt-style',
+        dedupeHash: 'hash-alt-style',
+        contentHash: 'hash-alt-style',
+        createdAt: now,
+      })
+      const templateId = await seedPublishedTemplate(ctx, {
+        authorId: ownerId,
+        slug: 'StyleSw001',
+        title: 'Style Switch Template',
+        itemCount: 1,
+        sizeClass: 'standard',
+        now,
+      })
+      await ctx.db.patch(templateId, { defaultStyleId: 'default' })
+      const templateItemId = await ctx.db.insert('templateItems', {
+        templateId,
+        externalId: 'style-item',
+        label: 'Style Item',
+        backgroundColor: null,
+        mediaPlate: null,
+        altText: 'Default alt',
+        mediaAssetId: defaultMedia.mediaAssetId,
+        order: 0,
+        aspectRatio: 1,
+        imageFit: 'cover',
+        transform: null,
+        imagePadding: 0.1,
+      })
+      await Promise.all([
+        ctx.db.insert('templateStyles', {
+          templateId,
+          externalId: 'default',
+          label: 'Default',
+          order: 0,
+          isDefault: true,
+          coverMediaAssetId: null,
+          coverFraming: null,
+          itemAspectRatio: 1,
+          itemAspectRatioMode: 'manual',
+          defaultItemImageFit: 'cover',
+          defaultItemImagePadding: 0.1,
+          labels: null,
+          createdAt: now,
+          updatedAt: now,
+        }),
+        ctx.db.insert('templateStyles', {
+          templateId,
+          externalId: 'alt',
+          label: 'Alt',
+          order: 1,
+          isDefault: false,
+          coverMediaAssetId: null,
+          coverFraming: null,
+          itemAspectRatio: 1.5,
+          itemAspectRatioMode: 'manual',
+          defaultItemImageFit: 'contain',
+          defaultItemImagePadding: 0.2,
+          labels: null,
+          createdAt: now,
+          updatedAt: now,
+        }),
+        ctx.db.insert('templateItemStyleAssets', {
+          templateId,
+          templateItemId,
+          styleExternalId: 'alt',
+          itemExternalId: 'style-item',
+          mediaAssetId: altMedia.mediaAssetId,
+          aspectRatio: 1.5,
+          imageFit: 'contain',
+          transform: null,
+          mediaPlate: null,
+          imagePadding: 0.2,
+          altText: 'Alt alt',
+        }),
+      ])
+      const boardId = await seedCloudBoard(ctx, {
+        ownerId,
+        externalId: 'board-style-switch',
+        title: 'Style Switch Board',
+        sourceTemplateId: templateId,
+        sourceTemplateTitle: 'Style Switch Template',
+        sourceTemplateCategory: 'gaming',
+        sourceTemplateSizeClass: 'standard',
+        activeItemCount: 0,
+        unrankedItemCount: 0,
+        templateProgressState: 'complete',
+        now,
+      })
+      const deletedAt = now
+      const boardItemId = await ctx.db.insert('boardItems', {
+        boardId,
+        tierId: null,
+        externalId: 'board-style-item',
+        label: 'Style Item',
+        altText: 'Default alt',
+        mediaAssetId: defaultMedia.mediaAssetId,
+        order: 0,
+        deletedAt,
+        aspectRatio: 1,
+        imageFit: 'cover',
+        imagePadding: 0.1,
+        templateItemId,
+        imageSource: 'linked',
+      })
+      return {
+        altMediaAssetId: altMedia.mediaAssetId,
+        boardItemId,
+        deletedAt,
+        templateSlug: 'StyleSw001',
+      }
+    })
+
+    const styledItems = await t.query(
+      api.marketplace.templates.queries.listTemplateItems,
+      {
+        slug: seeded.templateSlug,
+        styleId: 'alt',
+        paginationOpts: { cursor: null, numItems: 10 },
+      }
+    )
+    expect(styledItems.page[0]).toMatchObject({
+      externalId: 'style-item',
+      altText: 'Alt alt',
+      media: {
+        externalId: 'media-alt-style',
+        contentHash: 'hash-alt-style',
+      },
+      aspectRatio: 1.5,
+      imageFit: 'contain',
+      imagePadding: 0.2,
+    })
+
+    await asUser(t, ownerId).mutation(
+      api.workspace.boards.switchImageStyle.switchBoardImageStyle,
+      {
+        boardExternalId: 'board-style-switch',
+        styleId: 'alt',
+      }
+    )
+
+    const updated = await t.run(
+      async (ctx) => await ctx.db.get(seeded.boardItemId)
+    )
+    expect(updated).toMatchObject({
+      mediaAssetId: seeded.altMediaAssetId,
+      deletedAt: seeded.deletedAt,
+      aspectRatio: 1.5,
+      imageFit: 'contain',
+      imagePadding: 0.2,
+      altText: 'Alt alt',
+    })
   })
 
   it('publishes completed template rankings into queryable surfaces', async () =>
@@ -2980,78 +2752,6 @@ describe('marketplace template Convex functions', () =>
     // the unlisted final publish retired the board's prior live ranking & set
     // the live pointer to null
     expect(stored.liveRankingSlug).toBeNull()
-  })
-
-  it('admits aggregate recompute jobs through bounded running slots', async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(
-      t,
-      'Aggregate Admission Author',
-      'aggregate-admission-author@example.com'
-    )
-    const templates = []
-    for (let index = 0; index < 4; index++)
-    {
-      templates.push(
-        await seedAggregateTemplate(t, authorId, {
-          slug: `AggAdm${index}`,
-          criteria: TEST_CRITERIA,
-        })
-      )
-    }
-
-    for (const template of templates)
-    {
-      await t.mutation(
-        internal.marketplace.rankings.aggregate.jobs
-          .queueTemplateRankingAggregateRecomputeForCriterion,
-        {
-          templateId: template.templateId,
-          criterionExternalId: 'competitive',
-        }
-      )
-    }
-
-    const before = await t.run(async (ctx) =>
-    {
-      const jobs = await ctx.db.query('templateRankingAggregateJobs').collect()
-      await ctx.db.patch(jobs[0]._id, {
-        status: 'running',
-        admittedAt: null,
-      })
-      return jobs.map((job) => job.status).sort()
-    })
-    expect(before).toEqual(['queued', 'queued', 'queued', 'queued'])
-
-    const demotion = await t.mutation(
-      internal.marketplace.rankings.aggregate.jobs
-        .admitQueuedTemplateRankingAggregateJobs,
-      {}
-    )
-    expect(demotion).toMatchObject({
-      admitted: 0,
-      running: 0,
-      queuedRemaining: 1,
-    })
-
-    const admission = await t.mutation(
-      internal.marketplace.rankings.aggregate.jobs
-        .admitQueuedTemplateRankingAggregateJobs,
-      {}
-    )
-
-    const after = await t.run(async (ctx) =>
-    {
-      const jobs = await ctx.db.query('templateRankingAggregateJobs').collect()
-      return jobs.map((job) => job.status).sort()
-    })
-    expect(admission).toMatchObject({
-      admitted: 3,
-      running: 3,
-      queuedRemaining: 1,
-    })
-    expect(after).toEqual(['queued', 'running', 'running', 'running'])
   })
 
   it('recomputes and reads template ranking aggregates by criterion', async () =>

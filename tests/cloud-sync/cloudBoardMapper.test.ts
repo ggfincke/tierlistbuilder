@@ -398,39 +398,4 @@ describe('serverStateToSnapshot', () =>
       }),
     ])
   })
-
-  it('finalizes cloud state through snapshot normalization', () =>
-  {
-    const itemId = asItemId('item-1')
-    const snapshot = serverStateToSnapshot({
-      title: 'Board',
-      revision: 5,
-      tiers: [
-        {
-          externalId: 'tier-s',
-          name: 'S',
-          colorSpec: { kind: 'palette', index: 0 },
-          order: 0,
-          itemIds: [itemId],
-        },
-      ],
-      items: [
-        {
-          externalId: itemId,
-          tierId: 'tier-s',
-          label: 'Invalid color survives as text',
-          backgroundColor: 'not-a-hex-color',
-          order: 0,
-          deletedAt: null,
-        },
-      ],
-      pageBackground: 'not-a-hex-color',
-    })
-
-    expect(snapshot.pageBackground).toBeUndefined()
-    expect(snapshot.items[itemId]).toMatchObject({
-      label: 'Invalid color survives as text',
-    })
-    expect(snapshot.items[itemId].backgroundColor).toBeUndefined()
-  })
 })

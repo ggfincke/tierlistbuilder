@@ -197,6 +197,142 @@ export const buildSeedReleaseDiagnosticsForTemplates = async (
     }
   }
 
+  // style coverage: a missing/duplicate default style or a partially-synced
+  // non-default skin (zero rows, or rows w/ dangling media) must not pass
+  // verification & activate a broken skin
+  const perTemplateStyles = await Promise.all(
+    templates.map(async (template) =>
+    {
+      const styles = await ctx.db
+        .query('templateStyles')
+        .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+        .take(SEED_LIMITS.stylesPerTemplate + 1)
+      return { template, styles }
+    })
+  )
+  for (const { template, styles } of perTemplateStyles)
+  {
+    const templatePath = `$.templates[${template.seedExternalId ?? template._id}]`
+    if (styles.length > SEED_LIMITS.stylesPerTemplate)
+    {
+      diagnostics.push(
+        seedErrorDiagnostic(
+          'styleLimitExceeded',
+          `${templatePath}.styles`,
+          `template style count exceeds seed verification limit: ${template.seedExternalId}`
+        )
+      )
+      continue
+    }
+    if (styles.length === 0)
+    {
+      if (template.defaultStyleId !== null)
+      {
+        diagnostics.push(
+          seedErrorDiagnostic(
+            'missingDefaultStyle',
+            `${templatePath}.defaultStyleId`,
+            `template names defaultStyleId "${template.defaultStyleId}" but has no style rows`
+          )
+        )
+      }
+      continue
+    }
+    const defaultStyles = styles.filter((style) => style.isDefault)
+    if (defaultStyles.length !== 1)
+    {
+      diagnostics.push(
+        seedErrorDiagnostic(
+          'invalidDefaultStyleCount',
+          `${templatePath}.styles`,
+          `template must have exactly one default style, found ${defaultStyles.length}`
+        )
+      )
+    }
+    else if (template.defaultStyleId !== defaultStyles[0].externalId)
+    {
+      diagnostics.push(
+        seedErrorDiagnostic(
+          'defaultStyleIdMismatch',
+          `${templatePath}.defaultStyleId`,
+          `defaultStyleId "${template.defaultStyleId}" does not name the default style "${defaultStyles[0].externalId}"`
+        )
+      )
+    }
+    for (const style of styles)
+    {
+      const stylePath = `${templatePath}.styles[${style.externalId}]`
+      if (
+        style.coverMediaAssetId !== null &&
+        !(await ctx.db.get(style.coverMediaAssetId))
+      )
+      {
+        diagnostics.push(
+          seedErrorDiagnostic(
+            'missingStyleCoverMedia',
+            `${stylePath}.coverMediaAssetId`,
+            `style cover media is missing: ${style.externalId}`
+          )
+        )
+      }
+      // default skin reuses templateItems (already verified above); only
+      // non-default skins carry their own per-item asset rows
+      if (style.isDefault) continue
+      const assets = await ctx.db
+        .query('templateItemStyleAssets')
+        .withIndex('byTemplateStyleAndItem', (q) =>
+          q
+            .eq('templateId', template._id)
+            .eq('styleExternalId', style.externalId)
+        )
+        .take(SEED_LIMITS.itemsPerTemplate + 1)
+      if (assets.length === 0)
+      {
+        diagnostics.push(
+          seedErrorDiagnostic(
+            'emptyStyleAssets',
+            `${stylePath}.items`,
+            `non-default style has no item assets: ${style.externalId}`
+          )
+        )
+        continue
+      }
+      if (assets.length > SEED_LIMITS.itemsPerTemplate)
+      {
+        diagnostics.push(
+          seedErrorDiagnostic(
+            'styleAssetLimitExceeded',
+            `${stylePath}.items`,
+            `style asset count exceeds seed verification limit: ${style.externalId}`
+          )
+        )
+        continue
+      }
+      // mediaAssetId null = item intentionally absent in this skin; only a
+      // non-null id pointing at a missing asset is a broken skin
+      const styleItemMedia = await Promise.all(
+        assets.map((asset) =>
+          asset.mediaAssetId
+            ? ctx.db.get(asset.mediaAssetId)
+            : Promise.resolve(null)
+        )
+      )
+      assets.forEach((asset, index) =>
+      {
+        if (asset.mediaAssetId !== null && !styleItemMedia[index])
+        {
+          diagnostics.push(
+            seedErrorDiagnostic(
+              'missingStyleItemMediaAsset',
+              `${stylePath}.items[${asset.itemExternalId}].mediaAssetId`,
+              `style item media asset is missing: ${asset.itemExternalId}`
+            )
+          )
+        }
+      })
+    }
+  }
+
   const actual = {
     templateCount: templates.length,
     itemCount,

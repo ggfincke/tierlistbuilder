@@ -9,24 +9,22 @@ import {
   boardAutoPlateSettingsEqual,
   boardLabelSettingsEqual,
   getItemTransformBoundsViolation,
-  IMAGE_PADDING_MAX,
-  IMAGE_PADDING_MIN,
   isValidLabelFontSizePx,
   LABEL_FONT_SIZE_PX_MAX,
   LABEL_FONT_SIZE_PX_MIN,
   normalizeBoardTitle,
   type ItemTransformBoundsViolation,
 } from '@tierlistbuilder/contracts/workspace/board'
-import {
-  BOARD_ITEM_ASPECT_RATIO_MAX,
-  BOARD_ITEM_ASPECT_RATIO_MIN,
-} from '@tierlistbuilder/contracts/workspace/aspectRatio'
 
 import {
   findRankingBySlug,
   findTemplateBySlug,
 } from '../../lib/marketplaceLookups'
 import { loadTemplateItems } from '../../marketplace/templates/lib/projections'
+import {
+  loadTemplateStyles,
+  resolveEffectiveStyleId,
+} from '../../marketplace/templates/lib/styles'
 import { incrementTemplateForkStatsById } from '../../marketplace/templates/lib/writes'
 import { findActiveTemplateCriterion } from '../../marketplace/templates/criteria'
 import { rankingTopScore } from '../../marketplace/rankings/lib'
@@ -42,20 +40,23 @@ import {
   assertExternalIdLength,
   assertExternalIdShape,
   assertFiniteRange,
-  assertPositiveFinite,
   assertUniqueValues,
 } from '../../lib/assertions'
 import { memoizePromise } from '../../lib/cache'
 import {
   boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
+  itemImageSourceValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
   mediaPlateValidator,
   paletteIdValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
+  validateBoardAspectRatio,
   validateBoardAutoPlateUniformColor,
+  validateImagePadding,
+  validateNaturalAspectRatio,
 } from '../../lib/validators/common'
 import { validateTierSpec } from '../../lib/validators/tierSpec'
 import type {
@@ -91,10 +92,8 @@ import {
   buildBoardLibrarySummary,
   EMPTY_BOARD_LIBRARY_SUMMARY,
 } from './librarySummary'
-import {
-  buildFreshBoardCloudFields,
-  EMPTY_BOARD_SEED_FIELDS,
-} from './cloudFields'
+import { buildCloudBoardDefaults } from './cloudFields'
+import { renderFieldsFromArgs } from '../../lib/templates/renderFields'
 import {
   boardSourceRankingFromMaybeRanking,
   boardSourceTemplateFromMaybeTemplate,
@@ -129,6 +128,7 @@ const wireItemValidator = v.object({
   imagePadding: v.optional(v.number()),
   labelOptions: v.optional(itemLabelOptionsValidator),
   sourceTemplateItemExternalId: v.optional(v.string()),
+  imageSource: v.optional(itemImageSourceValidator),
 })
 
 // board-level aspect-ratio args — validators match CloudBoardAspectRatioFields
@@ -152,6 +152,9 @@ const boardStyleOverrideValidators = {
   pageBackground: v.optional(v.string()),
   labels: v.optional(boardLabelSettingsValidator),
   autoPlate: v.optional(boardAutoPlateSettingsValidator),
+  // active image style (skin) externalId; absent -> template default. validated
+  // against the source template's styles server-side in resolveBoardImageStyleId
+  imageStyleId: v.optional(v.string()),
 }
 
 // source-fork identity carried by locally-created forks/remixes — only
@@ -183,6 +186,7 @@ interface UpsertArgs
   pageBackground?: string
   labels?: BoardLabelSettings
   autoPlate?: BoardAutoPlateSettings
+  imageStyleId?: string
   sourceTemplateId?: string
   sourceRankingId?: string
   sourceTemplateTitle?: string
@@ -213,16 +217,11 @@ interface NormalizedBoardWriteFields
 const normalizeBoardWriteFields = (
   args: UpsertArgs
 ): NormalizedBoardWriteFields => ({
-  itemAspectRatio: args.itemAspectRatio ?? null,
-  itemAspectRatioMode: args.itemAspectRatioMode ?? null,
+  ...renderFieldsFromArgs(args),
   aspectRatioPromptDismissed: args.aspectRatioPromptDismissed ?? false,
-  defaultItemImageFit: args.defaultItemImageFit ?? null,
-  defaultItemImagePadding: args.defaultItemImagePadding ?? null,
   paletteId: args.paletteId ?? null,
   textStyleId: args.textStyleId ?? null,
   pageBackground: args.pageBackground ?? null,
-  labels: args.labels ?? null,
-  autoPlate: args.autoPlate,
 })
 
 const validateLabelPlacement = (
@@ -255,35 +254,12 @@ const validateLabelFontSize = (
   }
 }
 
-const validateImagePadding = (
-  padding: number | undefined,
-  field: string
-): void =>
-{
-  if (padding === undefined) return
-  assertFiniteRange(field, padding, IMAGE_PADDING_MIN, IMAGE_PADDING_MAX)
-}
-
 const itemTransformBoundsMessage = (
   violation: ItemTransformBoundsViolation
 ): string =>
   violation.bound === 'range'
     ? `invalid item.transform.${violation.field}: must be within [${violation.min}, ${violation.max}]`
     : `invalid item.transform.${violation.field}: must be ${violation.bound === 'min' ? '>=' : '<='} ${violation.bound === 'min' ? violation.min : violation.max}`
-
-const validateBoardAspectRatio = (
-  aspectRatio: number | undefined,
-  field: string
-): void =>
-{
-  if (aspectRatio === undefined) return
-  assertFiniteRange(
-    field,
-    aspectRatio,
-    BOARD_ITEM_ASPECT_RATIO_MIN,
-    BOARD_ITEM_ASPECT_RATIO_MAX
-  )
-}
 
 type UpsertResult =
   | { conflict: null; newRevision: number }
@@ -356,7 +332,7 @@ const validateInputs = (args: UpsertArgs): void =>
     }
     if (item.aspectRatio !== undefined)
     {
-      assertPositiveFinite('item.aspectRatio', item.aspectRatio)
+      validateNaturalAspectRatio(item.aspectRatio, 'item.aspectRatio')
     }
     if (item.mediaExternalId)
     {
@@ -435,6 +411,23 @@ const resolveSourceRankingBySlug = async (
   return await findRankingBySlug(ctx, slug)
 }
 
+// coerce a client-supplied imageStyleId to a style that actually belongs to the
+// board's source template (falls back to the template default / null). only
+// touches the DB when a non-empty id is supplied, so normal syncs stay cheap
+const resolveBoardImageStyleId = async (
+  ctx: MutationCtx,
+  sourceTemplateId: Id<'templates'> | null,
+  requestedStyleId: string | undefined
+): Promise<string | null> =>
+{
+  if (!requestedStyleId) return null
+  if (sourceTemplateId === null) return null
+  const template = await ctx.db.get(sourceTemplateId)
+  if (!template) return null
+  const styles = await loadTemplateStyles(ctx, sourceTemplateId)
+  return resolveEffectiveStyleId(template, styles, requestedStyleId)
+}
+
 const ensureBoard = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
@@ -464,6 +457,11 @@ const ensureBoard = async (
     ])
     const now = Date.now()
     const writeFields = normalizeBoardWriteFields(args)
+    const imageStyleId = await resolveBoardImageStyleId(
+      ctx,
+      sourceTemplate?._id ?? null,
+      args.imageStyleId
+    )
     const boardId = await ctx.db.insert('boards', {
       externalId: args.boardExternalId,
       ownerId: userId,
@@ -473,6 +471,7 @@ const ensureBoard = async (
       deletedAt: null,
       revision: 0,
       ...writeFields,
+      imageStyleId,
       // Prefer resolved server rows; when a row disappeared after a local fork,
       // keep the client title inside the grouped attribution object.
       sourceTemplate: boardSourceTemplateFromMaybeTemplate(
@@ -491,7 +490,7 @@ const ensureBoard = async (
         : null,
       // false here; orchestrator ticks the counter post-insert & flips this true
       forkCounted: false,
-      ...buildFreshBoardCloudFields(now),
+      ...buildCloudBoardDefaults(now),
       materializationState: 'ready',
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(
@@ -499,7 +498,6 @@ const ensureBoard = async (
         progressCounts
       ),
       librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-      ...EMPTY_BOARD_SEED_FIELDS,
     })
     board = (await ctx.db.get(boardId))!
     isNewBoard = true
@@ -853,6 +851,9 @@ const applyBoardState = async (
     board.defaultItemImageFit !== writeFields.defaultItemImageFit ||
     (board.defaultItemImagePadding ?? null) !==
       writeFields.defaultItemImagePadding
+  // imageStyleId is server-authoritative: only fork (insert) & switchBoardImageStyle
+  // mutate it (the switch re-points items to match). a normal sync must never
+  // change it -- it just echoes whatever the last pull gave it
   const styleOverrideChanged =
     board.paletteId !== writeFields.paletteId ||
     board.textStyleId !== writeFields.textStyleId ||

@@ -16,6 +16,7 @@ import {
   getBoardSourceRankingId,
   getBoardSourceTemplateId,
 } from '../boards/sourceFields'
+import { renderFieldsToWire } from '../../lib/templates/renderFields'
 
 // client-facing source identity uses public slugs since signed-out users can
 // only ever know the slug. resolve typed table ids -> slugs at load time so
@@ -151,20 +152,16 @@ export const loadBoardCloudState = async (
   return {
     title: board.title,
     revision: board.revision,
-    itemAspectRatio: board.itemAspectRatio ?? undefined,
-    itemAspectRatioMode: board.itemAspectRatioMode ?? undefined,
+    ...renderFieldsToWire(board),
     // omit when false so the wire payload stays minimal — the client treats
     // missing as "not dismissed"
     aspectRatioPromptDismissed: board.aspectRatioPromptDismissed
       ? true
       : undefined,
-    defaultItemImageFit: board.defaultItemImageFit ?? undefined,
-    defaultItemImagePadding: board.defaultItemImagePadding ?? undefined,
     paletteId: board.paletteId ?? undefined,
     textStyleId: board.textStyleId ?? undefined,
     pageBackground: board.pageBackground ?? undefined,
-    labels: board.labels ?? undefined,
-    autoPlate: board.autoPlate ?? undefined,
+    imageStyleId: board.imageStyleId ?? undefined,
     // surface source-template/ranking identity as public slugs so the wire
     // stays slug-based both ways. titles are denormalized on the board record
     // so the breadcrumb survives even if the source template was unpublished
@@ -212,6 +209,7 @@ export const loadBoardCloudState = async (
         sourceTemplateItemExternalId: item.templateItemId
           ? templateItemIdToExternalId.get(item.templateItemId)
           : undefined,
+        imageSource: item.imageSource,
       }
     }),
   }

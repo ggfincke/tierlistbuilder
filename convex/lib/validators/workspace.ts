@@ -33,6 +33,7 @@ import {
   boardAutoPlateSettingsValidator,
   boardLabelSettingsValidator,
   imageFitValidator,
+  itemImageSourceValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
   literalUnion,
@@ -162,6 +163,7 @@ const cloudBoardStateItemValidator = v.object({
   imagePadding: v.optional(v.number()),
   labelOptions: v.optional(itemLabelOptionsValidator),
   sourceTemplateItemExternalId: v.optional(v.string()),
+  imageSource: v.optional(itemImageSourceValidator),
 })
 
 export const cloudBoardStateValidator = v.object({
@@ -179,6 +181,7 @@ export const cloudBoardStateValidator = v.object({
   pageBackground: v.optional(v.string()),
   labels: v.optional(boardLabelSettingsValidator),
   autoPlate: v.optional(boardAutoPlateSettingsValidator),
+  imageStyleId: v.optional(v.string()),
   sourceTemplateId: v.optional(v.union(v.string(), v.null())),
   sourceRankingId: v.optional(v.union(v.string(), v.null())),
   sourceTemplateTitle: v.optional(v.union(v.string(), v.null())),

@@ -335,33 +335,49 @@ export const hasMediaAssetReferences = async (
   mediaAssetId: Id<'mediaAssets'>
 ): Promise<boolean> =>
 {
-  const [boardRefs, templateItemRefs, templateCoverRefs, rankingItemRefs] =
-    await Promise.all([
-      ctx.db
-        .query('boardItems')
-        .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
-        .take(1),
-      ctx.db
-        .query('templateItems')
-        .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
-        .take(1),
-      ctx.db
-        .query('templates')
-        .withIndex('byCoverMedia', (q) =>
-          q.eq('coverMediaAssetId', mediaAssetId)
-        )
-        .take(1),
-      ctx.db
-        .query('publishedRankingItems')
-        .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
-        .take(1),
-    ])
+  // style tables hold the only reference to a non-default skin's images &
+  // covers -- must be scanned here or the orphan GC reaps every skin asset
+  const [
+    boardRefs,
+    templateItemRefs,
+    templateCoverRefs,
+    rankingItemRefs,
+    styleItemRefs,
+    styleCoverRefs,
+  ] = await Promise.all([
+    ctx.db
+      .query('boardItems')
+      .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
+      .take(1),
+    ctx.db
+      .query('templateItems')
+      .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
+      .take(1),
+    ctx.db
+      .query('templates')
+      .withIndex('byCoverMedia', (q) => q.eq('coverMediaAssetId', mediaAssetId))
+      .take(1),
+    ctx.db
+      .query('publishedRankingItems')
+      .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
+      .take(1),
+    ctx.db
+      .query('templateItemStyleAssets')
+      .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
+      .take(1),
+    ctx.db
+      .query('templateStyles')
+      .withIndex('byCoverMedia', (q) => q.eq('coverMediaAssetId', mediaAssetId))
+      .take(1),
+  ])
 
   return (
     boardRefs.length > 0 ||
     templateItemRefs.length > 0 ||
     templateCoverRefs.length > 0 ||
-    rankingItemRefs.length > 0
+    rankingItemRefs.length > 0 ||
+    styleItemRefs.length > 0 ||
+    styleCoverRefs.length > 0
   )
 }
 

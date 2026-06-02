@@ -34,6 +34,19 @@ def iter_compiled_assets(compiled: JsonObject) -> Iterable[JsonObject]:
 			if not isinstance(item, dict) or not isinstance(item.get("asset"), dict):
 				continue
 			yield item["asset"]
+		# non-default style covers + per-item assets; the default style reuses the
+		# template's covers/items, already yielded above
+		for style in as_list(template.get("styles")):
+			if not isinstance(style, dict) or style.get("isDefault"):
+				continue
+			style_cover = style.get("coverImage")
+			if isinstance(style_cover, dict):
+				yield style_cover
+			item_assets = style.get("itemAssets")
+			if isinstance(item_assets, dict):
+				for entry in item_assets.values():
+					if isinstance(entry, dict) and isinstance(entry.get("asset"), dict):
+						yield entry["asset"]
 
 
 def iter_compiled_asset_entries(compiled: JsonObject) -> Iterable[JsonObject]:
@@ -49,6 +62,25 @@ def iter_compiled_asset_entries(compiled: JsonObject) -> Iterable[JsonObject]:
 				"assetKey": f"{template_external_id}:{item['externalId']}",
 				"asset": item["asset"],
 			}
+		for style in as_list(template.get("styles")):
+			if not isinstance(style, dict) or style.get("isDefault"):
+				continue
+			style_id = str(style.get("id", ""))
+			style_cover = style.get("coverImage")
+			if isinstance(style_cover, dict):
+				yield {
+					"assetKey": f"{template_external_id}:style:{style_id}:cover",
+					"asset": style_cover,
+				}
+			item_assets = style.get("itemAssets")
+			if isinstance(item_assets, dict):
+				for item_external_id, entry in item_assets.items():
+					if not isinstance(entry, dict) or not isinstance(entry.get("asset"), dict):
+						continue
+					yield {
+						"assetKey": f"{template_external_id}:style:{style_id}:{item_external_id}",
+						"asset": entry["asset"],
+					}
 
 
 def chunks(items: list[Any], size: int) -> Iterable[list[Any]]:

@@ -66,6 +66,7 @@ export const seedResolvedTemplateValidator = v.object({
   itemAspectRatio: v.union(v.number(), v.null()),
   metadataContentHash: v.union(v.string(), v.null()),
   itemsContentHash: v.union(v.string(), v.null()),
+  styleItemsContentHash: v.union(v.string(), v.null()),
   criteriaContentHash: v.union(v.string(), v.null()),
 })
 
@@ -133,6 +134,18 @@ export const seedUploadedMediaAssetValidator = v.object({
   variants: v.array(seedUploadedVariantValidator),
 })
 
+export const seedTemplateStyleValidator = v.object({
+  externalId: v.string(),
+  label: v.string(),
+  order: v.number(),
+  isDefault: v.boolean(),
+  coverMediaDedupeHash: v.union(v.string(), v.null()),
+  itemAspectRatio: v.union(v.number(), v.null()),
+  defaultItemImagePadding: v.union(v.number(), v.null()),
+  labels: v.optional(boardLabelSettingsValidator),
+  autoPlate: v.optional(boardAutoPlateSettingsValidator),
+})
+
 export const seedTemplateUpsertValidator = v.object({
   externalId: v.string(),
   metadataContentHash: v.string(),
@@ -152,6 +165,9 @@ export const seedTemplateUpsertValidator = v.object({
   labels: v.optional(boardLabelSettingsValidator),
   // per-template logo backdrop pinned at publish; absent -> On+Auto default
   autoPlate: v.optional(boardAutoPlateSettingsValidator),
+  // image styles (skins); absent -> single-skin template
+  styles: v.optional(v.array(seedTemplateStyleValidator)),
+  defaultStyleId: v.optional(v.union(v.string(), v.null())),
 })
 
 export const seedItemUpsertValidator = v.object({
@@ -224,6 +240,28 @@ export const seedSyncTemplateItemsOutputValidator = v.object({
   moved: v.array(seedTemplateItemKeyValidator),
   unchanged: v.array(seedTemplateItemKeyValidator),
   deleted: v.array(seedTemplateItemKeyValidator),
+})
+
+export const seedTemplateStyleItemKeyValidator = v.object({
+  templateExternalId: v.string(),
+  styleExternalId: v.string(),
+  itemExternalId: v.string(),
+})
+
+export const seedTemplateStyleItemUpsertValidator = v.object({
+  itemExternalId: v.string(),
+  mediaDedupeHash: v.union(v.string(), v.null()),
+  aspectRatio: v.union(v.number(), v.null()),
+  transform: v.union(itemTransformValidator, v.null()),
+  mediaPlate: mediaPlateNullableValidator,
+  imagePadding: v.union(v.number(), v.null()),
+})
+
+export const seedSyncTemplateStyleItemsOutputValidator = v.object({
+  created: v.array(seedTemplateStyleItemKeyValidator),
+  updated: v.array(seedTemplateStyleItemKeyValidator),
+  unchanged: v.array(seedTemplateStyleItemKeyValidator),
+  deleted: v.array(seedTemplateStyleItemKeyValidator),
 })
 
 export const seedCriterionUpsertOutputValidator = v.object({

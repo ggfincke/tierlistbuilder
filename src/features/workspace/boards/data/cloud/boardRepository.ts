@@ -50,6 +50,15 @@ export const upsertBoardStateImperative = (
 export const listMyBoardsImperative = () =>
   getConvexClient().query(api.workspace.boards.queries.getMyBoards, {})
 
+export const switchBoardImageStyleImperative = (args: {
+  boardExternalId: string
+  styleId: string | null
+}): Promise<{ revision: number; imageStyleId: string | null }> =>
+  getConvexClient().mutation(
+    api.workspace.boards.switchImageStyle.switchBoardImageStyle,
+    args
+  )
+
 export const getBoardStateByExternalIdImperative = (args: {
   boardExternalId: string
 }): Promise<CloudBoardState | null> =>

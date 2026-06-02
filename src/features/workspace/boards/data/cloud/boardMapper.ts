@@ -177,6 +177,7 @@ export const snapshotToCloudPayload = (
     pageBackground: snapshot.pageBackground,
     labels: snapshot.labels,
     autoPlate: snapshot.autoPlate,
+    imageStyleId: snapshot.imageStyleId,
     // source-fork identity travels on every push; server uses it only on insert
     // source cover fields stay local-only; library rows rehydrate from source data
     sourceTemplateId: snapshot.sourceTemplateId,
@@ -280,6 +281,7 @@ export const serverStateToSnapshot = (
     pageBackground: serverState.pageBackground,
     labels: serverState.labels,
     autoPlate: serverState.autoPlate,
+    imageStyleId: serverState.imageStyleId,
     // server-side board carries source identity; lift to the snapshot so the
     // BoardHeader breadcrumb renders immediately on cloud-board activation
     sourceTemplateId: serverState.sourceTemplateId ?? undefined,

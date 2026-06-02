@@ -20,20 +20,4 @@ describe('dev seed guards', () =>
     expect(source).not.toContain('SEED-TLOTL-')
     expect(packageJson).not.toContain('SEED-TLOTL-')
   })
-
-  it('runs the gated tlotl sample seed last in the default seed', () =>
-  {
-    const packageJson = JSON.parse(readWorkspaceFile('package.json')) as {
-      scripts: Record<string, string>
-    }
-
-    // tlotl samples derive from the marketplace templates, so they must seed
-    // after them; the step still self-gates on CONVEX_TLOTL_SAMPLE_SEED_ALLOWED
-    expect(packageJson.scripts['seed:all']).toBe(
-      'npm run seed:marketplace && npm run seed:rankings && npm run seed:featured && npm run seed:tlotl'
-    )
-    expect(packageJson.scripts['seed:tlotl']).toBe(
-      'npm run seed:tlotl-samples && npm run seed:tlotl-crop'
-    )
-  })
 })

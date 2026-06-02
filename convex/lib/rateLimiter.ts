@@ -59,6 +59,15 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: HOUR,
     capacity: 30,
   },
+  // keyed per (user, board): a skin switch re-points up to MAX_SYNC_ITEMS rows
+  // in one txn (the heaviest write in the feature). appearance-only, so no
+  // trending/fork inflation -- the cap just bounds write-load abuse per board
+  userBoardStyleSwitch: {
+    kind: 'token bucket',
+    rate: 20,
+    period: HOUR,
+    capacity: 20,
+  },
   // keyed per (user, slug): one user cannot inflate a single template's
   // viewCount by mashing refresh, but can browse arbitrarily many templates
   userTemplateView: {
@@ -83,6 +92,7 @@ type RateLimitBucketName =
   | 'userTemplateFork'
   | 'userRankingPublish'
   | 'userRankingRemix'
+  | 'userBoardStyleSwitch'
   | 'userTemplateView'
   | 'userRankingView'
 

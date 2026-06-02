@@ -12,13 +12,11 @@ import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPr
 import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/lib/coverMedia'
 import {
   ACTIVE_TEMPLATE_JOB_STATUSES,
-  MAX_TEMPLATE_COVER_ITEMS,
   isFinishedTemplateJobStatus,
   type MarketplaceTemplatePublishResult,
   type MarketplaceTemplateUseResult,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { requireCurrentUserId } from '../../lib/auth'
 import { firstActiveStatusRow } from '../../lib/jobs'
 import { buildForkedBoardInsert } from '../../workspace/boards/cloudFields'
@@ -28,14 +26,15 @@ import {
   insertTemplateWithStatsAndCard,
 } from './lib/writes'
 import { insertBoardTiers } from './lib/board'
+import { isDefaultStyleId, loadTemplateStyleRow } from './lib/styles'
 import { tiersFromBoardRows, validateTemplateTiers } from './lib/normalize'
 import {
+  buildCoverItemsFromBoardItems,
   buildTemplateInsertFields,
-  isMediaBackedBoardItem,
   resolveCoverFraming,
   resolveCoverMediaId,
-  toTemplateCoverItem,
 } from './lib/publishing'
+import { loadBoundedBoardRows } from '../../workspace/sync/loadBoundedBoardRows'
 
 const findActivePublishJobForBoard = async (
   ctx: MutationCtx,
@@ -71,37 +70,6 @@ const findActiveCloneJobForTemplate = async (
         .take(1)
   )
 
-const loadBoardTiersForTemplate = async (
-  ctx: MutationCtx,
-  boardId: Id<'boards'>
-) =>
-  await ctx.db
-    .query('boardTiers')
-    .withIndex('byBoard', (q) => q.eq('boardId', boardId))
-    .take(51)
-
-const loadLargePublishCoverState = async (
-  ctx: MutationCtx,
-  boardId: Id<'boards'>
-): Promise<{
-  coverItems: Doc<'templates'>['coverItems']
-}> =>
-{
-  const items = await ctx.db
-    .query('boardItems')
-    .withIndex('byBoardDeletedAtOrder', (q) =>
-      q.eq('boardId', boardId).eq('deletedAt', null)
-    )
-    .take(MAX_STANDARD_CLOUD_BOARD_ITEMS)
-
-  return {
-    coverItems: items
-      .filter(isMediaBackedBoardItem)
-      .slice(0, MAX_TEMPLATE_COVER_ITEMS)
-      .map(toTemplateCoverItem),
-  }
-}
-
 export const queueLargeTemplatePublish = async (
   ctx: MutationCtx,
   args: {
@@ -127,12 +95,14 @@ export const queueLargeTemplatePublish = async (
     })
   }
 
-  const [serverTiers, coverState] = await Promise.all([
-    loadBoardTiersForTemplate(ctx, board._id),
-    loadLargePublishCoverState(ctx, board._id),
-  ])
+  const { serverTiers, serverItems } = await loadBoundedBoardRows(
+    ctx,
+    board._id
+  )
+  const activeItems = serverItems.filter((item) => item.deletedAt === null)
   const suggestedTiers = tiersFromBoardRows(serverTiers)
   validateTemplateTiers(suggestedTiers)
+  const coverItems = buildCoverItemsFromBoardItems(activeItems)
   const coverMediaAssetId = await resolveCoverMediaId(
     ctx,
     userId,
@@ -162,7 +132,7 @@ export const queueLargeTemplatePublish = async (
     visibility: args.visibility,
     coverMediaAssetId,
     coverFraming,
-    coverItems: coverState.coverItems,
+    coverItems,
     suggestedTiers,
     sourceBoardId: board._id,
     itemCount: board.activeItemCount,
@@ -207,7 +177,8 @@ export const queueLargeTemplateClone = async (
   template: Doc<'templates'>,
   title: string,
   tiers: readonly TierPresetTier[],
-  preferredCriterionExternalId: string | undefined
+  preferredCriterionExternalId: string | undefined,
+  effectiveStyleId: string | null = null
 ): Promise<MarketplaceTemplateUseResult> =>
 {
   const existingJob = await findActiveCloneJobForTemplate(
@@ -223,6 +194,11 @@ export const queueLargeTemplateClone = async (
     })
   }
 
+  // non-default style supplies the board's framing defaults; the clone worker
+  // resolves each item's style image via board.imageStyleId
+  const styleRow = isDefaultStyleId(template.defaultStyleId, effectiveStyleId)
+    ? null
+    : await loadTemplateStyleRow(ctx, template._id, effectiveStyleId)
   const boardExternalId = generateBoardId()
   const now = Date.now()
   const boardId = await ctx.db.insert('boards', {
@@ -236,6 +212,8 @@ export const queueLargeTemplateClone = async (
       forkCounted: false,
       materializationState: 'clonePending',
       now,
+      imageStyleId: effectiveStyleId,
+      style: styleRow,
     }),
   })
   await insertBoardTiers(ctx, boardId, tiers)

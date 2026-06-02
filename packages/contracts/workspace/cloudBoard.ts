@@ -7,6 +7,7 @@ import type {
   BoardLabelSettings,
   ImageFit,
   ItemAspectRatioMode,
+  ItemImageSource,
   ItemLabelOptions,
   ItemTransform,
   MediaPlate,
@@ -55,6 +56,9 @@ export interface CloudBoardItemWire
   // source template item external id carried by local forks until first sync
   // resolves it to boardItems.templateItemId.
   sourceTemplateItemExternalId?: string
+  // whether this item's image follows the active board style ('linked') or is
+  // user-owned ('pinned'); absent -> 'linked'
+  imageSource?: ItemImageSource
 }
 
 type _AssertNever<T extends never> = T
@@ -83,6 +87,7 @@ export const CLOUD_BOARD_ITEM_SCALAR_FIELDS = [
   'imagePadding',
   'labelOptions',
   'sourceTemplateItemExternalId',
+  'imageSource',
 ] as const satisfies readonly CloudBoardItemScalarField[]
 
 // fails if the runtime scalar manifest drifts from the item wire scalar type
@@ -119,6 +124,9 @@ interface CloudBoardStyleOverrideFields
   pageBackground?: string
   labels?: BoardLabelSettings
   autoPlate?: BoardAutoPlateSettings
+  // active board image style (skin) externalId; absent -> source template
+  // default style. synced like the other per-board overrides
+  imageStyleId?: string
 }
 
 // source-fork identity carried on every sync push. server consults these only

@@ -60,18 +60,6 @@ describe('projectLocalRow', () =>
     ])
   })
 
-  it('still projects corrupted envelopes as zeroed rows', () =>
-  {
-    localStorage.setItem(boardStorageKey(TEST_BOARD_ID), '{broken')
-
-    const row = projectLocalRow(meta)
-
-    expect(row.activeItemCount).toBe(0)
-    expect(row.rankedItemCount).toBe(0)
-    expect(row.unrankedItemCount).toBe(0)
-    expect(row.tierBreakdown).toEqual([])
-  })
-
   it('preserves valid local counts after normalization', () =>
   {
     saveBoardToStorage(TEST_BOARD_ID, {

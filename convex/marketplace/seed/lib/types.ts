@@ -11,6 +11,7 @@ import type {
   SeedResolvedTemplate,
   SeedRegisterUploadedStorageIdsOutput,
   SeedResolveStateOutput,
+  SeedTemplateStyleItemUpsert,
   SeedTemplateUpsert,
   SeedUploadedMediaAsset,
   SeedUploadedVariant,
@@ -62,6 +63,10 @@ export type SeedItemUpsertArg = SeedItemUpsert & {
   transform: Doc<'templateItems'>['transform']
 }
 
+export type SeedTemplateStyleItemUpsertArg = SeedTemplateStyleItemUpsert & {
+  transform: Doc<'templateItemStyleAssets'>['transform']
+}
+
 export type SeedCriterionUpsertArg = SeedCriterionUpsert
 
 export type SeedTemplateApplyPatch = Pick<
@@ -78,6 +83,7 @@ export type SeedTemplateApplyPatch = Pick<
   | 'itemAspectRatioMode'
   | 'defaultItemImageFit'
   | 'defaultItemImagePadding'
+  | 'defaultStyleId'
   | 'itemCount'
   | 'labels'
   | 'autoPlate'

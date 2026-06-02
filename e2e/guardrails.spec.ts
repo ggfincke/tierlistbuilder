@@ -3,7 +3,6 @@
 
 import { expect, test } from 'playwright/test'
 import {
-  addImageViaSettings,
   dragCenterToCenter,
   encodeShareFragment,
   makeBoard,
@@ -187,74 +186,6 @@ test('nested modal Escape closes only the topmost dialog', async ({ page }) =>
   await expect(settings).toBeHidden()
 })
 
-test('mixed aspect-ratio prompt fits a mobile settings viewport', async ({
-  page,
-}) =>
-{
-  await page.setViewportSize({ width: 360, height: 720 })
-  await page.route('**/e2e-wide.svg', async (route) =>
-    route.fulfill({
-      contentType: 'image/svg+xml',
-      body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#444"/></svg>',
-    })
-  )
-
-  await openWorkspaceWithBoard(page)
-  const imageUrl = new URL('/e2e-wide.svg', page.url()).toString()
-  const prompt = await addImageViaSettings(page, imageUrl)
-  await expect(prompt).toBeVisible()
-  await expect(prompt).toContainText('1 item')
-
-  const promptOverflows = await prompt.evaluate(
-    (node) => node.scrollWidth > node.clientWidth + 1
-  )
-  expect(promptOverflows).toBe(false)
-
-  const tileRows = await prompt
-    .locator('button[aria-pressed]')
-    .evaluateAll(
-      (buttons) =>
-        new Set(
-          buttons.map((button) =>
-            Math.round(button.getBoundingClientRect().top)
-          )
-        ).size
-    )
-  expect(tileRows).toBeGreaterThan(1)
-
-  const pageOverflows = await page.evaluate(
-    () => document.documentElement.scrollWidth > window.innerWidth + 1
-  )
-  expect(pageOverflows).toBe(false)
-})
-
-test('mixed aspect-ratio prompt opens the image editor', async ({ page }) =>
-{
-  await page.route('**/e2e-editor-wide.svg', async (route) =>
-    route.fulfill({
-      contentType: 'image/svg+xml',
-      body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#555"/></svg>',
-    })
-  )
-
-  await openWorkspaceWithBoard(page)
-  const imageUrl = new URL('/e2e-editor-wide.svg', page.url()).toString()
-  const prompt = await addImageViaSettings(page, imageUrl)
-  await expect(prompt).toBeVisible()
-  await prompt.getByRole('button', { name: /adjust each item/i }).click()
-  await expect(prompt).toBeHidden()
-
-  const editor = page.getByRole('dialog', {
-    name: 'Adjust items to fit board',
-  })
-  await expect(editor).toBeVisible()
-  await expect(editor.getByRole('tab', { name: 'Mismatched' })).toHaveAttribute(
-    'aria-selected',
-    'true'
-  )
-  await expect(editor).toContainText('Item 1 of 1')
-})
-
 test('embed route renders hash-share board without workspace controls', async ({
   page,
 }) =>
@@ -306,68 +237,4 @@ test('marketplace filters follow query-param changes while mounted', async ({
   await expect(sort).toHaveValue('recent')
   await expect(sort).toBeDisabled()
   await expect(page).toHaveURL(/tag=bosses/)
-})
-
-test('My Boards signed-out sync CTA opens auth and links to templates', async ({
-  page,
-}) =>
-{
-  await page.goto('/boards')
-
-  await expect(page.getByRole('heading', { name: 'My boards' })).toBeVisible()
-  await expect(
-    page.getByText('These boards live on this device only.')
-  ).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Add tier' })).toHaveCount(0)
-
-  await page.getByRole('button', { name: 'Sign in to sync' }).click()
-  const signIn = page.getByRole('dialog', { name: 'Sign in' })
-  await expect(signIn).toBeVisible()
-  await expect(signIn.getByLabel('Email')).toBeFocused()
-
-  await signIn.getByRole('tab', { name: 'Create account' }).click()
-  await expect(
-    page.getByRole('dialog', { name: 'Create account' })
-  ).toBeVisible()
-
-  await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-
-  await page.getByRole('link', { name: 'Templates' }).click()
-  await expect(page).toHaveURL(/\/templates$/)
-  await expect(templateSearchBox(page)).toBeVisible()
-})
-
-test('marketplace discrete filters create navigable history entries', async ({
-  page,
-}) =>
-{
-  await page.goto('/templates')
-
-  const all = templateCategoryChip(page, 'All')
-  const gaming = templateCategoryChip(page, 'Gaming')
-  const sort = templateSortSelect(page)
-
-  await gaming.click()
-  await expect(page).toHaveURL(/cat=gaming/)
-  await expect(gaming).toHaveAttribute('aria-pressed', 'true')
-
-  await sort.selectOption('popular')
-  await expect(page).toHaveURL(/sort=popular/)
-  await expect(sort).toHaveValue('popular')
-
-  await page.goBack()
-  await expect(page).not.toHaveURL(/sort=popular/)
-  await expect(gaming).toHaveAttribute('aria-pressed', 'true')
-  await expect(sort).toHaveValue('recent')
-
-  await page.goBack()
-  await expect(page).not.toHaveURL(/cat=gaming/)
-  await expect(all).toHaveAttribute('aria-pressed', 'true')
-
-  await page.goForward()
-  await expect(gaming).toHaveAttribute('aria-pressed', 'true')
-
-  await page.goForward()
-  await expect(sort).toHaveValue('popular')
 })

@@ -92,6 +92,14 @@
       "items": {
         "$ref": "#/$defs/item"
       }
+    },
+    "styles": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/style"
+      }
     }
   },
   "allOf": [
@@ -234,6 +242,27 @@
         },
         "status": {
           "enum": ["active", "hidden", "deprecated"]
+        }
+      }
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "folder"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/entryExternalId"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "folder": {
+          "$ref": "#/$defs/path"
+        },
+        "isDefault": {
+          "type": "boolean"
         }
       }
     },

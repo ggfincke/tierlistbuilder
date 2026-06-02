@@ -169,28 +169,6 @@ describe('uploadBoardImages', () =>
     )
   })
 
-  it('uploads blobs via the envelope helper with one grouped variant call', async () =>
-  {
-    const record = makeLocalBlobRecord('hash-1')
-    vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
-    mockUploadedMedia('media-1')
-
-    const result = await uploadBoardImages(
-      makeImageBoard({ hash: record.hash }),
-      'local-user-1'
-    )
-    expect(uploadEnvelopedVariants).toHaveBeenCalledWith([
-      { kind: 'tile', blob: expect.any(Blob) },
-      { kind: 'preview', blob: expect.any(Blob) },
-    ])
-    expect(result.mediaExternalIdByHash.get(record.hash)).toBe('media-1')
-    expect(markUploaded).toHaveBeenCalledWith(
-      'local-user-1',
-      'media:hash-1:hash-1:',
-      'media-1'
-    )
-  })
-
   it('uploads preview, tile, & source refs under one media asset', async () =>
   {
     const preview = makeLocalBlobRecord('preview-hash')

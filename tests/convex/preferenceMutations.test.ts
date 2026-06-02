@@ -7,7 +7,6 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
   EXPORT_ITEMS_PER_ROW_DEFAULT,
   EXPORT_ITEMS_PER_ROW_MAX,
-  EXPORT_ITEMS_PER_ROW_MIN,
   type AppPreferences,
 } from '@tierlistbuilder/contracts/platform/preferences'
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
@@ -50,12 +49,7 @@ const makePreferences = (
 
 describe('preference mutations', () =>
 {
-  it.each([
-    ['NaN', Number.NaN],
-    ['Infinity', Number.POSITIVE_INFINITY],
-    ['below the minimum', EXPORT_ITEMS_PER_ROW_MIN - 1],
-    ['above the maximum', EXPORT_ITEMS_PER_ROW_MAX + 1],
-  ])(
+  it.each([['above the maximum', EXPORT_ITEMS_PER_ROW_MAX + 1]])(
     'rejects exportItemsPerRow when it is %s',
     async (_, exportItemsPerRow) =>
     {

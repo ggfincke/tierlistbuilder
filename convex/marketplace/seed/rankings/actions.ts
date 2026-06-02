@@ -140,19 +140,6 @@ const ensureRankingSeedAuthors = async (
   return { authorsCreated, authorsReused, authorsPatched }
 }
 
-const loadExistingSeedRankings = async (
-  ctx: QueryCtx,
-  datasetKey: string,
-  releaseId: string,
-  activeOnly = false
-): Promise<Doc<'publishedRankings'>[]> =>
-  await takeBoundedSeedRankings(ctx, {
-    datasetKey,
-    releaseId,
-    status: activeOnly ? 'active' : undefined,
-    overLimitMessage: 'seed ranking release exceeds read limit',
-  })
-
 const countStringValues = (values: readonly string[]): Map<string, number> =>
 {
   const counts = new Map<string, number>()
@@ -574,8 +561,17 @@ const buildPreflight = async (
 
   const [existingSeedRankingRows, existingActiveSeedRankingRows] =
     await Promise.all([
-      loadExistingSeedRankings(ctx, args.datasetKey, args.releaseId),
-      loadExistingSeedRankings(ctx, args.datasetKey, args.releaseId, true),
+      takeBoundedSeedRankings(ctx, {
+        datasetKey: args.datasetKey,
+        releaseId: args.releaseId,
+        overLimitMessage: 'seed ranking release exceeds read limit',
+      }),
+      takeBoundedSeedRankings(ctx, {
+        datasetKey: args.datasetKey,
+        releaseId: args.releaseId,
+        status: 'active',
+        overLimitMessage: 'seed ranking release exceeds read limit',
+      }),
     ])
   const existingSeedRankings = existingSeedRankingRows.length
   const existingActiveSeedRankings = existingActiveSeedRankingRows.length

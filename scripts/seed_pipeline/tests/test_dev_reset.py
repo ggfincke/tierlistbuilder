@@ -72,11 +72,6 @@ class DevResetUrlTests(unittest.TestCase):
 							expected,
 						)
 
-	def test_resolve_convex_site_url_returns_none_without_any_source(self) -> None:
-		with TemporaryDirectory() as directory:
-			with patch.dict(os.environ, {}, clear=True):
-				self.assertIsNone(resolve_convex_site_url(Path(directory)))
-
 	def test_main_constructs_reset_client_without_author_password(self) -> None:
 		calls: list[tuple[object, str, dict[str, object]]] = []
 

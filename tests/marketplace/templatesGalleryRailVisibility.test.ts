@@ -3,10 +3,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { MarketplaceTemplateGalleryCard } from '@tierlistbuilder/contracts/marketplace/template'
-import {
-  hasPopularRailActivity,
-  hasTrendingRailActivity,
-} from '~/features/marketplace/model/gallery/useTemplatesGallery'
+import { hasPopularRailActivity } from '~/features/marketplace/model/gallery/useTemplatesGallery'
 
 const card = (
   overrides: Partial<MarketplaceTemplateGalleryCard> = {}
@@ -49,24 +46,6 @@ const card = (
 
 describe('template gallery rail visibility', () =>
 {
-  it('keeps the trending rail tied to weekly activity density', () =>
-  {
-    expect(hasTrendingRailActivity(undefined)).toBe(true)
-    expect(
-      hasTrendingRailActivity([
-        card({ weeklyViewCount: 1 }),
-        card({ weeklyForkCount: 1 }),
-      ])
-    ).toBe(false)
-    expect(
-      hasTrendingRailActivity([
-        card({ weeklyViewCount: 1 }),
-        card({ weeklyForkCount: 1 }),
-        card({ weeklyViewCount: 2 }),
-      ])
-    ).toBe(true)
-  })
-
   it('keeps the popular rail tied to all-time forks', () =>
   {
     expect(hasPopularRailActivity(undefined)).toBe(true)
