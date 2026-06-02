@@ -36,17 +36,13 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import {
   assertCountRange,
-  assertFiniteRange,
   assertNonemptyString,
   assertNonnegativeInteger,
-  assertPositiveFinite,
   assertPositiveInteger,
   assertUniqueValues,
 } from '../../../lib/assertions'
 import {
   getItemTransformBoundsViolation,
-  IMAGE_PADDING_MAX,
-  IMAGE_PADDING_MIN,
   type ItemTransformBoundsViolation,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { valuesEqual } from '../../../lib/equality'
@@ -65,6 +61,10 @@ import {
   buildDefaultTemplateCriteria,
   validateTemplateCriteria,
 } from '../../templates/criteria'
+import {
+  validateImagePadding,
+  validateNaturalAspectRatio,
+} from '../../../lib/validators/common'
 import { activateSeedReleaseInternal } from '../lib/activation'
 import {
   appendExpectedTotalsDiagnostics,
@@ -874,7 +874,7 @@ export const syncSeedTemplateItems = internalMutation({
       assertNonnegativeInteger('order', item.order)
       if (item.aspectRatio !== null)
       {
-        assertPositiveFinite('aspectRatio', item.aspectRatio)
+        validateNaturalAspectRatio(item.aspectRatio, 'aspectRatio')
       }
       if (item.backgroundColor !== null)
       {
@@ -882,12 +882,7 @@ export const syncSeedTemplateItems = internalMutation({
       }
       if (item.imagePadding !== null)
       {
-        assertFiniteRange(
-          'item.imagePadding',
-          item.imagePadding,
-          IMAGE_PADDING_MIN,
-          IMAGE_PADDING_MAX
-        )
+        validateImagePadding(item.imagePadding, 'item.imagePadding')
       }
       if (item.transform !== null)
       {
@@ -1107,16 +1102,11 @@ export const syncSeedTemplateStyleItems = internalMutation({
       assertNonemptyString('itemExternalId', item.itemExternalId)
       if (item.aspectRatio !== null)
       {
-        assertPositiveFinite('aspectRatio', item.aspectRatio)
+        validateNaturalAspectRatio(item.aspectRatio, 'aspectRatio')
       }
       if (item.imagePadding !== null)
       {
-        assertFiniteRange(
-          'item.imagePadding',
-          item.imagePadding,
-          IMAGE_PADDING_MIN,
-          IMAGE_PADDING_MAX
-        )
+        validateImagePadding(item.imagePadding, 'item.imagePadding')
       }
       if (item.transform !== null)
       {

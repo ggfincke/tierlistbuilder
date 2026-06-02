@@ -22,6 +22,7 @@ from .concurrency import run_in_parallel
 from .crop import RatioDecision, resolve_item_transform, resolve_ratio_decision
 from .manifest import (
 	JsonObject,
+	iter_compiled_assets,
 	read_json,
 	repo_relative,
 	write_json,
@@ -384,14 +385,8 @@ def _compile_style_item(
 	repo_root: Path,
 	variants_dir: Path,
 ) -> JsonObject:
-	transform = resolve_item_transform(
-		source.aspect_ratio,
-		source.content_bbox,
-		ratio_decision.item_aspect_ratio,
-		ratio_decision.ratio_source,
-	)
-	media_plate = (
-		None if auto_plate_mode in AUTO_PLATE_MEDIA_PLATE_SUPPRESSING_MODES else source.media_plate
+	transform, media_plate = _compile_item_transform_and_plate(
+		source, ratio_decision, auto_plate_mode
 	)
 	return {
 		"externalId": item["externalId"],
@@ -413,18 +408,8 @@ def _compile_item(
 	ratio_decision: RatioDecision,
 	auto_plate_mode: str | None = None,
 ) -> JsonObject:
-	# transforms are derived after the template ratio is fixed
-	transform = resolve_item_transform(
-		source.aspect_ratio,
-		source.content_bbox,
-		ratio_decision.item_aspect_ratio,
-		ratio_decision.ratio_source,
-	)
-	# off & uniform boards never render the per-item plate (off plates nothing;
-	# uniform fills one color behind every tile), so drop the detector verdict to
-	# keep compiled data honest & stale recommendations out of the editor swatch
-	media_plate = (
-		None if auto_plate_mode in AUTO_PLATE_MEDIA_PLATE_SUPPRESSING_MODES else source.media_plate
+	transform, media_plate = _compile_item_transform_and_plate(
+		source, ratio_decision, auto_plate_mode
 	)
 	# transform is null when natural rendering already matches the template ratio
 	compiled_item = {
@@ -443,6 +428,27 @@ def _compile_item(
 	if "backgroundColor" in item:
 		compiled_item["backgroundColor"] = item["backgroundColor"]
 	return compiled_item
+
+
+def _compile_item_transform_and_plate(
+	source: SourceAsset,
+	ratio_decision: RatioDecision,
+	auto_plate_mode: str | None,
+) -> tuple[JsonObject | None, str | None]:
+	# transforms are derived after the template ratio is fixed
+	transform = resolve_item_transform(
+		source.aspect_ratio,
+		source.content_bbox,
+		ratio_decision.item_aspect_ratio,
+		ratio_decision.ratio_source,
+	)
+	# off & uniform boards never render the per-item plate (off plates nothing;
+	# uniform fills one color behind every tile), so drop the detector verdict to
+	# keep compiled data honest & stale recommendations out of the editor swatch
+	media_plate = (
+		None if auto_plate_mode in AUTO_PLATE_MEDIA_PLATE_SUPPRESSING_MODES else source.media_plate
+	)
+	return transform, media_plate
 
 
 def _resolve_item_label(item: JsonObject, source: SourceAsset, label_policy: str) -> str | None:
@@ -540,45 +546,10 @@ def _try_compile_cache_hit(
 
 
 def _compiled_variants_present(compiled: JsonObject) -> bool:
-	assets = _compiled_assets(compiled)
-	if assets is None:
+	if not isinstance(compiled.get("templates"), list):
 		return False
+	assets = iter_compiled_assets(compiled)
 	return all(_asset_variants_present(asset) for asset in assets)
-
-
-def _compiled_assets(compiled: JsonObject) -> list[object] | None:
-	templates = compiled.get("templates")
-	if not isinstance(templates, list):
-		return None
-	assets: list[object] = []
-	for template in templates:
-		if not isinstance(template, dict):
-			return None
-		cover = template.get("coverImage")
-		if cover is not None:
-			assets.append(cover)
-		items = template.get("items")
-		if not isinstance(items, list):
-			return None
-		for item in items:
-			if not isinstance(item, dict):
-				return None
-			asset = item.get("asset")
-			assets.append(asset)
-		# per-style covers & item assets also live on disk; include them so a
-		# warm cache hit only fires when every style variant is present too
-		for style in template.get("styles") or []:
-			if not isinstance(style, dict):
-				continue
-			style_cover = style.get("coverImage")
-			if isinstance(style_cover, dict):
-				assets.append(style_cover)
-			item_assets = style.get("itemAssets")
-			if isinstance(item_assets, dict):
-				for entry in item_assets.values():
-					if isinstance(entry, dict) and isinstance(entry.get("asset"), dict):
-						assets.append(entry["asset"])
-	return assets
 
 
 def _asset_variants_present(asset: object) -> bool:

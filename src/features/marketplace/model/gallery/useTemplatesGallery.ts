@@ -116,7 +116,7 @@ const hasRailActivity = (
   return false
 }
 
-export const hasTrendingRailActivity = hasRailActivity
+const hasTrendingRailActivity = hasRailActivity
 
 export const hasPopularRailActivity = (
   items: readonly MarketplaceTemplateGalleryCard[] | undefined

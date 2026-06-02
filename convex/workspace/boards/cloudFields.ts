@@ -8,26 +8,15 @@ import {
   EMPTY_BOARD_SOURCE_RANKING,
   boardSourceTemplateFromTemplate,
 } from './sourceFields'
+import { renderFieldsFromTemplate } from '../../lib/templates/renderFields'
 
-export const buildFreshBoardCloudFields = (now: number) => ({
-  livePublicTemplateId: null,
-  livePublicRankingId: null,
-  cloudState: 'cloudBacked' as const,
-  cloudBackedAt: now,
-  pausedReason: null,
-})
-
-// seed-provenance columns; null on every board created outside the seed
-// pipeline (forks, from-scratch, consensus remixes) — spread into the insert
-export const EMPTY_BOARD_SEED_FIELDS = {
-  seedDatasetKey: null,
-  seedReleaseId: null,
-  seedExternalId: null,
-  seedContentHash: null,
-  seedKind: null,
-  seedReleaseStatus: null,
-} satisfies Pick<
+type CloudBoardDefaults = Pick<
   Doc<'boards'>,
+  | 'livePublicTemplateId'
+  | 'livePublicRankingId'
+  | 'cloudState'
+  | 'cloudBackedAt'
+  | 'pausedReason'
   | 'seedDatasetKey'
   | 'seedReleaseId'
   | 'seedExternalId'
@@ -35,6 +24,20 @@ export const EMPTY_BOARD_SEED_FIELDS = {
   | 'seedKind'
   | 'seedReleaseStatus'
 >
+
+export const buildCloudBoardDefaults = (now: number): CloudBoardDefaults => ({
+  livePublicTemplateId: null,
+  livePublicRankingId: null,
+  cloudState: 'cloudBacked' as const,
+  cloudBackedAt: now,
+  pausedReason: null,
+  seedDatasetKey: null,
+  seedReleaseId: null,
+  seedExternalId: null,
+  seedContentHash: null,
+  seedKind: null,
+  seedReleaseStatus: null,
+})
 
 type ForkedBoardInsert = Omit<
   Doc<'boards'>,
@@ -83,25 +86,19 @@ export const buildForkedBoardInsert = (
     sourceTemplate: boardSourceTemplateFromTemplate(template),
     sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
     forkCounted: options.forkCounted,
-    ...buildFreshBoardCloudFields(options.now),
+    ...buildCloudBoardDefaults(options.now),
     materializationState: options.materializationState ?? 'ready',
     imageStyleId: options.imageStyleId ?? null,
-    itemAspectRatio: renderSource.itemAspectRatio ?? null,
-    itemAspectRatioMode: renderSource.itemAspectRatioMode ?? null,
+    ...renderFieldsFromTemplate(renderSource),
     aspectRatioPromptDismissed: false,
-    defaultItemImageFit: renderSource.defaultItemImageFit ?? null,
-    defaultItemImagePadding: renderSource.defaultItemImagePadding ?? null,
     paletteId: null,
     textStyleId: null,
     pageBackground: null,
-    labels: renderSource.labels ?? null,
-    autoPlate: renderSource.autoPlate,
     ...progressCounts,
     templateProgressState: resolveTemplateProgressState(
       template._id,
       progressCounts
     ),
     librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-    ...EMPTY_BOARD_SEED_FIELDS,
   }
 }

@@ -31,6 +31,7 @@ import {
   toTemplateMediaRef,
 } from '../templates/lib/projections'
 import { loadTemplateStyleRow } from '../templates/lib/styles'
+import { buildRenderSourceFields } from '../../lib/templates/renderFields'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -288,15 +289,12 @@ export const toRankingDetail = async (
   // reach every published ranking w/o re-publish; the active skin wins over the
   // canonical-default template when the ranking was published on a non-default skin
   const renderSource = activeStyle ?? sourceTemplate
+  const renderFields = buildRenderSourceFields(renderSource)
 
   return {
     ...summary,
-    autoPlate: renderSource?.autoPlate ?? null,
-    itemAspectRatio: renderSource?.itemAspectRatio ?? null,
-    itemAspectRatioMode: renderSource?.itemAspectRatioMode ?? null,
-    defaultItemImageFit: renderSource?.defaultItemImageFit ?? null,
-    defaultItemImagePadding: renderSource?.defaultItemImagePadding ?? null,
-    labels: renderSource?.labels ?? null,
+    ...renderFields,
+    autoPlate: renderFields.autoPlate ?? null,
     // image style the author published in; null when the source template is
     // single-skin or the board used the default
     activeStyleId: ranking.activeStyleId ?? null,

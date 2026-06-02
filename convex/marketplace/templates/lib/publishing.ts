@@ -6,6 +6,7 @@ import type { Doc, Id } from '../../../_generated/dataModel'
 import type { MutationCtx } from '../../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
+import { MAX_TEMPLATE_COVER_ITEMS } from '@tierlistbuilder/contracts/marketplace/template'
 import {
   COVER_SURFACES,
   isValidCoverFrame,
@@ -168,3 +169,11 @@ export const toTemplateCoverItem = (
   mediaAssetId: item.mediaAssetId,
   ...pickCoverItemPresentationFields(item),
 })
+
+export const buildCoverItemsFromBoardItems = (
+  items: readonly Doc<'boardItems'>[]
+): Doc<'templates'>['coverItems'] =>
+  items
+    .filter(isMediaBackedBoardItem)
+    .slice(0, MAX_TEMPLATE_COVER_ITEMS)
+    .map(toTemplateCoverItem)

@@ -9,7 +9,6 @@ import { generateBoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import {
-  MAX_TEMPLATE_COVER_ITEMS,
   isTemplateSlug,
   type MarketplaceTemplatePublishResult,
   type MarketplaceTemplateUseResult,
@@ -63,10 +62,9 @@ import {
   templateTitleToBoardTitle,
 } from './lib/board'
 import {
-  isDefaultStyleId,
-  loadStyleItemAssets,
   loadTemplateStyles,
   resolveEffectiveStyleId,
+  resolveStyleAndAssets,
 } from './lib/styles'
 import {
   DEFAULT_TEMPLATE_TIERS,
@@ -82,12 +80,11 @@ import { findActiveTemplateCriterion } from './criteria'
 import { buildBoardLibrarySummary } from '../../workspace/boards/librarySummary'
 import { buildForkedBoardInsert } from '../../workspace/boards/cloudFields'
 import {
+  buildCoverItemsFromBoardItems,
   buildTemplateInsertFields,
   coverFramingsEqual,
-  isMediaBackedBoardItem,
   resolveCoverFraming,
   resolveCoverMediaId,
-  toTemplateCoverItem,
 } from './lib/publishing'
 import {
   queueLargeTemplateClone,
@@ -221,10 +218,7 @@ export const publishFromBoard = mutation({
     }
     await assertCanPublishTemplate(ctx, userId, activeItems.length)
 
-    const coverItems = activeItems
-      .filter(isMediaBackedBoardItem)
-      .slice(0, MAX_TEMPLATE_COVER_ITEMS)
-      .map(toTemplateCoverItem)
+    const coverItems = buildCoverItemsFromBoardItems(activeItems)
     const coverMediaAssetId = await resolveCoverMediaId(
       ctx,
       userId,
@@ -629,15 +623,11 @@ export const useTemplate = mutation({
 
     const boardExternalId = generateBoardId()
     const now = Date.now()
-    // non-default style supplies the board framing defaults + per-item images
-    const styleRow = isDefaultStyleId(template.defaultStyleId, effectiveStyleId)
-      ? null
-      : (styles.find((style) => style.externalId === effectiveStyleId) ?? null)
-    const styleAssets = await loadStyleItemAssets(
+    const { styleRow, styleAssets } = await resolveStyleAndAssets(
       ctx,
-      template._id,
-      effectiveStyleId,
-      template.defaultStyleId ?? null
+      template,
+      styles,
+      effectiveStyleId
     )
     const boardId = await ctx.db.insert('boards', {
       externalId: boardExternalId,

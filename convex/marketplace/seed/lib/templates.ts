@@ -13,16 +13,14 @@ import type {
 import { MAX_TEMPLATE_COVER_ITEMS } from '@tierlistbuilder/contracts/marketplace/template'
 import {
   assertCountRange,
-  assertFiniteRange,
   assertNonemptyString,
-  assertPositiveFinite,
   assertPositiveInteger,
 } from '../../../lib/assertions'
-import { validateBoardAutoPlateUniformColor } from '../../../lib/validators/common'
 import {
-  IMAGE_PADDING_MAX,
-  IMAGE_PADDING_MIN,
-} from '@tierlistbuilder/contracts/workspace/board'
+  validateBoardAspectRatio,
+  validateBoardAutoPlateUniformColor,
+  validateImagePadding,
+} from '../../../lib/validators/common'
 import { SEED_LIMITS } from '../../../lib/limits'
 import {
   adjustPublicTemplateCount,
@@ -170,14 +168,12 @@ export const normalizeSeedTemplateUpsert = (
 {
   assertNonemptyString('templateExternalId', template.externalId)
   assertNonemptyString('metadataContentHash', template.metadataContentHash)
-  assertPositiveFinite('itemAspectRatio', template.itemAspectRatio)
+  validateBoardAspectRatio(template.itemAspectRatio, 'itemAspectRatio')
   if (template.defaultItemImagePadding !== null)
   {
-    assertFiniteRange(
-      'defaultItemImagePadding',
+    validateImagePadding(
       template.defaultItemImagePadding,
-      IMAGE_PADDING_MIN,
-      IMAGE_PADDING_MAX
+      'defaultItemImagePadding'
     )
   }
   assertPositiveInteger('itemCount', template.itemCount)

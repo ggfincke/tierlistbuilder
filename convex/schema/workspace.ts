@@ -14,8 +14,7 @@ import {
   boardPausedReasonValidator,
 } from '../lib/validators/workspace'
 import {
-  boardAutoPlateSettingsValidator,
-  boardLabelSettingsValidator,
+  boardRenderFieldValidators,
   itemImageSourceValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
@@ -49,26 +48,10 @@ export const workspaceTables = {
     updatedAt: v.number(),
     deletedAt: v.union(v.number(), v.null()),
     revision: v.number(),
-    // slot aspect ratio (w/h); null -> 1 (square)
-    itemAspectRatio: v.union(v.number(), v.null()),
-    // 'auto' tracks content, 'manual' pins to itemAspectRatio; null -> auto
-    itemAspectRatioMode: v.union(
-      v.literal('auto'),
-      v.literal('manual'),
-      v.null()
-    ),
+    // board-level render defaults; null/absent falls through to UI defaults
+    ...boardRenderFieldValidators,
     // suppresses the mixed-ratio modal on this board.
     aspectRatioPromptDismissed: v.boolean(),
-    // board-wide fit when an item has no override; null -> cover
-    defaultItemImageFit: v.union(
-      v.literal('cover'),
-      v.literal('contain'),
-      v.null()
-    ),
-    // board-wide plate inset when an item has no override; null/absent ->
-    // plate-aware fallback (DEFAULT_ITEM_IMAGE_PADDING for plated items, else 0).
-    // optional so boards predating this field stay valid on schema push
-    defaultItemImagePadding: v.optional(v.union(v.number(), v.null())),
     // Source attribution captured at fork/remix time. Leaf fields are nullable
     // so the no-source case stays indexable; writers update the object as a
     // unit so id/category/title cannot drift independently.
@@ -103,11 +86,6 @@ export const workspaceTables = {
     textStyleId: v.union(textStyleIdValidator, v.null()),
     // per-board page background color override; null -> user default
     pageBackground: v.union(v.string(), v.null()),
-    // per-board label rendering defaults; null -> inherit AppPreferences.showLabels
-    // & built-in defaults
-    labels: v.union(boardLabelSettingsValidator, v.null()),
-    // per-board logo backdrop; absent -> On+Auto default
-    autoPlate: v.optional(boardAutoPlateSettingsValidator),
     // active image style (skin) externalId; absent/null -> source template
     // default style. set at fork time & on a live skin switch
     imageStyleId: v.optional(v.union(v.string(), v.null())),

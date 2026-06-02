@@ -22,7 +22,7 @@ export const MAX_TIER_DESCRIPTION_LEN = 500
 // item text caps shared by local import & cloud sync. Convex also caps total
 // document size, but these field-level limits keep malformed local JSON from
 // persisting megabyte strings into browser storage first
-export const MAX_BOARD_ITEM_LABEL_LEN = 200
+const MAX_BOARD_ITEM_LABEL_LEN = 200
 const MAX_BOARD_ITEM_ALT_TEXT_LEN = 500
 const MAX_BOARD_ITEM_NOTES_LEN = 2000
 const MAX_BOARD_ITEM_BACKGROUND_COLOR_LEN = 32

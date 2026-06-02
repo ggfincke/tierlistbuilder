@@ -22,11 +22,10 @@ import {
 } from '../lib/validators/marketplace'
 import {
   boardAutoPlateSettingsValidator,
-  boardLabelSettingsValidator,
-  imageFitNullableValidator,
   itemTransformValidator,
   mediaPlateNullableValidator,
   styleItemRenderFields,
+  templateRenderFieldValidators,
   tierColorSpecValidator,
   tierPresetTiersValidator,
 } from '../lib/validators/common'
@@ -71,29 +70,8 @@ export const marketplaceTables = {
     itemCount: v.number(),
     featuredRank: v.union(v.number(), v.null()),
     creditLine: v.union(v.string(), v.null()),
-    // slot aspect ratio (w/h) the template was designed against; null ->
-    // forks fall back to the board default (1, square)
-    itemAspectRatio: v.union(v.number(), v.null()),
-    // 'auto' tracks content; 'manual' pins the ratio. seed action snaps to a
-    // preset & writes 'manual' so forked boards land on the same canonical
-    // ratio the per-item transforms were computed against
-    itemAspectRatioMode: v.union(
-      v.literal('auto'),
-      v.literal('manual'),
-      v.null()
-    ),
-    // board-wide fit when an item has no per-item override on the forked board
-    defaultItemImageFit: v.union(
-      v.literal('cover'),
-      v.literal('contain'),
-      v.null()
-    ),
-    defaultItemImagePadding: v.union(v.number(), v.null()),
-    // pre-baked label rendering defaults - forked boards inherit these so the
-    // publisher's caption styling shows up without each user toggling labels
-    labels: v.union(boardLabelSettingsValidator, v.null()),
-    // per-board logo backdrop pinned at publish; absent -> On+Auto default
-    autoPlate: v.optional(boardAutoPlateSettingsValidator),
+    // board-level render defaults inherited by forked boards & style rows
+    ...templateRenderFieldValidators,
     // externalId of the default image style; null/absent -> single-skin
     // template. the default style's images live on templateItems
     defaultStyleId: v.optional(v.union(v.string(), v.null())),
@@ -328,18 +306,8 @@ export const marketplaceTables = {
     isDefault: v.boolean(),
     coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     coverFraming: v.union(templateCoverFramingValidator, v.null()),
-    // per-style render defaults a forked board inherits when this style is
-    // active; mirror the template board-level defaults so a skin can pin framing
-    itemAspectRatio: v.union(v.number(), v.null()),
-    itemAspectRatioMode: v.union(
-      v.literal('auto'),
-      v.literal('manual'),
-      v.null()
-    ),
-    defaultItemImageFit: imageFitNullableValidator,
-    defaultItemImagePadding: v.union(v.number(), v.null()),
-    labels: v.union(boardLabelSettingsValidator, v.null()),
-    autoPlate: v.optional(boardAutoPlateSettingsValidator),
+    // per-style render defaults a forked board inherits when this style is active
+    ...templateRenderFieldValidators,
     seedDatasetKey: v.optional(v.string()),
     seedReleaseId: v.optional(v.string()),
     seedItemsContentHash: v.optional(v.union(v.string(), v.null())),

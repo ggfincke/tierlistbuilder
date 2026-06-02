@@ -4,7 +4,7 @@
 import type { TemplateCategory } from './category'
 import type { RankingFeaturedBadge } from './ranking'
 import type { TemplateCoverFraming } from '../lib/coverMedia'
-import type { TemplateVisibility } from './template'
+import type { TemplateItemAspectSettings, TemplateVisibility } from './template'
 
 import type { MarketplaceTemplateCriterion } from './templateCriterion'
 import type {
@@ -300,15 +300,13 @@ export interface SeedCleanupOutput
 
 // per-template image style (skin) metadata row. the default style's per-item
 // images live on the template items; non-default styles sync them separately
-export interface SeedTemplateStyle
+export interface SeedTemplateStyle extends TemplateItemAspectSettings
 {
   externalId: string
   label: string
   order: number
   isDefault: boolean
   coverMediaDedupeHash: string | null
-  itemAspectRatio: number | null
-  defaultItemImagePadding: number | null
   labels?: BoardLabelSettings
   autoPlate?: BoardAutoPlateSettings
 }

@@ -12,6 +12,7 @@ import type {
   BoardAutoPlateSettings,
   BoardLabelSettings,
   ImageFit,
+  ItemAspectRatioMode,
   ItemTransform,
   MediaPlate,
 } from '../workspace/board'
@@ -165,6 +166,24 @@ export interface MarketplaceItemRenderFields
   imagePadding: number | null
 }
 
+export interface TemplateItemAspectSettings
+{
+  // slot ratio copied to summaries/styles so item grids can frame consistently
+  itemAspectRatio: number | null
+  // board-wide plate inset; null falls back to the plate-aware default
+  defaultItemImagePadding: number | null
+}
+
+export interface TemplateRenderSettings extends TemplateItemAspectSettings
+{
+  // 'auto' tracks content; 'manual' pins to itemAspectRatio
+  itemAspectRatioMode: ItemAspectRatioMode | null
+  // board-wide fit pinned by the publisher; null falls back to 'cover'
+  defaultItemImageFit: ImageFit | null
+  labels: BoardLabelSettings | null
+  autoPlate: BoardAutoPlateSettings | null
+}
+
 export interface MarketplaceTemplateBase
 {
   slug: string
@@ -196,19 +215,13 @@ export interface MarketplaceTemplateBase
   updatedAt: number
 }
 
-export interface MarketplaceTemplateSummary extends MarketplaceTemplateBase
-{
+export interface MarketplaceTemplateSummary
+  extends MarketplaceTemplateBase, TemplateItemAspectSettings
+  {
   // first MAX_TEMPLATE_COVER_ITEMS media-backed items in template order
   coverItems: TemplateCoverItem[]
-  // slot aspect ratio (w/h) the template was designed against; null falls back
-  // to 1 (square). mirrored on summary so gallery cards can frame cover tiles
-  // identically to the detail item grid w/o a detail read
-  itemAspectRatio: number | null
   // board-wide fit pinned by the publisher; null falls back to 'cover'
   defaultItemImageFit: ImageFit | null
-  // board-wide plate inset pinned by the publisher; null falls back to the
-  // plate-aware default
-  defaultItemImagePadding: number | null
   // per-board logo backdrop pinned by the publisher; null -> On+Auto default
   autoPlate: BoardAutoPlateSettings | null
 }

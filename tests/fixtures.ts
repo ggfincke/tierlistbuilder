@@ -5,14 +5,12 @@ import type {
   Tier,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/libraryBoard'
 
 import {
   DEFAULT_USER_PRIVACY_SETTINGS,
   type PublicUserMe,
 } from '@tierlistbuilder/contracts/platform/user'
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
-import type { AuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import {
   asBoardId,
@@ -98,40 +96,6 @@ export const makeBoardListItem = (
   ...overrides,
 })
 
-export const makeLibraryBoardListItem = (
-  overrides?: Partial<LibraryBoardListItem>
-): LibraryBoardListItem => ({
-  externalId: 'board-library-test',
-  title: 'Library Board',
-  createdAt: 1,
-  updatedAt: 2,
-  revision: 3,
-  activeItemCount: 1,
-  unrankedItemCount: 0,
-  rankedItemCount: 1,
-  publishState: 'wip',
-  syncState: 'localOnly',
-  visibility: 'private',
-  category: 'other',
-  sourceTemplateSizeClass: null,
-  sourceTemplateCoverMedia: null,
-  sourceTemplateCoverFraming: null,
-  coverItems: [],
-  paletteId: 'classic',
-  tierCount: 1,
-  tierColors: [createPaletteTierColorSpec(0)],
-  tierBreakdown: [
-    {
-      tierIndex: 0,
-      itemCount: 1,
-      colorSpec: createPaletteTierColorSpec(0),
-    },
-  ],
-  mini: null,
-  pinned: false,
-  ...overrides,
-})
-
 // DOMRect-like for layout/popup tests. derives right/bottom from
 // left/top/width/height when not explicitly overridden so callers can pass
 // either pair without repeating math
@@ -176,11 +140,4 @@ export const makePublicUserMe = (
     ...DEFAULT_USER_PRIVACY_SETTINGS,
     ...overrides.privacy,
   },
-})
-
-export const makeSignedInSession = (
-  user: Partial<PublicUserMe> = {}
-): AuthSession => ({
-  status: 'signed-in',
-  user: makePublicUserMe(user),
 })

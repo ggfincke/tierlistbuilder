@@ -148,6 +148,34 @@ export const loadStyleItemAssets = async (
   return new Map(rows.map((row) => [row.itemExternalId, row]))
 }
 
+export const resolveStyleAndAssets = async (
+  ctx: DbCtx,
+  template: Doc<'templates'>,
+  styles: readonly Doc<'templateStyles'>[],
+  requestedStyleId: string | null | undefined
+): Promise<{
+  effectiveStyleId: string | null
+  styleRow: Doc<'templateStyles'> | null
+  styleAssets: Map<string, Doc<'templateItemStyleAssets'>>
+}> =>
+{
+  const effectiveStyleId = resolveEffectiveStyleId(
+    template,
+    styles,
+    requestedStyleId
+  )
+  const styleRow = isDefaultStyleId(template.defaultStyleId, effectiveStyleId)
+    ? null
+    : (styles.find((style) => style.externalId === effectiveStyleId) ?? null)
+  const styleAssets = await loadStyleItemAssets(
+    ctx,
+    template._id,
+    effectiveStyleId,
+    template.defaultStyleId ?? null
+  )
+  return { effectiveStyleId, styleRow, styleAssets }
+}
+
 // point-lookup one item's style asset (paginated clone job / live-switch).
 // default style or no override -> null (caller falls back to the template item)
 export const resolveStyleItemAssetForItem = async (

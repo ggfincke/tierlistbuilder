@@ -12,13 +12,11 @@ import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPr
 import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/lib/coverMedia'
 import {
   ACTIVE_TEMPLATE_JOB_STATUSES,
-  MAX_TEMPLATE_COVER_ITEMS,
   isFinishedTemplateJobStatus,
   type MarketplaceTemplatePublishResult,
   type MarketplaceTemplateUseResult,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { requireCurrentUserId } from '../../lib/auth'
 import { firstActiveStatusRow } from '../../lib/jobs'
 import { buildForkedBoardInsert } from '../../workspace/boards/cloudFields'
@@ -31,12 +29,12 @@ import { insertBoardTiers } from './lib/board'
 import { isDefaultStyleId, loadTemplateStyleRow } from './lib/styles'
 import { tiersFromBoardRows, validateTemplateTiers } from './lib/normalize'
 import {
+  buildCoverItemsFromBoardItems,
   buildTemplateInsertFields,
-  isMediaBackedBoardItem,
   resolveCoverFraming,
   resolveCoverMediaId,
-  toTemplateCoverItem,
 } from './lib/publishing'
+import { loadBoundedBoardRows } from '../../workspace/sync/loadBoundedBoardRows'
 
 const findActivePublishJobForBoard = async (
   ctx: MutationCtx,
@@ -72,37 +70,6 @@ const findActiveCloneJobForTemplate = async (
         .take(1)
   )
 
-const loadBoardTiersForTemplate = async (
-  ctx: MutationCtx,
-  boardId: Id<'boards'>
-) =>
-  await ctx.db
-    .query('boardTiers')
-    .withIndex('byBoard', (q) => q.eq('boardId', boardId))
-    .take(51)
-
-const loadLargePublishCoverState = async (
-  ctx: MutationCtx,
-  boardId: Id<'boards'>
-): Promise<{
-  coverItems: Doc<'templates'>['coverItems']
-}> =>
-{
-  const items = await ctx.db
-    .query('boardItems')
-    .withIndex('byBoardDeletedAtOrder', (q) =>
-      q.eq('boardId', boardId).eq('deletedAt', null)
-    )
-    .take(MAX_STANDARD_CLOUD_BOARD_ITEMS)
-
-  return {
-    coverItems: items
-      .filter(isMediaBackedBoardItem)
-      .slice(0, MAX_TEMPLATE_COVER_ITEMS)
-      .map(toTemplateCoverItem),
-  }
-}
-
 export const queueLargeTemplatePublish = async (
   ctx: MutationCtx,
   args: {
@@ -128,12 +95,14 @@ export const queueLargeTemplatePublish = async (
     })
   }
 
-  const [serverTiers, coverState] = await Promise.all([
-    loadBoardTiersForTemplate(ctx, board._id),
-    loadLargePublishCoverState(ctx, board._id),
-  ])
+  const { serverTiers, serverItems } = await loadBoundedBoardRows(
+    ctx,
+    board._id
+  )
+  const activeItems = serverItems.filter((item) => item.deletedAt === null)
   const suggestedTiers = tiersFromBoardRows(serverTiers)
   validateTemplateTiers(suggestedTiers)
+  const coverItems = buildCoverItemsFromBoardItems(activeItems)
   const coverMediaAssetId = await resolveCoverMediaId(
     ctx,
     userId,
@@ -163,7 +132,7 @@ export const queueLargeTemplatePublish = async (
     visibility: args.visibility,
     coverMediaAssetId,
     coverFraming,
-    coverItems: coverState.coverItems,
+    coverItems,
     suggestedTiers,
     sourceBoardId: board._id,
     itemCount: board.activeItemCount,

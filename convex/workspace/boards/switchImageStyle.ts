@@ -4,7 +4,6 @@
 
 import { ConvexError, v } from 'convex/values'
 import { mutation } from '../../_generated/server'
-import type { Doc } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
@@ -13,13 +12,13 @@ import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 import { loadTemplateItems } from '../../marketplace/templates/lib/projections'
 import {
   isAllowedTemplateStyle,
-  isDefaultStyleId,
-  loadStyleItemAssets,
   loadTemplateStyles,
   resolveEffectiveStyleId,
+  resolveStyleAndAssets,
   resolveStyleItemAsset,
 } from '../../marketplace/templates/lib/styles'
 import { buildCloneBoardSummary } from '../../marketplace/templates/internal'
+import { buildRenderSourceFields } from '../../lib/templates/renderFields'
 import { getBoardSourceTemplateId } from './sourceFields'
 
 export const switchBoardImageStyle = mutation({
@@ -110,14 +109,11 @@ export const switchBoardImageStyle = mutation({
     const templateItemById = new Map(
       templateItems.map((item) => [item._id, item])
     )
-    // bulk-load the target style's per-item overrides once (keyed by item
-    // externalId); default style -> empty map, resolver falls back to the
-    // template item. avoids a point read per board item (up to ~1342)
-    const styleAssets = await loadStyleItemAssets(
+    const { styleRow, styleAssets } = await resolveStyleAndAssets(
       ctx,
-      sourceTemplateId,
-      effectiveStyleId,
-      template.defaultStyleId ?? null
+      template,
+      styles,
+      effectiveStyleId
     )
 
     // re-point only style-linked, template-origin items; pinned (user-imported
@@ -146,25 +142,14 @@ export const switchBoardImageStyle = mutation({
       })
     )
 
-    // a non-default skin reframes the board (aspect ratio / plate / labels)
-    const styleRow: Doc<'templateStyles'> | null = isDefaultStyleId(
-      template.defaultStyleId,
-      effectiveStyleId
-    )
-      ? null
-      : (styles.find((style) => style.externalId === effectiveStyleId) ?? null)
     const renderSource = styleRow ?? template
+    const renderFields = buildRenderSourceFields(renderSource)
 
     const librarySummary = await buildCloneBoardSummary(ctx, board._id)
     const newRevision = board.revision + 1
     await ctx.db.patch(board._id, {
       imageStyleId: effectiveStyleId,
-      itemAspectRatio: renderSource.itemAspectRatio ?? null,
-      itemAspectRatioMode: renderSource.itemAspectRatioMode ?? null,
-      defaultItemImageFit: renderSource.defaultItemImageFit ?? null,
-      defaultItemImagePadding: renderSource.defaultItemImagePadding ?? null,
-      labels: renderSource.labels ?? null,
-      autoPlate: renderSource.autoPlate,
+      ...renderFields,
       librarySummary,
       revision: newRevision,
       updatedAt: Date.now(),

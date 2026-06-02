@@ -20,18 +20,25 @@ const loadSeedRankingsForReleaseStatus = async (
   ctx: MutationCtx,
   datasetKey: string,
   releaseId: string,
-  status: SeedRankingReleaseStatus
+  statuses: SeedRankingReleaseStatus | readonly SeedRankingReleaseStatus[]
 ): Promise<Doc<'publishedRankings'>[]> =>
 {
-  const rows = await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySeedDatasetReleaseStatus', (q) =>
-      q
-        .eq('seedDatasetKey', datasetKey)
-        .eq('seedReleaseId', releaseId)
-        .eq('seedReleaseStatus', status)
+  const statusList = Array.isArray(statuses) ? statuses : [statuses]
+  const rows: Doc<'publishedRankings'>[] = []
+  for (const status of statusList)
+  {
+    rows.push(
+      ...(await ctx.db
+        .query('publishedRankings')
+        .withIndex('bySeedDatasetReleaseStatus', (q) =>
+          q
+            .eq('seedDatasetKey', datasetKey)
+            .eq('seedReleaseId', releaseId)
+            .eq('seedReleaseStatus', status)
+        )
+        .take(BATCH_LIMITS.rankingSeedLifecycleTransition))
     )
-    .take(BATCH_LIMITS.rankingSeedLifecycleTransition)
+  }
   return rows
 }
 
@@ -68,50 +75,10 @@ const loadActiveSeedRankingsExcept = async (
   return [...beforeTarget, ...afterTarget].slice(0, batch)
 }
 
-const loadSeedRankingsForAggregateQueue = async (
-  ctx: MutationCtx,
-  datasetKey: string,
-  releaseId: string
-): Promise<Doc<'publishedRankings'>[]> =>
-  await takeBoundedSeedRankings(ctx, {
-    datasetKey,
-    releaseId,
-    status: 'active',
-    overLimitMessage: `seed ranking release exceeds aggregate queue limit: ${releaseId}`,
-  })
-
 const ACTIVATABLE_TARGET_STATUSES: readonly SeedRankingReleaseStatus[] = [
   'applied_hidden',
   'rolled_back',
 ]
-
-const loadSeedRankingsForActivatableRelease = async (
-  ctx: MutationCtx,
-  datasetKey: string,
-  releaseId: string
-): Promise<Doc<'publishedRankings'>[]> =>
-{
-  const rows: Doc<'publishedRankings'>[] = []
-  for (const status of ACTIVATABLE_TARGET_STATUSES)
-  {
-    rows.push(
-      ...(await loadSeedRankingsForReleaseStatus(
-        ctx,
-        datasetKey,
-        releaseId,
-        status
-      ))
-    )
-  }
-  return rows
-}
-
-const loadActiveSeedRankingsForRelease = async (
-  ctx: MutationCtx,
-  datasetKey: string,
-  releaseId: string
-): Promise<Doc<'publishedRankings'>[]> =>
-  await loadSeedRankingsForReleaseStatus(ctx, datasetKey, releaseId, 'active')
 
 const patchSeedBoardStatuses = async (
   ctx: MutationCtx,
@@ -142,12 +109,18 @@ export const activateSeedRankingReleaseInternal = async (
 {
   const now = Date.now()
   const [targetRows, activeTargetRows] = await Promise.all([
-    loadSeedRankingsForActivatableRelease(
+    loadSeedRankingsForReleaseStatus(
       ctx,
       params.datasetKey,
-      params.releaseId
+      params.releaseId,
+      ACTIVATABLE_TARGET_STATUSES
     ),
-    loadActiveSeedRankingsForRelease(ctx, params.datasetKey, params.releaseId),
+    loadSeedRankingsForReleaseStatus(
+      ctx,
+      params.datasetKey,
+      params.releaseId,
+      'active'
+    ),
   ])
   if (targetRows.length === 0 && activeTargetRows.length === 0)
   {
@@ -272,11 +245,12 @@ export const queueActiveSeedRankingAggregates = internalMutation({
   handler: async (ctx, args): Promise<SeedRankingActivationResult> =>
   {
     assertSeedReleaseArgs(args)
-    const rows = await loadSeedRankingsForAggregateQueue(
-      ctx,
-      args.datasetKey,
-      args.releaseId
-    )
+    const rows = await takeBoundedSeedRankings(ctx, {
+      datasetKey: args.datasetKey,
+      releaseId: args.releaseId,
+      status: 'active',
+      overLimitMessage: `seed ranking release exceeds aggregate queue limit: ${args.releaseId}`,
+    })
     const aggregateJobsQueued =
       await queueTemplateRankingAggregateRecomputesForRankings(
         ctx,

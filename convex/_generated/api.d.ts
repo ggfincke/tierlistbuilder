@@ -39,6 +39,7 @@ import type * as lib_seedContentHash from "../lib/seedContentHash.js";
 import type * as lib_sha256 from "../lib/sha256.js";
 import type * as lib_storage from "../lib/storage.js";
 import type * as lib_templateProgress from "../lib/templateProgress.js";
+import type * as lib_templates_renderFields from "../lib/templates/renderFields.js";
 import type * as lib_text from "../lib/text.js";
 import type * as lib_uploadToken from "../lib/uploadToken.js";
 import type * as lib_uploadedImage from "../lib/uploadedImage.js";
@@ -173,6 +174,7 @@ declare const fullApi: ApiFromModules<{
   "lib/sha256": typeof lib_sha256;
   "lib/storage": typeof lib_storage;
   "lib/templateProgress": typeof lib_templateProgress;
+  "lib/templates/renderFields": typeof lib_templates_renderFields;
   "lib/text": typeof lib_text;
   "lib/uploadToken": typeof lib_uploadToken;
   "lib/uploadedImage": typeof lib_uploadedImage;
